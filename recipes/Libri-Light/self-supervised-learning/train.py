@@ -33,8 +33,12 @@ class BestRQBrain(sb.core.Brain):
         target embeddings as well as other metrics of interest.
         """
         # get batch and mask
-        batch = batch.to(self.device)
         wavs, wav_lens, mask = batch
+        wavs, wav_lens, mask = (
+            wavs.to(self.device),
+            wav_lens.to(self.device),
+            mask.to(self.device),
+        )
 
         ### get fbanks and normalize
         feats = self.hparams.compute_features(wavs)
