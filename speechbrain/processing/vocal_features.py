@@ -37,6 +37,18 @@ def compute_autocorr_features(frames, min_lag, max_lag, neighbors=5):
         The highest autocorrelation score relative to the 0-lag score. Used to compute HNR
     best_lags: torch.Tensor
         The lag corresponding to the highest autocorrelation score, an estimate of period length.
+
+    Example
+    -------
+    >>> audio = torch.rand(1, 16000)
+    >>> frames = audio.unfold(-1, 800, 200)
+    >>> frames.shape
+    torch.Size([1, 77, 800])
+    >>> harmonicity, best_lags = compute_autocorr_features(frames, 100, 200)
+    >>> harmonicity.shape
+    torch.Size([1, 77])
+    >>> best_lags.shape
+    torch.Size([1, 77])
     """
     autocorrelation = autocorrelate(frames)
 
@@ -67,6 +79,16 @@ def autocorrelate(frames):
         The ratio of the best candidate lag's autocorrelation score against
         the theoretical maximum autocorrelation score at lag 0.
         Normalized by the autocorrelation_score of the window.
+
+    Example
+    -------
+    >>> audio = torch.rand(1, 16000)
+    >>> frames = audio.unfold(-1, 800, 200)
+    >>> frames.shape
+    torch.Size([1, 77, 800])
+    >>> autocorrelation = autocorrelate(frames)
+    >>> autocorrelation.shape
+    torch.Size([1, 77, 401])
     """
     # Apply hann window to the audio to reduce edge effects
     window_size = frames.size(-1)
@@ -99,6 +121,19 @@ def compute_periodic_features(frames, best_lags, neighbors=PERIODIC_NEIGHBORS):
         The average absolute deviation in period over the frame.
     shimmer: torch.Tensor
         The average absolute deviation in amplitude over the frame.
+
+    Example
+    -------
+    >>> audio = torch.rand(1, 16000)
+    >>> frames = audio.unfold(-1, 800, 200)
+    >>> frames.shape
+    torch.Size([1, 77, 800])
+    >>> harmonicity, best_lags = compute_autocorr_features(frames, 100, 200)
+    >>> jitter, shimmer = compute_periodic_features(frames, best_lags)
+    >>> jitter.shape
+    torch.Size([1, 77])
+    >>> shimmer.shape
+    torch.Size([1, 77])
     """
     # Prepare for masking
     masked_frames = torch.clone(frames).detach()
@@ -177,6 +212,20 @@ def compute_spectral_features(spectrum, eps=1e-10):
          * flatness: The ratio of geometric mean to arithmetic mean.
          * crest: The ratio of spectral maximum to arithmetic mean.
          * flux: The average delta-squared between one spectral value and it's successor.
+
+    Example
+    -------
+    >>> audio = torch.rand(1, 16000)
+    >>> window_size = 800
+    >>> frames = audio.unfold(-1, window_size, 200)
+    >>> frames.shape
+    torch.Size([1, 77, 800])
+    >>> hann = torch.hann_window(window_size).view(1, 1, -1)
+    >>> windowed_frames = frames * hann
+    >>> spectrum = torch.abs(torch.fft.rfft(windowed_frames))
+    >>> spectral_features = compute_spectral_features(spectrum)
+    >>> spectral_features.shape
+    torch.Size([1, 77, 8])
     """
     # To keep features in a neural-network-friendly range, use normalized freq [0, 1]
     nfreq = spectrum.size(-1)
@@ -258,6 +307,14 @@ def compute_gne(
     -------
     gne : torch.Tensor
         The glottal-to-noise-excitation ratio for each frame of the audio signal.
+
+    Example
+    -------
+    >>> sample_rate = 16000
+    >>> audio = torch.rand(1, sample_rate) # 1s of audio
+    >>> gne = compute_gne(audio, sample_rate=sample_rate)
+    >>> gne.shape
+    torch.Size([1, 98])
     """
 
     assert (
@@ -316,6 +373,16 @@ def inverse_filter(frames, lpc_order=13):
     -------
     filtered_frames : torch.Tensor
         The frames after the inverse filter is applied
+
+    Example
+    -------
+    >>> audio = torch.rand(1, 10000)
+    >>> frames = audio.unfold(-1, 300, 100)
+    >>> frames.shape
+    torch.Size([1, 98, 300])
+    >>> filtered_frames = inverse_filter(frames)
+    >>> filtered_frames.shape
+    torch.Size([1, 98, 300])
     """
     # Only lpc_order autocorrelation values are needed
     autocorrelation = compute_cross_correlation(frames, frames, width=lpc_order)
@@ -372,6 +439,16 @@ def compute_hilbert_envelopes(
     -------
     envelopes : torch.Tensor
         The computed envelopes.
+
+    Example
+    -------
+    >>> audio = torch.rand(1, 10000)
+    >>> frames = audio.unfold(-1, 300, 100)
+    >>> frames.shape
+    torch.Size([1, 98, 300])
+    >>> envelope = compute_hilbert_envelopes(frames, 1000)
+    >>> envelope.shape
+    torch.Size([1, 98, 300])
     """
 
     # Step 0. Compute low/high freq for window

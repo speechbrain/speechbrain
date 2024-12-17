@@ -701,6 +701,14 @@ class VocalFeatures(torch.nn.Module):
         1e-3 results in a maximum value of 30 dB.
     sma_neighbors: int
         Number of frames to average -- default 3
+
+    Example
+    -------
+    >>> audio = torch.rand(1, 16000)
+    >>> feature_maker = VocalFeatures()
+    >>> vocal_features = feature_maker(audio)
+    >>> vocal_features.shape
+    torch.Size([1, 96, 17])
     """
 
     def __init__(
