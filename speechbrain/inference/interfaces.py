@@ -522,6 +522,7 @@ class Pretrained(torch.nn.Module):
                 kwargs={
                     "default_source": source,
                     "use_auth_token": use_auth_token,
+                    "local_strategy": local_strategy,
                 },
             )
             # Load on the CPU. Later the params can be moved elsewhere by specifying
