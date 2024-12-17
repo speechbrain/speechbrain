@@ -6,6 +6,7 @@ Authors
  * Peter Plantinga 2024
 """
 
+import warnings
 from fnmatch import fnmatch
 
 import torch
@@ -13,6 +14,12 @@ import torch.nn as nn
 
 from speechbrain.nnet.activations import Swish
 from speechbrain.utils import checkpoints
+
+MHA_WARNING = """
+Torch's native multi-head attention is not adaptable since it accesses layer
+weights directly to pass to highly optimized fused kernels. We are excluding
+all native Torch MHA layers from the list of layers to adapt.
+"""
 
 
 @checkpoints.register_checkpoint_hooks
@@ -107,7 +114,14 @@ class AdaptedModel(nn.Module):
             if is_layer_adaptable(
                 name, module, all_linear, all_conv, target_layers
             ):
-                self.replace_layers.append(name)
+                # Torch's MultiheadAttention is not adaptable due to an
+                # optimized fused kernel, warn if we find this.
+                parent_name = ".".join(name.split(".")[:-1])
+                parent = model_to_adapt.get_submodule(parent_name)
+                if isinstance(parent, torch.nn.MultiheadAttention):
+                    warnings.warn(MHA_WARNING)
+                else:
+                    self.replace_layers.append(name)
             elif any(fnmatch(name, layer) for layer in unfrozen_layers):
                 for param in module.parameters():
                     param.requires_grad = True
@@ -124,14 +138,6 @@ class AdaptedModel(nn.Module):
         for name in self.replace_layers:
             module = self.adapted_model.get_submodule(name)
             new_module = self.adapter_class(module, **self.adapter_kwargs)
-
-            # Some functions, such as multi-head attention access weight directly
-            if hasattr(module, "weight"):
-                new_module.weight = module.weight
-            if hasattr(module, "bias"):
-                new_module.bias = module.bias
-
-            # Finally complete the replacement
             replace_module(self.adapted_model, name, new_module)
 
     def forward(self, *args, **kwargs):
