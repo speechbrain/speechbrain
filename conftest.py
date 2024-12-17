@@ -10,57 +10,34 @@ def pytest_generate_tests(metafunc):
         metafunc.parametrize("device", [option_value])
 
 
-collect_ignore = ["setup.py"]
+collect_ignore = [
+    "setup.py",
+    "speechbrain/integrations/",
+    "speechbrain/lobes/models/fairseq_wav2vec.py",
+]
 try:
     import numba  # noqa: F401
 except ModuleNotFoundError:
     collect_ignore.append("speechbrain/nnet/loss/transducer_loss.py")
 try:
-    import kenlm  # noqa: F401
-except ModuleNotFoundError:
-    collect_ignore.append("speechbrain/decoders/language_model.py")
-try:
-    import fairseq  # noqa: F401
-except ModuleNotFoundError:
-    collect_ignore.append("speechbrain/lobes/models/fairseq_wav2vec.py")
-try:
-    from transformers import Wav2Vec2Model  # noqa: F401
-except ModuleNotFoundError:
-    collect_ignore.append(
-        "speechbrain/lobes/models/huggingface_transformers/wav2vec2.py"
-    )
-try:
-    from transformers import WhisperModel  # noqa: F401
-except ModuleNotFoundError:
-    collect_ignore.append(
-        "speechbrain/lobes/models/huggingface_transformers/whisper.py"
-    )
-try:
     import sklearn  # noqa: F401
 except ModuleNotFoundError:
     collect_ignore.append("speechbrain/utils/kmeans.py")
-    collect_ignore.append(
-        "speechbrain/lobes/models/huggingface_transformers/discrete_ssl.py"
-    )
-try:
-    import peft  # noqa: F401
-except ModuleNotFoundError:
-    collect_ignore.append(
-        "speechbrain/lobes/models/huggingface_transformers/llama2.py"
-    )
 try:
     import sacrebleu  # noqa: F401
 except ModuleNotFoundError:
     collect_ignore.append("speechbrain/utils/bleu.py")
 try:
-    import vocos  # noqa: F401
-except ModuleNotFoundError:
-    collect_ignore.append(
-        "speechbrain/lobes/models/huggingface_transformers/vocos.py"
-    )
-try:
-    from speechtokenizer import SpeechTokenizer  # noqa: F401
+    import speechtokenizer  # noqa: F401
 except ModuleNotFoundError:
     collect_ignore.append(
         "speechbrain/lobes/models/discrete/speechtokenizer_interface.py"
     )
+try:
+    import ctc_segmentation  # noqa: F401
+except ModuleNotFoundError:
+    collect_ignore.append("speechbrain/alignment/ctc_segmentation.py")
+try:
+    import kenlm  # noqa: F401
+except ModuleNotFoundError:
+    collect_ignore.append("speechbrain/decoders/language_model.py")
