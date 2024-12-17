@@ -85,6 +85,7 @@ class MiniBatchKMeansSklearn(torch.nn.Module):
             Indicates if this load is triggered at the end of an epoch.
         """
         self.kmeans = joblib.load(path)
+        self.cluster_centers = self.cluster_centers_
 
     def fit(self, input):
         """Fits the model to the input data.
@@ -96,7 +97,7 @@ class MiniBatchKMeansSklearn(torch.nn.Module):
         """
         numpy_input = input.detach().flatten(end_dim=-2).cpu().numpy()
         self.kmeans.fit(numpy_input)
-        self.cluster_centers = self.kmeans.cluster_centers_
+        self.cluster_centers = self.cluster_centers_
 
     def partial_fit(self, input):
         """Performs an incremental fit of the model on the input data.
