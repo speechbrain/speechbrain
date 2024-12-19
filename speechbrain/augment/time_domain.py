@@ -673,8 +673,7 @@ class DropFreq(torch.nn.Module):
         drop_range = self.drop_freq_high - self.drop_freq_low
         drop_frequency = (
             torch.rand(drop_count) * drop_range + self.drop_freq_low
-        )
-
+        ).clamp(min=1e-8)
         # Filter parameters
         filter_length = 101
         pad = filter_length // 2
