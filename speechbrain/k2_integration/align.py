@@ -40,16 +40,17 @@ Author:
     * Zeyu Zhao 2024
 """
 
-import torch
-from typing import List, Tuple
-import logging
-import speechbrain as sb
 import abc
-import torchaudio
-import pandas as pd
-from tqdm import tqdm
-from torch.nn.utils.rnn import pad_sequence
+import logging
+from typing import List, Tuple
 
+import pandas as pd
+import torch
+import torchaudio
+from torch.nn.utils.rnn import pad_sequence
+from tqdm import tqdm
+
+import speechbrain as sb
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -438,7 +439,7 @@ class Aligner(abc.ABC):
         ids = df["ID"].tolist()
 
         fc = ""
-        with open(output_file, "w") as f:
+        with open(output_file, "w", encoding="utf-8") as f:
             for i in range(0, len(audio_files), batch_size):
                 batch_audio_files = audio_files[
                     i : min(i + batch_size, len(audio_files))
@@ -522,14 +523,6 @@ class Aligner(abc.ABC):
 
 class CTCAligner(Aligner):
     """
-    Arguments
-    ---------
-
-    model : torch.nn.Module, the model applied for alignment.
-    tokenizer : sb.dataio.encoder.CTCTextEncoder, the tokenizer used for
-        encoding the text.
-    device : torch.device, the device to run the model on, default torch.device("cpu").
-
     Aligner class for CTC models.
     There are six methods designed to be applied by users directly:
         * align_audio_to_tokens
@@ -540,8 +533,15 @@ class CTCAligner(Aligner):
         * align_csv_to_words
     For more details, please refer to the documentation of each method.
 
-    Here is an example of using CTCAligner:
+    Arguments
+    ---------
+    model : torch.nn.Module, the model applied for alignment.
+    tokenizer : sb.dataio.encoder.CTCTextEncoder, the tokenizer used for
+        encoding the text.
+    device : torch.device, the device to run the model on, default torch.device("cpu").
 
+    Example
+    -------
     >>> import torch
     >>> from speechbrain.pretrained import EncoderASR
     >>> from speechbrain.k2_integration.align import CTCAligner
@@ -562,6 +562,7 @@ class CTCAligner(Aligner):
     >>> # aligner.align_csv_to_tokens("samples/audio_samples/example.csv", "samples/audio_samples/example_token_alignment.txt")
     >>> # align a csv file to words
     >>> # aligner.align_csv_to_words("samples/audio_samples/example.csv", "samples/audio_samples/example_word_alignment.csv", frame_shift=0.02)
+
     """
 
     def __init__(
