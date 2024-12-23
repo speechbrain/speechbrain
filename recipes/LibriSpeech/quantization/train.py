@@ -9,6 +9,9 @@ Authors
  * Luca Della Libera 2024
 """
 
+# Adapted from:
+# https://github.com/speechbrain/speechbrain/blob/v1.0.2/recipes/LJSpeech/quantization/train.py
+
 import sys
 
 import torch

@@ -1,6 +1,7 @@
 # ###########################################################################################
 # Model: K-means applied to SSL model
 # Authors: Luca Della Libera 2024
+# Adapted from: https://github.com/speechbrain/speechbrain/blob/v1.0.2/recipes/LJSpeech/quantization/hparams/train_discrete_ssl.yaml
 # ###########################################################################################
 
 experiment_name: wav2vec2_K1000_L7
@@ -24,11 +25,10 @@ save_folder: !ref <output_folder>/save
 cache_folder: !name:huggingface_hub.constants.HUGGINGFACE_HUB_CACHE
 
 # Preprocessing parameters
-# For some reason the duration is not available in the manifest file...
-# train_remove_if_longer: 60.0  # Seconds
-# valid_remove_if_longer: 60.0  # Seconds
-# test_remove_if_longer: 60.0  # Seconds
-# sorting: random
+train_remove_if_longer: 60.0  # Seconds
+valid_remove_if_longer: 60.0  # Seconds
+test_remove_if_longer: 60.0  # Seconds
+sorting: random
 
 # Training parameters
 num_epochs: 1

@@ -1,6 +1,7 @@
 # ###########################################################################################
 # Model: K-means applied to SSL model
 # Authors: Luca Della Libera 2024
+# Adapted from: https://github.com/speechbrain/speechbrain/blob/v1.0.2/recipes/LJSpeech/quantization/hparams/train_discrete_ssl.yaml
 # ###########################################################################################
 
 experiment_name: wav2vec2_K1000_L7

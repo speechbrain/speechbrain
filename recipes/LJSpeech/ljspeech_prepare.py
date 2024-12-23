@@ -413,11 +413,16 @@ def prepare_json(
         if use_custom_cleaner:
             label = custom_clean(label, model_name)
 
+        # Compute duration
+        info = torchaudio.info(wav)
+        duration = info.num_frames / info.sample_rate
+
         json_dict[id] = {
             "uttid": id,
             "wav": wav,
             "label": label,
             "segment": True if "train" in json_file else False,
+            "duration": duration,
         }
 
         # FastSpeech2 specific data preparation

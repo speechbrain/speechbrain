@@ -9,6 +9,9 @@ Authors
  * Luca Della Libera 2024
 """
 
+# Adapted from:
+# https://github.com/speechbrain/speechbrain/blob/v1.0.2/recipes/LJSpeech/quantization/train.py
+
 import sys
 
 import torch
@@ -141,37 +144,34 @@ def dataio_prepare(hparams):
         json_path=hparams["train_json"],
         replacements={"DATA_ROOT": hparams["data_folder"]},
     )
-    # For some reason the duration is not available in the manifest file...
     # Sort training data to speed up training
-    # train_data = train_data.filtered_sorted(
-    #   sort_key="duration",
-    #    reverse=hparams["sorting"] == "descending",
-    #    key_max_value={"duration": hparams["train_remove_if_longer"]},
-    # )
+    train_data = train_data.filtered_sorted(
+        sort_key="duration",
+        reverse=hparams["sorting"] == "descending",
+        key_max_value={"duration": hparams["train_remove_if_longer"]},
+    )
 
     valid_data = sb.dataio.dataset.DynamicItemDataset.from_json(
         json_path=hparams["valid_json"],
         replacements={"DATA_ROOT": hparams["data_folder"]},
     )
-    # For some reason the duration is not available in the manifest file...
     # Sort validation data to speed up validation
-    # valid_data = valid_data.filtered_sorted(
-    #    sort_key="duration",
-    #    reverse=True,
-    #    key_max_value={"duration": hparams["valid_remove_if_longer"]},
-    # )
+    valid_data = valid_data.filtered_sorted(
+        sort_key="duration",
+        reverse=True,
+        key_max_value={"duration": hparams["valid_remove_if_longer"]},
+    )
 
     test_data = sb.dataio.dataset.DynamicItemDataset.from_json(
         json_path=hparams["test_json"],
         replacements={"DATA_ROOT": hparams["data_folder"]},
     )
-    # For some reason the duration is not available in the manifest file...
     # Sort the test data to speed up testing
-    # test_data = test_data.filtered_sorted(
-    #   sort_key="duration",
-    #    reverse=True,
-    #    key_max_value={"duration": hparams["test_remove_if_longer"]},
-    # )
+    test_data = test_data.filtered_sorted(
+        sort_key="duration",
+        reverse=True,
+        key_max_value={"duration": hparams["test_remove_if_longer"]},
+    )
 
     datasets = [train_data, valid_data, test_data]
 
@@ -245,8 +245,7 @@ if __name__ == "__main__":
         train_loader_kwargs=dict(
             num_workers=hparams["dataloader_workers"],
             batch_size=hparams["train_batch_size"],
-            # For some reason the duration is not available in the manifest file...
-            # shuffle=hparams["sorting"] == "random",
+            shuffle=hparams["sorting"] == "random",
             pin_memory=run_opts.get("device", "cpu") != "cpu",
         ),
         valid_loader_kwargs=dict(
