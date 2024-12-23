@@ -39,6 +39,7 @@ However, if the frame_shift for the method, align_csv_word, is None, then the st
 Author:
     * Zeyu Zhao 2024
 """
+
 import torch
 from typing import List, Tuple
 import logging
@@ -107,6 +108,7 @@ class Aligner(abc.ABC):
     The columns of the csv file are ['ID', 'word', 'start', 'end'], and note that the start and end are in seconds,
     if the frame_shift is not None, else the start and end will be in frames.
     """
+
     @abc.abstractmethod
     def encode_texts(self, texts: List[str]) -> List[List[int]]:
         """
@@ -221,13 +223,14 @@ class Aligner(abc.ABC):
         List[List[int]], the alignments.
         """
         log_probs, log_prob_len, targets = self.get_log_prob_and_targets(
-            audio_files, transcripts)
+            audio_files, transcripts
+        )
         return self.align(log_probs, log_prob_len, targets)
 
     def get_word_alignment(
-            self,
-            alignments: List[List[int]],
-            transcripts : List[str],
+        self,
+        alignments: List[List[int]],
+        transcripts: List[str],
     ) -> List[List[Tuple[int, int, str]]]:
         """
         Get word alignment from character alignment.
@@ -255,7 +258,10 @@ class Aligner(abc.ABC):
                 word_end = 0
                 char_ids = self.encode_texts([word])[0]
                 while word_pointer <= len(char_ids):
-                    if not found and alignment[align_pointer] == char_ids[word_pointer]:
+                    if (
+                        not found
+                        and alignment[align_pointer] == char_ids[word_pointer]
+                    ):
                         found = True
                         word_pointer += 1
                         word_start = align_pointer
@@ -263,7 +269,10 @@ class Aligner(abc.ABC):
                             last_found = True
                             word_end = align_pointer
                     elif last_found:
-                        if alignment[align_pointer] == char_ids[word_pointer - 1]:
+                        if (
+                            alignment[align_pointer]
+                            == char_ids[word_pointer - 1]
+                        ):
                             word_end = align_pointer
                         else:
                             break
@@ -279,9 +288,9 @@ class Aligner(abc.ABC):
         return word_alignments
 
     def align_audio_to_tokens(
-            self,
-            audio_file: str,
-            transcript: str,
+        self,
+        audio_file: str,
+        transcript: str,
     ) -> List[int]:
         """
         Align audio to tokens.
@@ -300,15 +309,16 @@ class Aligner(abc.ABC):
         audio_files = [audio_file]
         transcripts = [transcript]
         log_probs, log_prob_len, targets = self.get_log_prob_and_targets(
-            audio_files, transcripts)
+            audio_files, transcripts
+        )
         alignments = self.align(log_probs, log_prob_len, targets)
         return alignments[0]
 
     def align_audio_to_words(
-            self,
-            audio_file: str,
-            transcript: str,
-            frame_shift: float = 0.02,
+        self,
+        audio_file: str,
+        transcript: str,
+        frame_shift: float = 0.02,
     ) -> List[Tuple[int, int, str]]:
         """
         Align audio to words.
@@ -327,7 +337,8 @@ class Aligner(abc.ABC):
         audio_files = [audio_file]
         transcripts = [transcript]
         log_probs, log_prob_len, targets = self.get_log_prob_and_targets(
-            audio_files, transcripts)
+            audio_files, transcripts
+        )
         alignments = self.align(log_probs, log_prob_len, targets)
         word_alignments = self.get_word_alignment(alignments, transcripts)
 
@@ -342,9 +353,9 @@ class Aligner(abc.ABC):
         return word_alignments[0]
 
     def align_batch_to_tokens(
-            self,
-            audio_files: List[str],
-            transcripts: List[str],
+        self,
+        audio_files: List[str],
+        transcripts: List[str],
     ) -> List[List[int]]:
         """
         Align a batch of audio files to tokens.
@@ -361,15 +372,16 @@ class Aligner(abc.ABC):
             i.e., the length of the output of the NN model.
         """
         log_probs, log_prob_len, targets = self.get_log_prob_and_targets(
-            audio_files, transcripts)
+            audio_files, transcripts
+        )
         alignments = self.align(log_probs, log_prob_len, targets)
         return alignments
 
     def align_batch_to_words(
-            self,
-            audio_files: List[str],
-            transcripts: List[str],
-            frame_shift: float = 0.02,
+        self,
+        audio_files: List[str],
+        transcripts: List[str],
+        frame_shift: float = 0.02,
     ) -> List[List[Tuple[int, int, str]]]:
         """
         Align a batch of audio files to words.
@@ -388,7 +400,8 @@ class Aligner(abc.ABC):
         Note that, the batch size should be small enough to fit into the GPU memory.
         """
         log_probs, log_prob_len, targets = self.get_log_prob_and_targets(
-            audio_files, transcripts)
+            audio_files, transcripts
+        )
         alignments = self.align(log_probs, log_prob_len, targets)
         word_alignments = self.get_word_alignment(alignments, transcripts)
 
@@ -403,52 +416,60 @@ class Aligner(abc.ABC):
         return word_alignments
 
     def align_csv_to_tokens(
-            self,
-            input_csv: str,
-            output_file: str,
-            batch_size: int = 4,
+        self,
+        input_csv: str,
+        output_file: str,
+        batch_size: int = 4,
     ):
         """
         Align all the audio files in the input_csv and write the token alignments to output_csv.
+        The output file will have the format:
+        <audio id> <token alignment>
 
         Arguments
         ---------
         input_csv: str, the input csv file.
         output_file: str, the output file.
         batch_size: int, the batch size, default 4.
-
-        Outputs
-        -------
-        A file with the following content:
-        <audio id> <token alignment>
         """
         df = pd.read_csv(input_csv)
-        audio_files = df['wav'].tolist()
-        transcripts = df['wrd'].tolist()
-        ids = df['ID'].tolist()
+        audio_files = df["wav"].tolist()
+        transcripts = df["wrd"].tolist()
+        ids = df["ID"].tolist()
 
         fc = ""
-        with open(output_file, 'w') as f:
+        with open(output_file, "w") as f:
             for i in range(0, len(audio_files), batch_size):
-                batch_audio_files = audio_files[i:min(i + batch_size, len(audio_files))]
-                batch_transcripts = transcripts[i:min(i + batch_size, len(audio_files))]
-                batch_ids = ids[i:min(i + batch_size, len(audio_files))]
+                batch_audio_files = audio_files[
+                    i : min(i + batch_size, len(audio_files))
+                ]
+                batch_transcripts = transcripts[
+                    i : min(i + batch_size, len(audio_files))
+                ]
+                batch_ids = ids[i : min(i + batch_size, len(audio_files))]
                 alignments = self.align_batch_to_tokens(
-                    batch_audio_files, batch_transcripts)
+                    batch_audio_files, batch_transcripts
+                )
                 for audio_id, alignment in zip(batch_ids, alignments):
-                    fc += audio_id + ' ' + ' '.join(
-                        [str(a) for a in alignment]) + '\n'
+                    fc += (
+                        audio_id
+                        + " "
+                        + " ".join([str(a) for a in alignment])
+                        + "\n"
+                    )
             f.write(fc)
 
     def align_csv_to_words(
-            self,
-            input_csv: str,
-            output_csv: str,
-            batch_size: int = 4,
-            frame_shift: float = 0.02,
+        self,
+        input_csv: str,
+        output_csv: str,
+        batch_size: int = 4,
+        frame_shift: float = 0.02,
     ):
         """
         Align all the audio files in the input_csv and write the word alignments to output_csv.
+        The output file will have the format:
+        <audio id> <word> <start> <end>
 
         Arguments
         ---------
@@ -456,14 +477,6 @@ class Aligner(abc.ABC):
         output_csv: str, the output csv file.
         batch_size: int, the batch size, default 4.
         frame_shift: float, the frame shift in seconds at the output end of the NN model, default 0.02.
-
-        Outputs
-        -------
-        A csv file with the following columns:
-        ID: str, the ID of the utterance.
-        word: str, the word.
-        start: float, the start time of the word in seconds.
-        end: float, the end time of the word in seconds.
         """
         df = pd.read_csv(input_csv)
         audio_files = df["wav"].tolist()
@@ -478,12 +491,22 @@ class Aligner(abc.ABC):
 
         alignment = {"ID": [], "word": [], "start": [], "end": []}
         for i in tqdm(range(0, len(audio_files), batch_size)):
-            batch_audio_files = audio_files[i:min(i + batch_size, len(audio_files))]
-            batch_transcripts = transcripts[i:min(i + batch_size, len(audio_files))]
-            batch_ids = ids[i:min(i + batch_size, len(audio_files))]
-            batch_alignments = self.align_batch(batch_audio_files, batch_transcripts)
-            batch_word_alignments = self.get_word_alignment(batch_alignments, batch_transcripts)
-            for batch_id, batch_word_alignment in zip(batch_ids, batch_word_alignments):
+            batch_audio_files = audio_files[
+                i : min(i + batch_size, len(audio_files))
+            ]
+            batch_transcripts = transcripts[
+                i : min(i + batch_size, len(audio_files))
+            ]
+            batch_ids = ids[i : min(i + batch_size, len(audio_files))]
+            batch_alignments = self.align_batch(
+                batch_audio_files, batch_transcripts
+            )
+            batch_word_alignments = self.get_word_alignment(
+                batch_alignments, batch_transcripts
+            )
+            for batch_id, batch_word_alignment in zip(
+                batch_ids, batch_word_alignments
+            ):
                 for word_start, word_end, word in batch_word_alignment:
                     alignment["ID"].append(batch_id)
                     alignment["word"].append(word)
@@ -499,6 +522,14 @@ class Aligner(abc.ABC):
 
 class CTCAligner(Aligner):
     """
+    Arguments
+    ---------
+
+    model : torch.nn.Module, the model applied for alignment.
+    tokenizer : sb.dataio.encoder.CTCTextEncoder, the tokenizer used for
+        encoding the text.
+    device : torch.device, the device to run the model on, default torch.device("cpu").
+
     Aligner class for CTC models.
     There are six methods designed to be applied by users directly:
         * align_audio_to_tokens
@@ -534,20 +565,11 @@ class CTCAligner(Aligner):
     """
 
     def __init__(
-            self,
-            model: torch.nn.Module,
-            tokenizer: sb.dataio.encoder.CTCTextEncoder,
-            device: torch.device = torch.device("cpu"),
+        self,
+        model: torch.nn.Module,
+        tokenizer: sb.dataio.encoder.CTCTextEncoder,
+        device: torch.device = torch.device("cpu"),
     ):
-        """
-        Arguments
-        ---------
-
-        model : torch.nn.Module, the model applied for alignment.
-        tokenizer : sb.dataio.encoder.CTCTextEncoder, the tokenizer used for
-            encoding the text.
-        device : torch.device, the device to run the model on, default torch.device("cpu").
-        """
         self.model = model
         self.tokenizer = tokenizer
         self.device = device
@@ -600,7 +622,8 @@ class CTCAligner(Aligner):
         """
 
         assert hasattr(
-            self.model, "encode_batch"), "The model must have an encode_batch method."
+            self.model, "encode_batch"
+        ), "The model must have an encode_batch method."
 
         encoded_texts = self.encode_texts(transcripts)
         sigs = []
@@ -623,4 +646,3 @@ class CTCAligner(Aligner):
         log_probs = log_probs.cpu()
 
         return log_probs, lens, list(encoded_texts)
-
