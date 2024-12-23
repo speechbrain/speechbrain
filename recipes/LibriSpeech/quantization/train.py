@@ -140,8 +140,8 @@ def dataio_prepare(hparams):
     It also defines the data processing pipeline through user-defined functions.
 
     """
-    train_data = sb.dataio.dataset.DynamicItemDataset.from_json(
-        json_path=hparams["train_json"],
+    train_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
+        csv_path=hparams["train_csv"],
         replacements={"DATA_ROOT": hparams["data_folder"]},
     )
     # Sort training data to speed up training
@@ -151,8 +151,8 @@ def dataio_prepare(hparams):
         key_max_value={"duration": hparams["train_remove_if_longer"]},
     )
 
-    valid_data = sb.dataio.dataset.DynamicItemDataset.from_json(
-        json_path=hparams["valid_json"],
+    valid_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
+        csv_path=hparams["valid_csv"],
         replacements={"DATA_ROOT": hparams["data_folder"]},
     )
     # Sort validation data to speed up validation
@@ -162,8 +162,8 @@ def dataio_prepare(hparams):
         key_max_value={"duration": hparams["valid_remove_if_longer"]},
     )
 
-    test_data = sb.dataio.dataset.DynamicItemDataset.from_json(
-        json_path=hparams["test_json"],
+    test_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
+        csv_path=hparams["test_csv"],
         replacements={"DATA_ROOT": hparams["data_folder"]},
     )
     # Sort the test data to speed up testing
@@ -214,17 +214,19 @@ if __name__ == "__main__":
     )
 
     # Prepare data
-    from ljspeech_prepare import prepare_ljspeech
+    from librispeech_prepare import prepare_librispeech
 
     kwargs = {
         "data_folder": hparams["data_folder"],
+        "tr_splits": hparams["train_splits"],
+        "dev_splits": hparams["dev_splits"],
+        "te_splits": hparams["test_splits"],
         "save_folder": hparams["output_folder"],
-        "splits": hparams["splits"],
-        "split_ratio": hparams["split_ratio"],
-        "seed": hparams["seed"],
+        "merge_lst": hparams["train_splits"],
+        "merge_name": "train.csv",
         "skip_prep": hparams["skip_prep"],
     }
-    prepare_ljspeech(**kwargs)
+    prepare_librispeech(**kwargs)
 
     # Create the datasets objects
     train_data, valid_data, test_data = dataio_prepare(hparams)

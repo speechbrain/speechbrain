@@ -12,12 +12,13 @@ __set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
 
 # Data preparation
 data_folder: !PLACEHOLDER
-splits: [train, valid, test]
-split_ratio: [80, 10, 10]
+train_splits: [train-clean-100]
+dev_splits: [dev-clean]
+test_splits: [test-clean]
 skip_prep: False
-train_json: !ref <output_folder>/train.json
-valid_json: !ref <output_folder>/valid.json
-test_json: !ref <output_folder>/test.json
+train_csv: !ref <output_folder>/train.csv
+valid_csv: !ref <output_folder>/dev-clean.csv
+test_csv: !ref <output_folder>/test-clean.csv
 
 # Output folders
 output_folder: !ref results/<experiment_name>/<seed>
