@@ -11,7 +11,6 @@ Authors
 
 import logging
 import os
-import zipfile
 
 import numpy as np
 import torch
@@ -22,8 +21,6 @@ from omegaconf import OmegaConf
 from torch.autograd import Function
 from torch.nn.utils import remove_weight_norm, weight_norm
 
-from speechbrain.utils.fetching import fetch
-
 
 class SQCodec(nn.Module):
     """
@@ -31,15 +28,14 @@ class SQCodec(nn.Module):
     The model consists of an encoder-decoder architecture with optional causal convolutions, downsampling, and upsampling layers.
     It uses vector quantization and various convolutional blocks for processing.
 
+    Make sure that you download and extract the SQ-codec.zip in save_path from following Huggingface repo:
+        - HF repo: https://huggingface.co/Dongchao/UniAudio/blob/main/SQ-Codec.zip
+
     Repository: https://github.com/yangdongchao/SimpleSpeech
     Paper: https://arxiv.org/abs/2406.02328, https://arxiv.org/abs/2408.13893
 
     Arguments
     ---------
-    source : str
-        Source URL or path for downloading or locating the codec files.
-    filename : str
-        Name of the higgingface zip file containing the model checkpoint and configuration.
     save_path : str, optional
         Directory where the model and configuration files are saved (default is None).
     config : str, optional
@@ -59,30 +55,26 @@ class SQCodec(nn.Module):
 
     Example
     -------
-    >>> model_hub = "Dongchao/UniAudio"
     >>> save_path = "savedir"
-    >>> filename = "SQ-Codec.zip"
     >>> config = "config.yaml"
     >>> checkpoint = "ckpt_00190000.pth"
-    >>> model = SQCodec(model_hub, filename, save_path, config, checkpoint) # doctest: +SKIP
+    >>> model = SQCodec(save_path, config, checkpoint)
     >>> audio = torch.randn(3, 16000)
-    >>> tokens, emb = model.encode(audio) # doctest: +SKIP
-    >>> tokens.shape # doctest: +SKIP
+    >>> tokens, emb = model.encode(audio)
+    >>> tokens.shape
     torch.Size([3, 200])
-    >>> emb.shape # doctest: +SKIP
+    >>> emb.shape
     torch.Size([3, 36, 50])
-    >>> rec = model.decode(tokens) # doctest: +SKIP
-    >>> rec.shape # doctest: +SKIP
+    >>> rec = model.decode(tokens)
+    >>> rec.shape
     torch.Size([3, 1, 16000])
     """
 
     def __init__(
         self,
-        source,
-        filename,
-        save_path=None,
-        config="config.yaml",
-        checkpoint="ckpt_00190000.pth",
+        save_path,
+        config,
+        checkpoint,
         sample_rate=16000,
         dim_codebook=19683,
         n_codebook=4,
@@ -90,21 +82,24 @@ class SQCodec(nn.Module):
         clip_length=450,
     ):
         super(SQCodec, self).__init__()
-        self.config_path = os.path.join(
-            save_path, filename.split(".")[0], config
-        )
-        self.ckpt_path = os.path.join(
-            save_path, filename.split(".")[0], checkpoint
-        )
+        self.config_path = os.path.join(save_path, config)
+        self.ckpt_path = os.path.join(save_path, checkpoint)
         if not os.path.exists(self.config_path) and not os.path.exists(
             self.ckpt_path
         ):
-            download_and_extract(source, filename, save_path)
+            err_msg = (
+                "the files  %s or %s does not exist."
+                "(make sure that you download and extract the SQ-codec.zip in save_path from following Huggingface repo:"
+                " https://huggingface.co/Dongchao/UniAudio/blob/main/SQ-Codec.zip)"
+                % (self.ckpt_path, self.config_path)
+            )
+            raise FileNotFoundError(err_msg)
         self.clip_length = clip_length
 
         logging.info(
             f"Using config {self.config_path} and model {self.ckpt_path}"
         )
+
         self.scalar_codec = self.build_codec_model(self.config_path)
         self.sr = sample_rate
         self.dim_codebook = dim_codebook
@@ -1283,39 +1278,6 @@ class ConvTranspose1d(nn.ConvTranspose1d):
         if self.causal:
             x = x[:, :, : -self.stride]
         return x
-
-
-def download_and_extract(repo_id, filename, save_path):
-    """
-    Downloads a ZIP file from the specified repository, extracts its contents,P
-    and removes the downloaded ZIP file.
-
-    Arguments
-    ---------
-    repo_id : str
-        The repository ID from which to download the ZIP file.
-    filename : str
-        The name of the file to download from the repository.
-    save_path : str
-        The directory where the contents of the ZIP file will be saved.
-    """
-    # Ensure save_path directory exists
-    if not os.path.exists(save_path):
-        os.makedirs(save_path)
-
-    # Download the file with progress bar
-    zip_filename = fetch(
-        filename=filename,
-        source=repo_id,
-        savedir=save_path,
-    )
-    # Extract the file
-    with zipfile.ZipFile(zip_filename, "r") as zip_ref:
-        zip_ref.extractall(save_path)
-
-    # Remove the downloaded ZIP file
-    os.remove(zip_filename)
-    print(f"File downloaded, extracted to '{save_path}', and ZIP file removed.")
 
 
 def decimal_to_ternary_matrix(decimals, D):

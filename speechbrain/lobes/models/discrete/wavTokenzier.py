@@ -17,7 +17,6 @@ from huggingface_hub import snapshot_download
 
 
 class WavTokenizer(nn.Module):
-    # """A wrapper for the WavTokenizer model
     """This lobe enables the integration of pretrained WavTokenizer model, a discrete codec models with single codebook for Audio Language Modeling.
 
     Source paper:

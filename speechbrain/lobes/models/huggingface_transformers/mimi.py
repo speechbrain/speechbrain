@@ -24,7 +24,6 @@ logger = get_logger(__name__)
 
 
 class Mimi(HFTransformersInterface):
-    # """An wrapper for the HuggingFace Mimi model
     """This lobe enables the integration of HuggingFace pretrained Mimi model.
     Mimi codec is a state-of-the-art audio neural codec, developed by Kyutai.
     It combines semantic and acoustic information into audio tokens running at 12Hz and a bitrate of 1.1kbps.
@@ -49,7 +48,7 @@ class Mimi(HFTransformersInterface):
     freeze : bool
         whether the model will be frozen (e.g. not trainable if used as part of training another model)
     num_codebooks : int (default: 8)
-        Number of qunatizer. It could be [2,3,4,5,6,7,8]
+        Number of codebooks. It could be [2,3,4,5,6,7,8]
 
     Example
     -------
