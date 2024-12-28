@@ -62,5 +62,14 @@ try:
     from speechtokenizer import SpeechTokenizer  # noqa: F401
 except ModuleNotFoundError:
     collect_ignore.append(
-        "speechbrain/lobes/models/discrete/speechtokenizer_interface.py"
+        "speechbrain/lobes/models/discrete/speechTokenizer.py"
     )
+try:
+    import wavtokenizer  # noqa: F401
+except ModuleNotFoundError:
+    collect_ignore.append("speechbrain/lobes/models/discrete/wavTokenzier.py")
+
+try:
+    from omegaconf import OmegaConf  # noqa: F401
+except ModuleNotFoundError:
+    collect_ignore.append("speechbrain/lobes/models/discrete/sq_codec.py")
