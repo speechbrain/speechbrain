@@ -79,7 +79,7 @@ The checkpoints can be also found at [this](https://huggingface.co/speechbrain/S
 Please, cite SpeechBrain if you use it for your research or business.
 
 ```bibtex
-@article{ravanelli2024open,
+@article{speechbrainV1,
   author  = {Mirco Ravanelli and Titouan Parcollet and Adel Moumen and Sylvain de Langen and Cem Subakan and Peter Plantinga and Yingzhi Wang and Pooneh Mousavi and Luca {Della Libera} and Artem Ploujnikov and Francesco Paissan and Davide Borra and Salah Zaiem and Zeyu Zhao and Shucong Zhang and Georgios Karakasidis and Sung-Lin Yeh and Pierre Champion and Aku Rouhe and Rudolf Braun and Florian Mai and Juan Zuluaga-Gomez and Seyed Mahed Mousavi and Andreas Nautsch and Ha Nguyen and Xuechen Liu and Sangeet Sagar and Jarod Duret and Salima Mdhaffar and Ga{{\"e}}lle Laperri{{\`e}}re and Mickael Rouvier and Renato De Mori and Yannick Est{{\`e}}ve},
   title   = {Open-Source Conversational {AI} with {SpeechBrain} 1.0},
   journal = {Journal of Machine Learning Research},
