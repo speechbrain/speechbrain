@@ -40,16 +40,20 @@ pytest
 ```
 tests/.run-load-yaml-tests.sh
 ```
-10. Run recipe tests
+10. Run tests for third party integrations
+```
+tests/.run-third-party.sh
+```
+11. Run recipe tests
 ```
 tests/.run-recipe-tests.sh
 ```
-11. Make sure all HuggingFace repos are working
+12. Make sure all HuggingFace repos are working
 ```
 tests/.run-HF-checks.sh
 ```
-12. Make sure all HuggingFace API Interfaces are up to date and working (see [here](#huggingface-api-testing)])
-13. Check URLs
+13. Make sure all HuggingFace API Interfaces are up to date and working (see [here](#huggingface-api-testing)])
+14. Check URLs
 ```
 tests/.run-url-checks.sh
 ```
