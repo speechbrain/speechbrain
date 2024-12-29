@@ -6,6 +6,7 @@ Authors
  * Peter Plantinga 2024
 """
 
+import warnings
 from fnmatch import fnmatch
 
 import torch
@@ -13,6 +14,12 @@ import torch.nn as nn
 
 from speechbrain.nnet.activations import Swish
 from speechbrain.utils import checkpoints
+
+MHA_WARNING = """
+Torch's native multi-head attention is not adaptable since it accesses layer
+weights directly to pass to highly optimized fused kernels. We are excluding
+all native Torch MHA layers from the list of layers to adapt.
+"""
 
 
 @checkpoints.register_checkpoint_hooks
@@ -87,10 +94,10 @@ class AdaptedModel(nn.Module):
         adapter_class: nn.Module,
         all_linear: bool = False,
         all_conv: bool = False,
-        target_layers=[],
-        unfrozen_layers=[],
-        adapter_kwargs={},
-        manual_adapter_insertion=False,
+        target_layers: list = [],
+        unfrozen_layers: list = [],
+        adapter_kwargs: dict = {},
+        manual_adapter_insertion: bool = False,
     ):
         super().__init__()
 
@@ -98,15 +105,26 @@ class AdaptedModel(nn.Module):
         self.adapted_model = model_to_adapt
         self.adapter_class = adapter_class
         self.adapter_kwargs = adapter_kwargs
+        for param in model_to_adapt.parameters():
+            param.requires_grad = False
+
+        # Iterate modules to create list of layers to adapt
         self.replace_layers = []
         for name, module in model_to_adapt.named_modules():
             if is_layer_adaptable(
                 name, module, all_linear, all_conv, target_layers
             ):
-                self.replace_layers.append(name)
-            elif not any(fnmatch(name, layer) for layer in unfrozen_layers):
+                # Torch's MultiheadAttention is not adaptable due to an
+                # optimized fused kernel, warn if we find this.
+                parent_name = ".".join(name.split(".")[:-1])
+                parent = model_to_adapt.get_submodule(parent_name)
+                if isinstance(parent, torch.nn.MultiheadAttention):
+                    warnings.warn(MHA_WARNING)
+                else:
+                    self.replace_layers.append(name)
+            elif any(fnmatch(name, layer) for layer in unfrozen_layers):
                 for param in module.parameters():
-                    param.requires_grad = False
+                    param.requires_grad = True
 
         # Some cases require a delay in adapter insertion, e.g. using Pretrainer
         if not manual_adapter_insertion:
