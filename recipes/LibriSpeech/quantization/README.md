@@ -1,10 +1,10 @@
 # Quantization
 
-This folder contains recipes for training K-means quantizers on the LJSpeech dataset.
+This folder contains recipes for training K-means quantizers on the LibriSpeech dataset.
 The quantizer maps self-supervised representations from wav2vec 2.0, HuBERT, WavLM, etc. into discrete representations.
 These discrete representations can then be used as input features for downstream tasks such as ASR, ASV, TTS, etc.
 
-You can download LJSpeech from https://keithito.com/LJ-Speech-Dataset.
+You can download LibriSpeech from http://www.openslr.org/12.
 
 ---------------------------------------------------------------------------------------------------------
 
@@ -29,7 +29,7 @@ Examples:
 
 ```shell
 python train.py hparams/train_discrete_ssl.yaml \
---data_folder data/LJSpeech \
+--data_folder data/LibriSpeech \
 --ssl_hub facebook/wav2vec2-large \
 --n_clusters 1000 \
 --layer_id 7 \
@@ -38,7 +38,7 @@ python train.py hparams/train_discrete_ssl.yaml \
 
 ```shell
 python train.py hparams/train_discrete_ssl.yaml \
---data_folder data/LJSpeech \
+--data_folder data/LibriSpeech \
 --ssl_hub facebook/hubert-large-ll60k \
 --n_clusters 1000 \
 --layer_id 7 \
@@ -47,7 +47,7 @@ python train.py hparams/train_discrete_ssl.yaml \
 
 ```shell
 python train.py hparams/train_discrete_ssl.yaml \
---data_folder data/LJSpeech \
+--data_folder data/LibriSpeech \
 --ssl_hub microsoft/wavlm-large \
 --n_clusters 1000 \
 --layer_id 7 \
