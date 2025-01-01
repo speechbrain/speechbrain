@@ -25,6 +25,7 @@ from speechbrain.nnet.attention import (
 from speechbrain.nnet.hypermixing import HyperMixing
 from speechbrain.nnet.normalization import LayerNorm
 from speechbrain.utils.dynamic_chunk_training import DynChunkTrainConfig
+from speechbrain.kernels.conv1d import conv1d
 
 
 @dataclass
@@ -185,6 +186,8 @@ class ConvolutionModule(nn.Module):
             The output tensor.
         """
 
+        chunk_size = 0
+
         if dynchunktrain_config is not None:
             # chances are chunking+causal is unintended; i don't know where it
             # may make sense, but if it does to you, feel free to implement it.
@@ -206,121 +209,30 @@ class ConvolutionModule(nn.Module):
             # see the paper linked in the documentation for details.
 
             chunk_size = dynchunktrain_config.chunk_size
-            batch_size = x.shape[0]
 
-            # determine the amount of padding we need to insert at the right of
-            # the last chunk so that all chunks end up with the same size.
-            if x.shape[1] % chunk_size != 0:
-                final_right_padding = chunk_size - (x.shape[1] % chunk_size)
-            else:
-                final_right_padding = 0
+        out = self.layer_norm(x)
+        out = out.transpose(1, 2)
+        # TODO: make bottleneck in channels_first=True by implementing it as a
+        # matmul to avoid a transposition on fast Triton kernels
+        out = self.bottleneck(out)
+        out = conv1d(
+            out,
+            weight=self.conv.weight,
+            bias=self.conv.bias,
+            stride=self.conv.stride,
+            padding="same",
+            dilation=self.conv.dilation,
+            groups=self.conv.groups,
+            mask_chunk_size=chunk_size,
+            channels_first=False,
+        )
 
-            # -> [batch_size, t, in_channels]
-            out = self.layer_norm(x)
+        if self.causal:
+            # chomp
+            out = out[..., : -self.padding]
 
-            # -> [batch_size, in_channels, t] for the CNN
-            out = out.transpose(1, 2)
-
-            # -> [batch_size, in_channels, t] (pointwise)
-            out = self.bottleneck(out)
-
-            # -> [batch_size, in_channels, lc+t+final_right_padding]
-            out = F.pad(out, (self.padding, final_right_padding), value=0)
-
-            # now, make chunks with left context.
-            # as a recap to what the above padding and this unfold do, consider
-            # each a/b/c letter represents a frame as part of chunks a, b, c.
-            # consider a chunk size of 4 and a kernel size of 5 (padding=2):
-            #
-            # input seq: 00aaaabbbbcc00
-            # chunk #1:  00aaaa
-            # chunk #2:      aabbbb
-            # chunk #3:          bbcc00
-            #
-            # a few remarks here:
-            # - the left padding gets inserted early so that the unfold logic
-            #   works trivially
-            # - the right 0-padding got inserted as the number of time steps
-            #   could not be evenly split in `chunk_size` chunks
-
-            # -> [batch_size, in_channels, num_chunks, lc+chunk_size]
-            out = out.unfold(2, size=chunk_size + self.padding, step=chunk_size)
-
-            # as we manually disable padding in the convolution below, we insert
-            # right 0-padding to the chunks, e.g. reusing the above example:
-            #
-            # chunk #1:  00aaaa00
-            # chunk #2:      aabbbb00
-            # chunk #3:          bbcc0000
-
-            # -> [batch_size, in_channels, num_chunks, lc+chunk_size+rpad]
-            out = F.pad(out, (0, self.padding), value=0)
-
-            # the transpose+flatten effectively flattens chunks into the batch
-            # dimension to be processed into the time-wise convolution. the
-            # chunks will later on be unflattened.
-
-            # -> [batch_size, num_chunks, in_channels, lc+chunk_size+rpad]
-            out = out.transpose(1, 2)
-
-            # -> [batch_size * num_chunks, in_channels, lc+chunk_size+rpad]
-            out = out.flatten(start_dim=0, end_dim=1)
-
-            # TODO: experiment around reflect padding, which is difficult
-            # because small chunks have too little time steps to reflect from
-
-            # let's keep backwards compat by pointing at the weights from the
-            # already declared Conv1d.
-            #
-            # still reusing the above example, the convolution will be applied,
-            # with the padding truncated on both ends. the following example
-            # shows the letter corresponding to the input frame on which the
-            # convolution was centered.
-            #
-            # as you can see, the sum of lengths of all chunks is equal to our
-            # input sequence length + `final_right_padding`.
-            #
-            # chunk #1:  aaaa
-            # chunk #2:      bbbb
-            # chunk #3:          cc00
-
-            # -> [batch_size * num_chunks, out_channels, chunk_size]
-            out = F.conv1d(
-                out,
-                weight=self.conv.weight,
-                bias=self.conv.bias,
-                stride=self.conv.stride,
-                padding=0,
-                dilation=self.conv.dilation,
-                groups=self.conv.groups,
-            )
-
-            # -> [batch_size * num_chunks, chunk_size, out_channels]
-            out = out.transpose(1, 2)
-
-            out = self.after_conv(out)
-
-            # -> [batch_size, num_chunks, chunk_size, out_channels]
-            out = torch.unflatten(out, dim=0, sizes=(batch_size, -1))
-
-            # -> [batch_size, t + final_right_padding, out_channels]
-            out = torch.flatten(out, start_dim=1, end_dim=2)
-
-            # -> [batch_size, t, out_channels]
-            if final_right_padding > 0:
-                out = out[:, :-final_right_padding, :]
-        else:
-            out = self.layer_norm(x)
-            out = out.transpose(1, 2)
-            out = self.bottleneck(out)
-            out = self.conv(out)
-
-            if self.causal:
-                # chomp
-                out = out[..., : -self.padding]
-
-            out = out.transpose(1, 2)
-            out = self.after_conv(out)
+        out = out.transpose(1, 2)
+        out = self.after_conv(out)
 
         if mask is not None:
             out.masked_fill_(mask, 0.0)
