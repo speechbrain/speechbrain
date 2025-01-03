@@ -619,6 +619,11 @@ class DropFreq(torch.nn.Module):
     drop_freq_width : float
         The width of the frequency band to drop, as
         a fraction of the sampling_rate / 2.
+    epsilon : float
+        A small positive value to prevent issues such as filtering 0 Hz,
+        division by zero, or other numerical instabilities. This value sets
+        the absolute minimum for normalized frequencies used in the filter.
+        The default value is 1e-12.
 
     Example
     -------
@@ -635,6 +640,7 @@ class DropFreq(torch.nn.Module):
         drop_freq_count_low=1,
         drop_freq_count_high=3,
         drop_freq_width=0.05,
+        epsilon=1e-12,
     ):
         super().__init__()
         self.drop_freq_low = drop_freq_low
@@ -642,6 +648,7 @@ class DropFreq(torch.nn.Module):
         self.drop_freq_count_low = drop_freq_count_low
         self.drop_freq_count_high = drop_freq_count_high
         self.drop_freq_width = drop_freq_width
+        self.epsilon = epsilon
 
     def forward(self, waveforms):
         """
@@ -673,8 +680,7 @@ class DropFreq(torch.nn.Module):
         drop_range = self.drop_freq_high - self.drop_freq_low
         drop_frequency = (
             torch.rand(drop_count) * drop_range + self.drop_freq_low
-        )
-
+        ).clamp(min=self.epsilon)
         # Filter parameters
         filter_length = 101
         pad = filter_length // 2
