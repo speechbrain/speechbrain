@@ -26,10 +26,13 @@ class ASR(sb.Brain):
     def compute_forward(self, batch, stage):
         """Forward computations from the waveform batches to the output probabilities."""
         batch = batch.to(self.device)
-        wavs, wav_lens = batch.sig
+        tokens, length = batch.tokens
+        print(tokens)
+        print(length)
         #TODO: modify in/out so that we have the target
         # Forward pass
         # Feature extraction and attention pooling
+        exit()
         with torch.no_grad():
             self.hparams.codec.to(self.device).eval()
             tokens, _, _ = self.hparams.codec(
@@ -136,23 +139,36 @@ def dataio_prepare(hparams):
 
     datasets = [train_data, valid_data] + [i for k, i in test_datasets.items()]
 
-    # 2. Define audio pipeline:
-    @sb.utils.data_pipeline.takes("wav")
-    @sb.utils.data_pipeline.provides("sig")
-    def audio_pipeline(wav):
-        sig = sb.dataio.dataio.read_audio(wav)
-        info = torchaudio.info(wav)
-        resampled = torchaudio.transforms.Resample(
-            info.sample_rate, hparams["sample_rate"],
-        )(sig)
-        return resampled
+    # 1. Define tokens pipeline:
+    tokens_loader = hparams["tokens_loader"]
+    num_codebooks = hparams["num_codebooks"]
+    
+    @sb.utils.data_pipeline.takes("id")
+    @sb.utils.data_pipeline.provides("tokens")
+    def tokens_pipeline(id):
+        tokens = tokens_loader.tokens_by_uttid(id, num_codebooks=num_codebooks)
+        return tokens
+        
+    sb.dataio.dataset.add_dynamic_item(datasets, tokens_pipeline)
 
-    sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline)
+    # # 2. Define audio pipeline:
+    # @sb.utils.data_pipeline.takes("wav")
+    # @sb.utils.data_pipeline.provides("sig")
+    # def audio_pipeline(wav):
+    #     sig = sb.dataio.dataio.read_audio(wav)
+    #     info = torchaudio.info(wav)
+    #     resampled = torchaudio.transforms.Resample(
+    #         info.sample_rate, hparams["sample_rate"],
+    #     )(sig)
+    #     return resampled
 
-    # 4. Set output:
+    # sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline)
+
+    # 2. Set output:
     sb.dataio.dataset.set_output_keys(
-        datasets, ["id", "sig"],
+        datasets, ["id", "tokens"],
     )
+
     return train_data, valid_data, test_datasets
 
 
