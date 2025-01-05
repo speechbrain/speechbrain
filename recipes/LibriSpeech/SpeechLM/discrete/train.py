@@ -18,55 +18,58 @@ from speechbrain.lobes.models.huggingface_transformers.discrete_speechlm import 
     InterleavedCodebookPattern,
 )
 from torch.nn import functional as F
-
+import torch.nn as nn 
 logger = logging.getLogger(__name__)
 
+#TODO: load block_size of tokens. 
+
 # Define training procedure
-class ASR(sb.Brain):
+class GSLM(sb.Brain):
     def compute_forward(self, batch, stage):
         """Forward computations from the waveform batches to the output probabilities."""
         batch = batch.to(self.device)
-        tokens, length = batch.tokens
-        print(tokens)
-        print(length)
-        #TODO: modify in/out so that we have the target
-        # Forward pass
-        # Feature extraction and attention pooling
-        exit()
-        with torch.no_grad():
-            self.hparams.codec.to(self.device).eval()
-            tokens, _, _ = self.hparams.codec(
-                wavs, 
-                wav_lens, 
-                self.hparams.ssl_layer_num,
-                self.hparams.deduplicate,
-                self.hparams.bpe_tokenizer_path,
-                # , n_quantizers=self.hparams.num_codebooks
-            )
-        # concat eos_token to the end of the sequence
-        eos_token = torch.full((tokens.size(0), 1, 6), 1001, dtype=tokens.dtype, device=tokens.device)
-        tokens = torch.cat([tokens, eos_token], dim=1)
-        # permute dim 1 with dim 2
-        tokens = tokens.permute(0, 2, 1)
-        tokens = tokens[:, :self.hparams.config.n_codebooks, :self.hparams.config.block_size + 1]
-        inp_tokens = tokens[:, :, :-1]
-        target_tokens = tokens[:, :, 1:]
-        patterned_inp = self.hparams.codebook_pattern.apply_delay_pattern(inp_tokens)
+        inputs, _ = batch.inputs
+        labels, _ = batch.labels
+        # (B, T, C) -> (B, C, T)
+        inputs = inputs.permute(0, 2, 1)
+        labels = labels.permute(0, 2, 1)
+        # print(inputs.shape)
+        block_size = self.hparams.config.block_size
+        current_size = inputs.size(-1)
+        pad_size = block_size - current_size
+        if pad_size > 0:
+            # Pad the last dimension on the right with `pad_size` zeros
+            # The `pad` parameter is a tuple in the form (pad_left, pad_right)
+            # Since we're only padding the last dimension, we provide (0, pad_size)
+            print(inputs[0, 0])
+            inputs = F.pad(inputs, (0, pad_size), mode='constant', value=hparams["pad_token"])
+            print(inputs.shape)
+            print(inputs[0, 0])
+            exit()
+        else:
+            # If the tensor is larger than `block_size`, slice it to fit
+            inputs = inputs[:, :, :block_size]
+
+        # print(inputs.shape)
+        patterned_inp = self.hparams.codebook_pattern.apply_delay_pattern(inputs)
         # print(patterned_inp.shape)
         logits = self.modules.model(patterned_inp)
+        # print(logits.shape)
         undelayed_logits, undelayed_logits_mask = self.hparams.codebook_pattern.undelay_logits(logits)
-        return undelayed_logits, undelayed_logits_mask, target_tokens
+        # print(undelayed_logits.shape)
+        # exit()
+        return undelayed_logits, undelayed_logits_mask, labels,
 
     def compute_objectives(self, predictions, batch, stage):
         """Computes the loss (CTC+NLL) given predictions and targets."""
         # unpack batch
-        logits, logits_mask, target_tokens = predictions
+        logits, logits_mask, labels, = predictions
         logits = logits.float()
         # calculate the loss on coarse audio tokens
         lm_coarse_loss = F.cross_entropy(
             logits[:, 0][logits_mask[:, 0]],
-            target_tokens[:, 0][logits_mask[:, 0]],
-            ignore_index=-1, 
+            labels[:, 0][logits_mask[:, 0]],
+            ignore_index=hparams["pad_token"], 
             reduction='sum',
         )
         coarse_loss = lm_coarse_loss / (logits_mask[:, 0]).sum()
@@ -81,9 +84,13 @@ class ASR(sb.Brain):
         # else:
         #     fine = 0.
         #     lm_loss += coarse_loss / (logits_mask[:, 1:]).sum()
-
         return coarse_loss
     
+    def on_fit_batch_end(self, batch, outputs, loss, should_step):
+        """At the end of the optimizer step, apply noam annealing."""
+        if should_step:
+            self.hparams.linear_scheduler(self.optimizer)
+
     def on_stage_end(self, stage, stage_loss, epoch):
         """Gets called at the end of an epoch."""
         # Compute/store important stats
@@ -144,29 +151,24 @@ def dataio_prepare(hparams):
     num_codebooks = hparams["num_codebooks"]
     
     @sb.utils.data_pipeline.takes("id")
-    @sb.utils.data_pipeline.provides("tokens")
+    @sb.utils.data_pipeline.provides("inputs", "labels")
     def tokens_pipeline(id):
+        # (T, C)
         tokens = tokens_loader.tokens_by_uttid(id, num_codebooks=num_codebooks)
-        return tokens
+        # concat eos_token to the end of the sequence
+        eos_token = torch.full((1, tokens.size(-1)), hparams['eos_token'], dtype=tokens.dtype, device=tokens.device)
+        tokens = torch.cat([tokens, eos_token], dim=0)
+        # here: input and target tokens should come. 
+        # apply delay pattern?
+        inputs = tokens[:-1]
+        labels = tokens[1:]
+        return inputs, labels
         
     sb.dataio.dataset.add_dynamic_item(datasets, tokens_pipeline)
 
-    # # 2. Define audio pipeline:
-    # @sb.utils.data_pipeline.takes("wav")
-    # @sb.utils.data_pipeline.provides("sig")
-    # def audio_pipeline(wav):
-    #     sig = sb.dataio.dataio.read_audio(wav)
-    #     info = torchaudio.info(wav)
-    #     resampled = torchaudio.transforms.Resample(
-    #         info.sample_rate, hparams["sample_rate"],
-    #     )(sig)
-    #     return resampled
-
-    # sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline)
-
     # 2. Set output:
     sb.dataio.dataset.set_output_keys(
-        datasets, ["id", "tokens"],
+        datasets, ["id", "inputs", "labels"],
     )
 
     return train_data, valid_data, test_datasets
@@ -215,16 +217,17 @@ if __name__ == "__main__":
     )
 
     # Trainer initialization
-    asr_brain = ASR(
+    gslm_brain = GSLM(
         modules=hparams["modules"],
         hparams=hparams,
         run_opts=run_opts,
         checkpointer=hparams["checkpointer"],
+        opt_class=hparams["opt_class"],
     )
 
     # Training
-    asr_brain.fit(
-        asr_brain.hparams.epoch_counter,
+    gslm_brain.fit(
+        gslm_brain.hparams.epoch_counter,
         train_data,
         valid_data,
         train_loader_kwargs=hparams["train_dataloader_opts"],
@@ -236,10 +239,10 @@ if __name__ == "__main__":
     os.makedirs(hparams["output_wer_folder"], exist_ok=True)
 
     for k in test_datasets.keys():  # keys are test_clean, test_other etc
-        asr_brain.hparams.test_wer_file = os.path.join(
+        gslm_brain.hparams.test_wer_file = os.path.join(
             hparams["output_wer_folder"], f"wer_{k}.txt"
         )
-        asr_brain.evaluate(
+        gslm_brain.evaluate(
             test_datasets[k],
             test_loader_kwargs=hparams["test_dataloader_opts"],
             min_key="WER",

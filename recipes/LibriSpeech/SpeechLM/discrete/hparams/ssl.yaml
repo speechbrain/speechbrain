@@ -1,4 +1,5 @@
 # Seed needs to be set at top of yaml, before objects with parameters are made
+# TODO: add LinearScheduler ? Or Trapezoidal.
 seed: 1986
 __set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
 output_folder: !ref results/LibriSpeech/discrete_speechLM/wavlm/<seed>
@@ -27,11 +28,14 @@ skip_prep: False
 num_codebooks: 8 
 sample_rate: 16000
 codebook_size: 1024
-audio_pad_token: !ref <codebook_size> + 1 
-# With data_parallel batch_size is split into N jobs
-# With DDP batch_size is multiplied by N jobs
-# Must be 3 per GPU to fit 32GB of VRAM
-batch_size: 4
+block_size: 2048 
+pad_token: !ref <codebook_size> + 1
+eos_token: !ref <codebook_size> + 2
+
+# aim for something like 500k tokens / BP step.
+# 32 * 2048 * 8 ~= 500k tokens
+batch_size: 32
+grad_accumulation_factor: 8
 test_batch_size: 1
 num_workers: 5
 
@@ -43,20 +47,20 @@ train_dataloader_opts:
   num_workers: !ref <num_workers>
   collate_fn: !name:speechbrain.dataio.batch.PaddedBatch
       padding_kwargs:
-          value: !ref <audio_pad_token>
+          value: !ref <pad_token>
 # todo: limit the num of steps on val
 valid_dataloader_opts:
   batch_size: !ref <batch_size>
   # num_workers: !ref <num_workers>
   collate_fn: !name:speechbrain.dataio.batch.PaddedBatch
       padding_kwargs:
-          value: !ref <audio_pad_token>
+          value: !ref <pad_token>
 test_dataloader_opts:
   batch_size: !ref <test_batch_size>
   # num_workers: !ref <num_workers>
   collate_fn: !name:speechbrain.dataio.batch.PaddedBatch
       padding_kwargs:
-          value: !ref <audio_pad_token>
+          value: !ref <pad_token>
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
    limit: !ref <number_of_epochs>
@@ -66,21 +70,28 @@ tokens_loader: !new:utils.tokens.TokensLoader
    data_path: !ref <tokens_folder>
 
 codebook_pattern: !new:speechbrain.lobes.models.huggingface_transformers.discrete_speechlm.InterleavedCodebookPattern
-  audio_pad_token: !ref <audio_pad_token>
+  audio_pad_token: !ref <pad_token>
 
-block_size: 768 
 
 config: !new:speechbrain.lobes.models.huggingface_transformers.discrete_speechlm.DiscreteSpeechLMConfig
   source: "HuggingFaceTB/SmolLM2-135M"
   cache_dir: "/scratch/adelmou/hf_home/hub/"
   block_size: !ref <block_size>
   n_codebooks: !ref <num_codebooks>
-  vocabsize: 1001
+  vocabsize: !ref <eos_token> + 1
   tie_embds: True
 
 model: !new:speechbrain.lobes.models.huggingface_transformers.discrete_speechlm.DiscreteSpeechLM
   config: !ref <config>
 
+linear_scheduler: !new:speechbrain.nnet.schedulers.LinearScheduler
+    initial_value: 3e-3
+    final_value: 3e-5
+
+opt_class: !name:torch.optim.AdamW
+   lr: 3e-3
+   betas: (0.9, 0.95)
+   
 modules:
   # codec: !ref <codec>
   model: !ref <model>
@@ -89,4 +100,5 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
   checkpoints_dir: !ref <save_folder>
   recoverables:
     model: !ref <model>
-    # codec: !ref <codec>
+    linear_scheduler: !ref <linear_scheduler>
+    counter: !ref <epoch_counter>
