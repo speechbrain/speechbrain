@@ -29,8 +29,8 @@ num_codebooks: 8
 sample_rate: 16000
 codebook_size: 1024
 block_size: 2048 
-pad_token: !ref <codebook_size> + 1
-eos_token: !ref <codebook_size> + 2
+eos_token: !ref <codebook_size> + 1
+pad_token: !ref <codebook_size> + 2
 
 # aim for something like 500k tokens / BP step.
 # 32 * 2048 * 8 ~= 500k tokens
@@ -78,19 +78,20 @@ config: !new:speechbrain.lobes.models.huggingface_transformers.discrete_speechlm
   cache_dir: "/scratch/adelmou/hf_home/hub/"
   block_size: !ref <block_size>
   n_codebooks: !ref <num_codebooks>
-  vocabsize: !ref <eos_token> + 1
+  vocabsize: !ref <pad_token> + 1
   tie_embds: True
 
 model: !new:speechbrain.lobes.models.huggingface_transformers.discrete_speechlm.DiscreteSpeechLM
   config: !ref <config>
 
 linear_scheduler: !new:speechbrain.nnet.schedulers.LinearScheduler
-    initial_value: 3e-3
-    final_value: 3e-5
+  initial_value: 3e-3
+  final_value: 3e-5
+  epoch_count: !ref <number_of_epochs>
 
 opt_class: !name:torch.optim.AdamW
-   lr: 3e-3
-   betas: (0.9, 0.95)
+  lr: 3e-3
+  betas: (0.9, 0.95)
    
 modules:
   # codec: !ref <codec>

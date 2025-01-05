@@ -38,14 +38,8 @@ class GSLM(sb.Brain):
         current_size = inputs.size(-1)
         pad_size = block_size - current_size
         if pad_size > 0:
-            # Pad the last dimension on the right with `pad_size` zeros
-            # The `pad` parameter is a tuple in the form (pad_left, pad_right)
-            # Since we're only padding the last dimension, we provide (0, pad_size)
-            print(inputs[0, 0])
             inputs = F.pad(inputs, (0, pad_size), mode='constant', value=hparams["pad_token"])
-            print(inputs.shape)
-            print(inputs[0, 0])
-            exit()
+            labels = F.pad(labels, (0, pad_size), mode='constant', value=hparams["pad_token"])
         else:
             # If the tensor is larger than `block_size`, slice it to fit
             inputs = inputs[:, :, :block_size]
@@ -86,10 +80,10 @@ class GSLM(sb.Brain):
         #     lm_loss += coarse_loss / (logits_mask[:, 1:]).sum()
         return coarse_loss
     
-    def on_fit_batch_end(self, batch, outputs, loss, should_step):
-        """At the end of the optimizer step, apply noam annealing."""
-        if should_step:
-            self.hparams.linear_scheduler(self.optimizer)
+    # def on_fit_batch_end(self, batch, outputs, loss, should_step):
+        # """At the end of the optimizer step, apply noam annealing."""
+        # if should_step:
+            # self.hparams.linear_scheduler(self.optimizer)
 
     def on_stage_end(self, stage, stage_loss, epoch):
         """Gets called at the end of an epoch."""
@@ -224,6 +218,8 @@ if __name__ == "__main__":
         checkpointer=hparams["checkpointer"],
         opt_class=hparams["opt_class"],
     )
+
+    gslm_brain.modules.model = torch.compile(gslm_brain.modules.model, mode="reduce-overhead")
 
     # Training
     gslm_brain.fit(
