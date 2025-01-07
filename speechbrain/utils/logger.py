@@ -170,7 +170,7 @@ def get_logger(name: str) -> MultiProcessLoggerAdapter:
     logger = logging.getLogger(name)
     log_level = os.environ.get("SB_LOG_LEVEL", None)
     if log_level is None:
-        log_level = "INFO"
+        log_level = "DEBUG"
         os.environ["SB_LOG_LEVEL"] = log_level
     logger.setLevel(log_level.upper())
     return MultiProcessLoggerAdapter(logger, {})
@@ -179,7 +179,7 @@ def get_logger(name: str) -> MultiProcessLoggerAdapter:
 def setup_logging(
     config_path="log-config.yaml",
     overrides={},
-    default_level="INFO",
+    default_level="DEBUG",
 ):
     """Setup logging configuration.
 
