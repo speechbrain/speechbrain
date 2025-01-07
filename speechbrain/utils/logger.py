@@ -192,6 +192,11 @@ def setup_logging(
         with any updated values that need to be applied.
     default_level : str
         The log level to use if the config file is not found.
+        Python logging allows ints or strings:
+        https://docs.python.org/3/library/logging.html#logging.Logger.setLevel
+        but strings are used here as environment variables have to be
+        strings. The available levels are listed here:
+        https://docs.python.org/3/library/logging.html#levels
     """
     if os.path.exists(config_path):
         with open(config_path, "rt", encoding="utf-8") as f:
