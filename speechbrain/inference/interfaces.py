@@ -297,6 +297,7 @@ class Pretrained(torch.nn.Module):
             local_strategy=LocalStrategy.SYMLINK,
         )
         signal, sr = torchaudio.load(str(path), channels_first=False)
+        signal = signal.to(self.device)
         return self.audio_normalizer(signal, sr)
 
     def _compile(self):
