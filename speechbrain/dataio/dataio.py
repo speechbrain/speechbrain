@@ -163,7 +163,7 @@ def load_data_csv(csv_path, replacements={}):
     return result
 
 
-def read_audio_info(path) -> "torchaudio.backend.common.AudioMetaData":
+def read_audio_info(path, backend=None) -> "torchaudio.backend.common.AudioMetaData":
     """Retrieves audio metadata from a file path. Behaves identically to
     torchaudio.info, but attempts to fix metadata (such as frame count) that is
     otherwise broken with certain torchaudio version and codec combinations.
@@ -174,7 +174,9 @@ def read_audio_info(path) -> "torchaudio.backend.common.AudioMetaData":
     ---------
     path : str
         Path to the audio file to examine.
-
+    backend : str or None
+        I/O backend to use. If `None`, function selects backend given input and available backends. 
+        Otherwise, must be one of `["ffmpeg", "sox", "soundfile"]`, with the corresponding backend being available. 
     Returns
     -------
     torchaudio.backend.common.AudioMetaData
@@ -189,7 +191,7 @@ def read_audio_info(path) -> "torchaudio.backend.common.AudioMetaData":
     the processing time.
     """
 
-    _path_no_ext, path_ext = os.path.splitext(path)
+    _, path_ext = os.path.splitext(path)
 
     if path_ext == ".mp3":
         # Additionally, certain affected versions of torchaudio fail to
@@ -213,7 +215,7 @@ def read_audio_info(path) -> "torchaudio.backend.common.AudioMetaData":
     # double-checking anyway. If I am wrong and you are reading this comment
     # because of it: sorry
     if info.num_frames == 0:
-        channels_data, sample_rate = torchaudio.load(path, normalize=False)
+        channels_data, sample_rate = torchaudio.load(path, normalize=False, backend=backend)
 
         info.num_frames = channels_data.size(1)
         info.sample_rate = sample_rate  # because we might as well
