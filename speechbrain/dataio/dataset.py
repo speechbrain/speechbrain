@@ -19,7 +19,6 @@ from speechbrain.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
-
 class DynamicItemDataset(Dataset):
     """Dataset that reads, wrangles, and produces dicts.
 
@@ -502,3 +501,132 @@ def apply_overfit_test(
         epoch_data_count = overfit_test_epoch_data_count
         dataset = dataset.overfit_test(sample_count, epoch_data_count)
     return dataset
+
+import torch
+from torch.utils.data import Dataset
+from copy import deepcopy
+
+class PackedDatasetWrapper(Dataset):
+    """Wrapper that packs tokens from an existing DynamicItemDataset."""
+    
+    def __init__(self, original_dataset, block_size, token_key="tokens", pad_token_id=-1):
+        self.original_dataset = original_dataset
+        self.block_size = block_size
+        self.token_key = token_key
+        self.pad_token_id = pad_token_id
+        
+        # Precompute the mapping from block index to original data indices
+        self.blocks = []
+        self.blocks_ids = []
+        self._prepare_blocks()
+
+    def _prepare_blocks(self):
+        """
+        Prepares the packed blocks by iterating through the original dataset,
+        concatenating tokens until reaching `block_size`, and handling padding.
+        """
+        print("prepare blocks")
+        # Generate list of indices
+        indices = list(range(len(self.original_dataset)))
+
+        buffer = []
+        buffer_length = 0
+        buffer_ids = []
+
+        for idx in indices:
+            data_point = self.original_dataset[idx]
+            tokens = data_point['tokens']  # Assuming 'tokens' is a list or tensor
+            id_name = data_point.get('id', idx)  # Optional: fetch an 'id' if available
+
+            # Convert tokens to tensor if they aren't already
+            if isinstance(tokens, list):
+                tokens = torch.tensor(tokens, dtype=torch.long)
+            elif not isinstance(tokens, torch.Tensor):
+                raise ValueError(f"Unsupported token type: {type(tokens)}")
+
+            seq_length = tokens.size(0)
+            if buffer_length + seq_length > self.block_size:
+                if buffer:
+                    num_tokens_to_keep = self.block_size - buffer_length
+                    assert num_tokens_to_keep >= 0, num_tokens_to_keep
+                    new_tokens = tokens[:num_tokens_to_keep]
+                    buffer.append(new_tokens)
+                    buffer_ids.append(id_name)
+                    packed_tokens = torch.cat(buffer, dim=0)
+                    self.blocks.append(packed_tokens)
+                    self.blocks_ids.append(buffer_ids)
+                    
+                     # reset buffer
+                    buffer = []
+                    buffer_length = 0
+
+                    # calculate upper boundary of tokens to keep
+                    splitted_tokens = tokens[num_tokens_to_keep:].split(
+                        self.block_size
+                    )
+                    if len(splitted_tokens) > 0:
+                        for t in splitted_tokens:
+                            if t.shape[0] == self.block_size:
+                                self.blocks.append(t)
+
+                    # Reset buffer and add the remaining tokens
+                    buffer = [splitted_tokens[-1]]
+                    buffer_ids = [id_name]
+                    buffer_length = splitted_tokens[-1].size(0)
+                else:
+                    # If single data point exceeds block_size, split it
+                    new_tokens = tokens[:self.block_size]
+                    buffer_ids.append(id_name)
+                    self.blocks.append(new_tokens)
+                    self.blocks_ids.append(buffer_ids)
+
+                    # reset buffer
+                    buffer = []
+                    buffer_length = 0
+
+                    # calculate upper boundary of tokens to keep
+                    splitted_tokens = tokens[self.block_size:].split(
+                        self.block_size
+                    )
+                    if len(splitted_tokens) > 0:
+                        for t in splitted_tokens:
+                            if t.shape[0] == self.block_size:
+                                self.blocks.append(t)
+                    buffer = [splitted_tokens[-1]]
+                    buffer_ids = [id_name]
+                    buffer_length = splitted_tokens[-1].size(0) # - self.block_size
+            else:
+                buffer.append(tokens)
+                buffer_ids.append(id_name)
+                buffer_length += seq_length
+
+        # Handle remaining tokens in the buffer
+        if buffer:
+            concatenated = torch.cat(buffer, dim=0)
+            buffer_ids.append(id_name)
+            if buffer_length < self.block_size:
+                padding_length = self.block_size - buffer_length
+                padded_buffer = torch.cat([
+                    concatenated,
+                    torch.full((padding_length, concatenated.size(1)), self.pad_token_id, dtype=concatenated.dtype)
+                ], dim=0)
+                self.blocks.append(padded_buffer)
+                self.blocks_ids.append(buffer_ids)
+            else:
+                self.blocks.append(concatenated)
+                self.blocks_ids.append(buffer_ids)
+
+    def __len__(self) -> int:
+        return len(self.blocks)
+
+    def __getitem__(self, idx: int) -> torch.Tensor:
+        # print(idx)
+        # data_id = '-'.join(self.blocks_ids[idx])
+        # print(self.blocks_ids[:5])
+        data_point = self.blocks[idx]
+        # print(data_id)
+        # print(self.original_dataset.pipeline.compute_outputs({"id": data_id, "tensor": data_point}))
+        return {
+            "id": '?',
+            "tokens": data_point,
+        }
