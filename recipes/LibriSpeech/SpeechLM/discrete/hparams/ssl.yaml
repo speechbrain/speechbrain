@@ -1,5 +1,6 @@
 # Seed needs to be set at top of yaml, before objects with parameters are made
 # TODO: add LinearScheduler ? Or Trapezoidal.
+# TODO: add custom sampling logic.
 seed: 1986
 __set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
 output_folder: !ref results/LibriSpeech/discrete_speechLM/wavlm/<seed>
@@ -31,13 +32,14 @@ codebook_size: 1024
 block_size: 2048 
 eos_token: !ref <codebook_size> + 1
 pad_token: !ref <codebook_size> + 2
+vocabsize: !ref <pad_token> + 1 # codebook_size + eos + pad -> 1026
 
 # aim for something like 500k tokens / BP step.
 # 32 * 2048 * 8 ~= 500k tokens
 batch_size: 32
 grad_accumulation_factor: 8
 test_batch_size: 1
-num_workers: 5
+num_workers: 0
 
 ### discrete SSL configuration
 
@@ -51,7 +53,7 @@ train_dataloader_opts:
 # todo: limit the num of steps on val
 valid_dataloader_opts:
   batch_size: !ref <batch_size>
-  # num_workers: !ref <num_workers>
+  num_workers: !ref <num_workers>
   collate_fn: !name:speechbrain.dataio.batch.PaddedBatch
       padding_kwargs:
           value: !ref <pad_token>
@@ -72,13 +74,13 @@ tokens_loader: !new:utils.tokens.TokensLoader
 codebook_pattern: !new:speechbrain.lobes.models.huggingface_transformers.discrete_speechlm.InterleavedCodebookPattern
   audio_pad_token: !ref <pad_token>
 
-
+# define LM in the YAML
 config: !new:speechbrain.lobes.models.huggingface_transformers.discrete_speechlm.DiscreteSpeechLMConfig
   source: "HuggingFaceTB/SmolLM2-135M"
   cache_dir: "/scratch/adelmou/hf_home/hub/"
   block_size: !ref <block_size>
   n_codebooks: !ref <num_codebooks>
-  vocabsize: !ref <pad_token> + 1
+  vocabsize: !ref <vocabsize>
   tie_embds: True
 
 model: !new:speechbrain.lobes.models.huggingface_transformers.discrete_speechlm.DiscreteSpeechLM
@@ -103,3 +105,4 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     model: !ref <model>
     linear_scheduler: !ref <linear_scheduler>
     counter: !ref <epoch_counter>
+# add MFU.
