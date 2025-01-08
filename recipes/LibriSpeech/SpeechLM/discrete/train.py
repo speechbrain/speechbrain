@@ -28,23 +28,16 @@ class GSLM(sb.Brain):
     def compute_forward(self, batch, stage):
         """Forward computations from the waveform batches to the output probabilities."""
         batch = batch.to(self.device)
-        inputs, _ = batch.inputs
-        labels, _ = batch.labels
+        inputs, _ = batch.tokens
         # (B, T, C) -> (B, C, T)
         inputs = inputs.permute(0, 2, 1)
-        labels = labels.permute(0, 2, 1)
-        # print(inputs.shape)
+        labels = inputs[:, :, 1:]
+        inputs = inputs[:, :, :-1]
+        
+        
         block_size = self.hparams.config.block_size
-        current_size = inputs.size(-1)
-        pad_size = block_size - current_size
-        if pad_size > 0:
-            inputs = F.pad(inputs, (0, pad_size), mode='constant', value=hparams["pad_token"])
-            labels = F.pad(labels, (0, pad_size), mode='constant', value=hparams["pad_token"])
-        else:
-            # If the tensor is larger than `block_size`, slice it to fit
-            inputs = inputs[:, :, :block_size]
-
-        # print(inputs.shape)
+        assert inputs.size(-1) <= block_size, 'input length >= block_size'
+ 
         patterned_inp = self.hparams.codebook_pattern.apply_delay_pattern(inputs)
         # print(patterned_inp.shape)
         logits = self.modules.model(patterned_inp)
@@ -60,25 +53,14 @@ class GSLM(sb.Brain):
         logits, logits_mask, labels, = predictions
         logits = logits.float()
         # calculate the loss on coarse audio tokens
-        lm_coarse_loss = F.cross_entropy(
-            logits[:, 0][logits_mask[:, 0]],
-            labels[:, 0][logits_mask[:, 0]],
+        lm_loss = F.cross_entropy(
+            logits[logits_mask],
+            labels[logits_mask],
             ignore_index=hparams["pad_token"], 
             reduction='sum',
         )
-        coarse_loss = lm_coarse_loss / (logits_mask[:, 0]).sum()
-        # lm_loss = 0
-        # if self.hparams.num_codebooks > 1:
-        #     # calculate the loss on fine audio tokens
-        #     lm_fine_loss = F.cross_entropy(logits[:, 1:][logits_mask[:, 1:]],
-        #                                     target_tokens[:, 1:][logits_mask[:, 1:]], 
-        #                                     ignore_index=-1, reduction='sum')
-        #     fine = lm_fine_loss / (logits_mask[:, 1:]).sum()
-        #     lm_loss += ((lm_coarse_loss + self.hparams.fine_weight * lm_fine_loss)) / logits_mask.sum()
-        # else:
-        #     fine = 0.
-        #     lm_loss += coarse_loss / (logits_mask[:, 1:]).sum()
-        return coarse_loss
+        loss = lm_loss / logits_mask.sum()
+        return loss
     
     # def on_fit_batch_end(self, batch, outputs, loss, should_step):
         # """At the end of the optimizer step, apply noam annealing."""
@@ -145,7 +127,7 @@ def dataio_prepare(hparams):
     num_codebooks = hparams["num_codebooks"]
     
     @sb.utils.data_pipeline.takes("id")
-    @sb.utils.data_pipeline.provides("inputs", "labels")
+    @sb.utils.data_pipeline.provides("tokens")
     def tokens_pipeline(id):
         # (T, C)
         tokens = tokens_loader.tokens_by_uttid(id, num_codebooks=num_codebooks)
@@ -154,17 +136,19 @@ def dataio_prepare(hparams):
         tokens = torch.cat([tokens, eos_token], dim=0)
         # here: input and target tokens should come. 
         # apply delay pattern?
-        inputs = tokens[:-1]
-        labels = tokens[1:]
-        return inputs, labels
+        # inputs = tokens[:-1]
+        # labels = tokens[1:]
+        return tokens
         
     sb.dataio.dataset.add_dynamic_item(datasets, tokens_pipeline)
 
     # 2. Set output:
     sb.dataio.dataset.set_output_keys(
-        datasets, ["id", "inputs", "labels"],
+        datasets, ["id", "tokens"],
     )
 
+    train_data = sb.dataio.dataset.PackedDatasetWrapper(train_data, hparams['block_size'], token_key="tokens", pad_token_id=hparams["pad_token"])
+    valid_data = sb.dataio.dataset.PackedDatasetWrapper(valid_data, hparams['block_size'], token_key="tokens", pad_token_id=hparams["pad_token"])
     return train_data, valid_data, test_datasets
 
 
@@ -219,7 +203,8 @@ if __name__ == "__main__":
         opt_class=hparams["opt_class"],
     )
 
-    gslm_brain.modules.model = torch.compile(gslm_brain.modules.model, mode="reduce-overhead")
+    # ~ takes a minute or so to compile
+    gslm_brain.modules.model = torch.compile(gslm_brain.modules.model)
 
     # Training
     gslm_brain.fit(
