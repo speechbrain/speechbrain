@@ -61,11 +61,7 @@ class GSLM(sb.Brain):
         )
         loss = lm_loss / logits_mask.sum()
         return loss
-    
-    # def on_fit_batch_end(self, batch, outputs, loss, should_step):
-        # """At the end of the optimizer step, apply noam annealing."""
-        # if should_step:
-            # self.hparams.linear_scheduler(self.optimizer)
+
 
     def on_stage_end(self, stage, stage_loss, epoch):
         """Gets called at the end of an epoch."""
@@ -73,7 +69,30 @@ class GSLM(sb.Brain):
         stage_stats = {"loss": stage_loss}
         if stage == sb.Stage.TRAIN:
             self.train_stats = stage_stats
+        
+        if stage == sb.Stage.VALID:
+            old_lr, new_lr = self.hparams.lr_annealing(epoch)
+            sb.nnet.schedulers.update_learning_rate(self.optimizer, new_lr)
 
+            steps = self.optimizer_step
+            optimizer = self.optimizer.__class__.__name__
+
+            epoch_stats = {
+                "epoch": epoch,
+                "lr": old_lr,
+                "steps": steps,
+                "optimizer": optimizer,
+            }
+            self.hparams.train_logger.log_stats(
+                stats_meta=epoch_stats,
+                train_stats=self.train_stats,
+                valid_stats=stage_stats,
+            )
+            self.checkpointer.save_and_keep_only(
+                meta={"loss": stage_loss, "epoch": epoch},
+                min_keys=["loss"],
+            )
+        
 def dataio_prepare(hparams):
     """This function prepares the datasets to be used in the brain class.
     It also defines the data processing pipeline through user-defined functions."""
@@ -134,10 +153,6 @@ def dataio_prepare(hparams):
         # concat eos_token to the end of the sequence
         eos_token = torch.full((1, tokens.size(-1)), hparams['eos_token'], dtype=tokens.dtype, device=tokens.device)
         tokens = torch.cat([tokens, eos_token], dim=0)
-        # here: input and target tokens should come. 
-        # apply delay pattern?
-        # inputs = tokens[:-1]
-        # labels = tokens[1:]
         return tokens
         
     sb.dataio.dataset.add_dynamic_item(datasets, tokens_pipeline)
