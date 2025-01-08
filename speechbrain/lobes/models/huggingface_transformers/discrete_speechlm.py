@@ -12,6 +12,8 @@ from transformers import AutoModelForCausalLM
 
 from dataclasses import dataclass
 
+# TODO: move this file OUTSIDE. instatniate PT model directly in yaml
+
 @dataclass
 class DiscreteSpeechLMConfig:
     source: str
