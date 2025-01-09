@@ -11,6 +11,7 @@ import math
 from types import MethodType
 
 from torch.utils.data import Dataset
+import torch 
 
 from speechbrain.dataio.dataio import load_data_csv, load_data_json
 from speechbrain.utils.data_pipeline import DataPipeline
@@ -502,16 +503,13 @@ def apply_overfit_test(
         dataset = dataset.overfit_test(sample_count, epoch_data_count)
     return dataset
 
-import torch
-from torch.utils.data import Dataset
-from copy import deepcopy
 
 class PackedDatasetWrapper(Dataset):
     """Wrapper that packs tokens from an existing DynamicItemDataset."""
     
     def __init__(self, original_dataset, block_size, token_key="tokens", pad_token_id=-1):
         self.original_dataset = original_dataset
-        self.block_size = block_size + 1
+        self.block_size = block_size
         self.token_key = token_key
         self.pad_token_id = pad_token_id
         
@@ -525,7 +523,7 @@ class PackedDatasetWrapper(Dataset):
         Prepares the packed blocks by iterating through the original dataset,
         concatenating tokens until reaching `block_size`, and handling padding.
         """
-        print("prepare blocks")
+        print("preparing blocks")
         # Generate list of indices
         indices = list(range(len(self.original_dataset)))
 
@@ -559,6 +557,7 @@ class PackedDatasetWrapper(Dataset):
                      # reset buffer
                     buffer = []
                     buffer_length = 0
+                    buffer_ids = []
 
                     # calculate upper boundary of tokens to keep
                     splitted_tokens = tokens[num_tokens_to_keep:].split(
@@ -567,7 +566,9 @@ class PackedDatasetWrapper(Dataset):
                     if len(splitted_tokens) > 0:
                         for t in splitted_tokens:
                             if t.shape[0] == self.block_size:
+                                buffer_ids.append(id_name)
                                 self.blocks.append(t)
+                                self.blocks_ids.append(buffer_ids)
 
                     # Reset buffer and add the remaining tokens
                     buffer = [splitted_tokens[-1]]
@@ -583,6 +584,7 @@ class PackedDatasetWrapper(Dataset):
                     # reset buffer
                     buffer = []
                     buffer_length = 0
+                    buffer_ids = []
 
                     # calculate upper boundary of tokens to keep
                     splitted_tokens = tokens[self.block_size:].split(
@@ -591,7 +593,10 @@ class PackedDatasetWrapper(Dataset):
                     if len(splitted_tokens) > 0:
                         for t in splitted_tokens:
                             if t.shape[0] == self.block_size:
+                                buffer_ids.append(id_name)
                                 self.blocks.append(t)
+                                self.blocks_ids.append(buffer_ids)
+
                     buffer = [splitted_tokens[-1]]
                     buffer_ids = [id_name]
                     buffer_length = splitted_tokens[-1].size(0) # - self.block_size
@@ -604,6 +609,7 @@ class PackedDatasetWrapper(Dataset):
         if buffer:
             concatenated = torch.cat(buffer, dim=0)
             buffer_ids.append(id_name)
+            # we need to pad the buffer if it's not full
             if buffer_length < self.block_size:
                 padding_length = self.block_size - buffer_length
                 padded_buffer = torch.cat([
@@ -619,14 +625,10 @@ class PackedDatasetWrapper(Dataset):
     def __len__(self) -> int:
         return len(self.blocks)
 
-    def __getitem__(self, idx: int) -> torch.Tensor:
-        # print(idx)
-        # data_id = '-'.join(self.blocks_ids[idx])
-        # print(self.blocks_ids[:5])
+    def __getitem__(self, idx: int) -> dict[str, torch.Tensor]:
+        data_id = '@'.join(self.blocks_ids[idx])
         data_point = self.blocks[idx]
-        # print(data_id)
-        # print(self.original_dataset.pipeline.compute_outputs({"id": data_id, "tensor": data_point}))
         return {
-            "id": '?',
+            "id": data_id,
             "tokens": data_point,
         }
