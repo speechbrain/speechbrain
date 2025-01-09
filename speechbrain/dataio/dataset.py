@@ -511,7 +511,7 @@ class PackedDatasetWrapper(Dataset):
     
     def __init__(self, original_dataset, block_size, token_key="tokens", pad_token_id=-1):
         self.original_dataset = original_dataset
-        self.block_size = block_size
+        self.block_size = block_size + 1
         self.token_key = token_key
         self.pad_token_id = pad_token_id
         
