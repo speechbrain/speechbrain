@@ -1,13 +1,13 @@
 # ############################################################################
-# Auido Tokenizer: DAC
+# Auido Tokenizer: Speech-Tokenizer
 # Extraction: Librispeech 960h
-# Authors: Jarod Duret 2024
+# Authors: Adel Moumen 2025
 # ############################################################################
 # Seed needs to be set at top of yaml, before objects with parameters are made
 
 seed: 1986
 __set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
-output_folder: !ref results/dac
+output_folder: !ref results/speech-tokenizer
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/extraction_log.txt
 
@@ -17,7 +17,7 @@ num_shards: 1
 
 # Data files
 data_folder: !PLACEHOLDER  # e.g., /path/to/LibriSpeech
-train_splits: ["train-clean-100", "train-clean-360", "train-other-500"] #, "train-clean-360", "train-other-500"
+train_splits: ["train-clean-100", "train-clean-360", "train-other-500"]
 dev_splits: ["dev-clean"]
 test_splits: ["dev-clean", "test-clean", "test-other"]
 skip_prep: False
@@ -27,7 +27,7 @@ test_csv:
   - !ref <output_folder>/test-clean.csv
   - !ref <output_folder>/test-other.csv
 
-batch_size: 8
+batch_size: 1
 num_workers: 8
 src_key: wav
 id_key: id
@@ -39,28 +39,16 @@ dataloader_opts:
   num_workers: !ref <num_workers>
 
 ####################### Model parameters ###########################
-# Tokenizer parameters
-# DAC parameters
-# model_type: [16khz, 24khz, 44khz, 44khz]
-# vocab_size: [1024, 1024, 1024, 1024]
-# model_bitrate: [8kbps, 8kbps, 8kbps, 16kbps]
-# max_num_codebooks: [12, 32, 9, 18]
-# embedding_dim: [1024, 1024, 1024, 128]
-model_type: 24khz
 vocab_size: 1024
-model_bitrate: 8kbps
-num_codebooks: 32
-sample_rate: 24000
-# Feature parameters
+num_codebooks: 8
+sample_rate: 16000
 encoder_dim: 1024
+freeze_embedding: False
 save_embedding: False
 
-tokenizer: !new:utils.tokenizer_interface.DACTokenizer
-  model_type: !ref <model_type>
-  model_bitrate: !ref <model_bitrate>
-  load_pretrained: True
-  tag: latest
-  load_path: /scratch/adelmou/models/dac/weights_16khz.pth
+tokenizer: !new:utils.tokenizer_interface.SpeechTokenizer
+  source: fnlp/SpeechTokenizer  # Only the 24kHz version supports mono audio
+  save_path: /scratch/adelmou/models/speech-tokenizer/SpeechTokenizer/
 
 tokens_extractor: !new:utils.tokens.TokensExtractor
   tokenizer: !ref <tokenizer>
@@ -68,5 +56,3 @@ tokens_extractor: !new:utils.tokens.TokensExtractor
   src_key: !ref <src_key>
   id_key: !ref <id_key>
   dataloader_opts: !ref <dataloader_opts>
-  rank: !ref <rank>
-  num_shards: !ref <num_shards>
