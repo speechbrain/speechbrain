@@ -15,6 +15,11 @@ from speechbrain.lobes.models.huggingface_transformers.discrete_ssl import (
     DiscreteSSL,
 )
 from speechbrain.lobes.models.discrete.dac import DAC
+from speechbrain.lobes.models.discrete.speechtokenizer_interface import (
+    SpeechTokenizer_interface,
+)
+from speechbrain.lobes.models.discrete.hubert import FairseqHuBERT
+
 
 class BaseTokenizer(ABC):
     """
@@ -181,7 +186,63 @@ class DACTokenizer(DAC, BaseTokenizer):
         return torch.cat(z_qs)[:, :, 0]
 
 
+class SpeechTokenizer(SpeechTokenizer_interface, BaseTokenizer):
+    def __init__(self, *args, **kwargs):
+        SpeechTokenizer_interface.__init__(self, *args, **kwargs)
+        BaseTokenizer.__init__(self)
+        self.sample_rate = 16000
 
+    @torch.no_grad()
+    def sig_to_tokens(self, signal, lengths, num_codebooks=None, **kwargs):
+        self.eval()
+        tokens = self(signal)
+        if num_codebooks:
+            if len(tokens) < num_codebooks:
+                raise ValueError(
+                    f"Model only outputs {len(tokens)} codebooks, but {num_codebooks} requested"
+                )
+            tokens = tokens[:num_codebooks]
+        return tokens.movedim(-3, -1)
+
+    @torch.no_grad()
+    def tokens_to_sig(self, tokens, **kwargs):
+        self.eval()
+        return self.decode(tokens.movedim(-1, -3))
+
+    @torch.no_grad()
+    def get_pretrained_embeddings(
+        self, vocab_size=None, num_codebooks=None, **kwargs
+    ):
+        toks = torch.arange(vocab_size).to(next(self.parameters()).device)
+        toks = toks[None, :, None].expand(num_codebooks, -1, -1).clone()
+        self.eval()
+        embs = [
+            self.model.quantizer.vq.layers[i].decode(indices)
+            for i, indices in enumerate(toks)
+        ]
+        return torch.cat(embs)[:, :, 0]
+
+
+class FairseqHuBERTTokenizer(FairseqHuBERT, BaseTokenizer):
+    def __init__(self, *args, **kwargs):
+        FairseqHuBERT.__init__(self, *args, **kwargs)
+        BaseTokenizer.__init__(self)
+    
+    @torch.no_grad()
+    def sig_to_tokens(self, signal, lengths, num_codebooks=None, **kwargs):
+        self.eval()
+        tokens = self.encode(signal)
+        return tokens
+
+    @torch.no_grad()
+    def tokens_to_sig(self, tokens, **kwargs):
+        raise NotImplementedError("Fairseq HuBERT does not support decoding")
+
+    @torch.no_grad()
+    def get_pretrained_embeddings(
+        self, vocab_size=None, num_codebooks=None, **kwargs
+    ):
+        raise NotImplementedError("Fairseq HuBERT does not support embeddings")
 
 class DiscreteSSLTokenizer(DiscreteSSL, BaseTokenizer):
     def __init__(self, *args, **kwargs):
