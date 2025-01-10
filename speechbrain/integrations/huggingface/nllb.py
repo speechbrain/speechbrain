@@ -8,7 +8,7 @@ Authors
  * Ha Nguyen 2023
 """
 
-from speechbrain.lobes.models.huggingface_transformers.mbart import mBART
+from speechbrain.integrations.huggingface.mbart import mBART
 from speechbrain.utils.logger import get_logger
 
 logger = get_logger(__name__)

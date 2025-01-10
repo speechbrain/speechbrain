@@ -55,7 +55,7 @@ test_dataloader_options:
 d_model: 768
 loss_scale: 50
 
-wav2vec2: !new:speechbrain.lobes.models.huggingface_transformers.wav2vec2.Wav2Vec2
+wav2vec2: !new:speechbrain.integrations.huggingface.wav2vec2.Wav2Vec2
     source: !ref <wav2vec2_hub>
     output_norm: False
     freeze: !ref <wav2vec2_frozen>
@@ -67,7 +67,7 @@ attn_pooling: !new:speechbrain.nnet.pooling.AttentionPooling
 #LaBSE
 labse_path: setu4993/LaBSE # cspell:disable
 labse_frozen: True
-LaBSE: !new:speechbrain.lobes.models.huggingface_transformers.labse.LaBSE
+LaBSE: !new:speechbrain.integrations.huggingface.labse.LaBSE
     source: !ref <labse_path>
     freeze: !ref <labse_frozen>
     output_norm: True

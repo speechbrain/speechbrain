@@ -57,7 +57,7 @@ n_init: 20
 reassignment_ratio: 0.0
 
 # Modules
-ssl_model: !new:speechbrain.lobes.models.huggingface_transformers.wav2vec2.Wav2Vec2
+ssl_model: !new:speechbrain.integrations.huggingface.wav2vec2.Wav2Vec2
     source: !ref <ssl_hub>
     output_norm: False
     freeze: True

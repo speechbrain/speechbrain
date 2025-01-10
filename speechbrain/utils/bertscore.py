@@ -10,7 +10,7 @@ from typing import Iterable, Optional
 
 import torch
 
-from speechbrain.lobes.models.huggingface_transformers import TextEncoder
+from speechbrain.integrations.huggingface import TextEncoder
 from speechbrain.utils.distances import cosine_similarity_matrix
 from speechbrain.utils.logger import get_logger
 from speechbrain.utils.metric_stats import MetricStats

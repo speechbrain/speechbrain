@@ -11,7 +11,7 @@ Authors
 
 import logging
 
-from speechbrain.lobes.models.huggingface_transformers.wav2vec2 import Wav2Vec2
+from speechbrain.integrations.huggingface.wav2vec2 import Wav2Vec2
 
 logger = logging.getLogger(__name__)
 

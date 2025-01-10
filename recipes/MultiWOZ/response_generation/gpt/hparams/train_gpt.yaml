@@ -88,7 +88,7 @@ test_dataloader_options:
 padding_mask: !name:speechbrain.lobes.models.transformer.Transformer.get_key_padding_mask
 
 # gpt model
-gpt_model: !new:speechbrain.lobes.models.huggingface_transformers.gpt.GPT
+gpt_model: !new:speechbrain.integrations.huggingface.gpt.GPT
     source: !ref <gpt_hub>
     freeze: !ref <freeze_gptmodel>
     save_path: !ref <gpt_folder>

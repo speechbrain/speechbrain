@@ -14,7 +14,7 @@ Authors
 import torch
 import torch.nn.functional as F
 
-from speechbrain.lobes.models.huggingface_transformers.huggingface import (
+from speechbrain.integrations.huggingface.huggingface import (
     HFTransformersInterface,
 )
 from speechbrain.utils.logger import get_logger

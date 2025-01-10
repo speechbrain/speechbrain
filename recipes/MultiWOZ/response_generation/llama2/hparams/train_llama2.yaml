@@ -70,7 +70,7 @@ test_dataloader_options:
 padding_mask: !name:speechbrain.lobes.models.transformer.Transformer.get_key_padding_mask
 
 #LLAMA2 model
-llama2_model: !new:speechbrain.lobes.models.huggingface_transformers.llama2.LLAMA2
+llama2_model: !new:speechbrain.integrations.huggingface.llama2.LLAMA2
     source: !ref <model_hub>
     freeze: !ref <freeze_model>
     save_path: !ref <llama2_folder>

@@ -18,7 +18,7 @@ import torch.nn.functional as F
 import transformers
 from transformers.models.wav2vec2.modeling_wav2vec2 import _compute_mask_indices
 
-from speechbrain.lobes.models.huggingface_transformers.huggingface import (
+from speechbrain.integrations.huggingface.huggingface import (
     HFTransformersInterface,
     make_padding_masks,
 )

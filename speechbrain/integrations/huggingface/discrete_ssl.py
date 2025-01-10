@@ -63,7 +63,7 @@ class DiscreteSSL(nn.Module):
     Example
     -------
     >>> import torch
-    >>> from speechbrain.lobes.models.huggingface_transformers.wavlm import (WavLM)
+    >>> from speechbrain.integrations.huggingface.wavlm import (WavLM)
     >>> inputs = torch.rand([3, 2000])
     >>> model_hub = "microsoft/wavlm-large"
     >>> save_path = "savedir"

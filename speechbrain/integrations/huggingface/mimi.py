@@ -15,7 +15,7 @@ Authors
 import torch
 
 from speechbrain.dataio.dataio import clean_padding_, length_to_mask
-from speechbrain.lobes.models.huggingface_transformers.huggingface import (
+from speechbrain.integrations.huggingface.huggingface import (
     HFTransformersInterface,
 )
 from speechbrain.utils.logger import get_logger

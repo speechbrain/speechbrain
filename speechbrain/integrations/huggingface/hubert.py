@@ -12,7 +12,7 @@ Authors
  * Ha Nguyen 2023
 """
 
-from speechbrain.lobes.models.huggingface_transformers.wav2vec2 import Wav2Vec2
+from speechbrain.integrations.huggingface.wav2vec2 import Wav2Vec2
 from speechbrain.utils.logger import get_logger
 
 logger = get_logger(__name__)

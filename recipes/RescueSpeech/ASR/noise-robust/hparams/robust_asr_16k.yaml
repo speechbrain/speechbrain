@@ -102,7 +102,7 @@ speed_perturb: !new:speechbrain.augment.time_domain.SpeedPerturb
 enhance_model: !include:../models/sepformer.yaml
 
 
-whisper: !new:speechbrain.lobes.models.huggingface_transformers.whisper.Whisper
+whisper: !new:speechbrain.integrations.huggingface.whisper.Whisper
     source: !ref <whisper_hub>
     freeze: !ref <freeze_whisper>
     save_path: !ref <whisper_folder>

@@ -14,7 +14,7 @@ from bitsandbytes.nn import Linear4bit
 from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training
 from transformers import BitsAndBytesConfig
 
-from speechbrain.lobes.models.huggingface_transformers.huggingface import (
+from speechbrain.integrations.huggingface.huggingface import (
     HFTransformersInterface,
 )
 from speechbrain.utils.logger import get_logger
