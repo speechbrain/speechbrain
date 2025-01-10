@@ -506,12 +506,10 @@ def apply_overfit_test(
 
 class PackedDatasetWrapper(Dataset):
     """Wrapper that packs tokens from an existing DynamicItemDataset."""
-    
-    def __init__(self, original_dataset, block_size, token_key="tokens", pad_token_id=-1):
+    def __init__(self, original_dataset, block_size, token_key="tokens"):
         self.original_dataset = original_dataset
         self.block_size = block_size
         self.token_key = token_key
-        self.pad_token_id = pad_token_id
         
         # Precompute the mapping from block index to original data indices
         self.blocks = []
@@ -609,18 +607,18 @@ class PackedDatasetWrapper(Dataset):
         if buffer:
             concatenated = torch.cat(buffer, dim=0)
             buffer_ids.append(id_name)
-            # we need to pad the buffer if it's not full
-            if buffer_length < self.block_size:
-                padding_length = self.block_size - buffer_length
-                padded_buffer = torch.cat([
-                    concatenated,
-                    torch.full((padding_length, concatenated.size(1)), self.pad_token_id, dtype=concatenated.dtype)
-                ], dim=0)
-                self.blocks.append(padded_buffer)
-                self.blocks_ids.append(buffer_ids)
-            else:
-                self.blocks.append(concatenated)
-                self.blocks_ids.append(buffer_ids)
+            # # we need to pad the buffer if it's not full
+            # if buffer_length < self.block_size:
+            #     padding_length = self.block_size - buffer_length
+            #     padded_buffer = torch.cat([
+            #         concatenated,
+            #         torch.full((padding_length, concatenated.size(1)), self.pad_token_id, dtype=concatenated.dtype)
+            #     ], dim=0)
+            #     self.blocks.append(padded_buffer)
+            #     self.blocks_ids.append(buffer_ids)
+            # else:
+            self.blocks.append(concatenated)
+            self.blocks_ids.append(buffer_ids)
 
     def __len__(self) -> int:
         return len(self.blocks)
