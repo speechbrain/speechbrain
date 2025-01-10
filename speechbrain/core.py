@@ -803,7 +803,7 @@ class Brain:
         elif "cuda" in self.device and self.precision in ["fp16", "bf16"]:
             self.use_amp = True
 
-        if self.use_amp and self.checkpointer is not None:
+        if gradscaler_enabled and self.use_amp and self.checkpointer is not None:
             self.checkpointer.add_recoverable(
                 "scaler", self.scaler, optional_load=True
             )
