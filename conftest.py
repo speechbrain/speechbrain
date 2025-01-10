@@ -65,9 +65,9 @@ try:
     from speechtokenizer import SpeechTokenizer  # noqa: F401
 except ModuleNotFoundError:
     collect_ignore.append(
-        "speechbrain/lobes/models/discrete/speechTokenizer.py"
+        "speechbrain/lobes/models/discrete/speechtokenizer.py"
     )
 try:
     import wavtokenizer  # noqa: F401
 except ModuleNotFoundError:
-    collect_ignore.append("speechbrain/lobes/models/discrete/wavTokenzier.py")
+    collect_ignore.append("speechbrain/lobes/models/discrete/wavtokenzier.py")
