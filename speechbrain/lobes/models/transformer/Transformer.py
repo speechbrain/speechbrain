@@ -137,7 +137,12 @@ class TransformerInterface(nn.Module):
         self.output_hidden_states = output_hidden_states
         self.layerdrop_prob = layerdrop_prob
 
-        assert attention_type in ["regularMHA", "RelPosMHAXL", "hypermixing", "RoPEMHA"]
+        assert attention_type in [
+            "regularMHA",
+            "RelPosMHAXL",
+            "hypermixing",
+            "RoPEMHA",
+        ]
         assert positional_encoding in ["fixed_abs_sine", None]
 
         assert (
@@ -156,14 +161,14 @@ class TransformerInterface(nn.Module):
             self.positional_encoding_decoder = PositionalEncoding(
                 d_model, max_length
             )
-        
+
         if attention_type == "RoPEMHA":
             self.positional_encoding = RotationMatrix(
                 max_length, d_model // nhead
-                )
+            )
             self.positional_encoding_decoder = PositionalEncoding(
                 d_model, max_length
-            ) # just an abosulte POS
+            )
 
         # initialize the encoder
         if num_encoder_layers > 0:
@@ -236,7 +241,7 @@ class TransformerInterface(nn.Module):
                 activation=activation,
                 normalize_before=normalize_before,
                 causal=True,
-                attention_type="RoPEMHA", #"regularMHA",  # always use regular attention in decoder
+                attention_type="regularMHA",
                 kdim=self.decoder_kdim,
                 vdim=self.decoder_vdim,
             )
@@ -384,8 +389,10 @@ class TransformerEncoderLayer(nn.Module):
             )
         elif attention_type == "RoPEMHA":
             self.self_att = sb.nnet.attention.RoPEMHA(
-                d_model, nhead, dropout,
-        )
+                d_model,
+                nhead,
+                dropout,
+            )
 
         if ffn_type == "regularFFN":
             self.pos_ffn = sb.nnet.attention.PositionalwiseFeedForward(
@@ -695,7 +702,7 @@ class TransformerDecoderLayer(nn.Module):
         dropout=0.0,
         activation=nn.ReLU,
         normalize_before=False,
-        attention_type="RoPEMHA", #"regularMHA", hard coded to RoPEMHA
+        attention_type="regularMHA",
         causal=None,
     ):
         super().__init__()
@@ -723,22 +730,6 @@ class TransformerDecoderLayer(nn.Module):
             self.multihead_attn = sb.nnet.attention.RelPosMHAXL(
                 d_model, nhead, dropout, mask_pos_future=causal
             )
-        elif attention_type == "RoPEMHA":
-            self.self_attn = sb.nnet.attention.RoPEMHA(
-                d_model, nhead, dropout,
-            )
-            # self.multihead_attn = sb.nnet.attention.RoPEMHA(
-            #     d_model, nhead, dropout,
-            # )
-            # hard corded for regular cross attention
-            self.multihead_attn = sb.nnet.attention.MultiheadAttention(
-                nhead=nhead,
-                d_model=d_model,
-                kdim=kdim,
-                vdim=vdim,
-                dropout=dropout,
-            )
-        
 
         self.pos_ffn = sb.nnet.attention.PositionalwiseFeedForward(
             d_ffn=d_ffn,
@@ -792,14 +783,14 @@ class TransformerDecoderLayer(nn.Module):
             tgt1 = self.norm1(tgt)
         else:
             tgt1 = tgt
-            
+
         # self-attention over the target sequence
         tgt2, self_attn = self.self_attn(
             query=tgt1,
             key=tgt1,
             value=tgt1,
-            attn_mask=tgt_mask, # a diagnoal mask
-            key_padding_mask=tgt_key_padding_mask, # a mask for padding
+            attn_mask=tgt_mask,
+            key_padding_mask=tgt_key_padding_mask,
             pos_embs=pos_embs_tgt,
         )
 
@@ -818,11 +809,11 @@ class TransformerDecoderLayer(nn.Module):
             query=tgt1,
             key=memory,
             value=memory,
-            attn_mask=memory_mask, # none
-            key_padding_mask=memory_key_padding_mask, # a mask for padding
+            attn_mask=memory_mask,  # none
+            key_padding_mask=memory_key_padding_mask,  # a mask for padding
             pos_embs=pos_embs_src,
         )
-        
+
         # breakpoint()
 
         # add & norm
@@ -901,7 +892,7 @@ class TransformerDecoder(nn.Module):
         activation=nn.ReLU,
         normalize_before=False,
         causal=False,
-        attention_type="RoPEMHA", #"regularMHA",
+        attention_type="regularMHA",
     ):
         super().__init__()
         self.layers = torch.nn.ModuleList(
