@@ -98,13 +98,12 @@ API
    speechbrain.dataio
    speechbrain.decoders
    speechbrain.inference
-   speechbrain.k2_integration
+   speechbrain.integrations
    speechbrain.lm
    speechbrain.lobes
    speechbrain.nnet
    speechbrain.processing
    speechbrain.tokenizers
    speechbrain.utils
-   speechbrain.wordemb
 
    hyperpyyaml.core
