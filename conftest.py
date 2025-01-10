@@ -70,4 +70,4 @@ except ModuleNotFoundError:
 try:
     import wavtokenizer  # noqa: F401
 except ModuleNotFoundError:
-    collect_ignore.append("speechbrain/lobes/models/discrete/wavtokenzier.py")
+    collect_ignore.append("speechbrain/lobes/models/discrete/wavtokenizer.py")
