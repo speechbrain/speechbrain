@@ -232,7 +232,7 @@ class FairseqHuBERTTokenizer(FairseqHuBERT, BaseTokenizer):
     def sig_to_tokens(self, signal, lengths, num_codebooks=None, **kwargs):
         self.eval()
         tokens = self.encode(signal)
-        return tokens
+        return tokens.unsqueeze(0).permute(0, 2, 1)
 
     @torch.no_grad()
     def tokens_to_sig(self, tokens, **kwargs):
