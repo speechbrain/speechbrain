@@ -28,12 +28,6 @@ try:
 except ModuleNotFoundError:
     collect_ignore.append("speechbrain/utils/bleu.py")
 try:
-    import speechtokenizer  # noqa: F401
-except ModuleNotFoundError:
-    collect_ignore.append(
-        "speechbrain/lobes/models/discrete/speechtokenizer_interface.py"
-    )
-try:
     import ctc_segmentation  # noqa: F401
 except ModuleNotFoundError:
     collect_ignore.append("speechbrain/alignment/ctc_segmentation.py")
