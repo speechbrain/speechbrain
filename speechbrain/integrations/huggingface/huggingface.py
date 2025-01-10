@@ -151,7 +151,7 @@ class HFTransformersInterface(nn.Module):
         self.freeze = freeze
         if self.freeze:
             logger.warning(
-                f"speechbrain.lobes.models.huggingface_transformers.huggingface - {type(self.model).__name__} is frozen."
+                f"speechbrain.integrations.huggingface.huggingface - {type(self.model).__name__} is frozen."
             )
             self.freeze_model(self.model)
         else:

@@ -6,7 +6,7 @@ some loss of quality depending on the bandwidth.
 
 Note that while encodec can be used to reconstruct speech data, for a
 high-quality reconstruction, it is recommended to use a specially trained
-vocoder, such as Vocos (speechbrain.lobes.models.huggingface_transformers.vocos)
+vocoder, such as Vocos (speechbrain.integrations.huggingface.vocos)
 
 Repository: https://huggingface.co/docs/transformers/v4.31.0/en/model_doc/encodec
 Paper: https://arxiv.org/abs/2210.13438

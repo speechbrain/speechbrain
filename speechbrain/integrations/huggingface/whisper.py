@@ -159,7 +159,7 @@ class Whisper(HFTransformersInterface):
         # freeze the model
         if not self.freeze and self.freeze_encoder:
             logger.warning(
-                "speechbrain.lobes.models.huggingface_transformers.whisper - whisper encoder is frozen."
+                "speechbrain.integrations.huggingface.whisper - whisper encoder is frozen."
             )
             for param in self.model.encoder.parameters():
                 param.requires_grad = False
@@ -175,7 +175,7 @@ class Whisper(HFTransformersInterface):
         """
 
         logger.warning(
-            "speechbrain.lobes.models.huggingface_transformers.whisper - whisper encoder-decoder is frozen."
+            "speechbrain.integrations.huggingface.whisper - whisper encoder-decoder is frozen."
         )
         model.train()  # we keep it to train to have dropout and LN computed adequately
         for param in model.parameters():

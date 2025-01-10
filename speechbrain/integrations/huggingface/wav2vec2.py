@@ -99,7 +99,7 @@ class Wav2Vec2(HFTransformersInterface):
         self.freeze_feature_extractor = freeze_feature_extractor
         if not self.freeze and self.freeze_feature_extractor:
             logger.warning(
-                "speechbrain.lobes.models.huggingface_transformers.wav2vec2 - wav2vec 2.0 feature extractor is frozen."
+                "speechbrain.integrations.huggingface.wav2vec2 - wav2vec 2.0 feature extractor is frozen."
             )
             self.model.feature_extractor.eval()
             for param in self.model.feature_extractor.parameters():

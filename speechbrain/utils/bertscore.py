@@ -42,7 +42,7 @@ class BERTScoreStats(MetricStats):
 
     Arguments
     ---------
-    lm : speechbrain.lobes.models.huggingface_transformers.TextEncoder
+    lm : speechbrain.integrations.huggingface.TextEncoder
         HF Transformers tokenizer and text encoder wrapper to use as a LM.
     batch_size : int, optional
         How many pairs of utterances should be considered at once. Higher is
