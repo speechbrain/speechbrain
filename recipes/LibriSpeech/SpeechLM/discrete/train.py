@@ -1,6 +1,31 @@
 #!/usr/bin/env/python3
 """
-HF_DATASETS_OFFLINE=1 HF_HUB_OFFLINE=1 HF_HOME="/scratch/adelmou/hf_home/" HF_HUB_CACHE="/scratch/adelmou/hf_home/hub/" python train.py hparams/ssl.yaml --data_folder=$SLURM_TMPDIR/LibriSpeech/
+HF_DATASETS_OFFLINE=1 HF_HUB_OFFLINE=1 python train.py hparams/ssl.yaml \
+--data_folder $SLURM_TMPDIR/LibriSpeech/ --tokens_folder $SCRATCH/results/hubert25hzl11_test/librispeech/  --num_workers 4 \
+--num_codebooks 1  --eval_precision=bf16 --batch_size=16 --block_size=2048 --grad_accumulation_factor=8 \
+--max_grad_norm=1.0 --optimizer_step_limit 10_000 --number_of_epochs=500 --tqdm_colored_bar \
+--output_folder $SCRATCH/results/speech_lm/hubert25hzl11/ --codebook_size=500 --skip_prep=True
+
+
+HF_DATASETS_OFFLINE=1 HF_HUB_OFFLINE=1 python train.py hparams/ssl.yaml \
+--data_folder $SLURM_TMPDIR/LibriSpeech/ --tokens_folder $SCRATCH/results/ST/librispeech/  --num_workers 4 \
+--num_codebooks 1  --eval_precision=bf16 --batch_size=16 --block_size=2048 --grad_accumulation_factor=8 \
+--max_grad_norm=1.0 --optimizer_step_limit 10_000 --number_of_epochs=500 --tqdm_colored_bar \
+--output_folder $SCRATCH/results/speech_lm/ST_test/ --codebook_size=1024 --skip_prep=True
+
+
+HF_DATASETS_OFFLINE=1 HF_HUB_OFFLINE=1 python train.py hparams/ssl.yaml \
+--data_folder $SLURM_TMPDIR/LibriSpeech/ --tokens_folder /scratch/adelmou/results/hubert25hzl11_last/save/librispeech/  --num_workers 4 \
+--num_codebooks 1  --eval_precision=bf16 --batch_size=16 --block_size=2048 --grad_accumulation_factor=8 \
+--max_grad_norm=1.0 --optimizer_step_limit 10_000 --number_of_epochs=500 --tqdm_colored_bar \
+--output_folder $SCRATCH/results/speech_lm/hubert25hzl11_collapsed/ --codebook_size=500 --skip_prep=True \
+--collapse_repeated_tokens=True
+
+TODOS:
+- wandb integration here + file logging
+- fix bug of empty autograd 
+- refactor codebook pattern name and make sure to better understand what is going on
+- some batch may have padding tokens, we should remove them.
 """
 
 import os
@@ -21,7 +46,6 @@ from torch.nn import functional as F
 import torch.nn as nn 
 logger = logging.getLogger(__name__)
 
-#TODO: load block_size of tokens. 
 
 # Define training procedure
 class GSLM(sb.Brain):
@@ -29,38 +53,40 @@ class GSLM(sb.Brain):
         """Forward computations from the waveform batches to the output probabilities."""
         batch = batch.to(self.device)
         inputs, _ = batch.tokens
+        # exit()
         # (B, T, C) -> (B, C, T)
         inputs = inputs.permute(0, 2, 1)
         labels = inputs[:, :, 1:]
         inputs = inputs[:, :, :-1]
-        
         
         block_size = self.hparams.config.block_size
         assert inputs.size(-1) <= block_size, 'input length >= block_size'
  
         patterned_inp = self.hparams.codebook_pattern.apply_delay_pattern(inputs)
         # print(patterned_inp.shape)
+        # print((patterned_inp == self.hparams.pad_token).sum())
+        # print(self.hparams.pad_token)
+        # exit()
         logits = self.modules.model(patterned_inp)
         # print(logits.shape)
         undelayed_logits, undelayed_logits_mask = self.hparams.codebook_pattern.undelay_logits(logits)
         # print(undelayed_logits.shape)
         # exit()
-        return undelayed_logits, undelayed_logits_mask, labels,
+        return undelayed_logits, undelayed_logits_mask, labels, 
 
     def compute_objectives(self, predictions, batch, stage):
         """Computes the loss (CTC+NLL) given predictions and targets."""
         # unpack batch
         logits, logits_mask, labels, = predictions
         logits = logits.float()
-        # calculate the loss on coarse audio tokens
+        # here we should use the length of the sequence
         lm_loss = F.cross_entropy(
             logits[logits_mask],
             labels[logits_mask],
             ignore_index=hparams["pad_token"], 
-            reduction='sum',
+            reduction='mean',
         )
-        loss = lm_loss / logits_mask.sum()
-        return loss
+        return lm_loss
 
 
     def on_stage_end(self, stage, stage_loss, epoch):
@@ -74,7 +100,7 @@ class GSLM(sb.Brain):
             old_lr, new_lr = self.hparams.lr_annealing(epoch)
             sb.nnet.schedulers.update_learning_rate(self.optimizer, new_lr)
 
-            steps = self.optimizer_step
+            steps = self.step
             optimizer = self.optimizer.__class__.__name__
 
             epoch_stats = {
@@ -153,6 +179,17 @@ def dataio_prepare(hparams):
         # concat eos_token to the end of the sequence
         eos_token = torch.full((1, tokens.size(-1)), hparams['eos_token'], dtype=tokens.dtype, device=tokens.device)
         tokens = torch.cat([tokens, eos_token], dim=0)
+        # TODO: collapse repeated tokens if hparams['collapse_repeated_tokens'] is True
+        # Remove consecutive repeated tokens if enabled
+        if hparams.get('collapse_repeated_tokens', False) and num_codebooks == 1:
+            # this block led a reduction from 277 batches to 213 batches
+            # with semantic tokenizer
+            # Get indices where values change
+            changes = (tokens[1:] != tokens[:-1]).any(dim=-1)
+            # Add True at start to always keep first token
+            mask = torch.cat([torch.tensor([True], device=tokens.device), changes])
+            # Use mask to keep only tokens that differ from previous
+            tokens = tokens[mask]
         return tokens
         
     sb.dataio.dataset.add_dynamic_item(datasets, tokens_pipeline)
@@ -162,8 +199,21 @@ def dataio_prepare(hparams):
         datasets, ["id", "tokens"],
     )
 
-    train_data = sb.dataio.dataset.PackedDatasetWrapper(train_data, hparams['block_size'], token_key="tokens", pad_token_id=hparams["pad_token"])
-    valid_data = sb.dataio.dataset.PackedDatasetWrapper(valid_data, hparams['block_size'], token_key="tokens", pad_token_id=hparams["pad_token"])
+    train_data = sb.dataio.dataset.PackedDatasetWrapper(
+        train_data, 
+        # we add 1 to the block size as we are going to use the same input
+        # for both, input and target. Since the model can take up to block_size tokens,
+        # we need to add 1 to maximise efficiency.
+        hparams['block_size'] + 1, 
+        token_key="tokens", 
+        # pad_token_id=hparams["pad_token"]
+    )
+    valid_data = sb.dataio.dataset.PackedDatasetWrapper(
+        valid_data, 
+        hparams['block_size'] + 1, 
+        token_key="tokens", 
+        # pad_token_id=hparams["pad_token"]
+    )
     return train_data, valid_data, test_datasets
 
 
@@ -218,6 +268,8 @@ if __name__ == "__main__":
         opt_class=hparams["opt_class"],
     )
 
+    print(f"Total number of tokens per opt step: {hparams['block_size'] * hparams['batch_size'] * hparams['grad_accumulation_factor']}")
+
     # ~ takes a minute or so to compile
     gslm_brain.modules.model = torch.compile(gslm_brain.modules.model)
 
@@ -230,16 +282,10 @@ if __name__ == "__main__":
         valid_loader_kwargs=hparams["valid_dataloader_opts"],
     )
 
-    exit()
-    # Testing
-    os.makedirs(hparams["output_wer_folder"], exist_ok=True)
-
+    # report the NLL on the test datasets (i.e. how likely those inputs are to be generated by the model)
     for k in test_datasets.keys():  # keys are test_clean, test_other etc
-        gslm_brain.hparams.test_wer_file = os.path.join(
-            hparams["output_wer_folder"], f"wer_{k}.txt"
-        )
         gslm_brain.evaluate(
             test_datasets[k],
+            min_key="loss",
             test_loader_kwargs=hparams["test_dataloader_opts"],
-            min_key="WER",
         )
