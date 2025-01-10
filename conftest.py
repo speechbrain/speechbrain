@@ -10,7 +10,10 @@ def pytest_generate_tests(metafunc):
         metafunc.parametrize("device", [option_value])
 
 
-collect_ignore = ["setup.py"]
+collect_ignore = [
+    "setup.py",
+    "speechbrain/lobes/models/huggingface_transformers/mert.py",
+]
 try:
     import numba  # noqa: F401
 except ModuleNotFoundError:
