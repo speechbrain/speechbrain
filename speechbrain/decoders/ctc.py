@@ -675,7 +675,7 @@ class CTCBaseSearcher(torch.nn.Module):
             try:
                 import kenlm  # type: ignore
 
-                from speechbrain.decoders.language_model import (
+                from speechbrain.integrations.lm.ctc import (
                     LanguageModel,
                     load_unigram_set_from_arpa,
                 )
