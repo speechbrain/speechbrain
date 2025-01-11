@@ -3,7 +3,7 @@ Package providing `k2-fsa <https://github.com/k2-fsa/k2>`_ integration.
 
 Intended loading manner:
 
-    >>> import speechbrain.k2_integration as sbk2
+    >>> import speechbrain.integrations.k2_fsa as sbk2
     >>> # Then use: sbk2.graph_compiler.CtcGraphCompiler for example
 
 """

@@ -54,10 +54,10 @@ def ctc_k2(
     Example
     -------
     >>> import torch
-    >>> from speechbrain.k2_integration.losses import ctc_k2
-    >>> from speechbrain.k2_integration.graph_compiler import CtcGraphCompiler
-    >>> from speechbrain.k2_integration.lexicon import Lexicon
-    >>> from speechbrain.k2_integration.prepare_lang import prepare_lang
+    >>> from speechbrain.integrations.k2_fsa.losses import ctc_k2
+    >>> from speechbrain.integrations.k2_fsa.graph_compiler import CtcGraphCompiler
+    >>> from speechbrain.integrations.k2_fsa.lexicon import Lexicon
+    >>> from speechbrain.integrations.k2_fsa.prepare_lang import prepare_lang
 
     >>> # Create a random batch of log-probs
     >>> batch_size = 4

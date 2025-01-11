@@ -7,7 +7,7 @@ from tempfile import TemporaryDirectory
 import pytest
 import torch
 
-from speechbrain.k2_integration import k2
+from speechbrain.integrations.k2_fsa import k2
 from speechbrain.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -30,7 +30,7 @@ def test_get_lexicon(tmp_path, tmp_csv_file):
     vocab_files = []  # This list is empty for simplicity in this test.
 
     # Call the function
-    from speechbrain.k2_integration.lexicon import prepare_char_lexicon
+    from speechbrain.integrations.k2_fsa.lexicon import prepare_char_lexicon
 
     prepare_char_lexicon(
         lang_dir, vocab_files, csv_files, add_word_boundary=False
@@ -48,7 +48,7 @@ def test_get_lexicon_with_boundary(tmp_path, tmp_csv_file):
     vocab_files = []
 
     # Call the function with word boundaries
-    from speechbrain.k2_integration.lexicon import prepare_char_lexicon
+    from speechbrain.integrations.k2_fsa.lexicon import prepare_char_lexicon
 
     prepare_char_lexicon(
         lang_dir, vocab_files, csv_files, add_word_boundary=True
@@ -77,7 +77,7 @@ def test_read_lexicon(mock_lexicon_file):
         ("world", ["w", "o", "r", "l", "d"]),
     ]
 
-    from speechbrain.k2_integration.lexicon import read_lexicon
+    from speechbrain.integrations.k2_fsa.lexicon import read_lexicon
 
     output = read_lexicon(mock_lexicon_file)
     assert output == expected_output
@@ -94,7 +94,7 @@ def test_write_lexicon(tmp_path):
     lexicon_file = tmp_path / "test_lexicon.txt"
 
     # Use the function to write lexicon to the file.
-    from speechbrain.k2_integration.lexicon import write_lexicon
+    from speechbrain.integrations.k2_fsa.lexicon import write_lexicon
 
     write_lexicon(lexicon_file, lexicon_data)
 
@@ -112,7 +112,7 @@ def test_get_tokens_basic():
         ("hello", ["h", "e", "l", "l", "o"]),
         ("world", ["w", "o", "r", "l", "d"]),
     ]
-    from speechbrain.k2_integration.prepare_lang import get_tokens
+    from speechbrain.integrations.k2_fsa.prepare_lang import get_tokens
 
     tokens = get_tokens(lexicon)
     expected_tokens = ["d", "e", "h", "l", "o", "r", "w"]
@@ -126,7 +126,7 @@ def test_get_tokens_with_sil():
         ("world", ["w", "o", "r", "l", "d", "SIL"]),
     ]
     with pytest.raises(AssertionError):
-        from speechbrain.k2_integration.prepare_lang import get_tokens
+        from speechbrain.integrations.k2_fsa.prepare_lang import get_tokens
 
         get_tokens(lexicon)
 
@@ -137,7 +137,7 @@ def test_get_tokens_manually_add_sil():
         ("hello", ["h", "e", "l", "l", "o"]),
         ("world", ["w", "o", "r", "l", "d"]),
     ]
-    from speechbrain.k2_integration.prepare_lang import get_tokens
+    from speechbrain.integrations.k2_fsa.prepare_lang import get_tokens
 
     tokens = get_tokens(lexicon, manually_add_sil_to_tokens=True)
     expected_tokens = ["SIL", "d", "e", "h", "l", "o", "r", "w"]
@@ -149,7 +149,9 @@ def test_unique_pronunciations():
         ("hello", ["h", "e", "l", "l", "o"]),
         ("world", ["w", "o", "r", "l", "d"]),
     ]
-    from speechbrain.k2_integration.prepare_lang import add_disambig_symbols
+    from speechbrain.integrations.k2_fsa.prepare_lang import (
+        add_disambig_symbols,
+    )
 
     new_lexicon, max_disambig = add_disambig_symbols(lexicon)
     assert new_lexicon == lexicon
@@ -161,7 +163,9 @@ def test_repeated_pronunciations():
         ("hello", ["h", "e", "l", "l", "o"]),
         ("greeting", ["h", "e", "l", "l", "o"]),
     ]
-    from speechbrain.k2_integration.prepare_lang import add_disambig_symbols
+    from speechbrain.integrations.k2_fsa.prepare_lang import (
+        add_disambig_symbols,
+    )
 
     new_lexicon, max_disambig = add_disambig_symbols(lexicon)
     assert new_lexicon == [
@@ -173,7 +177,9 @@ def test_repeated_pronunciations():
 
 def test_prefix_pronunciations():
     lexicon = [("he", ["h", "e"]), ("hello", ["h", "e", "l", "l", "o"])]
-    from speechbrain.k2_integration.prepare_lang import add_disambig_symbols
+    from speechbrain.integrations.k2_fsa.prepare_lang import (
+        add_disambig_symbols,
+    )
 
     new_lexicon, max_disambig = add_disambig_symbols(lexicon)
     assert new_lexicon == [
@@ -190,7 +196,9 @@ def test_mixed_pronunciations():
         ("hey", ["h", "e"]),
         ("world", ["h", "e", "l", "l", "o"]),
     ]
-    from speechbrain.k2_integration.prepare_lang import add_disambig_symbols
+    from speechbrain.integrations.k2_fsa.prepare_lang import (
+        add_disambig_symbols,
+    )
 
     new_lexicon, max_disambig = add_disambig_symbols(lexicon)
     # Correct the expected output based on function behavior
@@ -226,7 +234,7 @@ def test_lexicon_to_fst():
 
     word2id = {"<eps>": 0, "hello": 1, "world": 2, "#0": 3}  # for self-loop
 
-    from speechbrain.k2_integration.prepare_lang import lexicon_to_fst
+    from speechbrain.integrations.k2_fsa.prepare_lang import lexicon_to_fst
 
     fsa = lexicon_to_fst(
         lexicon=lexicon,
@@ -263,7 +271,9 @@ def test_lexicon_to_fst_no_sil():
 
     word2id = {"<eps>": 0, "hello": 1, "world": 2, "#0": 3}  # for self-loop
 
-    from speechbrain.k2_integration.prepare_lang import lexicon_to_fst_no_sil
+    from speechbrain.integrations.k2_fsa.prepare_lang import (
+        lexicon_to_fst_no_sil,
+    )
 
     fsa = lexicon_to_fst_no_sil(
         lexicon=lexicon,
@@ -291,7 +301,7 @@ def test_prepare_lang():
         f.write(lexicon_content.strip())
 
     # Step 2: Run prepare_lang
-    from speechbrain.k2_integration.prepare_lang import prepare_lang
+    from speechbrain.integrations.k2_fsa.prepare_lang import prepare_lang
 
     prepare_lang(temp_dir, sil_token="SIL", sil_prob=0.5)
 
@@ -323,12 +333,12 @@ world w o r l d"""
             f.write(lexicon_sample)
 
         # Create a lang directory with the lexicon and L.pt, L_inv.pt, L_disambig.pt using prepare_lang
-        from speechbrain.k2_integration.prepare_lang import prepare_lang
+        from speechbrain.integrations.k2_fsa.prepare_lang import prepare_lang
 
         prepare_lang(tmpdir_path)
 
         # Create a lexicon object
-        from speechbrain.k2_integration.lexicon import Lexicon
+        from speechbrain.integrations.k2_fsa.lexicon import Lexicon
 
         lexicon = Lexicon(tmpdir_path)
 
@@ -387,17 +397,19 @@ world w o r l d"""
             f.write(lexicon_sample)
 
         # Create a lang directory with the lexicon and L.pt, L_inv.pt, L_disambig.pt
-        from speechbrain.k2_integration.prepare_lang import prepare_lang
+        from speechbrain.integrations.k2_fsa.prepare_lang import prepare_lang
 
         prepare_lang(tmpdir)
 
         # Create a lexicon object
-        from speechbrain.k2_integration.lexicon import Lexicon
+        from speechbrain.integrations.k2_fsa.lexicon import Lexicon
 
         lexicon = Lexicon(tmpdir)
 
         # Create a graph compiler
-        from speechbrain.k2_integration.graph_compiler import CtcGraphCompiler
+        from speechbrain.integrations.k2_fsa.graph_compiler import (
+            CtcGraphCompiler,
+        )
 
         graph_compiler = CtcGraphCompiler(
             lexicon,
@@ -408,7 +420,7 @@ world w o r l d"""
         texts = ["hello world", "world hello", "hello", "world"]
 
         # Compute the loss
-        from speechbrain.k2_integration.losses import ctc_k2
+        from speechbrain.integrations.k2_fsa.losses import ctc_k2
 
         loss = ctc_k2(
             log_probs=log_probs,

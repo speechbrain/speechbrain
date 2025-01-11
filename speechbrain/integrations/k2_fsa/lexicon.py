@@ -56,10 +56,10 @@ class Lexicon(object):
 
     Example
     -------
-    >>> from speechbrain.k2_integration import k2
-    >>> from speechbrain.k2_integration.lexicon import Lexicon
-    >>> from speechbrain.k2_integration.graph_compiler import CtcGraphCompiler
-    >>> from speechbrain.k2_integration.prepare_lang import prepare_lang
+    >>> from speechbrain.integrations.k2_fsa import k2
+    >>> from speechbrain.integrations.k2_fsa.lexicon import Lexicon
+    >>> from speechbrain.integrations.k2_fsa.graph_compiler import CtcGraphCompiler
+    >>> from speechbrain.integrations.k2_fsa.prepare_lang import prepare_lang
 
     >>> # Create a small lexicon containing only two words and write it to a file.
     >>> lang_tmpdir = getfixture('tmpdir')
@@ -458,7 +458,7 @@ def prepare_char_lexicon(
 
     Example
     -------
-    >>> from speechbrain.k2_integration.lexicon import prepare_char_lexicon
+    >>> from speechbrain.integrations.k2_fsa.lexicon import prepare_char_lexicon
     >>> # Create some dummy csv files containing only the words `hello`, `world`.
     >>> # The first line is the header, and the remaining lines are in the following
     >>> # format:

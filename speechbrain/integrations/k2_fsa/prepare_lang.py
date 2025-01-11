@@ -450,7 +450,7 @@ def prepare_lang(lang_dir, sil_token="SIL", sil_prob=0.5, cache=True):
 
     Example
     -------
-    >>> from speechbrain.k2_integration.prepare_lang import prepare_lang
+    >>> from speechbrain.integrations.k2_fsa.prepare_lang import prepare_lang
 
     >>> # Create a small lexicon containing only two words and write it to a file.
     >>> lang_tmpdir = getfixture('tmpdir')

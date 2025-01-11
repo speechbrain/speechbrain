@@ -74,13 +74,13 @@ def get_decoding(
     Example
     -------
     >>> import torch
-    >>> from speechbrain.k2_integration.losses import ctc_k2
-    >>> from speechbrain.k2_integration.utils import lattice_paths_to_text
-    >>> from speechbrain.k2_integration.graph_compiler import CtcGraphCompiler
-    >>> from speechbrain.k2_integration.lexicon import Lexicon
-    >>> from speechbrain.k2_integration.prepare_lang import prepare_lang
-    >>> from speechbrain.k2_integration.lattice_decoder import get_decoding
-    >>> from speechbrain.k2_integration.lattice_decoder import get_lattice
+    >>> from speechbrain.integrations.k2_fsa.losses import ctc_k2
+    >>> from speechbrain.integrations.k2_fsa.utils import lattice_paths_to_text
+    >>> from speechbrain.integrations.k2_fsa.graph_compiler import CtcGraphCompiler
+    >>> from speechbrain.integrations.k2_fsa.lexicon import Lexicon
+    >>> from speechbrain.integrations.k2_fsa.prepare_lang import prepare_lang
+    >>> from speechbrain.integrations.k2_fsa.lattice_decoder import get_decoding
+    >>> from speechbrain.integrations.k2_fsa.lattice_decoder import get_lattice
 
     >>> batch_size = 1
 
