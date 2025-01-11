@@ -61,7 +61,7 @@ class DiscreteSpeechLM(nn.Module):
         self.block_size = config.block_size
         self.n_codebooks = config.n_codebooks
         self.vocabsize = config.vocabsize
-
+        print("vocabsize = ", config.vocabsize)
         # This should be moved in the yaml not here. 
         self.model = AutoModelForCausalLM.from_pretrained(
             self.source,
@@ -128,36 +128,3 @@ class DiscreteSpeechLM(nn.Module):
         logits_audio = torch.stack([self.audio_out[k](h) for k in range(self.n_codebooks)], dim=1)
 
         return logits_audio
-
-if __name__ == "__main__":
-    import torchaudio
-    audio_file = "/scratch/adelmou/datasets/sLM21-dataset/semantic/dev/librispeech/vuNdkweosd.wav"
-
-    wav, sr = torchaudio.load(audio_file)
-
-    source = "HuggingFaceTB/SmolLM2-135M"
-
-    config = DiscreteSpeechLMConfig(
-        source = source,
-        cache_dir = "/scratch/adelmou/hf_home/hub/",
-        block_size = 1024,
-        n_codebooks  = 5,
-        vocabsize = 1024,
-        tie_embds = False,
-    )
-
-    pattern = InterleavedCodebookPattern(audio_pad_token=0)
-
-    model = DiscreteSpeechLM(
-        config = config
-    ).to("cuda").to(torch.bfloat16)
-
-    batch_size, n_codebooks, seq_length = 1, 5, 10 
-    fake_inp = torch.randint(0, 1024, (batch_size, n_codebooks, seq_length)).to("cuda").to(torch.bfloat16).to(torch.long)
-    print(fake_inp)
-
-    fake_inp = pattern.apply_delay_pattern(fake_inp)
-    print(fake_inp.shape)
-    logits_audio = model(fake_inp)   
-    logits_audio, _ = pattern.undelay_logits(logits_audio)
-    print(logits_audio.shape)
