@@ -3,7 +3,8 @@
 # TODO: add custom sampling logic.
 seed: 1986
 __set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
-output_folder: !ref results/LibriSpeech/discrete_speechLM/wavlm/<seed>
+experiment_name: hubert_overfit_dev_clean
+output_folder: !ref results/LibriSpeech/<experiment_name>/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
@@ -11,31 +12,34 @@ train_log: !ref <output_folder>/train_log.txt
 data_folder: !PLACEHOLDER # e,g./path/to/LibriSpeech
 tokens_folder: !PLACEHOLDER  # Path to the folder where extracted tokens are saved.
 # data_folder_rirs: !ref <data_folder>
-train_splits: ["dev-clean"]
+train_splits: ["train-clean-100", "train-clean-360", "train-other-500"]
 dev_splits: ["dev-clean"]
 test_splits: ["test-clean", "test-other"]
-train_csv: !ref <output_folder>/dev-clean.csv
-valid_csv: !ref <output_folder>/dev-clean.csv
+csv_folder: /home/adelmou/proj/speechbrain/gslms/speechbrain/recipes/LibriSpeech/SpeechLM/discrete/results/LibriSpeech/discrete_speechLM/wavlm/1986
+train_csv: !ref <csv_folder>/train.csv
+valid_csv: !ref <csv_folder>/dev-clean.csv
 test_csv:
-   - !ref <output_folder>/test-clean.csv
-   - !ref <output_folder>/test-other.csv
+   - !ref <csv_folder>/test-clean.csv
+   - !ref <csv_folder>/test-other.csv
 
 # Training parameters
 number_of_epochs: 20
 lr: 3e-3
 sorting: ascending
 precision: bf16
+eval_precision: bf16
 skip_prep: False 
 num_codebooks: 8 
 sample_rate: 16000
 codebook_size: 1024
 block_size: 2048 
-eos_token: !ref <codebook_size> + 1
-pad_token: !ref <codebook_size> + 2
-vocabsize: !ref <pad_token> + 1 # codebook_size + eos + pad -> 1026
+eos_token: !ref <codebook_size>
+pad_token: !ref <codebook_size> + 1
+vocabsize: !ref <codebook_size> + 2 # card(codebook) + eos + pad -> 1026
+collapse_repeated_tokens: False
 
-# aim for something like 500k tokens / BP step.
-# 32 * 2048 * 8 ~= 500k tokens
+# aim for something like 1M tokens / BP step.
+# 32 * 2048 * 16 ~= 1M tokens
 batch_size: 32
 grad_accumulation_factor: 8
 test_batch_size: 1
@@ -45,7 +49,7 @@ num_workers: 0
 
 # Dataloader options
 train_dataloader_opts:
-  shuffle: True
+  shuffle: False
   batch_size: !ref <batch_size>
   num_workers: !ref <num_workers>
   collate_fn: !name:speechbrain.dataio.batch.PaddedBatch
@@ -103,9 +107,26 @@ modules:
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
   checkpoints_dir: !ref <save_folder>
   recoverables:
-    model: !ref <model>
-    counter: !ref <epoch_counter>
-# add MFU.
+        model: !ref <model>
+        counter: !ref <epoch_counter>
+  
+wandb_dir: /home/adelmou/proj/speechbrain/gslms/speechbrain/recipes/LibriSpeech/SpeechLM/discrete/
+# Note: one need to make sure that dir exists before running the script.
+_make_wandb_dir: !name:os.makedirs
+  dir: !ref <wandb_dir>
+  exist_ok: True
+
+initializer: !name:wandb.init
+  entity: Zarko
+  project: SLMs
+  name: !ref <experiment_name> 
+  reinit: True
+  resume: False
+  mode: "offline"
+  dir: !ref <wandb_dir>
+
+wandb_logger: !new:speechbrain.utils.train_logger.WandBLogger
+  initializer: !ref <initializer>
 
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
   save_file: !ref <train_log>  

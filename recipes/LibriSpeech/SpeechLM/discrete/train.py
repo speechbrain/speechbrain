@@ -16,16 +16,16 @@ HF_DATASETS_OFFLINE=1 HF_HUB_OFFLINE=1 python train.py hparams/ssl.yaml \
 
 HF_DATASETS_OFFLINE=1 HF_HUB_OFFLINE=1 python train.py hparams/ssl.yaml \
 --data_folder $SLURM_TMPDIR/LibriSpeech/ --tokens_folder /scratch/adelmou/results/hubert25hzl11_last/save/librispeech/  --num_workers 4 \
---num_codebooks 1  --eval_precision=bf16 --batch_size=16 --block_size=2048 --grad_accumulation_factor=8 \
+--num_codebooks 1  --eval_precision=bf16 --batch_size=32 --block_size=2048 --grad_accumulation_factor=8 \
 --max_grad_norm=1.0 --optimizer_step_limit 10_000 --number_of_epochs=500 --tqdm_colored_bar \
---output_folder $SCRATCH/results/speech_lm/hubert25hzl11_collapsed/ --codebook_size=500 --skip_prep=True \
---collapse_repeated_tokens=True
+--output_folder $SCRATCH/results/speech_lm/hubert25hzl11_collapsed_no_overfit/ --codebook_size=500 --skip_prep=True \
+--collapse_repeated_tokens=True --experiment_name=hubert25hzl11_collapsed_no_overfit
 
 TODOS:
 - wandb integration here + file logging
 - fix bug of empty autograd 
+- calculate the MFU and report it
 - refactor codebook pattern name and make sure to better understand what is going on
-- some batch may have padding tokens, we should remove them.
 """
 
 import os
@@ -45,7 +45,8 @@ from speechbrain.lobes.models.huggingface_transformers.discrete_speechlm import 
 from torch.nn import functional as F
 import torch.nn as nn 
 logger = logging.getLogger(__name__)
-
+import time
+import wandb 
 
 # Define training procedure
 class GSLM(sb.Brain):
@@ -54,7 +55,7 @@ class GSLM(sb.Brain):
         batch = batch.to(self.device)
         inputs, _ = batch.tokens
         # exit()
-        # (B, T, C) -> (B, C, T)
+        # todo: fix this so that we always have B, C, T: (B, T, C) -> (B, C, T)
         inputs = inputs.permute(0, 2, 1)
         labels = inputs[:, :, 1:]
         inputs = inputs[:, :, :-1]
@@ -86,6 +87,13 @@ class GSLM(sb.Brain):
             ignore_index=hparams["pad_token"], 
             reduction='mean',
         )
+
+        if stage == sb.Stage.TRAIN and hasattr(self.hparams, 'wandb_logger'):
+            loss = {"train_loss": lm_loss, "epoch": self.step}
+            self.hparams.wandb_logger.log_stats(
+                stats_meta=loss,
+            )
+
         return lm_loss
 
 
@@ -114,6 +122,12 @@ class GSLM(sb.Brain):
                 train_stats=self.train_stats,
                 valid_stats=stage_stats,
             )
+            if hasattr(self.hparams, 'wandb_logger'):
+                self.hparams.wandb_logger.log_stats(
+                    stats_meta=epoch_stats,
+                    train_stats=self.train_stats,
+                    valid_stats=stage_stats,
+                )
             self.checkpointer.save_and_keep_only(
                 meta={"loss": stage_loss, "epoch": epoch},
                 min_keys=["loss"],
@@ -270,6 +284,9 @@ if __name__ == "__main__":
 
     print(f"Total number of tokens per opt step: {hparams['block_size'] * hparams['batch_size'] * hparams['grad_accumulation_factor']}")
 
+    # Watch model with wandb if wandb logger is set
+    if hasattr(gslm_brain, "wandb_logger"):
+        gslm_brain.wandb_logger.wandb.watch(gslm_brain.modules.model)
     # ~ takes a minute or so to compile
     gslm_brain.modules.model = torch.compile(gslm_brain.modules.model)
 
