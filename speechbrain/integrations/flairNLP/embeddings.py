@@ -11,8 +11,6 @@ import torch
 from flair.data import Sentence
 from flair.embeddings import Embeddings
 
-from speechbrain.utils.fetching import fetch
-
 
 class FlairEmbeddings:
     """
@@ -23,23 +21,38 @@ class FlairEmbeddings:
     embeddings : Embeddings
         The Flair embeddings object. If you do not have one initialized, use
         :meth:`~FlairEmbeddings.from_hf` instead.
+
+    Example
+    -------
+    >>> from speechbrain.utils.metric_stats import EmbeddingErrorRateSimilarity
+    >>> from speechbrain.utils.metric_stats import WeightedErrorRateStats
+    >>> from speechbrain.utils.metric_stats import ErrorRateStats
+    >>> ember = FlairEmbeddings.from_hf(
+    ...     embeddings_class=flair.embeddings.TransformerWordEmbeddings,
+    ...     source="google-bert/bert-base-uncased",
+    ... )
+    >>> ember_metric = EmbeddingErrorRateSimilarity(
+    ...     embedding_function=lambda x: FlairEmbeddings.embed_word(ember, x),
+    ...     low_similarity_weight=1.0,
+    ...     high_similarity_weight=0.1,
+    ...     threshold=0.4,
+    ... )
+    >>> weighted_wer = WeightedErrorRateStats(
+    ...     base_stats=ErrorRateStats(),
+    ...     cost_function=ember_metric,
+    ...     weight_name="ember",
+    ... )
+    >>> weighted_wer.base_stats.append(["id"], ["hi friend"], ["hi buddy"])
+    >>> weighted_wer.summarize()
+    {'ember_wer': 16.6..., 'ember_insertions': 1.0, 'ember_substitutions': 0.5, 'ember_deletions': 0.0, 'ember_num_edits': 1.5}
     """
 
     def __init__(self, embeddings: Embeddings) -> None:
         self.embeddings = embeddings
 
     @staticmethod
-    def from_hf(
-        embeddings_class,
-        source,
-        save_path="./model_checkpoints",
-        filename="model.bin",
-        *args,
-        **kwargs,
-    ) -> "FlairEmbeddings":
-        """Fetches and load flair embeddings according to the
-        :func:`speechbrain.utils.fetching.fetch` semantics. Embedding files will
-        be saved into a unique subdirectory in `save_path`.
+    def from_hf(embeddings_class, source, *args, **kwargs) -> "FlairEmbeddings":
+        """Fetches and load flair embeddings.
 
         Arguments
         ---------
@@ -47,12 +60,6 @@ class FlairEmbeddings:
             The class to use to initialize the model, e.g. `FastTextEmbeddings`.
         source : str
             The location of the model (a directory or HF repo, for instance).
-        save_path : str, optional
-            The saving location for the model (i.e. the root for the download or
-            symlink location).
-        filename : str, optional
-            The filename of the model. The default is the usual filename for
-            this kind of model.
         *args
             Extra positional arguments to pass to the flair class constructor
         **kwargs
@@ -63,10 +70,7 @@ class FlairEmbeddings:
         FlairEmbeddings
         """
 
-        # figure out a unique name for this source
-        target = save_path + "/flair-emb--" + source.replace("/", "--") + "/"
-        local_path = str(fetch(filename, source, savedir=target))
-        return FlairEmbeddings(embeddings_class(local_path, *args, **kwargs))
+        return FlairEmbeddings(embeddings_class(source, *args, **kwargs))
 
     def __call__(
         self,
