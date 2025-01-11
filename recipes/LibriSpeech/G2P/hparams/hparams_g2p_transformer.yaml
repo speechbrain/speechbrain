@@ -309,7 +309,7 @@ word_emb_enc: !new:speechbrain.lobes.models.g2p.model.WordEmbeddingEncoder
     norm_type: !ref <word_emb_norm_type>
 
 word_emb: !apply:speechbrain.lobes.models.g2p.dataio.lazy_init
-    init: !name:speechbrain.wordemb.transformer.TransformerWordEmbeddings
+    init: !name:speechbrain.integrations.huggingface.wordemb.transformer.TransformerWordEmbeddings
         model: !ref <word_emb_model>
 
 log_softmax: !new:speechbrain.nnet.activations.Softmax

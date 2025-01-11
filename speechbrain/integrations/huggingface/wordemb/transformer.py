@@ -42,7 +42,7 @@ class TransformerWordEmbeddings(nn.Module):
     HuggingFace transformer library is optional.
 
     >>> from transformers import AutoTokenizer, AutoModel # doctest: +SKIP
-    >>> from speechbrain.wordemb.transformer import TransformerWordEmbeddings
+    >>> from speechbrain.integrations.huggingface.wordemb.transformer import TransformerWordEmbeddings
     >>> model_name = "bert-base-uncased" # doctest: +SKIP
     >>> tokenizer = AutoTokenizer.from_pretrained(
     ...    model_name, return_tensors='pt') # doctest: +SKIP
