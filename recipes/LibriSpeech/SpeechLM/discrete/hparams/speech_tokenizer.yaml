@@ -56,3 +56,5 @@ tokens_extractor: !new:utils.tokens.TokensExtractor
   src_key: !ref <src_key>
   id_key: !ref <id_key>
   dataloader_opts: !ref <dataloader_opts>
+  rank: !ref <rank>
+  num_shards: !ref <num_shards>
