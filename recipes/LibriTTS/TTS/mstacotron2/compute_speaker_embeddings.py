@@ -1,5 +1,4 @@
 import json
-import logging
 import os
 import pickle
 
@@ -8,8 +7,9 @@ from tqdm import tqdm
 
 from speechbrain.inference.classifiers import EncoderClassifier
 from speechbrain.inference.encoders import MelSpectrogramEncoder
+from speechbrain.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def compute_speaker_embeddings(
@@ -69,7 +69,7 @@ def compute_speaker_embeddings(
 
         speaker_embeddings = dict()  # Holds speaker embeddings
 
-        json_file = open(input_filepaths[i])
+        json_file = open(input_filepaths[i], encoding="utf-8")
         json_data = json.load(json_file)
 
         # Processes all utterances in the data manifest file

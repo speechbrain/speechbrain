@@ -26,10 +26,11 @@
 #  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 # *****************************************************************************
-import logging
 import re
 
-logger = logging.getLogger(__name__)
+from speechbrain.utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 valid_symbols = [
     "AA",

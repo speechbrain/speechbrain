@@ -14,19 +14,20 @@ Authors
 """
 
 import json
-import logging
 from collections import OrderedDict
 
 import numpy as np
 import pandas as pd
 
+from speechbrain.utils.logger import get_logger
+
 """ Global variables"""
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 valid_json_dataset = {}
 
 
 def load_data_json(path):
-    with open(path) as f:
+    with open(path, encoding="utf-8") as f:
         json_file = json.load(f)
     return json_file
 
@@ -219,7 +220,7 @@ def create_json_dataset(dic, sample_rate, window_size):
 
 def save_dataset(json_save_path, json_dataset):
     """Saves a JSON file."""
-    with open(json_save_path, "w+") as fp:
+    with open(json_save_path, "w+", encoding="utf-8") as fp:
         json.dump(json_dataset, fp, indent=4)
 
 

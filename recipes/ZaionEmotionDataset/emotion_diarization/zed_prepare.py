@@ -10,7 +10,6 @@ Yingzhi Wang 2023
 """
 
 import json
-import logging
 import os
 import random
 
@@ -20,8 +19,9 @@ from datasets.prepare_IEMOCAP import prepare_iemocap
 from datasets.prepare_JLCORPUS import prepare_jlcorpus
 from datasets.prepare_RAVDESS import prepare_ravdess
 
-logging.getLogger().setLevel(logging.INFO)
-logger = logging.getLogger(__name__)
+from speechbrain.utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 def getOverlap(a, b):
@@ -219,7 +219,7 @@ def prepare_test(ZED_folder, save_json_test, win_len, stride):
 
     try:
         zed_json_path = os.path.join(ZED_folder, "ZED.json")
-        with open(zed_json_path, "r") as f:
+        with open(zed_json_path, "r", encoding="utf-8") as f:
             all_dict = json.load(f)
     except OSError:
         logger.info(f"ZED.json can't be found under {ZED_folder}")
@@ -296,7 +296,7 @@ def create_json(data, json_file):
         The path of the output json file
     """
     # Writing the dictionary to the json file
-    with open(json_file, mode="w") as json_f:
+    with open(json_file, mode="w", encoding="utf-8") as json_f:
         json.dump(data, json_f, indent=2)
     logger.info(f"{json_file} successfully created!")
 
@@ -325,7 +325,7 @@ def check_and_prepare_dataset(
             logger.info(
                 f"{json_path} exists, skipping f{data_name} preparation."
             )
-            with open(json_path, "r") as f:
+            with open(json_path, "r", encoding="utf-8") as f:
                 data = json.load(f)
         dictionary.update(data.items())
     else:

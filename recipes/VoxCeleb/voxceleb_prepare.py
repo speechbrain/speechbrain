@@ -6,7 +6,6 @@ Download: http://www.robots.ox.ac.uk/~vgg/data/voxceleb/
 
 import csv
 import glob
-import logging
 import os
 import random
 import shutil
@@ -18,8 +17,9 @@ import torchaudio
 from tqdm.contrib import tqdm
 
 from speechbrain.dataio.dataio import load_pkl, save_pkl
+from speechbrain.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 OPT_FILE = "opt_voxceleb_prepare.pkl"
 TRAIN_CSV = "train.csv"
 DEV_CSV = "dev.csv"
@@ -269,7 +269,7 @@ def _get_utt_split_lists(
     for data_folder in data_folders:
         test_lst = [
             line.rstrip("\n").split(" ")[1]
-            for line in open(verification_pairs_file)
+            for line in open(verification_pairs_file, encoding="utf-8")
         ]
         test_lst = set(sorted(test_lst))
 
@@ -413,7 +413,7 @@ def prepare_csv(seg_dur, wav_lst, csv_file, random_segment=False, amp_th=0):
     csv_output = csv_output + entry
 
     # Writing the csv lines
-    with open(csv_file, mode="w") as csv_f:
+    with open(csv_file, mode="w", newline="", encoding="utf-8") as csv_f:
         csv_writer = csv.writer(
             csv_f, delimiter=",", quotechar='"', quoting=csv.QUOTE_MINIMAL
         )
@@ -452,7 +452,7 @@ def prepare_csv_enrol_test(data_folders, save_folder, verification_pairs_file):
         enrol_ids, test_ids = [], []
 
         # Get unique ids (enrol and test utterances)
-        for line in open(test_lst_file):
+        for line in open(test_lst_file, encoding="utf-8"):
             e_id = line.split(" ")[1].rstrip().split(".")[0].strip()
             t_id = line.split(" ")[2].rstrip().split(".")[0].strip()
             enrol_ids.append(e_id)
@@ -490,7 +490,7 @@ def prepare_csv_enrol_test(data_folders, save_folder, verification_pairs_file):
         csv_file = os.path.join(save_folder, ENROL_CSV)
 
         # Writing the csv lines
-        with open(csv_file, mode="w") as csv_f:
+        with open(csv_file, mode="w", newline="", encoding="utf-8") as csv_f:
             csv_writer = csv.writer(
                 csv_f, delimiter=",", quotechar='"', quoting=csv.QUOTE_MINIMAL
             )
@@ -526,7 +526,7 @@ def prepare_csv_enrol_test(data_folders, save_folder, verification_pairs_file):
         csv_file = os.path.join(save_folder, TEST_CSV)
 
         # Writing the csv lines
-        with open(csv_file, mode="w") as csv_f:
+        with open(csv_file, mode="w", newline="", encoding="utf-8") as csv_f:
             csv_writer = csv.writer(
                 csv_f, delimiter=",", quotechar='"', quoting=csv.QUOTE_MINIMAL
             )

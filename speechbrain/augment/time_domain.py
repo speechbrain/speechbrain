@@ -619,6 +619,11 @@ class DropFreq(torch.nn.Module):
     drop_freq_width : float
         The width of the frequency band to drop, as
         a fraction of the sampling_rate / 2.
+    epsilon : float
+        A small positive value to prevent issues such as filtering 0 Hz,
+        division by zero, or other numerical instabilities. This value sets
+        the absolute minimum for normalized frequencies used in the filter.
+        The default value is 1e-12.
 
     Example
     -------
@@ -635,6 +640,7 @@ class DropFreq(torch.nn.Module):
         drop_freq_count_low=1,
         drop_freq_count_high=3,
         drop_freq_width=0.05,
+        epsilon=1e-12,
     ):
         super().__init__()
         self.drop_freq_low = drop_freq_low
@@ -642,6 +648,7 @@ class DropFreq(torch.nn.Module):
         self.drop_freq_count_low = drop_freq_count_low
         self.drop_freq_count_high = drop_freq_count_high
         self.drop_freq_width = drop_freq_width
+        self.epsilon = epsilon
 
     def forward(self, waveforms):
         """
@@ -673,8 +680,7 @@ class DropFreq(torch.nn.Module):
         drop_range = self.drop_freq_high - self.drop_freq_low
         drop_frequency = (
             torch.rand(drop_count) * drop_range + self.drop_freq_low
-        )
-
+        ).clamp(min=self.epsilon)
         # Filter parameters
         filter_length = 101
         pad = filter_length // 2
@@ -1471,3 +1477,53 @@ class DropBitResolution(torch.nn.Module):
         # To dequantize and recover the original float32 values
         dequantized_tensor = quantized_tensor.to(torch.float32) / scale_factor
         return dequantized_tensor
+
+
+class SignFlip(torch.nn.Module):
+    """Flip the sign of a signal.
+
+    This module negates all the values in a tensor with a given probability.
+    If the sign is not flipped, the original signal is returned
+    unchanged. This technique is outlined in the paper:
+    "CADDA: Class-wise Automatic Differentiable Data Augmentation for EEG Signals"
+    https://arxiv.org/pdf/2106.13695
+
+    Arguments
+    ---------
+    flip_prob : float
+        The probability with which to flip the sign of the signal. Default is 0.5.
+
+    Example
+    -------
+    >>> import torch
+    >>> x = torch.tensor([1,2,3,4,5])
+    >>> flip = SignFlip(flip_prob=1) # 100% chance to flip sign
+    >>> flip(x)
+    tensor([-1, -2, -3, -4, -5])
+    """
+
+    def __init__(self, flip_prob=0.5):
+        super().__init__()
+        self.flip_prob = flip_prob
+
+    def forward(self, waveform):
+        """
+        Arguments
+        ---------
+        waveform : torch.Tensor
+            Input tensor representaing waveform, shape does not matter.
+
+        Returns
+        -------
+        torch.Tensor
+            The output tensor with same shape as the input, where the
+            sign of all values in the tensor has been flipped with
+            probability `flip_prob`.
+
+        """
+
+        # Flip sign with `flip_prob` probability.
+        if torch.rand(1).item() < self.flip_prob:
+            return -waveform
+
+        return waveform

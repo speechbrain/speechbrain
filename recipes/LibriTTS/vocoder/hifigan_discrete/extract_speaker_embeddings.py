@@ -17,6 +17,7 @@ from tqdm import tqdm
 import speechbrain as sb
 from speechbrain.dataio.dataio import load_pkl, save_pkl
 from speechbrain.inference.encoders import MelSpectrogramEncoder
+from speechbrain.utils.logger import get_logger
 
 OPT_FILE = "opt_libritts_extract_speaker.pkl"
 TRAIN_JSON = "train.json"
@@ -28,7 +29,7 @@ def setup_logger():
     """Set up a logger with a log format and logging level."""
     log_format = "[%(asctime)s] [%(levelname)s]: %(message)s"
     logging.basicConfig(format=log_format, level=logging.INFO)
-    logger = logging.getLogger(__name__)
+    logger = get_logger(__name__)
     return logger
 
 
@@ -53,6 +54,15 @@ def skip(splits, save_folder, conf):
     """
     Detects if the libritts data_extraction has been already done.
     If the extraction has been done, we can skip it.
+
+    Arguments
+    ---------
+    splits : list
+        List of splits to check.
+    save_folder : str
+        Path to the folder where the speech units are stored.
+    conf : dict
+        Loaded configuration options
 
     Returns
     -------
@@ -116,6 +126,10 @@ def extract_libritts_embeddings(
     skip_extract: Bool
         If True, skip extraction.
 
+    Returns
+    -------
+    None
+
     Example
     -------
     >>> from recipes.LibriTTS.vocoder.hifigan_unit.extract_speaker_embeddings import extract_libritts_embeddings
@@ -164,7 +178,7 @@ def extract_libritts_embeddings(
     for split in splits:
         dataset_path = save_folder / f"{split}.json"
         logger.info(f"Reading dataset from {dataset_path} ...")
-        meta_json = json.load(open(dataset_path))
+        meta_json = json.load(open(dataset_path, encoding="utf-8"))
         for key in tqdm(meta_json.keys()):
             item = meta_json[key]
             wav = item["wav"]

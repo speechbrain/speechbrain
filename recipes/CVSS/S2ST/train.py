@@ -9,7 +9,6 @@
  * Jarod Duret 2023
 """
 
-import logging
 import pathlib as pl
 import sys
 
@@ -23,8 +22,9 @@ from torch.nn.parallel import DistributedDataParallel
 import speechbrain as sb
 from speechbrain.inference.ASR import EncoderDecoderASR
 from speechbrain.inference.vocoders import UnitHIFIGAN
+from speechbrain.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class S2UT(sb.core.Brain):
@@ -96,6 +96,11 @@ class S2UT(sb.core.Brain):
                         code = torch.LongTensor(hyp[:-1])
                         wav = self.test_vocoder.decode_unit(code.unsqueeze(-1))
                         wavs.append(wav.squeeze(0))
+                    else:
+                        logger.warn(
+                            f"Encountered hyp {hyp} too short for decoding, using fake blank audio for testing"
+                        )
+                        wavs.append(torch.zeros(40000))  # on cpu device
                 if wavs:
                     wavs, wav_lens = sb.utils.data_utils.batch_pad_right(wavs)
                     transcripts, _ = self.test_asr.transcribe_batch(
@@ -405,7 +410,7 @@ class S2UT(sb.core.Brain):
             )
 
             sample_path = save_folder / f"{utt_id}.txt"
-            with open(sample_path, "w") as file:
+            with open(sample_path, "w", encoding="utf-8") as file:
                 file.write(f"pred: {transcript}\n")
                 file.write(f"ref: {tgt_transcript}\n")
 
@@ -416,7 +421,7 @@ class S2UT(sb.core.Brain):
         )
 
         bleu_path = save_folder / "bleu.txt"
-        with open(bleu_path, "w") as file:
+        with open(bleu_path, "w", encoding="utf-8") as file:
             file.write(
                 f"BLEU score: {round(self.bleu_metric.summarize('BLEU'), 2)}\n"
             )
@@ -548,7 +553,7 @@ if __name__ == "__main__":
     # Load hyperparameters file with command-line overrides
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
 
-    with open(hparams_file) as fin:
+    with open(hparams_file, encoding="utf-8") as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
     # If distributed_launch=True then

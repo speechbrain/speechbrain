@@ -1,7 +1,7 @@
-import logging
 import os
 
 from speechbrain.dataio.dataio import read_audio
+from speechbrain.utils.logger import get_logger
 
 try:
     import pandas as pd
@@ -12,7 +12,7 @@ except ImportError:
     err_msg += "Install using `pip install pandas`.\n"
     raise ImportError(err_msg)
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def prepare_FSC(data_folder, save_folder, skip_prep=False):

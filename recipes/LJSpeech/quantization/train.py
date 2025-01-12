@@ -1,65 +1,210 @@
-"""
-Recipe  to train K-means clustering model on self-supervised representations.
+#!/usr/bin/env/python
 
-To run this recipe, do the following:
-> python train.py hparams/train_with_[SSL-model].yaml --data_folder=/path/to/LJSpeech
-Author
- * Pooneh Mousavi 2023
+"""Recipe for training a K-means quantizer on features from an SSL model.
+
+To run this recipe:
+> python train.py hparams/train_discrete_ssl.yaml
+
+Authors
+ * Luca Della Libera 2024
 """
 
-import logging
-import os
+# Adapted from:
+# https://github.com/speechbrain/speechbrain/blob/v1.0.2/recipes/LJSpeech/quantization/train.py
+
 import sys
 
+import torch
 import torchaudio
 from hyperpyyaml import load_hyperpyyaml
-from torch.utils.data import DataLoader
 
 import speechbrain as sb
-from speechbrain.dataio.dataloader import LoopedLoader
-from speechbrain.utils.distributed import run_on_main
-from speechbrain.utils.kmeans import fetch_kmeans_model, save_model, train
+from speechbrain.utils.distributed import if_main_process
 
-logger = logging.getLogger(__name__)
+
+class Quantization(sb.Brain):
+    def compute_forward(self, batch, stage):
+        """Forward pass."""
+        batch = batch.to(self.device)
+        sig, lens = batch.sig  # [B, T]
+
+        # Extract features
+        with torch.no_grad():
+            self.modules.ssl_model.eval()
+            feats = self.modules.ssl_model(sig, lens)  # [K, B, N, H]
+            feats = feats[self.hparams.layer_id]  # [B, N, H]
+
+        return feats
+
+    def compute_objectives(self, predictions, batch, stage):
+        """Computes the objectives."""
+        feats = predictions  # [B, N, H]
+
+        if stage != sb.Stage.TRAIN:
+            # For K-means the validation/test loss is the inertia
+            # The lower the inertia, the better should be the clustering
+            # It is useful to monitor progress across epochs
+            # However, when saving checkpoints we always keep the last one (i.e. max_keys=["epoch"])
+            # to keep backward compatibility
+            loss = self.hparams.quantizer.inertia(feats)
+            return loss
+
+        # If training, accumulate features (batch size used for K-means training
+        # should be much larger than batch size used for feature extraction)
+        feats = feats.flatten(end_dim=-2)  # [BN, H]
+        self.curr_feats.append(feats)
+        self.curr_batch_size += len(feats)
+        if self.curr_batch_size < self.hparams.kmeans_batch_size:
+            # If not enough features, leave average loss unchanged and go to next batch
+            # avg_loss is computed as: (avg_loss - avg_loss / self.step) + float(loss) / self.step
+            # If we set loss = avg_loss, avg_loss stays unchanged
+            loss = torch.tensor(self.avg_train_loss)
+            # Keep compatibility with standard supervised training
+            # (SpeechBrain expects a tensor with gradient)
+            loss.requires_grad_()
+            return loss
+        self.curr_feats = torch.cat(self.curr_feats)
+        feats = self.curr_feats[: self.hparams.kmeans_batch_size]
+
+        # Keep remaining features for next iteration
+        self.curr_feats = [self.curr_feats[self.hparams.kmeans_batch_size :]]
+        self.curr_batch_size = len(self.curr_feats[0])
+
+        # Retrieve current centroids
+        old_cluster_centers = self.hparams.quantizer.cluster_centers
+
+        # Partial fit on current batch
+        self.hparams.quantizer.partial_fit(feats)
+
+        # For K-means the training loss is the drift between current centroids and old centroids
+        # If close to 0, it means that the training has converged
+        curr_cluster_centers = self.hparams.quantizer.cluster_centers
+        loss = (curr_cluster_centers - old_cluster_centers).norm()
+
+        # Keep compatibility with standard supervised training
+        # (SpeechBrain expects a tensor with gradient)
+        loss.requires_grad_()
+        self.optimizer_step += 1
+        assert self.optimizer_step == self.modules.quantizer.n_steps, (
+            f"optimizer_step: {self.optimizer_step}",
+            f"quantizer.n_steps: {self.modules.quantizer.n_steps}",
+        )
+
+        return loss
+
+    def on_stage_start(self, stage, epoch=None):
+        """Gets called at the beginning of each epoch."""
+        if stage == sb.Stage.TRAIN:
+            # NOTE: not included in intra-epoch checkpoints
+            self.curr_feats = []
+            self.curr_batch_size = 0
+
+    def on_stage_end(self, stage, stage_loss, epoch=None):
+        """Gets called at the end of each epoch."""
+        # Compute/store important stats
+        current_epoch = self.hparams.epoch_counter.current
+        stage_stats = {"loss": stage_loss}
+
+        if stage == sb.Stage.TRAIN:
+            self.avg_train_loss = 0.0
+            self.train_stats = stage_stats
+            self.stats_meta = {"epoch": epoch, "steps": self.optimizer_step}
+            if if_main_process():
+                self.checkpointer.save_and_keep_only(
+                    meta={"loss": stage_stats["loss"], "epoch": epoch},
+                    max_keys=["epoch"],
+                    num_to_keep=self.hparams.keep_checkpoints,
+                )
+            self.hparams.train_logger.log_stats(
+                stats_meta=self.stats_meta,
+                train_stats=self.train_stats,
+            )
+
+        # Perform end-of-iteration operations, like annealing, logging, etc.
+        elif stage == sb.Stage.VALID:
+            self.hparams.train_logger.log_stats(
+                stats_meta=self.stats_meta,
+                train_stats=self.train_stats,
+                valid_stats=stage_stats,
+            )
+
+        elif stage == sb.Stage.TEST:
+            self.hparams.train_logger.log_stats(
+                stats_meta={"Epoch loaded": current_epoch},
+                test_stats=stage_stats,
+            )
 
 
 def dataio_prepare(hparams):
+    """This function prepares the datasets to be used in the brain class.
+    It also defines the data processing pipeline through user-defined functions.
 
-    # Define audio pipeline:
-    @sb.utils.data_pipeline.takes("wav")
-    @sb.utils.data_pipeline.provides("sig")
+    """
+    train_data = sb.dataio.dataset.DynamicItemDataset.from_json(
+        json_path=hparams["train_json"],
+        replacements={"DATA_ROOT": hparams["data_folder"]},
+    )
+    # Sort training data to speed up training
+    train_data = train_data.filtered_sorted(
+        sort_key="duration",
+        reverse=hparams["sorting"] == "descending",
+        key_max_value={"duration": hparams["train_remove_if_longer"]},
+    )
+
+    valid_data = sb.dataio.dataset.DynamicItemDataset.from_json(
+        json_path=hparams["valid_json"],
+        replacements={"DATA_ROOT": hparams["data_folder"]},
+    )
+    # Sort validation data to speed up validation
+    valid_data = valid_data.filtered_sorted(
+        sort_key="duration",
+        reverse=True,
+        key_max_value={"duration": hparams["valid_remove_if_longer"]},
+    )
+
+    test_data = sb.dataio.dataset.DynamicItemDataset.from_json(
+        json_path=hparams["test_json"],
+        replacements={"DATA_ROOT": hparams["data_folder"]},
+    )
+    # Sort the test data to speed up testing
+    test_data = test_data.filtered_sorted(
+        sort_key="duration",
+        reverse=True,
+        key_max_value={"duration": hparams["test_remove_if_longer"]},
+    )
+
+    datasets = [train_data, valid_data, test_data]
+
+    # Define audio pipeline
+    takes = ["wav"]
+    provides = ["sig"]
+
     def audio_pipeline(wav):
+        original_sample_rate = sb.dataio.dataio.read_audio_info(wav).sample_rate
         sig = sb.dataio.dataio.read_audio(wav)
-        info = torchaudio.info(wav)
-        resampled = torchaudio.transforms.Resample(
-            info.sample_rate,
-            hparams["sample_rate"],
-        )(sig)
-        return resampled
-
-    datasets = {}
-    data_info = {
-        "train": hparams["train_json"],
-    }
-    for dataset in hparams["splits"]:
-        datasets[dataset] = sb.dataio.dataset.DynamicItemDataset.from_json(
-            json_path=data_info[dataset],
-            replacements={"data_root": hparams["data_folder"]},
-            dynamic_items=[audio_pipeline],
-            output_keys=["id", "sig"],
+        sig = torchaudio.functional.resample(
+            sig, original_sample_rate, hparams["sample_rate"]
         )
+        yield sig
 
-    return datasets
+    sb.dataio.dataset.add_dynamic_item(
+        datasets, audio_pipeline, takes, provides
+    )
+
+    # Set output
+    sb.dataio.dataset.set_output_keys(datasets, ["id"] + provides)
 
     return datasets
 
 
 if __name__ == "__main__":
-    # Load hyperparameters file with command-line overrides
+    # Command-line interface
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
-
-    with open(hparams_file) as fin:
+    with open(hparams_file, encoding="utf-8") as fin:
         hparams = load_hyperpyyaml(fin, overrides)
+
+    # If --distributed_launch then create ddp_init_group with the right communication protocol
+    sb.utils.distributed.ddp_init_group(run_opts)
 
     # Create experiment directory
     sb.create_experiment_directory(
@@ -68,75 +213,55 @@ if __name__ == "__main__":
         overrides=overrides,
     )
 
-    # Dataset prep (parsing Librispeech)
-    from ljspeech_prepare import prepare_ljspeech  # noqa
+    # Prepare data
+    from ljspeech_prepare import prepare_ljspeech
 
-    # multi-gpu (ddp) save data preparation
-    run_on_main(
-        prepare_ljspeech,
-        kwargs={
-            "data_folder": hparams["data_folder"],
-            "save_folder": hparams["save_folder"],
-            "splits": hparams["splits"],
-            "split_ratio": hparams["split_ratio"],
-            "seed": hparams["seed"],
-            "skip_prep": hparams["skip_prep"],
-        },
+    kwargs = {
+        "data_folder": hparams["data_folder"],
+        "save_folder": hparams["output_folder"],
+        "splits": hparams["splits"],
+        "split_ratio": hparams["split_ratio"],
+        "seed": hparams["seed"],
+        "skip_prep": hparams["skip_prep"],
+    }
+    prepare_ljspeech(**kwargs)
+
+    # Create the datasets objects
+    train_data, valid_data, test_data = dataio_prepare(hparams)
+
+    # Trainer initialization
+    brain = Quantization(
+        modules=hparams["modules"],
+        hparams=hparams,
+        run_opts=run_opts,
+        checkpointer=hparams["checkpointer"],
     )
 
-    # Load SSL model
-    hparams["ssl_model"] = hparams["ssl_model"].to(run_opts["device"])
-
-    # Make training Dataloader
-    train_set = dataio_prepare(hparams)["train"]
-    if not (
-        isinstance(train_set, DataLoader) or isinstance(train_set, LoopedLoader)
-    ):
-        train_set = sb.dataio.dataloader.make_dataloader(
-            train_set, **hparams["train_dataloader_opts"]
-        )
-    os.makedirs(hparams["save_folder"], exist_ok=True)
-    # If you use dataloader checkpoints, make sure to keep all the settings as in the previous run and keep the dataset ordering the same.
-    dataloader_path = os.path.join(
-        hparams["save_folder"], "dataloader-TRAIN.ckpt"
-    )
-    if os.path.exists(dataloader_path):
-        logger.info(
-            f"The dataloader checkpoint is loaded from {dataloader_path}."
-        )
-        train_set._speechbrain_load(dataloader_path, False)
-
-    # Load pretrained KMeans model if it exists. Otherwise,  create new one.
-    checkpoint_path = os.path.join(
-        hparams["save_folder"],
-        f"kmeans-cluster-{hparams['num_clusters']}-layer-{hparams['ssl_layer_num']}.pt",
+    # Train
+    brain.fit(
+        brain.hparams.epoch_counter,
+        train_data,
+        valid_data,
+        train_loader_kwargs=dict(
+            num_workers=hparams["dataloader_workers"],
+            batch_size=hparams["train_batch_size"],
+            shuffle=hparams["sorting"] == "random",
+            pin_memory=run_opts.get("device", "cpu") != "cpu",
+        ),
+        valid_loader_kwargs=dict(
+            num_workers=hparams["dataloader_workers"],
+            batch_size=hparams["valid_batch_size"],
+            pin_memory=run_opts.get("device", "cpu") != "cpu",
+        ),
     )
 
-    kmeans_model = fetch_kmeans_model(
-        n_clusters=hparams["num_clusters"],
-        init=hparams["init"],
-        max_iter=hparams["max_iter"],
-        batch_size=hparams["batch_size"],
-        tol=hparams["tol"],
-        max_no_improvement=hparams["max_no_improvement"],
-        n_init=hparams["n_init"],
-        reassignment_ratio=hparams["reassignment_ratio"],
-        random_state=hparams["seed"],
-        checkpoint_path=checkpoint_path,
+    # Test
+    brain.evaluate(
+        test_data,
+        max_key="epoch",
+        test_loader_kwargs=dict(
+            num_workers=hparams["dataloader_workers"],
+            batch_size=hparams["test_batch_size"],
+            pin_memory=run_opts.get("device", "cpu") != "cpu",
+        ),
     )
-
-    # Train and save Kmeans model
-    train(
-        kmeans_model,
-        train_set,
-        hparams["ssl_model"],
-        hparams["save_folder"],
-        hparams["ssl_layer_num"],
-        kmeans_batch_size=hparams["kmeans_batch_size"],
-        device=run_opts["device"],
-        checkpoint_interval=hparams["checkpoint_interval"],
-    )
-
-    logger.info(f"Saving kmeans model at {checkpoint_path}.")
-    save_model(kmeans_model, checkpoint_path)
-    train_set._speechbrain_save(dataloader_path)

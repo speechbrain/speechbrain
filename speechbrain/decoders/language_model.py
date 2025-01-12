@@ -10,13 +10,14 @@ Authors
  * Adel Moumen 2023
 """
 
-import logging
 import math
 from typing import Collection, Optional, Set, Tuple, cast
 
 from pygtrie import CharTrie
 
-logger = logging.getLogger(__name__)
+from speechbrain.utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 try:
     import kenlm
@@ -43,7 +44,7 @@ def load_unigram_set_from_arpa(arpa_path: str) -> Set[str]:
         Set of unigrams.
     """
     unigrams = set()
-    with open(arpa_path) as f:
+    with open(arpa_path, encoding="utf-8") as f:
         start_1_gram = False
         for line in f:
             line = line.strip()

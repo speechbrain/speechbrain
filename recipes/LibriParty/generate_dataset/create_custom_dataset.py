@@ -23,7 +23,7 @@ from speechbrain.utils.data_utils import get_all_files
 
 # Load hyperparameters file with command-line overrides
 params_file, run_opts, overrides = sb.core.parse_arguments(sys.argv[1:])
-with open(params_file) as fin:
+with open(params_file, encoding="utf-8") as fin:
     params = load_hyperpyyaml(fin, overrides)
 
 # setting seeds for reproducible code.
@@ -55,7 +55,7 @@ def parse_libri_folder(libri_folders):
     # step 2: we then build an hashtable for words for each utterance
     words_dict = {}
     for trans in txt_files:
-        with open(trans, "r") as f:
+        with open(trans, "r", encoding="utf-8") as f:
             for line in f:
                 splitted = line.split(" ")
                 utt_id = splitted[0]
@@ -118,7 +118,8 @@ for index, split in enumerate(["train", "dev", "eval"]):
 for index, split in enumerate(["train", "dev", "eval"]):
     # load metadata
     with open(
-        os.path.join(params["out_folder"], "metadata", split + ".json")
+        os.path.join(params["out_folder"], "metadata", split + ".json"),
+        encoding="utf-8",
     ) as f:
         c_meta = json.load(f)
     print("Creating {} set".format(split))

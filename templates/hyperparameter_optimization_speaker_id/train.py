@@ -3,7 +3,7 @@
 
 For a tutorial on hyperparameter optimization, refer to this tutorial:
 
-https://colab.research.google.com/drive/1b-5EOjZC7M9RvfWZ0Pq0HMV0KmQKu730#scrollTo=lJup9mNnYw_0
+https://speechbrain.readthedocs.io/en/latest/tutorials/advanced/hyperparameter-optimization.html
 
 The template can use used as a
 basic example for any signal classification task such as language_id,
@@ -296,7 +296,7 @@ if __name__ == "__main__":
         sb.utils.distributed.ddp_init_group(run_opts)
 
         # Load hyperparameters file with command-line overrides.
-        with open(hparams_file) as fin:
+        with open(hparams_file, encoding="utf-8") as fin:
             hparams = load_hyperpyyaml(fin, overrides)
 
         # Create experiment directory

@@ -58,12 +58,23 @@ class LJSPEECH_split(dts.LJSPEECH):
 
 
 class ESCContaminated(torch.utils.data.Dataset):
+    """ESC50 Contaminated dataset
+
+    Arguments
+    ---------
+    esc50_ds : dataset
+        the ESC50 dataset as per training.
+    cont_d : dataset
+        the contamination dataset.
+    overlap_multiplier : int
+        number of overlaps
+    overlap_type : str
+        one of "mixtures" or "LJSpeech" or "white_noise"
+    """
+
     def __init__(
         self, esc50_ds, cont_d, overlap_multiplier=2, overlap_type="mixtures"
     ):
-        """esc50_ds is the ESC50 dataset as per training.
-        cont_d is the contamination dataset.
-        overlap_multiplier works as before"""
         super().__init__()
 
         self.esc50_ds = esc50_ds
@@ -132,7 +143,7 @@ class ESCContaminated(torch.utils.data.Dataset):
 if __name__ == "__main__":
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
 
-    with open(hparams_file) as fin:
+    with open(hparams_file, encoding="utf-8") as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
     if hparams["add_wham_noise"]:

@@ -21,7 +21,6 @@ Authors
  * Samuele Cornell 2020
  * Adel Moumen 2023
 """
-import logging
 import os
 import sys
 from pathlib import Path
@@ -31,8 +30,9 @@ from hyperpyyaml import load_hyperpyyaml
 
 import speechbrain as sb
 from speechbrain.utils.distributed import if_main_process, run_on_main
+from speechbrain.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 # Define training procedure
@@ -192,7 +192,9 @@ class ASR(sb.Brain):
                 test_stats=stage_stats,
             )
             if if_main_process():
-                with open(self.hparams.test_wer_file, "w") as w:
+                with open(
+                    self.hparams.test_wer_file, "w", encoding="utf-8"
+                ) as w:
                     self.wer_metric.write_stats(w)
 
     def init_optimizers(self):
@@ -332,7 +334,7 @@ if __name__ == "__main__":
     # create ddp_group with the right communication protocol
     sb.utils.distributed.ddp_init_group(run_opts)
 
-    with open(hparams_file) as fin:
+    with open(hparams_file, encoding="utf-8") as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
     # Create experiment directory
@@ -375,7 +377,7 @@ if __name__ == "__main__":
 
     # We load the pretrained wav2vec2 model
     if "pretrainer" in hparams.keys():
-        run_on_main(hparams["pretrainer"].collect_files)
+        hparams["pretrainer"].collect_files()
         hparams["pretrainer"].load_collected()
 
     # We dynamically add the tokenizer to our brain class.

@@ -11,7 +11,6 @@ Authors
 
 import importlib
 import json
-import logging
 import os
 import sys
 from datetime import datetime
@@ -19,8 +18,9 @@ from datetime import datetime
 from hyperpyyaml import load_hyperpyyaml
 
 import speechbrain as sb
+from speechbrain.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 MODULE_ORION = "orion.client"
 FORMAT_TIMESTAMP = "%Y%m%d%H%M%S%f"
@@ -387,7 +387,7 @@ class HyperparameterOptimizationContext:
                 hpopt_mode, *self.reporter_args, **self.reporter_kwargs
             )
             if isinstance(hpopt, str) and os.path.exists(hpopt):
-                with open(hpopt) as hpopt_file:
+                with open(hpopt, encoding="utf-8") as hpopt_file:
                     trial_id = get_trial_id()
                     hpopt_overrides = load_hyperpyyaml(
                         hpopt_file,

@@ -22,7 +22,6 @@ Authors
 import csv
 import glob
 import json
-import logging
 import os
 import sys
 from functools import partial
@@ -46,6 +45,7 @@ from speechbrain.core import AMPConfig
 from speechbrain.dataio.batch import PaddedBatch
 from speechbrain.processing.features import spectral_magnitude
 from speechbrain.utils.distributed import run_on_main
+from speechbrain.utils.logger import get_logger
 from speechbrain.utils.metric_stats import MetricStats
 
 
@@ -440,7 +440,7 @@ class Enhancement(sb.Brain):
             valid_data, **self.hparams.dataloader_opts_test
         )
 
-        with open(save_file, "w") as results_csv:
+        with open(save_file, "w", newline="", encoding="utf-8") as results_csv:
             writer = csv.DictWriter(results_csv, fieldnames=csv_columns)
             writer.writeheader()
 
@@ -741,14 +741,14 @@ def dataio_prep(hparams):
 if __name__ == "__main__":
     # Load hyperparameters file with command-line overrides
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
-    with open(hparams_file) as fin:
+    with open(hparams_file, encoding="utf-8") as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
     # Initialize ddp (useful only for multi-GPU DDP training)
     sb.utils.distributed.ddp_init_group(run_opts)
 
     # Logger info
-    logger = logging.getLogger(__name__)
+    logger = get_logger(__name__)
 
     # Create experiment directory
     sb.create_experiment_directory(

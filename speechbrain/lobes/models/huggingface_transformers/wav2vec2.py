@@ -12,8 +12,6 @@ Authors
  * Ha Nguyen 2023
 """
 
-import logging
-
 import numpy as np
 import torch
 import torch.nn.functional as F
@@ -24,8 +22,9 @@ from speechbrain.lobes.models.huggingface_transformers.huggingface import (
     HFTransformersInterface,
     make_padding_masks,
 )
+from speechbrain.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class Wav2Vec2(HFTransformersInterface):
@@ -64,6 +63,8 @@ class Wav2Vec2(HFTransformersInterface):
         For example wav2vec2-base has 12 transformer layers and the output is of shape (13, B, T, C),
         where a projection of the CNN output is added to the beginning.
         If False, the forward function outputs the hidden states only from the last transformer layer.
+    **kwargs
+        Extra keyword arguments passed to the `from_pretrained` function.
 
     Example
     -------
@@ -83,8 +84,11 @@ class Wav2Vec2(HFTransformersInterface):
         freeze_feature_extractor=False,
         apply_spec_augment=False,
         output_all_hiddens=False,
+        **kwargs,
     ):
-        super().__init__(source=source, save_path=save_path, freeze=freeze)
+        super().__init__(
+            source=source, save_path=save_path, freeze=freeze, **kwargs
+        )
 
         self.model.config.apply_spec_augment = apply_spec_augment
 

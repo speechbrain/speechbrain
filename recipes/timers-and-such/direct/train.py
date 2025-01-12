@@ -15,7 +15,6 @@ Authors
  * Mirco Ravanelli 2020
 """
 
-import logging
 import sys
 
 import torch
@@ -23,8 +22,9 @@ from hyperpyyaml import load_hyperpyyaml
 
 import speechbrain as sb
 from speechbrain.utils.distributed import if_main_process, run_on_main
+from speechbrain.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # Define training procedure
 
@@ -150,7 +150,9 @@ class SLU(sb.Brain):
                 test_stats=stage_stats,
             )
             if if_main_process():
-                with open(self.hparams.test_wer_file, "w") as w:
+                with open(
+                    self.hparams.test_wer_file, "w", encoding="utf-8"
+                ) as w:
                     self.wer_metric.write_stats(w)
 
 
@@ -272,7 +274,7 @@ def dataio_prepare(hparams):
 if __name__ == "__main__":
     # Load hyperparameters file with command-line overrides
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
-    with open(hparams_file) as fin:
+    with open(hparams_file, encoding="utf-8") as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
     show_results_every = 100  # plots results every N iterations
@@ -314,7 +316,7 @@ if __name__ == "__main__":
     ) = dataio_prepare(hparams)
 
     # We download and pretrain the tokenizer
-    run_on_main(hparams["pretrainer"].collect_files)
+    hparams["pretrainer"].collect_files()
     hparams["pretrainer"].load_collected()
 
     # Download pretrained ASR model

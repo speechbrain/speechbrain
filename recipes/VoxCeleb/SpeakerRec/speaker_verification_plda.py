@@ -11,7 +11,6 @@ Authors
     * Mirco Ravanelli 2020
 """
 
-import logging
 import os
 import pickle
 import sys
@@ -30,6 +29,7 @@ from speechbrain.processing.PLDA_LDA import (
 )
 from speechbrain.utils.data_utils import download_file
 from speechbrain.utils.distributed import run_on_main
+from speechbrain.utils.logger import get_logger
 from speechbrain.utils.metric_stats import EER, minDCF
 
 
@@ -119,7 +119,7 @@ def verification_performance(scores_plda):
     labels = []
     positive_scores = []
     negative_scores = []
-    for line in open(veri_file_path):
+    for line in open(veri_file_path, encoding="utf-8"):
         lab = int(line.split(" ")[0].rstrip().split(".")[0].strip())
         enrol_id = line.split(" ")[1].rstrip().split(".")[0].strip()
         test_id = line.split(" ")[2].rstrip().split(".")[0].strip()
@@ -221,13 +221,13 @@ def dataio_prep(params):
 
 if __name__ == "__main__":
     # Logger setup
-    logger = logging.getLogger(__name__)
+    logger = get_logger(__name__)
     current_dir = os.path.dirname(os.path.abspath(__file__))
     sys.path.append(os.path.dirname(current_dir))
 
     # Load hyperparameters file with command-line overrides
     params_file, run_opts, overrides = sb.core.parse_arguments(sys.argv[1:])
-    with open(params_file) as fin:
+    with open(params_file, encoding="utf-8") as fin:
         params = load_hyperpyyaml(fin, overrides)
 
     # Download verification list (to exclude verification sentences from train)

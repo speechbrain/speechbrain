@@ -25,7 +25,6 @@ Authors
  * Peter Plantinga 2020
 """
 
-import logging
 import sys
 
 import torch
@@ -36,8 +35,9 @@ import speechbrain as sb
 from speechbrain.tokenizers.SentencePiece import SentencePiece
 from speechbrain.utils.data_utils import undo_padding
 from speechbrain.utils.distributed import if_main_process, run_on_main
+from speechbrain.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # Define training procedure
 
@@ -250,7 +250,9 @@ class ASR(sb.Brain):
                 test_stats=stage_stats,
             )
             if if_main_process():
-                with open(self.hparams.test_wer_file, "w") as w:
+                with open(
+                    self.hparams.test_wer_file, "w", encoding="utf-8"
+                ) as w:
                     self.wer_metric.write_stats(w)
 
             # save the averaged checkpoint at the end of the evaluation stage
@@ -392,7 +394,7 @@ def dataio_prepare(hparams, tokenizer):
 if __name__ == "__main__":
     # CLI:
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
-    with open(hparams_file) as fin:
+    with open(hparams_file, encoding="utf-8") as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
     # create ddp_group with the right communication protocol

@@ -9,7 +9,6 @@ Authors
  * Pierre Champion 2023
 """
 
-import logging
 import os
 import sys
 
@@ -19,8 +18,9 @@ import speechbrain as sb
 import speechbrain.k2_integration as sbk2
 from speechbrain.utils.data_utils import download_file, get_list_from_csv
 from speechbrain.utils.distributed import run_on_main
+from speechbrain.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 OPEN_SLR_11_LINK = "http://www.openslr.org/resources/11/"
 
 
@@ -77,13 +77,13 @@ def dataprep_lm_training(
     column_text_key = "wrd"  # defined in librispeech_prepare.py
     lm_corpus = os.path.join(lm_dir, "libri_lm_corpus.txt")
     line_seen = set()
-    with open(lm_corpus, "w") as corpus:
+    with open(lm_corpus, "w", encoding="utf-8") as corpus:
         for file in csv_files:
             for line in get_list_from_csv(file, column_text_key):
                 corpus.write(line + "\n")
                 line_seen.add(line + "\n")
         for file in external_lm_corpus:
-            with open(file) as f:
+            with open(file, encoding="utf-8") as f:
                 for line in f:
                     if line not in line_seen:
                         corpus.write(line)
@@ -100,7 +100,7 @@ if __name__ == "__main__":
     # Load hyperparameters file with command-line overrides
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
 
-    with open(hparams_file) as fin:
+    with open(hparams_file, encoding="utf-8") as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
     # Create experiment directory

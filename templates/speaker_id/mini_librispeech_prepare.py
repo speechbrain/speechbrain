@@ -9,15 +9,15 @@ Authors:
 """
 
 import json
-import logging
 import os
 import random
 import shutil
 
 from speechbrain.dataio.dataio import read_audio
 from speechbrain.utils.data_utils import download_file, get_all_files
+from speechbrain.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 MINILIBRI_TRAIN_URL = "http://www.openslr.org/resources/31/train-clean-5.tar.gz"
 SAMPLERATE = 16000
 
@@ -120,7 +120,7 @@ def create_json(wav_list, json_file):
         }
 
     # Writing the dictionary to the json file
-    with open(json_file, mode="w") as json_f:
+    with open(json_file, mode="w", encoding="utf-8") as json_f:
         json.dump(json_dict, json_f, indent=2)
 
     logger.info(f"{json_file} successfully created!")

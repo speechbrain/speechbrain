@@ -22,7 +22,6 @@ Authors
  * Ha Nguyen 2023
 """
 
-import logging
 import os
 import pathlib
 
@@ -42,8 +41,9 @@ from transformers import (
 
 from speechbrain.dataio.dataio import length_to_mask
 from speechbrain.utils.fetching import fetch
+from speechbrain.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class HFTransformersInterface(nn.Module):
@@ -109,11 +109,17 @@ class HFTransformersInterface(nn.Module):
     ):
         super().__init__()
 
+        # Whether or not to allow for custom models defined on the Hub in their own modeling files.
+        # This option should only be set to True for repositories you trust and in which you have read the code,
+        # as it will execute code present on the Hub on your local machin
+        trust_remote_code = kwargs.get("trust_remote_code", False)
+
         # Fetch config
         self.config, _unused_kwargs = AutoConfig.from_pretrained(
             source,
             cache_dir=save_path,
             return_unused_kwargs=True,
+            trust_remote_code=trust_remote_code,
         )
 
         self.config = self.override_config(self.config)
@@ -249,7 +255,7 @@ class HFTransformersInterface(nn.Module):
                 sink / os.listdir(str(sink))[0]
             )  # there's a hash-id subfolder
             if any(
-                File.endswith(".bin") or File.endswith(".ckpt")
+                File.endswith((".bin", ".safetensors", ".ckpt"))
                 for File in os.listdir(str(sink))
             ):
                 is_local = True
@@ -261,7 +267,10 @@ class HFTransformersInterface(nn.Module):
 
         if is_local:
             # Test for HuggingFace model
-            if any(File.endswith(".bin") for File in os.listdir(local_path)):
+            if any(
+                File.endswith((".bin", ".safetensors"))
+                for File in os.listdir(local_path)
+            ):
                 is_sb = False
                 return is_sb, checkpoint_filename, is_local
 
@@ -284,12 +293,12 @@ class HFTransformersInterface(nn.Module):
                     return is_sb, checkpoint_filename, is_local
 
             for File in files:
-                if File.rfilename.endswith(".bin"):
+                if File.rfilename.endswith((".bin", ".safetensors")):
                     checkpoint_filename = File.rfilename
                     is_sb = False
                     return is_sb, checkpoint_filename, is_local
 
-        err_msg = f"{path} does not contain a .bin or .ckpt checkpoint !"
+        err_msg = f"{path} does not contain a .bin, .safetensors or .ckpt checkpoint !"
         raise FileNotFoundError(err_msg)
 
     def _modify_state_dict(self, path, **kwargs):

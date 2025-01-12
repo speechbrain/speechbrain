@@ -29,7 +29,10 @@ def write_log_file(log_dir, log_filename, data):
     """Helper function to write log file"""
     # data = zip(*data)
     with open(
-        os.path.join(log_dir, log_filename), mode="w", newline=""
+        os.path.join(log_dir, log_filename),
+        mode="w",
+        newline="",
+        encoding="utf-8",
     ) as csvfile:
         csvwriter = csv.writer(
             csvfile, delimiter=" ", quotechar="|", quoting=csv.QUOTE_MINIMAL

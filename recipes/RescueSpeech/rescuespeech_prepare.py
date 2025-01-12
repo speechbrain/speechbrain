@@ -19,7 +19,6 @@ adapted from the CommonVoice recipe)
 
 import csv
 import glob
-import logging
 import os
 import re
 import unicodedata
@@ -29,8 +28,9 @@ from tqdm import tqdm
 from tqdm.contrib import tzip
 
 from speechbrain.dataio.dataio import read_audio
+from speechbrain.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def prepare_RescueSpeech(
@@ -195,7 +195,7 @@ def create_asr_csv(
         raise FileNotFoundError(msg)
 
     # We load and skip the header
-    loaded_csv = open(orig_tsv_file, "r").readlines()[1:]
+    loaded_csv = open(orig_tsv_file, "r", encoding="utf-8").readlines()[1:]
     nb_samples = str(len(loaded_csv))
 
     msg = "Preparing CSV files for %s samples ..." % (str(nb_samples))
@@ -461,7 +461,7 @@ def write2csv(
     # that all files have the same duration in MS-DNS dataset.
 
     total_duration = 0
-    with open(csv_file, "w") as csvfile:
+    with open(csv_file, "w", encoding="utf-8") as csvfile:
         writer = csv.DictWriter(csvfile, fieldnames=csv_columns)
         writer.writeheader()
 

@@ -1,0 +1,103 @@
+# ###########################################################################################
+# Model: K-means applied to SSL model
+# Authors: Luca Della Libera 2024
+# Adapted from: https://github.com/speechbrain/speechbrain/blob/v1.0.2/recipes/LJSpeech/quantization/hparams/train_discrete_ssl.yaml
+# ###########################################################################################
+
+experiment_name: wav2vec2_K1000_L7
+
+# Seed needs to be set at top of YAML
+seed: 1986
+__set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
+
+# Data preparation
+data_folder: !PLACEHOLDER
+train_splits: [train-clean-100]
+dev_splits: [dev-clean]
+test_splits: [test-clean]
+skip_prep: False
+train_csv: !ref <output_folder>/train.csv
+valid_csv: !ref <output_folder>/dev-clean.csv
+test_csv: !ref <output_folder>/test-clean.csv
+
+# Output folders
+output_folder: !ref results/<experiment_name>/<seed>
+save_folder: !ref <output_folder>/save
+cache_folder: !name:huggingface_hub.constants.HUGGINGFACE_HUB_CACHE
+
+# Preprocessing parameters
+train_remove_if_longer: 60.0  # Seconds
+valid_remove_if_longer: 60.0  # Seconds
+test_remove_if_longer: 60.0  # Seconds
+sorting: random
+
+# Training parameters
+num_epochs: 1
+train_batch_size: 8
+valid_batch_size: 1
+test_batch_size: 1
+dataloader_workers: 4
+nonfinite_patience: 10
+precision: fp32
+ckpt_interval_steps: 4000
+keep_checkpoints: 2
+
+# SSL model parameters
+ssl_hub: facebook/wav2vec2-large
+sample_rate: 16000  # NOTE: must match the SSL model sample rate
+layer_id: 7
+
+# Quantizer parameters
+n_clusters: 1000
+init: k-means++
+max_iter: 100
+kmeans_batch_size: 10000  # Should be >= num_clusters
+tol: 0.0
+max_no_improvement: 100
+n_init: 20
+reassignment_ratio: 0.0
+
+# Modules
+ssl_model: !new:speechbrain.lobes.models.huggingface_transformers.wav2vec2.Wav2Vec2
+    source: !ref <ssl_hub>
+    output_norm: False
+    freeze: True
+    freeze_feature_extractor: True
+    output_all_hiddens: True
+    save_path: !ref <cache_folder>
+
+quantizer: !new:speechbrain.lobes.models.kmeans.MiniBatchKMeansSklearn
+    n_clusters: !ref <n_clusters>
+    init: !ref <init>
+    max_iter: !ref <max_iter>
+    batch_size: !ref <kmeans_batch_size>
+    tol: !ref <tol>
+    max_no_improvement: !ref <max_no_improvement>
+    n_init: !ref <n_init>
+    reassignment_ratio: !ref <reassignment_ratio>
+    random_state: !ref <seed>
+    verbose: 1
+    compute_labels: True
+    init_size: null
+
+modules:
+    ssl_model: !ref <ssl_model>
+    quantizer: !ref <quantizer>
+
+# Counters, checkpointers, loggers, etc.
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+    limit: !ref <num_epochs>
+
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+    checkpoints_dir: !ref <save_folder>
+    recoverables:
+        quantizer: !ref <quantizer>
+        counter: !ref <epoch_counter>
+    custom_load_hooks:
+        quantizer: !name:speechbrain.lobes.models.kmeans.MiniBatchKMeansSklearn.load
+    custom_save_hooks:
+        quantizer: !name:speechbrain.lobes.models.kmeans.MiniBatchKMeansSklearn.save
+
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+    save_file: !ref <output_folder>/train_log.txt
+    precision: 3

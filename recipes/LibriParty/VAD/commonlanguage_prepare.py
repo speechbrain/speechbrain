@@ -1,12 +1,12 @@
-import logging
 import os
 
 import torchaudio
 
 import speechbrain as sb
 from speechbrain.utils.data_utils import get_all_files
+from speechbrain.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 COMMON_LANGUAGE_URL = (
     "https://zenodo.org/record/5036977/files/CommonLanguage.tar.gz?download=1"
@@ -50,7 +50,7 @@ def _prepare_csv(folder, filelist, csv_file, max_length=None):
     """
     try:
         if sb.utils.distributed.if_main_process():
-            with open(csv_file, "w") as w:
+            with open(csv_file, "w", encoding="utf-8") as w:
                 w.write("ID,duration,wav,wav_format,wav_opts\n\n")
                 for line in filelist:
                     # Read file for duration/channel info

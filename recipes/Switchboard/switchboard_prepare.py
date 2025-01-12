@@ -19,17 +19,15 @@ Dominik Wagner 2022
 """
 
 import csv
-import logging
 import os
 import re
 from collections import defaultdict
 
 from speechbrain.dataio.dataio import merge_csvs
 from speechbrain.utils.data_utils import download_file, get_all_files
+from speechbrain.utils.logger import get_logger
 
-logging.basicConfig()
-logging.getLogger().setLevel(logging.INFO)
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 SAMPLERATE = 8000
 
 
@@ -167,7 +165,7 @@ def write_csv(csv_file, csv_lines, utt_id_idx=0, max_utt=300):
     # Keep track of the number of times each utterance appears
     utt2count = defaultdict(int)
 
-    with open(csv_file, mode="w") as csv_f:
+    with open(csv_file, mode="w", newline="", encoding="utf-8") as csv_f:
         csv_writer = csv.writer(
             csv_f, delimiter=",", quotechar='"', quoting=csv.QUOTE_MINIMAL
         )
@@ -520,8 +518,8 @@ def prepare_lexicon(lexicon_file, output_file):
 
     """
     lexicon = []
-    lex_out = open(output_file, "w")
-    with open(lexicon_file) as lf:
+    lex_out = open(output_file, "w", encoding="utf-8")
+    with open(lexicon_file, encoding="utf-8") as lf:
         # Skip first row
         next(lf)
         for line in lf:
@@ -599,7 +597,7 @@ def make_acronym_map(save_folder, lexicon_file, acronym_map_file):
     logger.info(
         f"Prepared Swbd1 + MSU single letter lexicon with {len(fin_lex)} entries"
     )
-    fout_map = open(acronym_map_file, "w")
+    fout_map = open(acronym_map_file, "w", encoding="utf-8")
 
     # Initialise single letter dictionary
     dict_letter = {}
@@ -707,7 +705,7 @@ def make_acronym_map(save_folder, lexicon_file, acronym_map_file):
     fout_map.close()
 
     # Load acronym map for further processing
-    fin_map = open(acronym_map_file, "r")
+    fin_map = open(acronym_map_file, "r", encoding="utf-8")
     dict_acronym = {}
     dict_acronym_noi = {}  # Mapping of acronyms without I, i
     for pair in fin_map:
@@ -794,7 +792,7 @@ def make_name_to_disk_dict(mapping_table: str):
         A dictionary that maps from sph filename (key) to disk-id (value)
     """
     name2disk = {}
-    with open(mapping_table) as mt:
+    with open(mapping_table, encoding="utf-8") as mt:
         for line in mt:
             split = line.split()
             name = split[1].strip()
@@ -907,7 +905,7 @@ def swbd1_data_prep(
         ]
         # Open each transcription file and extract information
         for filename in transcript_files_split:
-            with open(filename) as file:
+            with open(filename, encoding="utf-8") as file:
                 for line in file:
                     str_split = line.split()
                     id = str_split[0].strip()
@@ -1000,7 +998,7 @@ def eval2000_data_prep(data_folder: str, save_folder: str):
         ["ID", "duration", "start", "stop", "channel", "wav", "words", "spk_id"]
     ]
 
-    with open(transcription_file) as file:
+    with open(transcription_file, encoding="utf-8") as file:
         utt_count = 0
         for line in file:
             # Skip header
@@ -1071,7 +1069,7 @@ def eval2000_data_prep(data_folder: str, save_folder: str):
         csv_file = os.path.join(save_folder, filename)
         logger.info(f"Creating csv file {csv_file}")
 
-        with open(csv_file, mode="w") as csv_f:
+        with open(csv_file, mode="w", newline="", encoding="utf-8") as csv_f:
             csv_writer = csv.writer(
                 csv_f, delimiter=",", quotechar='"', quoting=csv.QUOTE_MINIMAL
             )
@@ -1108,7 +1106,9 @@ def parse_glm_file(glm_dir, save_folder):
         Directory to store the parsed GLM file
     """
     results = defaultdict(list)
-    with open(os.path.join(glm_dir, "en20000405_hub5.glm")) as file:
+    with open(
+        os.path.join(glm_dir, "en20000405_hub5.glm"), encoding="utf-8"
+    ) as file:
         is_contraction = False
         for line in file:
             # Skip comments
@@ -1149,7 +1149,7 @@ def parse_glm_file(glm_dir, save_folder):
     csv_file = os.path.join(save_folder, "glm.csv")
     logger.info("Writing GLM csv file")
 
-    with open(csv_file, mode="w") as csv_f:
+    with open(csv_file, mode="w", newline="", encoding="utf-8") as csv_f:
         csv_writer = csv.writer(
             csv_f, delimiter=",", quotechar='"', quoting=csv.QUOTE_MINIMAL
         )
@@ -1202,7 +1202,7 @@ def fisher_data_prep(data_folder, save_folder):
         transcript_files = get_all_files(joined_path, match_and=[".txt"])
 
         for transcript_files in transcript_files:
-            with open(transcript_files) as file:
+            with open(transcript_files, encoding="utf-8") as file:
                 for line in file:
                     # skip header and empty lines
                     if line.startswith("#") or len(line.strip()) < 1:
@@ -1238,7 +1238,7 @@ def fisher_data_prep(data_folder, save_folder):
     csv_file = os.path.join(save_folder, "fisher.csv")
     logger.info(f"Creating csv file {csv_file}")
 
-    with open(csv_file, mode="w") as csv_f:
+    with open(csv_file, mode="w", newline="", encoding="utf-8") as csv_f:
         csv_writer = csv.writer(
             csv_f, delimiter=",", quotechar='"', quoting=csv.QUOTE_MINIMAL
         )

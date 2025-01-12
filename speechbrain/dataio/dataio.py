@@ -15,7 +15,6 @@ Authors
 import csv
 import hashlib
 import json
-import logging
 import os
 import pickle
 import re
@@ -25,10 +24,11 @@ import numpy as np
 import torch
 import torchaudio
 
+from speechbrain.utils.logger import get_logger
 from speechbrain.utils.torch_audio_backend import check_torchaudio_backend
 
 check_torchaudio_backend()
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def load_data_json(json_path, replacements={}):
@@ -55,7 +55,7 @@ def load_data_json(json_path, replacements={}):
     ... }
     ... '''
     >>> tmpfile = getfixture('tmpdir') / "test.json"
-    >>> with open(tmpfile, "w") as fo:
+    >>> with open(tmpfile, "w", encoding="utf-8") as fo:
     ...     _ = fo.write(json_spec)
     >>> data = load_data_json(tmpfile, {"ROOT": "/home"})
     >>> data["ex1"]["files"][0]
@@ -64,7 +64,7 @@ def load_data_json(json_path, replacements={}):
     '/home/ex2.wav'
 
     """
-    with open(json_path, "r") as f:
+    with open(json_path, "r", encoding="utf-8") as f:
         out_json = json.load(f)
     _recursive_format(out_json, replacements)
     return out_json
@@ -122,14 +122,14 @@ def load_data_csv(csv_path, replacements={}):
     ... utt2,2.0,$data_folder/utt2.wav
     ... '''
     >>> tmpfile = getfixture("tmpdir") / "test.csv"
-    >>> with open(tmpfile, "w") as fo:
+    >>> with open(tmpfile, "w", encoding="utf-8") as fo:
     ...     _ = fo.write(csv_spec)
     >>> data = load_data_csv(tmpfile, {"data_folder": "/home"})
     >>> data["utt1"]["wav_path"]
     '/home/utt1.wav'
     """
 
-    with open(csv_path, newline="") as csvfile:
+    with open(csv_path, newline="", encoding="utf-8") as csvfile:
         result = {}
         reader = csv.DictReader(csvfile, skipinitialspace=True)
         variable_finder = re.compile(r"\$([\w.]+)")
@@ -708,7 +708,7 @@ def write_txt_file(data, filename, sampling_rate=None):
     del sampling_rate  # Not used.
     # Check if the path of filename exists
     os.makedirs(os.path.dirname(filename), exist_ok=True)
-    with open(filename, "w") as fout:
+    with open(filename, "w", encoding="utf-8") as fout:
         if isinstance(data, torch.Tensor):
             data = data.tolist()
         if isinstance(data, np.ndarray):
@@ -954,7 +954,7 @@ def load_pkl(file):
             break
 
     try:
-        open(file + ".lock", "w").close()
+        open(file + ".lock", "w", encoding="utf-8").close()
         with open(file, "rb") as f:
             return pickle.load(f)
     finally:
@@ -1081,11 +1081,15 @@ def merge_csvs(data_folder, csv_lst, merged_csv):
     write_path = os.path.join(data_folder, merged_csv)
     if os.path.isfile(write_path):
         logger.info("Skipping merging. Completed in previous run.")
-    with open(os.path.join(data_folder, csv_lst[0])) as f:
+    with open(
+        os.path.join(data_folder, csv_lst[0]), newline="", encoding="utf-8"
+    ) as f:
         header = f.readline()
     lines = []
     for csv_file in csv_lst:
-        with open(os.path.join(data_folder, csv_file)) as f:
+        with open(
+            os.path.join(data_folder, csv_file), newline="", encoding="utf-8"
+        ) as f:
             for i, line in enumerate(f):
                 if i == 0:
                     # Checking header
@@ -1095,7 +1099,7 @@ def merge_csvs(data_folder, csv_lst, merged_csv):
                         )
                     continue
                 lines.append(line)
-    with open(write_path, "w") as f:
+    with open(write_path, "w", encoding="utf-8") as f:
         f.write(header)
         for line in lines:
             f.write(line)

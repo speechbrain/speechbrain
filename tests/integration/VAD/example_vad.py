@@ -118,7 +118,7 @@ def main(device="cpu"):
     hparams_file = os.path.join(experiment_dir, "hyperparams.yaml")
     data_folder = "/../../samples/VAD"
     data_folder = os.path.abspath(experiment_dir + data_folder)
-    with open(hparams_file) as fin:
+    with open(hparams_file, encoding="utf-8") as fin:
         hparams = load_hyperpyyaml(fin)
 
     # Data IO creation
