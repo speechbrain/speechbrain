@@ -141,7 +141,11 @@ def foreign_class(
     # For distributed setups, have this here:
     run_on_main(
         pretrainer.collect_files,
-        kwargs={"default_source": source, "use_auth_token": use_auth_token},
+        kwargs={
+            "default_source": source,
+            "use_auth_token": use_auth_token,
+            "local_strategy": local_strategy,
+        },
     )
     # Load on the CPU. Later the params can be moved elsewhere by specifying
     if not download_only:
@@ -297,6 +301,7 @@ class Pretrained(torch.nn.Module):
             local_strategy=LocalStrategy.SYMLINK,
         )
         signal, sr = torchaudio.load(str(path), channels_first=False)
+        signal = signal.to(self.device)
         return self.audio_normalizer(signal, sr)
 
     def _compile(self):
@@ -522,6 +527,7 @@ class Pretrained(torch.nn.Module):
                 kwargs={
                     "default_source": source,
                     "use_auth_token": use_auth_token,
+                    "local_strategy": local_strategy,
                 },
             )
             # Load on the CPU. Later the params can be moved elsewhere by specifying
