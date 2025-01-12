@@ -1,3 +1,5 @@
+"""Test CTC segmentation integration"""
+
 import pytest
 
 from speechbrain.inference.ASR import EncoderDecoderASR

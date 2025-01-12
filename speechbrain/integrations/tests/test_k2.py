@@ -1,3 +1,5 @@
+"""Test k2 integration"""
+
 import os
 import shutil
 import tempfile
@@ -15,6 +17,7 @@ logger = get_logger(__name__)
 
 @pytest.fixture
 def tmp_csv_file(tmp_path):
+    """Create a temporary manifest for testing"""
     csv_file = tmp_path / "train.csv"
     with open(csv_file, "w", encoding="utf-8") as f:
         f.write("ID,duration,wav,spk_id,wrd\n")
@@ -24,6 +27,7 @@ def tmp_csv_file(tmp_path):
 
 
 def test_get_lexicon(tmp_path, tmp_csv_file):
+    """Prepare a test lexicon in a temp directory"""
     # Define the inputs
     lang_dir = tmp_path
     csv_files = [tmp_csv_file]
@@ -42,6 +46,7 @@ def test_get_lexicon(tmp_path, tmp_csv_file):
 
 
 def test_get_lexicon_with_boundary(tmp_path, tmp_csv_file):
+    """Prepare a test lexicon, including word boundaries"""
     # Define the inputs
     lang_dir = tmp_path
     csv_files = [tmp_csv_file]
@@ -64,6 +69,7 @@ def test_get_lexicon_with_boundary(tmp_path, tmp_csv_file):
 
 @pytest.fixture
 def mock_lexicon_file(tmp_path):
+    """Create a fake lexicon file for testing"""
     lexicon_content = "hello h e l l o\nworld w o r l d\n"
     lexicon_file = tmp_path / "mock_lexicon.txt"
     with open(lexicon_file, "w", encoding="utf-8") as f:
@@ -72,6 +78,7 @@ def mock_lexicon_file(tmp_path):
 
 
 def test_read_lexicon(mock_lexicon_file):
+    """Testing the lexicon read function on the fake file"""
     expected_output = [
         ("hello", ["h", "e", "l", "l", "o"]),
         ("world", ["w", "o", "r", "l", "d"]),
@@ -84,6 +91,7 @@ def test_read_lexicon(mock_lexicon_file):
 
 
 def test_write_lexicon(tmp_path):
+    """Test writing a sample lexicon to a file"""
     # Sample lexicon data.
     lexicon_data = [
         ("hello", ["h", "e", "l", "l", "o"]),
@@ -107,6 +115,7 @@ def test_write_lexicon(tmp_path):
 
 
 def test_get_tokens_basic():
+    """Test getting of basic tokens from a lexicon"""
     # Prepare a mock lexicon
     lexicon = [
         ("hello", ["h", "e", "l", "l", "o"]),
@@ -120,6 +129,7 @@ def test_get_tokens_basic():
 
 
 def test_get_tokens_with_sil():
+    """Get the tokens including the silence token"""
     # Prepare a mock lexicon
     lexicon = [
         ("hello", ["h", "e", "l", "l", "o"]),
@@ -132,6 +142,7 @@ def test_get_tokens_with_sil():
 
 
 def test_get_tokens_manually_add_sil():
+    """Test adding silence to tokens manually"""
     # Prepare a mock lexicon
     lexicon = [
         ("hello", ["h", "e", "l", "l", "o"]),
@@ -145,6 +156,7 @@ def test_get_tokens_manually_add_sil():
 
 
 def test_unique_pronunciations():
+    """Testing disambiguation symbols for unique pronunciations."""
     lexicon = [
         ("hello", ["h", "e", "l", "l", "o"]),
         ("world", ["w", "o", "r", "l", "d"]),
@@ -159,6 +171,7 @@ def test_unique_pronunciations():
 
 
 def test_repeated_pronunciations():
+    """Test disambiguation for repeated pronunciations"""
     lexicon = [
         ("hello", ["h", "e", "l", "l", "o"]),
         ("greeting", ["h", "e", "l", "l", "o"]),
@@ -176,6 +189,7 @@ def test_repeated_pronunciations():
 
 
 def test_prefix_pronunciations():
+    """Test disambiguation for one pronunciation prefixing another"""
     lexicon = [("he", ["h", "e"]), ("hello", ["h", "e", "l", "l", "o"])]
     from speechbrain.integrations.k2_fsa.prepare_lang import (
         add_disambig_symbols,
@@ -190,6 +204,7 @@ def test_prefix_pronunciations():
 
 
 def test_mixed_pronunciations():
+    """Test repeated and prefixed pronunciations"""
     lexicon = [
         ("he", ["h", "e"]),
         ("hello", ["h", "e", "l", "l", "o"]),
@@ -212,6 +227,7 @@ def test_mixed_pronunciations():
 
 
 def test_lexicon_to_fst():
+    """Test conversion to FST from lexicon"""
     # Sample lexicon: Each word maps to a list of tokens
     lexicon = [
         ("hello", ["h", "e", "l", "l", "o"]),
@@ -250,6 +266,7 @@ def test_lexicon_to_fst():
 
 
 def test_lexicon_to_fst_no_sil():
+    """Test lexicon to FST without silence"""
     # Sample lexicon: Each word maps to a list of tokens
     lexicon = [
         ("hello", ["h", "e", "l", "l", "o"]),
@@ -287,6 +304,7 @@ def test_lexicon_to_fst_no_sil():
 
 
 def test_prepare_lang():
+    """Prepare language"""
     # Step 1: Setup
     temp_dir = tempfile.mkdtemp()
 
@@ -321,6 +339,7 @@ def test_prepare_lang():
 
 
 def test_lexicon_loading_and_conversion():
+    """Load and convert lexicon"""
     with TemporaryDirectory() as tmpdir:
         tmpdir_path = Path(tmpdir)
 
@@ -380,6 +399,7 @@ world w o r l d"""
 
 
 def test_ctc_k2_loss():
+    """Test the CTC loss with k2"""
     # Create a random batch of log-probs
     batch_size = 4
     log_probs = torch.randn(batch_size, 100, 30).requires_grad_(True)
