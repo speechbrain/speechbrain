@@ -11,7 +11,14 @@ MIN_WAV_LEN = 720
 MODEL_SR = 16000
 
 class FairseqHuBERT(torch.nn.Module):
-    def __init__(self, feat_extractor_path, layer, km_path, max_chunk=1600000):
+    def __init__(
+            self, 
+            feat_extractor_path, 
+            layer, 
+            km_path, 
+            max_chunk=1600000,
+            vocoder=None,
+        ):
         super().__init__()
         import fairseq
         # Feature extractor
@@ -33,6 +40,7 @@ class FairseqHuBERT(torch.nn.Module):
         self.register_buffer("C", torch.from_numpy(self.C_np))
         self.register_buffer("Cnorm", torch.from_numpy(self.Cnorm_np))
         self.sample_rate = MODEL_SR
+        self.vocoder = vocoder
 
     def encode(self, x, wav_lens=None):
         if self.task.cfg.normalize:
@@ -59,3 +67,7 @@ class FairseqHuBERT(torch.nn.Module):
         )
         return dist.argmin(dim=1).unsqueeze(0)
 
+    def decode(self, tokens):
+        if self.vocoder is None:
+            raise ValueError("Vocoder is not set")
+        return self.vocoder(tokens, dur_prediction = True)

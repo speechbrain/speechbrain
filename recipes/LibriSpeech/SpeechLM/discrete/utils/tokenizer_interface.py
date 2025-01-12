@@ -236,7 +236,7 @@ class FairseqHuBERTTokenizer(FairseqHuBERT, BaseTokenizer):
 
     @torch.no_grad()
     def tokens_to_sig(self, tokens, **kwargs):
-        raise NotImplementedError("Fairseq HuBERT does not support decoding")
+        return self.decode(tokens.permute(0, 2, 1)).unsqueeze(0)
 
     @torch.no_grad()
     def get_pretrained_embeddings(
