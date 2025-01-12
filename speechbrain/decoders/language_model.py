@@ -2,10 +2,10 @@
 
 import warnings
 
-from speechbrain.integrations.lm.ctc import *  # noqa: F401, F403
+from speechbrain.integrations.lm.ken import *  # noqa: F401, F403
 
 warnings.warn(
-    message="speechbrain.decoders.language_model has moved to speechbrain.integrations.lm.ctc",
+    message="speechbrain.decoders.language_model has moved to speechbrain.integrations.lm.ken",
     category=DeprecationWarning,
     stacklevel=2,
 )

@@ -178,7 +178,6 @@ class CTCSegmentation:
     -------
         >>> # using example file included in the SpeechBrain repository
         >>> from speechbrain.inference.ASR import EncoderDecoderASR
-        >>> from speechbrain.integrations.alignment.ctc_segmentation import CTCSegmentation
         >>> # load an ASR model
         >>> pre_trained = "speechbrain/asr-transformer-transformerlm-librispeech"
         >>> asr_model = EncoderDecoderASR.from_hparams(source=pre_trained)  # doctest: +SKIP

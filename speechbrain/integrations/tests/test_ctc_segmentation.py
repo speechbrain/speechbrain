@@ -4,11 +4,6 @@ import pytest
 
 from speechbrain.inference.ASR import EncoderDecoderASR
 
-pytest.importorskip(
-    "speechbrain.integrations.alignment.ctc_segmentation",
-    reason="These tests require the ctc_segmentation library",
-)
-
 
 @pytest.fixture()
 def asr_model():
@@ -19,9 +14,6 @@ def asr_model():
     return asr_model
 
 
-@pytest.mark.skip(
-    reason="interface refactoring still pending (incl. YAML files on HuggingFace)"
-)
 def test_CTCSegmentation(asr_model: EncoderDecoderASR):
     """Test CTC segmentation.
 
@@ -32,7 +24,7 @@ def test_CTCSegmentation(asr_model: EncoderDecoderASR):
     """
     import numpy as np
 
-    from speechbrain.integrations.alignment.ctc_segmentation import (
+    from speechbrain.integrations.alignment.ctc_seg import (
         CTCSegmentation,
         CTCSegmentationTask,
     )
