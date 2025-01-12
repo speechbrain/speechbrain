@@ -55,7 +55,18 @@ class SpacyPipeline:
     Arguments
     ---------
     nlp : spacy.language.Language
-        spaCy text processing pipeline to use."""
+        spaCy text processing pipeline to use.
+
+    Example
+    -------
+    >>> # NOTE: To run this example, you must first download a pipeline, e.g.
+    >>> # spacy download en_core_web_sm
+    >>> ler_model = SpacyPipeline.from_name(
+    ...     name="en_core_web_sm", exclude=["parser", "ner", "textcat"]
+    ... )
+    >>> ler_model.lemmatize(["i", "am", "sitting"])
+    [['I'], ['be'], ['sit']]
+    """
 
     def __init__(self, nlp: spacy.language.Language):
         self.nlp = nlp
