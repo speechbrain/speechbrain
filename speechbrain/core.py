@@ -795,7 +795,7 @@ class Brain:
         logger.info(
             f"Gradscaler enabled: {gradscaler_enabled}. Using precision: {self.precision}."
         )
-        self.scaler = torch.cuda.amp.GradScaler(enabled=gradscaler_enabled)
+        self.scaler = torch.GradScaler(self.device, enabled=gradscaler_enabled)
 
         self.use_amp = False
         if self.device == "cpu" and self.precision == "bf16":
