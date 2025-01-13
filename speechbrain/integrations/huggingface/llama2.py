@@ -72,7 +72,7 @@ class LLAMA2(HFTransformersInterface):
 
     Example
     -------
-    >>> model_hub = "meta-llama/Llama-2-7b-chat-hf"
+    >>> model_hub = "meta-llama/Llama-3.2-1B"
     >>> save_path = "savedir"
     >>> model = LLAMA2(model_hub, save_path)
     >>> tokens = torch.tensor([[1, 1]])
