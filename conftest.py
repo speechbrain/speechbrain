@@ -16,6 +16,7 @@ collect_ignore = [
     # These can be removed once the modules are fully deprecated
     "speechbrain/utils/bleu.py",
     "speechbrain/utils/kmeans.py",
+    "speechbrain/processing/diarization.py",
     "speechbrain/decoders/language_model.py",
     "speechbrain/alignment/ctc_segmentation.py",
     "speechbrain/lobes/models/fairseq_wav2vec.py",
