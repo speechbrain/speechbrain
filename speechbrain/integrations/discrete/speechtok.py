@@ -44,11 +44,11 @@ class SpeechTokenizer(nn.Module):
     >>> inputs = torch.rand([10, 600])
     >>> model_hub = "fnlp/SpeechTokenizer"
     >>> save_path = "savedir"
-    >>> model =SpeechTokenizer(model_hub, save_path)
+    >>> model = SpeechTokenizer(model_hub, save_path)
     >>> tokens = model.encode(inputs)
     >>> tokens.shape
     torch.Size([8, 10, 2])
-    >>> wav=model.decode(tokens)
+    >>> wav = model.decode(tokens)
     >>> wav.shape
     torch.Size([10, 640])
     """
