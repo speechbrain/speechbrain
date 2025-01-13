@@ -28,8 +28,8 @@ deprecations = {
     "speechbrain.k2_integration": "speechbrain.integrations.k2_fsa",
     "speechbrain.wordemb": "speechbrain.integrations.huggingface.wordemb",
     "speechbrain.lobes.models.huggingface_transformers": "speechbrain.integrations.huggingface",
-    "speechbrain.lobes.models.spacy": "speechbrain.integrations.spacynlp",
-    "speechbrain.lobes.models.flair": "speechbrain.integrations.flairnlp",
+    "speechbrain.lobes.models.spacy": "speechbrain.integrations.nlp",
+    "speechbrain.lobes.models.flair": "speechbrain.integrations.nlp",
 }
 
 
