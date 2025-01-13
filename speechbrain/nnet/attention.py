@@ -1115,6 +1115,7 @@ class RoPEMHA(nn.Module):
         ).reshape(bsz, seq_len, -1, head_dim)
 
         # (bsz, L, num_heads, head_dim) * (L, 1, hdead_dim)
+        breakpoint()
         return x * cosine[:seq_len].unsqueeze(1) + rotate_half * sine[
             :seq_len
         ].unsqueeze(1)
@@ -1281,4 +1282,170 @@ class RoPEMHA(nn.Module):
         if return_attn_weights:
             return out, None  # out, attn_score
 
+        return out
+
+class RoPEPytorchMHA(RoPEMHA):
+    """
+    Arguments
+    ---------
+    embed_dim : int
+        Size of the encoder feature vectors from which keys and values are computed.
+    num_heads: int
+        Number of attention heads.
+    dropout : float, optional
+        Dropout rate.
+    vbias: bool, optional
+        Whether to use bias for computing value.
+    vdim: int, optional
+        Size for value. Default is embed_dim (Note each head is embed_dim // num_heads).
+
+    Example
+    -------
+    >>> inputs = torch.rand([6, 60, 512])
+    >>> num_heads = 8
+    >>> sinusoid_table = RotationMatrix([max_len, 512])
+    >>> net = RoPEMHA(num_heads=num_heads, embed_dim=inputs.shape[-1])
+    >>> outputs, attn = net(inputs, inputs, inputs, pos_emb)
+    >>> outputs.shape
+    torch.Size([6, 60, 512])
+    """
+
+    def __init__(
+        self,
+        embed_dim,
+        num_heads,
+        dropout=0.0,
+        vbias=False,
+        vdim=None,
+    ):
+        super().__init__(
+            embed_dim,
+            num_heads,
+            dropout,
+            vbias,
+            vdim,
+        )
+
+    def forward(
+        self,
+        query,
+        key,
+        value,
+        pos_embs,
+        key_padding_mask=None,
+        attn_mask=None,
+        return_attn_weights=True,
+    ):
+        """Compute attention through Pytorch attention.
+
+        Arguments
+        ---------
+        query : torch.Tensor
+            (B, L, E) where L is the target sequence length,
+            B is the batch size, E is the embedding dimension.
+        key : torch.Tensor
+            (B, S, E) where S is the source sequence length,
+            B is the batch size, E is the embedding dimension.
+        value : torch.Tensor
+            (B, S, E) where S is the source sequence length,
+            B is the batch size, E is the embedding dimension.
+        pos_embs : torch.Tensor
+            bidirectional sinusoidal positional embedding tensor (1, 2*S-1, E) where S is the max length between source and target sequence lengths,
+            and E is the embedding dimension.
+        key_padding_mask : torch.Tensor
+            (B, S) where B is the batch size, S is the source sequence
+            length. If a ByteTensor is provided, the non-zero positions will
+            be ignored while the position with the zero positions will be
+            unchanged. If a BoolTensor is provided, the positions with the
+            value of True will be ignored while the position with the value
+            of False will be unchanged.
+        attn_mask : torch.Tensor
+            2D mask (L, S) where L is the target sequence length, S is
+            the source sequence length.
+            3D mask (N*num_heads, L, S) where N is the batch
+            size, L is the target sequence length, S is the source sequence
+            length. attn_mask ensure that position i is allowed to attend the
+            unmasked positions. If a ByteTensor is provided, the non-zero
+            positions are not allowed to attend while the zero positions will
+            be unchanged. If a BoolTensor is provided, positions with True is
+            not allowed to attend while False values will be unchanged. If a
+            FloatTensor is provided, it will be added to the attention weight.
+        return_attn_weights : bool
+            Whether to additionally return the attention weights.
+
+        Returns
+        -------
+        out : torch.Tensor
+            (B, L, E) where L is the target sequence length, B is the
+            batch size, E is the embedding dimension.
+        attn_score : torch.Tensor
+            (B, L, S) where B is the batch size, L is the target
+            sequence length, S is the source sequence length.
+        """
+
+        # query, key and value are of shape batch, time, embed_dim
+        bsz = query.shape[0]
+        klen = key.shape[1]
+        qlen = query.shape[1]
+
+        if self._qkv_same_embed_dim:
+            # self-attention
+            if (query is key or torch.equal(query, key)) and (
+                key is value or torch.equal(key, value)
+            ):
+                query, key, value = (
+                    nn.functional.linear(query, self.in_proj_weight)
+                    .view(bsz, -1, self.num_heads, self.head_dim * 3)
+                    .chunk(3, dim=-1)
+                )
+            else:
+                qweight, kweight, vweight = self.in_proj_weight.chunk(3, dim=0)
+                query = nn.functional.linear(query, qweight).view(
+                    bsz, -1, self.num_heads, self.head_dim
+                )
+                key = nn.functional.linear(key, kweight).view(
+                    bsz, -1, self.num_heads, self.head_dim
+                )
+                value = nn.functional.linear(value, vweight).view(
+                    bsz, -1, self.num_heads, self.head_dim
+                )
+        else:
+            raise NotImplementedError
+            query, key = (
+                nn.functional.linear(query, self.qk_proj_weight)
+                .view(bsz, -1, self.num_heads, self.head_dim * 2)
+                .chunk(2, dim=-1)
+            )
+            value = nn.functional.linear(value, self.v_proj_weight).view(
+                bsz, -1, self.num_heads, self.vhead_dim
+            )
+
+        if self.vbias is not None:
+            value = value + self.value_bias_weight.view(
+                1, 1, self.num_heads, self.vhead_dim
+            )
+            
+        q_rotated = self.rotate(query, pos_embs)
+        k_rotated = self.rotate(key, pos_embs)
+                  
+        if key_padding_mask is not None:
+            key_padding_mask = key_padding_mask.view(bsz, 1, 1, klen).expand(bsz, self.num_heads, klen, qlen)
+    
+        x = F.scaled_dot_product_attention(
+            query=q_rotated.permute(0,2,1,3),
+            key=k_rotated.permute(0,2,1,3),
+            value=value.permute(0,2,1,3),
+            attn_mask=torch.logical_not(key_padding_mask),
+            dropout_p=self.dropout,
+        )
+                        
+        x = (
+            x.transpose(1, 2)
+            .contiguous()
+            .view(bsz, -1, self.vhead_dim * self.num_heads)
+        )  # (batch, time1, d_model)
+
+        out = self.out_proj(x)
+        if return_attn_weights:
+            return out, None # out, attn_score
         return out
