@@ -4,7 +4,7 @@ This file is based on the implementation of the kenLM wrapper from
 PyCTCDecode (see: https://github.com/kensho-technologies/pyctcdecode) and
 is used in CTC decoders.
 
-See: speechbrain.decoders.ctc.py
+See: speechbrain.decoders.ctc
 
 Authors
  * Adel Moumen 2023
@@ -26,6 +26,21 @@ except ImportError:
         "kenlm python bindings are not installed. To install it use: "
         "pip install https://github.com/kpu/kenlm/archive/master.zip"
     )
+
+
+def LanguageModel(*args, **kwargs):
+    """This function redirects users to the correct class name,
+    printing a deprecation notice.
+
+    This can be removed once deprecation is complete.
+    """
+    from warnings import warn
+
+    warn(
+        "The class name speechbrain.integrations.decoders.kenlm_decoder.LanguageModel "
+        "is deprecated. Please use the updated name KenLMscorer"
+    )
+    return KenlmScorer(*args, **kwargs)
 
 
 def load_unigram_set_from_arpa(arpa_path: str) -> Set[str]:
@@ -141,10 +156,10 @@ def _get_empty_lm_state() -> "kenlm.State":
     return kenlm_state
 
 
-class LanguageModel:
-    """Language model container class to consolidate functionality.
+class KenlmScorer:
+    """KenLM language model container class to consolidate functionality.
 
-    This class is a wrapper around the kenlm language model. It provides
+    This class is a wrapper around the KenLM language model. It provides
     functionality to score tokens and to get the initial state.
 
     Taken from: https://github.com/kensho-technologies/pyctcdecode
