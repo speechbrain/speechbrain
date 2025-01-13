@@ -51,10 +51,12 @@ class InterleavedCodebookPattern:
 class DiscreteSpeechLM(nn.Module):
     def __init__(
         self,
-        config
+        config,
+        model_backbone,
     ) -> None:
         super().__init__()
         self.config = config
+        self.model = model_backbone
         self.source = config.source
         self.cache_dir = config.cache_dir
 
@@ -63,12 +65,12 @@ class DiscreteSpeechLM(nn.Module):
         self.vocabsize = config.vocabsize
         print("vocabsize = ", config.vocabsize)
         # This should be moved in the yaml not here. 
-        self.model = AutoModelForCausalLM.from_pretrained(
-            self.source,
-            torch_dtype=torch.bfloat16,
-            attn_implementation="flash_attention_2",
-            cache_dir=self.cache_dir if self.cache_dir is not None else None,
-        )
+        # self.model = AutoModelForCausalLM.from_pretrained(
+        #     self.source,
+        #     torch_dtype=torch.bfloat16,
+        #     attn_implementation="flash_attention_2",
+        #     cache_dir=self.cache_dir if self.cache_dir is not None else None,
+        # )
 
         config = self.model.config
         self.dim = config.hidden_size
