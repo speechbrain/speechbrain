@@ -1,17 +1,21 @@
 #!/usr/bin/env/python3
 """
 HF_DATASETS_OFFLINE=1 HF_HUB_OFFLINE=1 python train.py hparams/ssl.yaml \
---data_folder $SLURM_TMPDIR/LibriSpeech/ --tokens_folder $SCRATCH/results/hubert25hzl11_test/librispeech/  --num_workers 4 \
---num_codebooks 1  --eval_precision=bf16 --batch_size=16 --block_size=2048 --grad_accumulation_factor=8 \
+--data_folder $SLURM_TMPDIR/LibriSpeech/ --tokens_folder $SCRATCH/results/dac/librispeech/  --num_workers 4 \
+--num_codebooks 8  --eval_precision=bf16 --batch_size=16 --block_size=2048 --grad_accumulation_factor=8 \
 --max_grad_norm=1.0 --optimizer_step_limit 10_000 --number_of_epochs=500 --tqdm_colored_bar \
---output_folder $SCRATCH/results/speech_lm/hubert25hzl11/ --codebook_size=500 --skip_prep=True
+--output_folder $SCRATCH/results/speech_lm/DAC_overfit_dev_clean/ --codebook_size=500 --skip_prep=True \
+--experiment_name=DAC_overfit_dev_clean
+
+HF_DATASETS_OFFLINE=1 HF_HUB_OFFLINE=1 python train.py hparams/ssl.yaml --data_folder $SLURM_TMPDIR/LibriSpeech/ --tokens_folder $SCRATCH/results/dac/librispeech/  --num_workers 4 --num_codebooks 12  --eval_precision=bf16 --batch_size=16 --block_size=2048 --grad_accumulation_factor=8 --max_grad_norm=1.0 --optimizer_step_limit 10_000 --number_of_epochs=500 --tqdm_colored_bar --output_folder $SCRATCH/results/speech_lm/DAC_overfit_dev_clean/ --codebook_size=1024 --skip_prep=True --experiment_name=DAC_overfit_dev_clean
 
 
 HF_DATASETS_OFFLINE=1 HF_HUB_OFFLINE=1 python train.py hparams/ssl.yaml \
 --data_folder $SLURM_TMPDIR/LibriSpeech/ --tokens_folder $SCRATCH/results/ST/librispeech/  --num_workers 4 \
---num_codebooks 1  --eval_precision=bf16 --batch_size=16 --block_size=2048 --grad_accumulation_factor=8 \
+--num_codebooks 8  --eval_precision=bf16 --batch_size=32 --block_size=2048 --grad_accumulation_factor=8 \
 --max_grad_norm=1.0 --optimizer_step_limit 10_000 --number_of_epochs=500 --tqdm_colored_bar \
---output_folder $SCRATCH/results/speech_lm/ST_test/ --codebook_size=1024 --skip_prep=True
+--output_folder $SCRATCH/results/speech_lm/ST_test/ --codebook_size=1024 --skip_prep=True \
+--experiment_name=ST_overfit_dev_clean
 
 
 HF_DATASETS_OFFLINE=1 HF_HUB_OFFLINE=1 python train.py hparams/ssl.yaml \
@@ -21,62 +25,54 @@ HF_DATASETS_OFFLINE=1 HF_HUB_OFFLINE=1 python train.py hparams/ssl.yaml \
 --output_folder $SCRATCH/results/speech_lm/hubert25hzl11_collapsed_no_overfit/ --codebook_size=500 --skip_prep=True \
 --collapse_repeated_tokens=True --experiment_name=hubert25hzl11_collapsed_no_overfit
 
+HF_DATASETS_OFFLINE=1 HF_HUB_OFFLINE=1 python train.py hparams/ssl.yaml \
+--data_folder $SLURM_TMPDIR/LibriSpeech/ --tokens_folder /scratch/adelmou/results/hubert25hzl11_last/save/librispeech/  --num_workers 4 \
+--num_codebooks 1  --eval_precision=bf16 --batch_size=32 --block_size=2048 --grad_accumulation_factor=1 \
+--max_grad_norm=1.0 --optimizer_step_limit 10_000 --number_of_epochs=500 --tqdm_colored_bar \
+--output_folder $SCRATCH/results/speech_lm/hubert25hzl11_collapsed_overfit_v2/ --codebook_size=500 --skip_prep=True \
+--collapse_repeated_tokens=True --experiment_name=hubert25hzl11_collapsed_overfit_v2
+
+
 TODOS:
-- wandb integration here + file logging
-- fix bug of empty autograd 
 - calculate the MFU and report it
 - refactor codebook pattern name and make sure to better understand what is going on
+- add author + header
+- this shouldnt be here. I think it should be a template.
+- add the end of one epoch, I think we should reshuffle the batches.
+- the scheduler should be based on opt steps not epochs
 """
 
-import os
 import sys
 import torch
-import torchaudio
 import logging
 import speechbrain as sb
-from speechbrain.utils.distributed import run_on_main, if_main_process
 from hyperpyyaml import load_hyperpyyaml
 from pathlib import Path
-from speechbrain.lobes.models.huggingface_transformers.discrete_speechlm import (
-    DiscreteSpeechLM,
-    DiscreteSpeechLMConfig,
-    InterleavedCodebookPattern,
-)
 from torch.nn import functional as F
-import torch.nn as nn 
+
 logger = logging.getLogger(__name__)
-import time
-import wandb 
 
 # Define training procedure
-class GSLM(sb.Brain):
+class SpeechLM(sb.Brain):
     def compute_forward(self, batch, stage):
         """Forward computations from the waveform batches to the output probabilities."""
         batch = batch.to(self.device)
         inputs, _ = batch.tokens
-        # exit()
         # todo: fix this so that we always have B, C, T: (B, T, C) -> (B, C, T)
         inputs = inputs.permute(0, 2, 1)
         labels = inputs[:, :, 1:]
         inputs = inputs[:, :, :-1]
         
         block_size = self.hparams.config.block_size
-        assert inputs.size(-1) <= block_size, 'input length >= block_size'
+        assert inputs.size(-1) <= block_size, 'input length > block_size'
  
-        patterned_inp = self.hparams.codebook_pattern.apply_delay_pattern(inputs)
-        # print(patterned_inp.shape)
-        # print((patterned_inp == self.hparams.pad_token).sum())
-        # print(self.hparams.pad_token)
-        # exit()
-        logits = self.modules.model(patterned_inp)
-        # print(logits.shape)
+        delayed_tokens = self.hparams.codebook_pattern.apply_delay_pattern(inputs)
+        logits = self.modules.model(delayed_tokens)
         undelayed_logits, undelayed_logits_mask = self.hparams.codebook_pattern.undelay_logits(logits)
-        # print(undelayed_logits.shape)
-        # exit()
+        
         return undelayed_logits, undelayed_logits_mask, labels, 
 
     def compute_objectives(self, predictions, batch, stage):
-        """Computes the loss (CTC+NLL) given predictions and targets."""
         # unpack batch
         logits, logits_mask, labels, = predictions
         logits = logits.float()
@@ -93,9 +89,7 @@ class GSLM(sb.Brain):
             self.hparams.wandb_logger.log_stats(
                 stats_meta=loss,
             )
-
         return lm_loss
-
 
     def on_stage_end(self, stage, stage_loss, epoch):
         """Gets called at the end of an epoch."""
@@ -107,15 +101,12 @@ class GSLM(sb.Brain):
         if stage == sb.Stage.VALID:
             old_lr, new_lr = self.hparams.lr_annealing(epoch)
             sb.nnet.schedulers.update_learning_rate(self.optimizer, new_lr)
-
             steps = self.step
-            optimizer = self.optimizer.__class__.__name__
 
             epoch_stats = {
                 "epoch": epoch,
                 "lr": old_lr,
                 "steps": steps,
-                "optimizer": optimizer,
             }
             self.hparams.train_logger.log_stats(
                 stats_meta=epoch_stats,
@@ -193,7 +184,6 @@ def dataio_prepare(hparams):
         # concat eos_token to the end of the sequence
         eos_token = torch.full((1, tokens.size(-1)), hparams['eos_token'], dtype=tokens.dtype, device=tokens.device)
         tokens = torch.cat([tokens, eos_token], dim=0)
-        # TODO: collapse repeated tokens if hparams['collapse_repeated_tokens'] is True
         # Remove consecutive repeated tokens if enabled
         if hparams.get('collapse_repeated_tokens', False) and num_codebooks == 1:
             # this block led a reduction from 277 batches to 213 batches
@@ -220,13 +210,11 @@ def dataio_prepare(hparams):
         # we need to add 1 to maximise efficiency.
         hparams['block_size'] + 1, 
         token_key="tokens", 
-        # pad_token_id=hparams["pad_token"]
     )
     valid_data = sb.dataio.dataset.PackedDatasetWrapper(
         valid_data, 
         hparams['block_size'] + 1, 
         token_key="tokens", 
-        # pad_token_id=hparams["pad_token"]
     )
     return train_data, valid_data, test_datasets
 
@@ -250,31 +238,13 @@ if __name__ == "__main__":
         overrides=overrides,
     )
 
-    # Dataset prep (parsing Librispeech)
-    from librispeech_prepare import prepare_librispeech  # noqa
-
-    # multi-gpu (ddp) save data preparation
-    run_on_main(
-        prepare_librispeech,
-        kwargs={
-            "data_folder": hparams["data_folder"],
-            "tr_splits": hparams["train_splits"],
-            "dev_splits": hparams["dev_splits"],
-            "te_splits": hparams["test_splits"],
-            "save_folder": hparams["output_folder"],
-            "merge_lst": hparams["train_splits"],
-            "merge_name": "train.csv",
-            "skip_prep": hparams["skip_prep"],
-        },
-    )
-
     # here we create the datasets objects as well as tokenization and encoding
     train_data, valid_data, test_datasets, = dataio_prepare(
         hparams
     )
 
     # Trainer initialization
-    gslm_brain = GSLM(
+    speechlm_brain = SpeechLM(
         modules=hparams["modules"],
         hparams=hparams,
         run_opts=run_opts,
@@ -285,14 +255,14 @@ if __name__ == "__main__":
     print(f"Total number of tokens per opt step: {hparams['block_size'] * hparams['batch_size'] * hparams['grad_accumulation_factor']}")
 
     # Watch model with wandb if wandb logger is set
-    if hasattr(gslm_brain, "wandb_logger"):
-        gslm_brain.wandb_logger.wandb.watch(gslm_brain.modules.model)
+    if hasattr(speechlm_brain, "wandb_logger"):
+        speechlm_brain.wandb_logger.wandb.watch(speechlm_brain.modules.model, log="all")
     # ~ takes a minute or so to compile
-    gslm_brain.modules.model = torch.compile(gslm_brain.modules.model)
+    speechlm_brain.modules.model = torch.compile(speechlm_brain.modules.model)
 
     # Training
-    gslm_brain.fit(
-        gslm_brain.hparams.epoch_counter,
+    speechlm_brain.fit(
+        speechlm_brain.hparams.epoch_counter,
         train_data,
         valid_data,
         train_loader_kwargs=hparams["train_dataloader_opts"],
@@ -301,7 +271,7 @@ if __name__ == "__main__":
 
     # report the NLL on the test datasets (i.e. how likely those inputs are to be generated by the model)
     for k in test_datasets.keys():  # keys are test_clean, test_other etc
-        gslm_brain.evaluate(
+        speechlm_brain.evaluate(
             test_datasets[k],
             min_key="loss",
             test_loader_kwargs=hparams["test_dataloader_opts"],
