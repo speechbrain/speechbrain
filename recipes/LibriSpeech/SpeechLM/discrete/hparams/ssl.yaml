@@ -15,8 +15,9 @@ tokens_folder: !PLACEHOLDER  # Path to the folder where extracted tokens are sav
 train_splits: ["train-clean-100", "train-clean-360", "train-other-500"]
 dev_splits: ["dev-clean"]
 test_splits: ["test-clean", "test-other"]
+# IMPORTANT: the CSVs files should be generated BEFORE when extracting the tokens.
 csv_folder: /home/adelmou/proj/speechbrain/gslms/speechbrain/recipes/LibriSpeech/SpeechLM/discrete/results/LibriSpeech/discrete_speechLM/wavlm/1986
-train_csv: !ref <csv_folder>/train.csv
+train_csv: !ref <csv_folder>/dev-clean.csv
 valid_csv: !ref <csv_folder>/dev-clean.csv
 test_csv:
    - !ref <csv_folder>/test-clean.csv
@@ -24,6 +25,7 @@ test_csv:
 
 # Training parameters
 number_of_epochs: 20
+shuffle: False
 lr: 3e-3
 sorting: ascending
 precision: bf16
@@ -49,7 +51,7 @@ num_workers: 0
 
 # Dataloader options
 train_dataloader_opts:
-  shuffle: False
+  shuffle: !ref <shuffle>
   batch_size: !ref <batch_size>
   num_workers: !ref <num_workers>
   collate_fn: !name:speechbrain.dataio.batch.PaddedBatch
@@ -79,6 +81,12 @@ tokens_loader: !new:utils.tokens.TokensLoader
 codebook_pattern: !new:speechbrain.lobes.models.huggingface_transformers.discrete_speechlm.InterleavedCodebookPattern
   audio_pad_token: !ref <pad_token>
 
+model_backbone: !apply:transformers.AutoModelForCausalLM.from_pretrained
+  pretrained_model_name_or_path: "HuggingFaceTB/SmolLM-135M"
+  torch_dtype: !name:torch.bfloat16
+  attn_implementation: "flash_attention_2"
+  cache_dir: "/scratch/adelmou/hf_home/hub/" 
+
 # define LM in the YAML
 config: !new:speechbrain.lobes.models.huggingface_transformers.discrete_speechlm.DiscreteSpeechLMConfig
   source: "HuggingFaceTB/SmolLM-135M"
@@ -90,6 +98,7 @@ config: !new:speechbrain.lobes.models.huggingface_transformers.discrete_speechlm
 
 model: !new:speechbrain.lobes.models.huggingface_transformers.discrete_speechlm.DiscreteSpeechLM
   config: !ref <config>
+  model_backbone: !ref <model_backbone>
 
 lr_annealing: !new:speechbrain.nnet.schedulers.LinearScheduler
   initial_value: !ref <lr>
@@ -110,23 +119,14 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
         model: !ref <model>
         counter: !ref <epoch_counter>
   
-wandb_dir: /home/adelmou/proj/speechbrain/gslms/speechbrain/recipes/LibriSpeech/SpeechLM/discrete/
-# Note: one need to make sure that dir exists before running the script.
-_make_wandb_dir: !name:os.makedirs
-  dir: !ref <wandb_dir>
-  exist_ok: True
-
-initializer: !name:wandb.init
+wandb_logger: !new:speechbrain.utils.train_logger.WandBLogger
   entity: Zarko
   project: SLMs
   name: !ref <experiment_name> 
   reinit: True
   resume: False
   mode: "offline"
-  dir: !ref <wandb_dir>
-
-wandb_logger: !new:speechbrain.utils.train_logger.WandBLogger
-  initializer: !ref <initializer>
+  dir: /home/adelmou/proj/speechbrain/gslms/speechbrain/recipes/LibriSpeech/SpeechLM/discrete/
 
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
   save_file: !ref <train_log>  
