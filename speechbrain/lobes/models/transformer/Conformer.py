@@ -5,6 +5,7 @@ Authors
 * Jianyuan Zhong 2020
 * Samuele Cornell 2021
 * Sylvain de Langen 2023
+* Shucong Zhang 2024
 """
 
 import warnings

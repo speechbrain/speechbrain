@@ -2,6 +2,7 @@
 Authors
 * Jianyuan Zhong 2020
 * Samuele Cornell 2021
+* Shucong Zhang 2024
 """
 
 import math

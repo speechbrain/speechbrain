@@ -4,6 +4,7 @@ Authors
 * Jianyuan Zhong 2020
 * Titouan Parcollet 2024
 * Luca Della Libera 2024
+* Shucong Zhang 2024
 """
 
 from dataclasses import dataclass
@@ -321,7 +322,6 @@ class TransformerASR(TransformerInterface):
 
         # reset parameters using xavier_normal_
         self._init_params()
-        breakpoint()
 
     def forward(self, src, tgt, wav_len=None, pad_idx=0):
         """

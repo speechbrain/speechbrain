@@ -37,6 +37,7 @@ Following table contains whisper-finetuning results for 1 epoch using Whisper mo
 
 | Release | hyperparams file | Dev Clean WER (No LM, small beam) | Test Clean WER (Transformer LM) | Test Other WER (Transformer LM) | HuggingFace link | Model link | GPUs |
 |:-------------:|:-------------:|:-------------:|:---------------------------:| :-----:| :-----:| :-----:| :--------:|
+| 30-09-24 | conformer_large_rope.yaml |1.85 with LM | 1.96 | 4.50 | Not Avail. | Not Avail. | 4xA40 46GB |
 | 23-05-23 | branchformer_large.yaml | 2.72 (1.9 with LM) | 2.04 | 4.13 | Not Avail. | [DropBox](https://www.dropbox.com/scl/fo/qhtds5rrdvhhhjywa7ovw/AMiIL5YvQENw5JKVpzXlP5o?rlkey=hz8vlpy3qf9kcyfx0cox089e6&st=ufckv6tb&dl=0) | 4xA100 80GB |
 | 23-05-23 | conformer_large.yaml | 2.62 (1.9 with LM) | 2.01 | 4.52 | [HuggingFace](https://huggingface.co/speechbrain/asr-conformer-transformerlm-librispeech) | [DropBox](https://www.dropbox.com/scl/fo/9we244tgdf47ay20hrdoz/AKnoqQ13nLwSv1ITeJEQ3wY?rlkey=05o5jiszr8rhj6dlprw87t2x4&st=u2odesyk&dl=0) | 4xA100 80GB |
 | 24-03-22 | transformer.yaml | 3.32 | 2.27 | 5.53 | [HuggingFace](https://huggingface.co/speechbrain/asr-transformer-transformerlm-librispeech) | [DropBox](https://www.dropbox.com/sh/653kq8h2k87md4p/AAByAaAryXtQKpRzYtzV9ih5a?dl=0) | 4xV100 32GB |
