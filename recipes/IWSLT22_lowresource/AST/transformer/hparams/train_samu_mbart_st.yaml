@@ -182,7 +182,7 @@ valid_search: !new:speechbrain.decoders.S2SHFTextBasedBeamSearcher
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
     save_file: !ref <train_log>
 
-bleu_computer: !name:speechbrain.integrations.metrics.bleu.BLEUStats
+bleu_computer: !name:speechbrain.integrations.nlp.bleu.BLEUStats
     merge_words: False
 
 acc_computer: !name:speechbrain.utils.Accuracy.AccuracyStats

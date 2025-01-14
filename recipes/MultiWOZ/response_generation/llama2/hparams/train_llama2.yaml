@@ -112,8 +112,8 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
         counter: !ref <epoch_counter>
 
 
-bleu_4_computer: !name:speechbrain.integrations.metrics.bleu.BLEUStats
+bleu_4_computer: !name:speechbrain.integrations.nlp.bleu.BLEUStats
     max_ngram_order: 4
 
-bleu_2_computer: !name:speechbrain.integrations.metrics.bleu.BLEUStats
+bleu_2_computer: !name:speechbrain.integrations.nlp.bleu.BLEUStats
     max_ngram_order: 2
