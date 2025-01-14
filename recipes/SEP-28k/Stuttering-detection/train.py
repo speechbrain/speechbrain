@@ -4,14 +4,15 @@ from functools import partial
 import numpy as np
 import torch
 import torchaudio
-from eval_utils import my_confusion_matrix
 from hyperpyyaml import load_hyperpyyaml
 from sep28k_prepare import prepare_sep28k
+from sklearn.metrics import confusion_matrix
 from torch.utils.tensorboard import SummaryWriter
 
 import speechbrain as sb
 from speechbrain.utils import hpopt as hp
 from speechbrain.utils.distributed import run_on_main
+from speechbrain.utils.metric_stats import BinaryMetricStats
 
 
 class SEP28kBrain(sb.Brain):
@@ -46,15 +47,12 @@ class SEP28kBrain(sb.Brain):
         binary_preds = torch.round(
             torch.sigmoid(predictions["bin_pred"])
         )  # torch.argmax(, axis=1)
-        self.y_true_binary = torch.cat((self.y_true_binary, labels))
-        self.y_preds_binary = torch.cat((self.y_preds_binary, binary_preds))
+        self.metrics.append(batch.id, binary_preds, labels)
         return loss
 
     def on_stage_start(self, stage, epoch):
         "Gets called when a stage (either training, validation, test) starts."
-        self.y_preds_binary = torch.tensor(()).to(self.device)
-        self.y_true_binary = torch.tensor(()).to(self.device)
-        self.labels = None
+        self.metrics = BinaryMetricStats()
 
     def on_stage_end(self, stage, stage_loss, epoch):
         """Gets called at the end of a stage."""
@@ -95,8 +93,11 @@ class SEP28kBrain(sb.Brain):
                 self.test_fscore = self.fscore
 
     def compute_metrics(self, epoch, stage, stage_loss):
-        _, self.fscore, _, self.cf_matrix, _, _ = my_confusion_matrix(
-            self.y_true_binary, self.y_preds_binary
+        summarized = self.metrics.summarize(threshold=0.5)
+        self.fscore = summarized["F-score"]
+        self.cf_matrix = confusion_matrix(
+            self.metrics.labels.cpu().detach().numpy(),
+            self.metrics.scores.cpu().detach().numpy(),
         )
         self.hparams.train_logger.log_stats(
             stats_meta={"\nbin fscore": np.round(self.fscore, 4)}
