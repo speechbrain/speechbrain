@@ -20,15 +20,14 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
     save_file: !ref <train_log>
 use_tensorboard: False
-skip_prep: True
+skip_prep: False
 
-
-speechbrain_root: !PLACEHOLDER #speechbrain root path
-data_folder: !ref <speechbrain_root>/tests/samples
+data_folder: !PLACEHOLDER
+manifest_folder: !PLACEHOLDER
 split_type: SEP28k-E
-train_csv: !ref <data_folder>/annotation/StutterDetection/<split_type>_train.csv
-valid_csv: !ref <data_folder>/annotation/StutterDetection/<split_type>_valid.csv
-test_csv: !ref <data_folder>/annotation/StutterDetection/<split_type>_test.csv
+train_csv: !ref <manifest_folder>/<split_type>_train.csv
+valid_csv: !ref <manifest_folder>/<split_type>_valid.csv
+test_csv: !ref <manifest_folder>/<split_type>_test.csv
 
 hpopt_mode: orion
 hpopt: hpopt.yaml
@@ -102,6 +101,7 @@ model: !new:torch.nn.Sequential
 dataloader_opts:
     batch_size: !ref <batch_size>
     shuffle: True
+    num_workers: 2
 
 learning_rate: 0.00004
 opt_class: !name:torch.optim.AdamW

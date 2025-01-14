@@ -112,7 +112,7 @@ def dataio_prep(hparams):
     @sb.utils.data_pipeline.provides("id", "waveform")
     def audio_pipeline(Show, EpId, ClipId):
         EpId = int(EpId)
-        file = f"{hparams['data_folder']}/StutterDetection/{Show}/{EpId}/{Show}_{EpId}_{ClipId}.wav"
+        file = f"{hparams['data_folder']}/sep28k_clips/{Show}/{EpId}/{Show}_{EpId}_{ClipId}.wav"
         waveform, _ = torchaudio.load(file, normalize=True)
         return (EpId, int(ClipId)), waveform.squeeze()
 
@@ -205,6 +205,7 @@ if __name__ == "__main__":
             prepare_sep28k,
             kwargs={
                 "data_folder": hparams["data_folder"],
+                "manifest_folder": hparams["manifest_folder"],
                 "split_type": hparams["split_type"],
                 "skip_prep": hparams["skip_prep"],
             },

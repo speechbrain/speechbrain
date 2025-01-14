@@ -69,7 +69,9 @@ def download_sep28k(data_path):
     logger.info(f"SEP-28k is downloaded in {data_path}")
 
 
-def prepare_sep28k(data_folder, split_type="SEP28k-E", skip_prep=False):
+def prepare_sep28k(
+    data_folder, manifest_folder, split_type="SEP28k-E", skip_prep=False
+):
     """
     Prepares the csv files for SEP-28k audio data.
 
@@ -77,6 +79,8 @@ def prepare_sep28k(data_folder, split_type="SEP28k-E", skip_prep=False):
     ---------
     data_folder: str
         Where to save the dataset
+    manifest_folder: str
+        Where to save the manifest files
     split_type: str
         Which partitioning to use (can be either SEP12k, SEP28k-E [default], SEP28k-T, SEP28k-D)
     skip_prep: bool
@@ -88,8 +92,10 @@ def prepare_sep28k(data_folder, split_type="SEP28k-E", skip_prep=False):
     """
     if skip_prep:
         return
-    if not os.path.exists(os.path.join(data_folder)):
+    if not os.path.exists(data_folder):
         os.mkdir(data_folder)
+    if not os.path.exists(manifest_folder):
+        os.mkdir(manifest_folder)
     download_sep28k(data_folder)
 
     df = pd.read_csv(f"{data_folder}/SEP-28k-Extended_clips.csv")
@@ -98,8 +104,8 @@ def prepare_sep28k(data_folder, split_type="SEP28k-E", skip_prep=False):
     df_valid = df[df[split_type] == "dev"]
     df_test = df[df[split_type] == "test"]
 
-    df_train.to_csv(f"{data_folder}/{split_type}_train.csv")
-    df_valid.to_csv(f"{data_folder}/{split_type}_valid.csv")
-    df_test.to_csv(f"{data_folder}/{split_type}_test.csv")
+    df_train.to_csv(f"{manifest_folder}/{split_type}_train.csv")
+    df_valid.to_csv(f"{manifest_folder}/{split_type}_valid.csv")
+    df_test.to_csv(f"{manifest_folder}/{split_type}_test.csv")
     df_all = pd.concat([df_train, df_valid, df_test])
-    df_all.to_csv(f"{data_folder}/{split_type}_clean.csv")
+    df_all.to_csv(f"{manifest_folder}/{split_type}_clean.csv")
