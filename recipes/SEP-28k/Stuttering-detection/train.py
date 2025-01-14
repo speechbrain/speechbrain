@@ -1,4 +1,3 @@
-import os
 import sys
 from functools import partial
 
@@ -11,10 +10,8 @@ from sep28k_prepare import prepare_sep28k
 from torch.utils.tensorboard import SummaryWriter
 
 import speechbrain as sb
-from speechbrain.dataio.batch import PaddedBatch
 from speechbrain.utils import hpopt as hp
-
-os.environ["CUDA_LAUNCH_BLOCKING"] = "1"
+from speechbrain.utils.distributed import run_on_main
 
 
 class SEP28kBrain(sb.Brain):
@@ -25,7 +22,7 @@ class SEP28kBrain(sb.Brain):
             wavs = wavs[:, :48000]
         elif wavs.shape[1] < 48000:
             pad = torch.zeros([wavs.shape[0], 48000 - wavs.shape[1]]).to(
-                "cuda:0"
+                self.device
             )
             wavs = torch.cat([wavs, pad], dim=1)
         return wavs
@@ -44,7 +41,7 @@ class SEP28kBrain(sb.Brain):
         loss = sb.nnet.losses.bce_loss(
             predictions["bin_pred"].squeeze(1).float(),
             labels.squeeze(1).float(),
-            pos_weight=torch.Tensor([self.hparams.positive]).to("cuda:0"),
+            pos_weight=torch.Tensor([self.hparams.positive]).to(self.device),
         )
         binary_preds = torch.round(
             torch.sigmoid(predictions["bin_pred"])
@@ -55,8 +52,8 @@ class SEP28kBrain(sb.Brain):
 
     def on_stage_start(self, stage, epoch):
         "Gets called when a stage (either training, validation, test) starts."
-        self.y_preds_binary = torch.tensor(()).to("cuda:0")
-        self.y_true_binary = torch.tensor(()).to("cuda:0")
+        self.y_preds_binary = torch.tensor(()).to(self.device)
+        self.y_true_binary = torch.tensor(()).to(self.device)
         self.labels = None
 
     def on_stage_end(self, stage, stage_loss, epoch):
@@ -114,12 +111,9 @@ def dataio_prep(hparams):
     @sb.utils.data_pipeline.provides("id", "waveform")
     def audio_pipeline(Show, EpId, ClipId):
         EpId = int(EpId)
-        file = (
-            f"{hparams['data_folder']}/{Show}/{EpId}/{Show}_{EpId}_{ClipId}.wav"
-        )
+        file = f"{hparams['data_folder']}/StutterDetection/{Show}/{EpId}/{Show}_{EpId}_{ClipId}.wav"
         waveform, _ = torchaudio.load(file, normalize=True)
-        audio = waveform
-        return (EpId, int(ClipId)), audio.squeeze()
+        return (EpId, int(ClipId)), waveform.squeeze()
 
     @sb.utils.data_pipeline.takes(
         "Prolongation",
@@ -173,7 +167,7 @@ def get_labels(p, b, sr, wr, inter, f):
     )
     # Check which classes are taken into account
     annots = annots * classes
-    # Check if any classes taken into account has a value greater then threshold
+    # Check if any classes taken into account has a value greater the threshold
     label = torch.any(annots >= hparams["annot_value"])
     # if sample is not fluent nor has stutter, consider sample unsure
     if int(f) < hparams["annot_value"] and not label:
@@ -191,7 +185,7 @@ if __name__ == "__main__":
         hparams_file, run_opts, overrides = hp_ctx.parse_arguments(
             sys.argv[1:]
         )  # <-- Replace sb with hp_ctx
-        with open(hparams_file) as fin:
+        with open(hparams_file, "r", encoding="utf-8") as fin:
             hparams = load_hyperpyyaml(fin, overrides)
             if hp_ctx.reporter is not None:
                 hparams["output_folder"] = (
@@ -205,8 +199,16 @@ if __name__ == "__main__":
                         hparams["output_folder"] + "/tensorboard"
                     )
 
-        if not hparams["skip_prep"]:
-            prepare_sep28k(hparams["data_folder"])
+        # multi-gpu (ddp) save data preparation
+        run_on_main(
+            prepare_sep28k,
+            kwargs={
+                "data_folder": hparams["data_folder"],
+                "split_type": hparams["split_type"],
+                "skip_prep": hparams["skip_prep"],
+            },
+        )
+
         # Create experiment directory
         sb.create_experiment_directory(
             experiment_directory=hparams["output_folder"],
@@ -214,7 +216,6 @@ if __name__ == "__main__":
             overrides=overrides,
         )
         datasets = dataio_prep(hparams)
-        hparams["dataloader_opts"]["collate_fn"] = PaddedBatch
         # Initialize trainer
         opt_class = partial(
             hparams["opt_class"].func,

@@ -22,10 +22,13 @@ train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
 use_tensorboard: False
 skip_prep: True
 
-data_folder: !PLACEHOLDER
-train_csv: !PLACEHOLDER
-valid_csv: !PLACEHOLDER
-test_csv: !PLACEHOLDER
+
+speechbrain_root: /home/ilias-m/Documents/GitHub/CONTRIBUTE/speechbrain
+data_folder: !ref <speechbrain_root>/tests/samples
+split_type: SEP28k-E
+train_csv: !ref <data_folder>/annotation/StutterDetection/<split_type>_train.csv
+valid_csv: !ref <data_folder>/annotation/StutterDetection/<split_type>_valid.csv
+test_csv: !ref <data_folder>/annotation/StutterDetection/<split_type>_test.csv
 
 hpopt_mode: orion
 hpopt: hpopt.yaml
@@ -53,11 +56,18 @@ remove_unsure: False
 # This depends on the distribution of the class.
 positive: 1
 #----------------------------------- Model ------------------------------------
-# The proposed model here is a simple example based on Wav2Vec2 and a
+# The proposed model here is a simple example based on Whisper and a
 # classification layer.
 dropout: 0.2
-size_i: 48000
-size_h: 1024
+size_i: 1024
+size_h: 256
+backbone: !new:speechbrain.lobes.models.huggingface_transformers.whisper.Whisper
+    source: openai/whisper-base.en
+    encoder_only: True
+    freeze: False
+    freeze_encoder: True
+    save_path: !ref <save_folder>
+
 layer1: !new:torch.nn.Linear
     in_features: !ref <size_i>
     out_features: !ref <size_h>
@@ -76,7 +86,8 @@ do: !new:torch.nn.Dropout
     p: !ref <dropout>
 
 model: !new:torch.nn.Sequential
-    #- !ref <wav2vec2>
+    - !ref <backbone>
+    - !new:speechbrain.nnet.pooling.StatisticsPooling
     - !new:torch.nn.Flatten
     - !ref <bn1>
     - !ref <do>

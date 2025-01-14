@@ -3,7 +3,7 @@ This folder contains scripts for running stuttering event detection experiments 
 
 # Training
 Run the following command to train the model:
-`python train.py hparams/fluency.yaml`
+`python train.py hparams/train.yaml`
 
 Note that this is a minimal working example. The model and training parameters should be modified accordingly.
 

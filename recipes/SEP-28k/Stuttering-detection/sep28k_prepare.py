@@ -41,10 +41,10 @@ def download_sep28k(data_path):
     if not os.path.exists(temp_path):
         os.mkdir(temp_path)
     if not os.path.exists(os.path.join(data_path, "SEP28k-data.zip")):
-        print(
+        logger.info(
             "SEP-28k is missing. We are now downloading it. Be patient, the total size is 1.9GB. Takes 1,995,736 iterations."
         )
-        print("**** NOW DOWNLOADING zip file *******")
+        logger.info("**** NOW DOWNLOADING zip file *******")
         download_dropbox(
             "https://www.dropbox.com/scl/fi/rpavffri0odb2g25bxy58/sep28k_clips.zip?rlkey=zfxpdrek642pxu0rj64qid7gh&st=xum8yxm1&dl=0",
             f"{temp_path}/SEP28k-data.zip",
@@ -52,7 +52,7 @@ def download_sep28k(data_path):
     if not os.path.exists(
         os.path.join(data_path, "SEP-28k-Extended_clips.csv")
     ):
-        print("**** NOW DOWNLOADING csv file *******")
+        logger.info("**** NOW DOWNLOADING csv file *******")
         download_dropbox(
             "https://www.dropbox.com/scl/fi/amzp62bpj8zqo21kpmoqy/SEP-28k-Extended_ \
             clips.csv?rlkey=5ehd8wv1q2gyz32m2pyynlcn2&st=cb76g1r4&dl=0",
@@ -66,11 +66,12 @@ def download_sep28k(data_path):
         shutil.unpack_archive(
             os.path.join(data_path, "SEP28k-data.zip"), data_path
         )
-    print(f"SEP-28k is downloaded in {data_path}")
+    logger.info(f"SEP-28k is downloaded in {data_path}")
 
 
-def prepare_sep28k(data_folder, split_type="SEP28k-E"):
+def prepare_sep28k(data_folder, split_type="SEP28k-E", skip_prep=False):
     """
+    Prepares the csv files for SEP-28k audio data.
 
     Arguments
     ---------
@@ -78,8 +79,15 @@ def prepare_sep28k(data_folder, split_type="SEP28k-E"):
         Where to save the dataset
     split_type: str
         Which partitioning to use (can be either SEP12k, SEP28k-E [default], SEP28k-T, SEP28k-D)
+    skip_prep: bool
+        Whether to build the train/valid/test files or not
 
+    Returns
+    -------
+    None
     """
+    if skip_prep:
+        return
     if not os.path.exists(os.path.join(data_folder)):
         os.mkdir(data_folder)
     download_sep28k(data_folder)
