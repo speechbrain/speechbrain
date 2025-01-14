@@ -23,7 +23,7 @@ use_tensorboard: False
 skip_prep: True
 
 
-speechbrain_root: /home/ilias-m/Documents/GitHub/CONTRIBUTE/speechbrain
+speechbrain_root: !PLACEHOLDER #speechbrain root path
 data_folder: !ref <speechbrain_root>/tests/samples
 split_type: SEP28k-E
 train_csv: !ref <data_folder>/annotation/StutterDetection/<split_type>_train.csv
