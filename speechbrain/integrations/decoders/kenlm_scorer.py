@@ -8,6 +8,7 @@ See: speechbrain.decoders.ctc
 
 Authors
  * Adel Moumen 2023
+ * Peter Plantinga 2024
 """
 
 import math
@@ -44,7 +45,7 @@ def LanguageModel(*args, **kwargs):
 
 
 def load_unigram_set_from_arpa(arpa_path: str) -> Set[str]:
-    """Read unigrams from arpa file.
+    r"""Read unigrams from arpa file.
 
     Taken from: https://github.com/kensho-technologies/pyctcdecode
 
@@ -57,6 +58,32 @@ def load_unigram_set_from_arpa(arpa_path: str) -> Set[str]:
     -------
     unigrams : set
         Set of unigrams.
+
+    Example
+    -------
+    >>> arpa_file = getfixture('tmpdir').join("bigram.arpa")
+    >>> arpa_file.write(
+    ...     "Anything can be here\n"
+    ...     + "\n"
+    ...     + "\\data\\\n"
+    ...     + "ngram 1=3\n"
+    ...     + "ngram 2=4\n"
+    ...     + "\n"
+    ...     + "\\1-grams:\n"
+    ...     + "0 <s>\n"
+    ...     + "-0.6931 a 0.\n"
+    ...     + "-0.6931 b 0.\n"
+    ...     + "" # Ends unigram section
+    ...     + "\\2-grams:\n"
+    ...     + "-0.6931 <s> a\n"
+    ...     + "-0.6931 a a\n"
+    ...     + "-0.6931 a b\n"
+    ...     + "-0.6931 b a\n"
+    ...     + "\n"  # Ends bigram section
+    ...     + "\\end\\\n"
+    ... )  # Ends whole file
+    >>> load_unigram_set_from_arpa(arpa_file)
+    {'a', 'b'}
     """
     unigrams = set()
     with open(arpa_path, encoding="utf-8") as f:
@@ -68,9 +95,10 @@ def load_unigram_set_from_arpa(arpa_path: str) -> Set[str]:
             elif line == "\\2-grams:":
                 break
             if start_1_gram and len(line) > 0:
-                parts = line.split("\t")
+                parts = line.split()
                 if len(parts) == 3:
                     unigrams.add(parts[1])
+
     if len(unigrams) == 0:
         raise ValueError(
             "No unigrams found in arpa file. Something is wrong with the file."
