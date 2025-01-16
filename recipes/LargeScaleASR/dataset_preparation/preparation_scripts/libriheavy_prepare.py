@@ -234,7 +234,6 @@ def process_line(line, data_folder, save_folder, text_normaliser):
         return None
 
     snt_id, wav, start, duration, text, spk_id = line.split(",")
-
     duration = float(duration)
 
     # Remove the large / small denomination as already given by user.
@@ -273,8 +272,8 @@ def process_line(line, data_folder, save_folder, text_normaliser):
             print(audio_path + " " + save_audio_path)
 
         # read and split if necessary (we store individual files)
-        start = int(start * 16000)
-        frames = int(duration * 16000)
+        start = int(float(start) * 16000)
+        frames = int(float(duration) * 16000)
         audio_data = sf.read(audio_path, start=start, frames=frames)
         sf.write(save_audio_path, audio_data[0], 16000)
 
