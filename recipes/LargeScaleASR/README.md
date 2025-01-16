@@ -1,9 +1,9 @@
-# The Loquacious Set: 25,000 hours of transcribed and heterogeneous English speech recognition data for research and commercial use.
+# LargeScaleASR: 25,000 hours of transcribed and heterogeneous English speech recognition data for research and commercial use.
 
-This folder provides a recipe for building The Loquacious Set (TLS) as well as
+This folder provides a recipe for building LargeScaleASR (TLS) as well as
 performing speech recognition with a conformer encoder-decoder architecture.
 
-TLS is made of 6 subsets:
+Made of 6 subsets:
 1. **large** contains 25,000 hours of read / spontaneous and clean / noisy transcribed speech.
 2. **medium** contains 2,500 hours of read / spontaneous and clean / noisy transcribed speech.
 3. **small** contains 250 hours of read / spontaneous and clean / noisy transcribed speech.
@@ -11,7 +11,7 @@ TLS is made of 6 subsets:
 5. **dev** contains 15 hours (more details in the next section).
 6. **test** contains 21 hours (more details in the next section).
 
-The Loquacious Set can be loaded following three different solutions:
+LargeScaleASR can be loaded following three different solutions:
 1. SpeechBrain CSV.
 2. HuggingFace CSV datasets.
 3. HuggingFace shards (**we may end up with only this one**).
@@ -38,9 +38,9 @@ More information relative to each dataset is given as:
 
 - [**voxpopuli**](https://arxiv.org/abs/2101.00390): we follow the standard SpeechBrain data preparation.
 - [**LibriHeavy**](https://arxiv.org/html/2309.08105v2): samples are randomly selected, but we follow the standard data preparation.
-- [**Librispeech**](https://www.danielpovey.com/files/2015_icassp_librispeech.pdf): Librispeech is only used for the validation and test sets of The Loquacious set. More precisely, we extract samples from *dev-others* and *test-others* as they are the most challenging subsets.
-- [**YODAS**](https://arxiv.org/abs/2406.00899): The YODAS dataset is unfortunately unreliable. Indeed, audio are crawled from YouTube, and a lot of them (almost half) do not have the correct language. We used a [SpeechBrain language ID model](https://huggingface.co/speechbrain/lang-id-voxlingua107-ecapa) to make sure that we only integrate samples where people speak in English. Transcriptions have also been heavily normalised (see next section). We decided arbitrarily to use the *en000* and *en001* subsets of Yodas. Transcriptions may be a bit noisy. This is why this dataset is excluded from the dev and test sets of The Loquacious Set.
-- [**People's Speech**](https://huggingface.co/datasets/MLCommons/peoples_speech): Only the *clean* subset of this dataset is used in The Loquacious Set as the transcriptions there already have errors. This is why this dataset is excluded from the dev and test sets of The Loquacious Set.
+- [**Librispeech**](https://www.danielpovey.com/files/2015_icassp_librispeech.pdf): Librispeech is only used for the validation and test sets of LargeScaleASR. More precisely, we extract samples from *dev-others* and *test-others* as they are the most challenging subsets.
+- [**YODAS**](https://arxiv.org/abs/2406.00899): The YODAS dataset is unfortunately unreliable. Indeed, audio are crawled from YouTube, and a lot of them (almost half) do not have the correct language. We used a [SpeechBrain language ID model](https://huggingface.co/speechbrain/lang-id-voxlingua107-ecapa) to make sure that we only integrate samples where people speak in English. Transcriptions have also been heavily normalised (see next section). We decided arbitrarily to use the *en000* and *en001* subsets of Yodas. Transcriptions may be a bit noisy. This is why this dataset is excluded from the dev and test sets of LargeScaleASR.
+- [**People's Speech**](https://huggingface.co/datasets/MLCommons/peoples_speech): Only the *clean* subset of this dataset is used in LargeScaleASR as the transcriptions there already have errors. This is why this dataset is excluded from the dev and test sets of LargeScaleASR.
 - [**CommonVoice 18.0**](https://commonvoice.mozilla.org/en): We removed a few speakers that had too many samples (above 9000 samples) to avoid any bias. Aside from this, we used only samples coming from the *validated* csv to ensure an optimal level of transcriptions. Text was also heavily normalised (see next section).
 
 ### Text and audio normalisation
