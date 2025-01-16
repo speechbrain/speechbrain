@@ -105,16 +105,12 @@ def is_overlapped(end1, start2):
 
     Example
     -------
-    >>> from speechbrain.processing import diarization as diar
-    >>> diar.is_overlapped(5.5, 3.4)
+    >>> is_overlapped(5.5, 3.4)
     True
-    >>> diar.is_overlapped(5.5, 6.4)
+    >>> is_overlapped(5.5, 6.4)
     False
     """
-    if start2 > end1:
-        return False
-    else:
-        return True
+    return start2 <= end1
 
 
 def merge_ssegs_same_emotion_adjacent(lol):
@@ -227,12 +223,13 @@ def distribute_overlap(lol):
 
     Example
     -------
-    >>> from speechbrain.processing import diarization as diar
-    >>> lol = [['r1', 5.5, 9.0, 's1'],
-    ... ['r1', 8.0, 11.0, 's2'],
-    ... ['r1', 11.5, 13.0, 's2'],
-    ... ['r1', 12.0, 15.0, 's1']]
-    >>> diar.distribute_overlap(lol)
+    >>> lol = [
+    ...     ['r1', 5.5, 9.0, 's1'],
+    ...     ['r1', 8.0, 11.0, 's2'],
+    ...     ['r1', 11.5, 13.0, 's2'],
+    ...     ['r1', 12.0, 15.0, 's1'],
+    ... ]
+    >>> distribute_overlap(lol)
     [['r1', 5.5, 8.5, 's1'], ['r1', 8.5, 11.0, 's2'], ['r1', 11.5, 12.5, 's2'], ['r1', 12.5, 15.0, 's1']]
     """
     new_lol = []

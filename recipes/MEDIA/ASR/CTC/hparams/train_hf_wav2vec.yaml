@@ -86,7 +86,7 @@ output_neurons: 67
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
 
-wav2vec2: !new:speechbrain.lobes.models.huggingface_transformers.wav2vec2.Wav2Vec2
+wav2vec2: !new:speechbrain.integrations.huggingface.wav2vec2.Wav2Vec2
     source: !ref <wav2vec_url>
     output_norm: True
     freeze: !ref <freeze>

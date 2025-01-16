@@ -180,7 +180,7 @@ enc: !new:speechbrain.lobes.models.VanillaNN.VanillaNN
    dnn_blocks: !ref <dnn_layers>
    dnn_neurons: !ref <dnn_neurons>
 
-wav2vec2: !new:speechbrain.lobes.models.huggingface_transformers.Wav2Vec2
+wav2vec2: !new:speechbrain.integrations.huggingface.Wav2Vec2
    source: !ref <wav2vec2_hub>
    output_norm: True
    freeze: !ref <freeze_wav2vec>
@@ -205,7 +205,7 @@ ctc_lin: !new:speechbrain.nnet.linear.Linear
 log_softmax: !new:speechbrain.nnet.activations.Softmax
    apply_log: True
 
-ctc_cost: !name:speechbrain.k2_integration.losses.ctc_k2
+ctc_cost: !name:speechbrain.integrations.k2_fsa.losses.ctc_k2
    reduction: mean
    beam_size: 10
 

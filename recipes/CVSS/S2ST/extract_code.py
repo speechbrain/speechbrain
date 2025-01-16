@@ -18,7 +18,7 @@ from tqdm import tqdm
 
 import speechbrain as sb
 from speechbrain.dataio.dataio import load_pkl, save_pkl
-from speechbrain.lobes.models.huggingface_transformers.wav2vec2 import Wav2Vec2
+from speechbrain.integrations.huggingface.wav2vec2 import Wav2Vec2
 from speechbrain.utils.logger import get_logger
 
 OPT_FILE = "opt_cvss_extract.pkl"
