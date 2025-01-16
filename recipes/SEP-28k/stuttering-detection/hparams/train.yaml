@@ -1,0 +1,108 @@
+seed: 0
+#---------------------------------- Misc --------------------------------------
+__set_seed: !apply:torch.manual_seed [!ref <seed>]
+output_folder: !ref results/<seed>
+
+counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+    limit: !ref <number_of_epochs>
+
+modules:
+    model: !ref <model>
+
+save_folder: !ref <output_folder>/save
+train_log: !ref <output_folder>/train_log.txt
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+    checkpoints_dir: !ref <save_folder>
+    recoverables:
+        model: !ref <model>
+        counter: !ref <counter>
+
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+    save_file: !ref <train_log>
+use_tensorboard: False
+skip_prep: False
+
+data_folder: !PLACEHOLDER
+manifest_folder: !PLACEHOLDER
+split_type: SEP28k-E
+train_csv: !ref <manifest_folder>/<split_type>_train.csv
+valid_csv: !ref <manifest_folder>/<split_type>_valid.csv
+test_csv: !ref <manifest_folder>/<split_type>_test.csv
+
+hpopt_mode: orion
+hpopt: hpopt.yaml
+ckpt_enable: True
+batch_size: 256
+number_of_epochs: 5
+#---------------------------------- Classes -----------------------------------
+# Choose the classes to consider in the training. The minimal example handles
+# only a binary classification, even if multiple classes are selected.
+# TODO: Handle multi-class classification
+Prolongation: True
+Block: True
+SoundRep: True
+WordRep: True
+Interjection: True
+#----------------------------------- Feats ------------------------------------
+# Here, it is planned to fill with elements related to the dataset,
+#"remove_unsure", will remove samples that don't match the pre-requisite of
+# having at least a value of "annot_value" in the 5 stuttering class (+fluent)
+annot_value: 2
+remove_unsure: False
+#----------------------------------- Loss -------------------------------------
+#The parameter positive is used as a weight for the bce loss. The value should
+#be equal to "number of negative examples/number of positive examples".
+# This depends on the distribution of the class.
+positive: 1
+#----------------------------------- Model ------------------------------------
+# The proposed model here is a simple example based on Whisper and a
+# classification layer.
+dropout: 0.2
+size_i: 1024
+size_h: 256
+backbone: !new:speechbrain.lobes.models.huggingface_transformers.whisper.Whisper
+    source: openai/whisper-base.en
+    encoder_only: True
+    freeze: False
+    freeze_encoder: True
+    save_path: !ref <save_folder>
+
+layer1: !new:torch.nn.Linear
+    in_features: !ref <size_i>
+    out_features: !ref <size_h>
+
+layer2: !new:torch.nn.Linear
+    in_features: !ref <size_h>
+    out_features: 1
+
+bn1: !new:speechbrain.nnet.normalization.BatchNorm1d
+    input_size: !ref <size_i>
+
+bn2: !new:speechbrain.nnet.normalization.BatchNorm1d
+    input_size: !ref <size_h>
+
+do: !new:torch.nn.Dropout
+    p: !ref <dropout>
+
+model: !new:torch.nn.Sequential
+    - !ref <backbone>
+    - !new:speechbrain.nnet.pooling.StatisticsPooling
+    - !new:torch.nn.Flatten
+    - !ref <bn1>
+    - !ref <do>
+    - !ref <layer1>
+    - !new:torch.nn.LeakyReLU
+    - !ref <bn2>
+    - !ref <do>
+    - !ref <layer2>
+
+
+#-------------------------------- Scheduling ----------------------------------
+dataloader_opts:
+    batch_size: !ref <batch_size>
+    shuffle: True
+    num_workers: 2
+
+learning_rate: 0.00004
+opt_class: !name:torch.optim.AdamW
+    lr: !ref <learning_rate>
