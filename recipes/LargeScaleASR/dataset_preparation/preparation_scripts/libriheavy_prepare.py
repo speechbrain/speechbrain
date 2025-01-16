@@ -15,10 +15,10 @@ import functools
 import gzip
 import json
 import os
-import shutil
 from dataclasses import dataclass
 
 import numpy as np
+import soundfile as sf
 
 from speechbrain.utils.logger import get_logger
 from speechbrain.utils.parallel import parallel_map
@@ -36,7 +36,6 @@ LOWER_WORDS_THRESHOLD = 3
 class TheLoquaciousRow:
     ID: str
     duration: float
-    start: float
     wav: str
     spk_id: str
     sex: str
@@ -86,6 +85,7 @@ def prepare_libriheavy(
     os.makedirs(wav_folder, exist_ok=True)
 
     # Setting output files
+    os.makedirs(manifest_folder, exist_ok=True)
     save_csv_train = manifest_folder + "/libriheavy_train.csv"
 
     # If csv already exists, we skip the data preparation
@@ -235,7 +235,6 @@ def process_line(line, data_folder, save_folder, text_normaliser):
 
     snt_id, wav, start, duration, text, spk_id = line.split(",")
 
-    start = float(start)
     duration = float(duration)
 
     # Remove the large / small denomination as already given by user.
@@ -251,14 +250,12 @@ def process_line(line, data_folder, save_folder, text_normaliser):
 
     audio_path = os.path.join(data_folder, wav) + ".flac"
 
-    # We create a new filename with both the directory and file name because
-    # some audio files have the same name acros multiple directories.
-    save_audio_path = (
-        os.path.join(save_folder, "_".join(wav.split("/")[-3:])) + ".flac"
-    )
-
     # We make the id even more uniq as it is used later on to split audio files
     snt_id = "_".join(snt_id.split("/")[-3:])
+
+    save_audio_path = (
+        os.path.join(save_folder, "_".join(snt_id.split("/")[-3:])) + ".flac"
+    )
 
     # Checking the audio file exists.
     if not os.path.isfile(audio_path):
@@ -274,13 +271,18 @@ def process_line(line, data_folder, save_folder, text_normaliser):
     if not os.path.isfile(save_audio_path):
         if "frankenstein_00" in save_audio_path:
             print(audio_path + " " + save_audio_path)
-        shutil.copyfile(audio_path, save_audio_path)
+
+        # read and split if necessary (we store individual files)
+        start = int(start * 16000)
+        frames = int(duration * 16000)
+        audio_data = sf.read(audio_path, start=start, frames=frames)
+        sf.write(save_audio_path, audio_data[0], 16000)
 
     # file_name = save_audio_path.split(".")[-2].split("/")[-1]
 
     # Composition of the csv_line
     return TheLoquaciousRow(
-        snt_id, duration, start, save_audio_path, spk_id, sex, words
+        snt_id, duration, save_audio_path, spk_id, sex, words
     )
 
 
@@ -338,9 +340,7 @@ def create_csv(
             csv_f, delimiter=",", quotechar='"', quoting=csv.QUOTE_MINIMAL
         )
 
-        csv_writer.writerow(
-            ["ID", "duration", "start", "wav", "spk_id", "sex", "text"]
-        )
+        csv_writer.writerow(["ID", "duration", "wav", "spk_id", "sex", "text"])
 
         for row in parallel_map(line_processor, csv_data_lines):
             if row is None:
@@ -351,7 +351,6 @@ def create_csv(
                 [
                     row.ID,
                     str(row.duration),
-                    str(row.start),
                     row.wav,
                     row.spk_id,
                     row.sex,
