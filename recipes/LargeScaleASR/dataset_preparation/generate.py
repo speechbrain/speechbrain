@@ -34,13 +34,13 @@ if __name__ == "__main__":
     if hparams["ACTION_TO_PERFORM"] == "voxpopuli":
         from preparation_scripts.voxpopuli_prepare import prepare_voxpopuli
 
-        prepare_voxpopuli(hparams["VOXPOPULI_PATH"], hparams["HF_DATASET_ROOT"])
+        prepare_voxpopuli(hparams["VOXPOPULI_PATH"], hparams["DATASET_ROOT"])
     elif hparams["ACTION_TO_PERFORM"] == "librispeech":
         from preparation_scripts.librispeech_prepare import prepare_librispeech
 
         prepare_librispeech(
             hparams["LIBRISPEECH_PATH"],
-            hparams["HF_DATASET_ROOT"],
+            hparams["DATASET_ROOT"],
             dev_splits=["dev-other"],
             te_splits=["test-other"],
         )
@@ -51,14 +51,14 @@ if __name__ == "__main__":
 
         prepare_common_voice(
             hparams["CV_PATH"],
-            hparams["HF_DATASET_ROOT"],
+            hparams["DATASET_ROOT"],
         )
     elif hparams["ACTION_TO_PERFORM"] == "libriheavy":
         from preparation_scripts.libriheavy_prepare import prepare_libriheavy
 
         prepare_libriheavy(
             hparams["LIBRILIGHT_PATH"],
-            hparams["HF_DATASET_ROOT"],
+            hparams["DATASET_ROOT"],
             hparams["LIBRIHEAVY_TRAIN_JSON"],
             hparams["LIBRIHEAVY_DEV_JSON"],
             hparams["LIBRIHEAVY_TEST_JSON"],
@@ -71,7 +71,7 @@ if __name__ == "__main__":
 
         prepare_peoples_speech(
             hparams["PEOPLES_SPEECH_PATH"],
-            hparams["HF_DATASET_ROOT"],
+            hparams["DATASET_ROOT"],
             subsets=["clean"],
             audio_decoding=False,
         )
@@ -80,7 +80,7 @@ if __name__ == "__main__":
 
         prepare_yodas(
             hparams["YODAS_PATH"],
-            hparams["HF_DATASET_ROOT"],
+            hparams["DATASET_ROOT"],
             train_subsets=["en000", "en001"],
             dev_test_subset=["en003"],
         )
