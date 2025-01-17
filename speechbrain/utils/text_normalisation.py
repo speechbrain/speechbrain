@@ -88,6 +88,7 @@ class TextNormaliser:
             "~": "",
             "^": "",
             "*": "",
+            "•": "",
         }
 
         # Remove sentences that contain too many symbols.
