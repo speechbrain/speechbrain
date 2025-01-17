@@ -14,7 +14,6 @@ import functools
 import os
 from dataclasses import dataclass
 
-import soundfile as sf
 from nemo_text_processing.text_normalization.normalize import Normalizer
 
 from speechbrain.dataio.dataio import read_audio_info
@@ -385,7 +384,8 @@ def convert_to_wav_and_copy(source_audio_file, dest_audio_path):
     )
 
     if not os.path.isfile(audio_wav_path):
-        audio_data = sf.read(source_audio_file)
-        sf.write(audio_wav_path, audio_data[0], 16000)
+        os.system(
+            f"ffmpeg -y -i {source_audio_file} -ac 1 -ar {SAMPLING_RATE} {audio_wav_path} > /dev/null 2>&1"
+        )
 
     return audio_wav_path
