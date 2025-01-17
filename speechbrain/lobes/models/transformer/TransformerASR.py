@@ -4,6 +4,7 @@ Authors
 * Jianyuan Zhong 2020
 * Titouan Parcollet 2024
 * Luca Della Libera 2024
+* Shucong Zhang 2024
 """
 
 from dataclasses import dataclass
@@ -262,7 +263,7 @@ class TransformerASR(TransformerInterface):
         conformer_activation: Optional[nn.Module] = Swish,
         branchformer_activation: Optional[nn.Module] = nn.GELU,
         attention_type: Optional[str] = "regularMHA",
-        max_length: Optional[int] = 2500,
+        max_length: Optional[int] = 10000,
         causal: Optional[bool] = None,
         csgu_linear_units: Optional[int] = 3072,
         gate_activation: Optional[nn.Module] = nn.Identity,
@@ -364,10 +365,14 @@ class TransformerASR(TransformerInterface):
         # add pos encoding to queries if are sinusoidal ones else
         if self.attention_type == "hypermixing":
             pos_embs_encoder = None
-        elif self.attention_type == "RelPosMHAXL":
+        elif (
+            self.attention_type == "RelPosMHAXL"
+            or self.attention_type == "RoPEMHA"
+            or self.attention_type == "RoPEPytorchMHA"
+        ):
             pos_embs_encoder = self.positional_encoding(src)
         elif self.positional_encoding_type == "fixed_abs_sine":
-            src = src + self.positional_encoding(src)  # add the encodings here
+            src = src + self.positional_encoding(src)
             pos_embs_encoder = None
 
         outputs = self.encoder(
@@ -390,7 +395,14 @@ class TransformerASR(TransformerInterface):
 
         if self.attention_type == "RelPosMHAXL":
             tgt = tgt + self.positional_encoding_decoder(tgt)
-            pos_embs_encoder = None  # self.positional_encoding(src)
+            pos_embs_encoder = None
+            pos_embs_target = None
+        elif (
+            self.attention_type == "RoPEMHA" 
+            or self.attention_type == "RoPEPytorchMHA"
+        ):
+            tgt = tgt + self.positional_encoding_decoder(tgt)
+            pos_embs_encoder = None
             pos_embs_target = None
         elif (
             self.positional_encoding_type == "fixed_abs_sine"
@@ -439,15 +451,23 @@ class TransformerASR(TransformerInterface):
             src_key_padding_mask = (1 - length_to_mask(enc_len)).bool()
 
         tgt = self.custom_tgt_module(tgt)
+
         if self.attention_type == "RelPosMHAXL":
             tgt = tgt + self.positional_encoding_decoder(tgt)
-            pos_embs_encoder = None  # self.positional_encoding(src)
+            pos_embs_encoder = None
+            pos_embs_target = None
+        elif (
+            self.attention_type == "RoPEMHA" 
+            or self.attention_type == "RoPEPytorchMHA"
+        ):
+            tgt = tgt + self.positional_encoding_decoder(tgt)
+            pos_embs_encoder = None
             pos_embs_target = None
         elif (
             self.positional_encoding_type == "fixed_abs_sine"
             or self.attention_type == "hypermixing"
         ):
-            tgt = tgt + self.positional_encoding(tgt)  # add the encodings here
+            tgt = tgt + self.positional_encoding(tgt)
             pos_embs_target = None
             pos_embs_encoder = None
 
@@ -508,7 +528,11 @@ class TransformerASR(TransformerInterface):
         src = self.custom_src_module(src)
         if self.attention_type == "hypermixing":
             pos_embs_source = None
-        elif self.attention_type == "RelPosMHAXL":
+        elif (
+            self.attention_type == "RelPosMHAXL"
+            or self.attention_type == "RoPEMHA"
+            or self.attention_type == "RoPEPytorchMHA"
+        ):
             pos_embs_source = self.positional_encoding(src)
         elif self.positional_encoding_type == "fixed_abs_sine":
             src = src + self.positional_encoding(src)

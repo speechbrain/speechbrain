@@ -5,6 +5,7 @@ Authors
 * Jianyuan Zhong 2020
 * Samuele Cornell 2021
 * Sylvain de Langen 2023
+* Shucong Zhang 2024
 """
 
 import warnings
@@ -21,6 +22,8 @@ from speechbrain.nnet.attention import (
     MultiheadAttention,
     PositionalwiseFeedForward,
     RelPosMHAXL,
+    RoPEMHA,
+    RoPEPytorchMHA,
 )
 from speechbrain.nnet.hypermixing import HyperMixing
 from speechbrain.nnet.normalization import LayerNorm
@@ -407,6 +410,18 @@ class ConformerEncoderLayer(nn.Module):
                 num_heads=nhead,
                 fix_tm_hidden_size=False,
             )
+        elif attention_type == "RoPEMHA":
+            self.mha_layer = RoPEMHA(
+                num_heads=nhead,
+                embed_dim=d_model,
+                dropout=dropout,
+            )
+        elif attention_type == "RoPEPytorchMHA":
+            self.mha_layer = RoPEPytorchMHA(
+                num_heads=nhead,
+                embed_dim=d_model,
+                dropout=dropout,
+            )
 
         self.convolution_module = ConvolutionModule(
             d_model, kernel_size, bias, activation, dropout, causal=causal
@@ -725,10 +740,14 @@ class ConformerEncoder(nn.Module):
             The output of the hidden layers of the encoder.
             Only works if output_hidden_states is set to true.
         """
-        if self.attention_type == "RelPosMHAXL":
+        if (
+            self.attention_type == "RelPosMHAXL"
+            or self.attention_type == "RoPEMHA"
+            or self.attention_type == "RoPEPytorchMHA"
+        ):
             if pos_embs is None:
                 raise ValueError(
-                    "The chosen attention type for the Conformer is RelPosMHAXL. For this attention type, the positional embeddings are mandatory"
+                    f"The chosen attention type for the Conformer is {self.attention_type}. For this attention type, the positional embeddings are mandatory"
                 )
 
         output = src
@@ -794,10 +813,14 @@ class ConformerEncoder(nn.Module):
             The attention values.
         """
 
-        if self.attention_type == "RelPosMHAXL":
+        if (
+            self.attention_type == "RelPosMHAXL"
+            or self.attention_type == "RoPEMHA"
+            or self.attention_type == "RoPEPytorchMHA"
+        ):
             if pos_embs is None:
                 raise ValueError(
-                    "The chosen attention type for the Conformer is RelPosMHAXL. For this attention type, the positional embeddings are mandatory"
+                    f"The chosen attention type for the Conformer is {self.attention_type}. For this attention type, the positional embeddings are mandatory"
                 )
 
         output = src
