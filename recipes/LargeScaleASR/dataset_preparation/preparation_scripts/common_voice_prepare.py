@@ -14,6 +14,7 @@ import functools
 import os
 from dataclasses import dataclass
 
+import soundfile as sf
 from nemo_text_processing.text_normalization.normalize import Normalizer
 
 from speechbrain.dataio.dataio import read_audio_info
@@ -37,7 +38,6 @@ MAX_NB_OF_SAMPLES_PER_SPK = 9000
 class TheLoquaciousRow:
     ID: str
     duration: float
-    start: float
     wav: str
     spk_id: str
     sex: str
@@ -163,7 +163,6 @@ def process_line(line, data_folder, save_folder, header_map, text_norm):
     audio_path_filename = columns[header_map["path"]]
     words = columns[header_map["sentence"]]
     sex = columns[header_map["gender"]]
-    start = -1
 
     # !! Language specific cleaning !!
     words = normaliser.normalize(words)
@@ -197,9 +196,7 @@ def process_line(line, data_folder, save_folder, header_map, text_norm):
     snt_id = file_name
 
     # Composition of the csv_line
-    return TheLoquaciousRow(
-        snt_id, duration, start, audio_path, spk_id, sex, words
-    )
+    return TheLoquaciousRow(snt_id, duration, audio_path, spk_id, sex, words)
 
 
 def create_csv(
@@ -271,9 +268,7 @@ def create_csv(
             csv_f, delimiter=",", quotechar='"', quoting=csv.QUOTE_MINIMAL
         )
 
-        csv_writer.writerow(
-            ["ID", "duration", "start", "wav", "spk_id", "sex", "text"]
-        )
+        csv_writer.writerow(["ID", "duration", "wav", "spk_id", "sex", "text"])
 
         for row in parallel_map(line_processor, csv_data_lines):
             if row is None:
@@ -284,7 +279,6 @@ def create_csv(
                 [
                     row.ID,
                     str(row.duration),
-                    str(row.start),
                     row.wav,
                     row.spk_id,
                     row.sex,
@@ -391,8 +385,7 @@ def convert_to_wav_and_copy(source_audio_file, dest_audio_path):
     )
 
     if not os.path.isfile(audio_wav_path):
-        os.system(
-            f"ffmpeg -y -i {source_audio_file} -ac 1 -ar {SAMPLING_RATE} {audio_wav_path} > /dev/null 2>&1"
-        )
+        audio_data = sf.read(source_audio_file)
+        sf.write(audio_wav_path, audio_data[0], 16000)
 
     return audio_wav_path
