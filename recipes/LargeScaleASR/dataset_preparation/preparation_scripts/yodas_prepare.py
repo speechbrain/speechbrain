@@ -45,7 +45,6 @@ SAMPLING_RATE = 16000
 class TheLoquaciousRow:
     ID: str
     duration: float
-    start: float
     wav: str
     spk_id: str
     sex: str
@@ -247,20 +246,32 @@ def HF_create_csv(
     nb_samples = 0
 
     #
-    # Step 1 first filtering based on text
-    #
-    text_normaliser = TextNormaliser()
-    line_processor = functools.partial(
-        HF_process_line_first_txt_filter, text_normaliser=text_normaliser
-    )
-    csv_file_tmp = csv_file + ".tmp"
+    # Check if LID has been done. If True, we can shortcut.
+    # TO REMOVE THIS IS JUST FOR RECREATION OF THE DATASET
     csv_file_tmp_2 = csv_file + "_lid.tmp"
-    if not os.path.isfile(csv_file_tmp) or not os.path.isfile(csv_file_tmp_2):
+    if os.path.isfile(csv_file_tmp_2):
+        valid_corpus_lines = open(
+            csv_file_tmp_2, "r", encoding="utf-8"
+        ).readlines()[1:]
+        id_to_text = {}
+        for line in valid_corpus_lines:
+            split = line.split(",")
+            id_wav = split[0]
+            id_to_text[id_wav] = split[1]
+
+        text_normaliser = TextNormaliser()
+        line_processor = functools.partial(
+            HF_process_line_LID_index,
+            text_normaliser=text_normaliser,
+            lid_dict=id_to_text,
+        )
+        csv_file_tmp = csv_file + ".tmp"
+
         with open(csv_file_tmp, mode="w", encoding="utf-8") as csv_f:
             csv_writer = csv.writer(
                 csv_f, delimiter=",", quotechar='"', quoting=csv.QUOTE_MINIMAL
             )
-            header = ["ID", "duration", "start", "wav", "spk_id", "sex", "text"]
+            header = ["ID", "duration", "wav", "spk_id", "sex", "text"]
             csv_writer.writerow(header)
 
             for row in parallel_map(line_processor, hf_dataset):
@@ -271,7 +282,45 @@ def HF_create_csv(
                     [
                         row.ID,
                         str(row.duration),
-                        str(row.start),
+                        row.wav,
+                        row.spk_id,
+                        row.sex,
+                        row.text,
+                    ]
+                )
+
+                total_duration += row.duration
+                nb_samples += 1
+
+        logger.info(f"First filtering. Number of samples in: {nb_samples}")
+        logger.info(f"Total duration: {round(total_duration / 3600, 2)} Hours")
+
+    #
+    # Step 1 first filtering based on text
+    #
+    text_normaliser = TextNormaliser()
+    line_processor = functools.partial(
+        HF_process_line_first_txt_filter, text_normaliser=text_normaliser
+    )
+    csv_file_tmp = csv_file + ".tmp"
+    csv_file_tmp_2 = csv_file + "_lid.tmp"
+
+    if not os.path.isfile(csv_file_tmp) or not os.path.isfile(csv_file_tmp_2):
+        with open(csv_file_tmp, mode="w", encoding="utf-8") as csv_f:
+            csv_writer = csv.writer(
+                csv_f, delimiter=",", quotechar='"', quoting=csv.QUOTE_MINIMAL
+            )
+            header = ["ID", "duration", "wav", "spk_id", "sex", "text"]
+            csv_writer.writerow(header)
+
+            for row in parallel_map(line_processor, hf_dataset):
+                if row is None:
+                    continue
+
+                csv_writer.writerow(
+                    [
+                        row.ID,
+                        str(row.duration),
                         row.wav,
                         row.spk_id,
                         row.sex,
@@ -313,7 +362,7 @@ def HF_create_csv(
         csv_writer = csv.writer(
             csv_f, delimiter=",", quotechar='"', quoting=csv.QUOTE_MINIMAL
         )
-        header = ["ID", "duration", "start", "wav", "spk_id", "sex", "text"]
+        header = ["ID", "duration", "wav", "spk_id", "sex", "text"]
         csv_writer.writerow(header)
 
         for row in parallel_map(line_processor, valid_corpus_lines):
@@ -324,7 +373,6 @@ def HF_create_csv(
                 [
                     row.ID,
                     str(row.duration),
-                    str(row.start),
                     row.wav,
                     row.spk_id,
                     row.sex,
@@ -397,7 +445,7 @@ def HF_create_csv_dev_test(
             csv_writer = csv.writer(
                 csv_f, delimiter=",", quotechar='"', quoting=csv.QUOTE_MINIMAL
             )
-            header = ["ID", "duration", "start", "wav", "spk_id", "sex", "text"]
+            header = ["ID", "duration", "wav", "spk_id", "sex", "text"]
             csv_writer.writerow(header)
 
             for row in parallel_map(line_processor, hf_dataset):
@@ -408,7 +456,6 @@ def HF_create_csv_dev_test(
                     [
                         row.ID,
                         str(row.duration),
-                        str(row.start),
                         row.wav,
                         row.spk_id,
                         row.sex,
@@ -452,7 +499,7 @@ def HF_create_csv_dev_test(
         csv_writer = csv.writer(
             csv_f, delimiter=",", quotechar='"', quoting=csv.QUOTE_MINIMAL
         )
-        header = ["ID", "duration", "start", "wav", "spk_id", "sex", "text"]
+        header = ["ID", "duration", "wav", "spk_id", "sex", "text"]
         csv_writer.writerow(header)
 
         for row in parallel_map(line_processor, valid_corpus_lines):
@@ -463,7 +510,6 @@ def HF_create_csv_dev_test(
                 [
                     row.ID,
                     str(row.duration),
-                    str(row.start),
                     row.wav,
                     row.spk_id,
                     row.sex,
@@ -489,7 +535,7 @@ def HF_create_csv_dev_test(
     dev_duration = 0.0
     test_duration = 0.0
     for line in dev_content[1:]:
-        ID, duration, start, wav, spk_id, sex, text = line.split(",")
+        ID, duration, wav, spk_id, sex, text = line.split(",")
         if dev_duration + float(duration) <= duration_dev:
             dev_file.write(line)
             dev_duration += float(duration)
@@ -553,18 +599,16 @@ def perform_language_id(
     )
 
     @sb.utils.data_pipeline.takes(
-        "id", "wav", "duration", "start", "spk_id", "sex", "text"
+        "id", "wav", "duration", "spk_id", "sex", "text"
     )
     @sb.utils.data_pipeline.provides("sig", "csv_row")
-    def audio_pipeline(id, wav, duration, start, spk_id, sex, text):
+    def audio_pipeline(id, wav, duration, spk_id, sex, text):
         sig = sb.dataio.dataio.read_audio(wav)
         yield sig
         csv_row = (
             str(id)
             + ","
             + str(duration)
-            + ","
-            + str(start)
             + ","
             + str(wav)
             + ","
@@ -604,9 +648,7 @@ def perform_language_id(
         csv_writer = csv.writer(
             csv_f, delimiter=",", quotechar='"', quoting=csv.QUOTE_MINIMAL
         )
-        csv_writer.writerow(
-            ["ID", "duration", "start", "wav", "spk_id", "sex", "text"]
-        )
+        csv_writer.writerow(["ID", "duration", "wav", "spk_id", "sex", "text"])
         with tqdm(train_loader) as t:
             for batch in t:
                 batch = batch.to("cuda")
@@ -640,7 +682,7 @@ def process_line_copy_wav_and_last_filter(row, save_folder):
     TheLoquaciousRow
         A dataclass containing the information about the line.
     """
-    id, duration, start, wav, spk_id, sex, text = row.split("\n")[0].split(",")
+    id, duration, wav, spk_id, sex, text = row.split("\n")[0].split(",")
 
     if text:
 
@@ -652,7 +694,6 @@ def process_line_copy_wav_and_last_filter(row, save_folder):
         row = TheLoquaciousRow(
             ID=id,
             duration=float(duration),
-            start=-1,
             wav=save_audio_path,
             spk_id=None,
             sex=None,
@@ -712,7 +753,58 @@ def HF_process_line_first_txt_filter(row, text_normaliser):
         row = TheLoquaciousRow(
             ID=audio_id,
             duration=duration,
-            start=-1,
+            wav=audio_path,
+            spk_id=None,
+            sex=None,
+            text=text,
+        )
+
+        return row
+    else:
+        return None
+
+
+def HF_process_line_LID_index(row, text_normaliser, lid_dict):
+    """
+    Process the audio line and return the utterances for the given split.
+    This is used to generate a first CSV file with text filters applied.
+    YODAS is very noisy so multiple steps are necessary (first text, this function, then audio language).
+
+    Parameters
+    ----------
+    row: dict
+        The audio line to be processed.
+    text_normaliser: speechbrain.utils.text_normalisation.TextNormaliser
+    lid_dict: dict
+        batlec
+
+    Returns
+    -------
+    TheLoquaciousRow
+        A dataclass containing the information about the line.
+    """
+
+    if not row["utt_id"] + ".wav" in lid_dict:
+        return None
+
+    text_nemo = normaliser.normalize(str(row["text"]))
+    text = text_normaliser.english_specific_preprocess(text_nemo)
+
+    if text:
+        audio_id = row["utt_id"] + ".wav"
+        duration = lid_dict[audio_id]
+        audio_path = row["audio"]["path"]
+
+        #  Way too uncertain pronunciation (time/multiply/etc).
+        if "ASTERISK" in text:
+            return None
+
+        if text is None or len(text.split(" ")) < LOWER_WORDS_THRESHOLD:
+            return None
+
+        row = TheLoquaciousRow(
+            ID=audio_id,
+            duration=duration,
             wav=audio_path,
             spk_id=None,
             sex=None,
