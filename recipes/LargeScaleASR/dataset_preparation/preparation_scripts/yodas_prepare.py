@@ -294,6 +294,9 @@ def HF_create_csv(
 
         logger.info(f"First filtering. Number of samples in: {nb_samples}")
         logger.info(f"Total duration: {round(total_duration / 3600, 2)} Hours")
+        valid_corpus_lines = open(
+            csv_file_tmp, "r", encoding="utf-8"
+        ).readlines()[1:]
 
     #
     # Step 1 first filtering based on text
@@ -344,9 +347,9 @@ def HF_create_csv(
             "en",
         )
 
-    valid_corpus_lines = open(
-        csv_file_tmp_2, "r", encoding="utf-8"
-    ).readlines()[1:]
+        valid_corpus_lines = open(
+            csv_file_tmp_2, "r", encoding="utf-8"
+        ).readlines()[1:]
 
     #
     # Step 3 Final text normalization and copy of audio files and csv saving
@@ -810,6 +813,8 @@ def HF_process_line_LID_index(row, text_normaliser, lid_dict):
             sex=None,
             text=text,
         )
+
+        lid_dict.pop(audio_id)
 
         return row
     else:
