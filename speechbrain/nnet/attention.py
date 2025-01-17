@@ -1115,7 +1115,6 @@ class RoPEMHA(nn.Module):
         ).reshape(bsz, seq_len, -1, head_dim)
 
         # (bsz, L, num_heads, head_dim) * (L, 1, hdead_dim)
-        breakpoint()
         return x * cosine[:seq_len].unsqueeze(1) + rotate_half * sine[
             :seq_len
         ].unsqueeze(1)
@@ -1284,6 +1283,7 @@ class RoPEMHA(nn.Module):
 
         return out
 
+
 class RoPEPytorchMHA(RoPEMHA):
     """
     Arguments
@@ -1424,21 +1424,23 @@ class RoPEPytorchMHA(RoPEMHA):
             value = value + self.value_bias_weight.view(
                 1, 1, self.num_heads, self.vhead_dim
             )
-            
+
         q_rotated = self.rotate(query, pos_embs)
         k_rotated = self.rotate(key, pos_embs)
-                  
+
         if key_padding_mask is not None:
-            key_padding_mask = key_padding_mask.view(bsz, 1, 1, klen).expand(bsz, self.num_heads, klen, qlen)
-    
+            key_padding_mask = key_padding_mask.view(bsz, 1, 1, klen).expand(
+                bsz, self.num_heads, klen, qlen
+            )
+
         x = F.scaled_dot_product_attention(
-            query=q_rotated.permute(0,2,1,3),
-            key=k_rotated.permute(0,2,1,3),
-            value=value.permute(0,2,1,3),
+            query=q_rotated.permute(0, 2, 1, 3),
+            key=k_rotated.permute(0, 2, 1, 3),
+            value=value.permute(0, 2, 1, 3),
             attn_mask=torch.logical_not(key_padding_mask),
             dropout_p=self.dropout,
         )
-                        
+
         x = (
             x.transpose(1, 2)
             .contiguous()
@@ -1447,5 +1449,5 @@ class RoPEPytorchMHA(RoPEMHA):
 
         out = self.out_proj(x)
         if return_attn_weights:
-            return out, None # out, attn_score
+            return out, None  # out, attn_score
         return out
