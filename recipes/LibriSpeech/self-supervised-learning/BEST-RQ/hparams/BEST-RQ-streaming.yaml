@@ -2,16 +2,17 @@
 # Model: Best-RQ
 # Encoder: Conformer Encoder w/Random Projection Quantizer
 # Training: Librispeech 960h
-# Authors:  Ryan Whetten 2024
-#           Jarod Duret  2024
+# Authors:  
+#   Ryan Whetten, 2024
+#   Jarod Duret, 2024
 # ############################################################################
 # Seed needs to be set at top of yaml, before objects with parameters are made
 
 seed: 1000
 __set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
 data_folder: !PLACEHOLDER # /path/to/LibriSpeech/
-run_name: !PLACEHOLDER
-output_folder: !ref results/<seed>/<run_name>
+experiment_name: !PLACEHOLDER
+output_folder: !ref results/<experiment_name>/<seed>
 save_folder: !ref <output_folder>/save
 # Logging file for every N optimizer steps (many lines)
 train_steps_log: !ref <output_folder>/train_steps_log.txt
@@ -39,7 +40,7 @@ optimizer_step_limit: 200000
 
 # This setup is for 8 V100.
 seconds_per_batch: 1000
-train_num_buckets: 400
+train_num_buckets: 200
 grad_accumulation_factor: 2
 
 train_dataloader_options:
@@ -71,15 +72,15 @@ streaming: True  # controls all Dynamic Chunk Training & chunk size & left conte
 # Configuration for Dynamic Chunk Training.
 # In this model, a chunk is roughly equivalent to 40ms of audio.
 dynchunktrain_config_sampler: !new:speechbrain.utils.dynamic_chunk_training.DynChunkTrainConfigRandomSampler # yamllint disable-line rule:line-length
-   chunkwise_prob: 0.6 # Probability during a batch to limit attention and sample a random chunk size in the following range
-   chunk_size_min: 8 # Minimum chunk size (if in a DynChunkTrain batch)
-   chunk_size_max: 32 # Maximum chunk size (if in a DynChunkTrain batch)
-   limited_left_context_prob: 0.75 # If in a DynChunkTrain batch, the probability during a batch to restrict left context to a random number of chunks
-   left_context_chunks_min: 2 # Minimum left context size (in # of chunks)
-   left_context_chunks_max: 32 # Maximum left context size (in # of chunks)
-   valid_config: !new:speechbrain.utils.dynamic_chunk_training.DynChunkTrainConfig
-      chunk_size: 8
-      left_context_size: 16
+    chunkwise_prob: 0.6 # Probability during a batch to limit attention and sample a random chunk size in the following range
+    chunk_size_min: 8 # Minimum chunk size (if in a DynChunkTrain batch)
+    chunk_size_max: 32 # Maximum chunk size (if in a DynChunkTrain batch)
+    limited_left_context_prob: 0.75 # If in a DynChunkTrain batch, the probability during a batch to restrict left context to a random number of chunks
+    left_context_chunks_min: 2 # Minimum left context size (in # of chunks)
+    left_context_chunks_max: 32 # Maximum left context size (in # of chunks)
+    valid_config: !new:speechbrain.utils.dynamic_chunk_training.DynChunkTrainConfig
+        chunk_size: 8
+        left_context_size: 16
 
 ####################### Model parameters ###########################
 # Transformer
@@ -103,7 +104,6 @@ noise_std: 0.1
 p_input: 320
 cb_dim: 16
 cb_vocab: 4096
-
 
 ############################## Models ################################
 

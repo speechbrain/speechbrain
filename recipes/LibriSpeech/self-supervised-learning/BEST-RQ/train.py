@@ -3,8 +3,9 @@
 
 To run this recipe call python train.py BEST-RQ.yaml --find_unused_parameters
 
-Authors
-    * Ryan Whetten 2023
+Authors:
+ * Ryan Whetten, 2023
+ * Jarod Duret, 2024
 """
 
 import sys
