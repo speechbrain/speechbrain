@@ -56,7 +56,7 @@ def merge_csv_files(
         with open(csv_file, "r", encoding="utf-8") as file:
             header.append(file.readline())
 
-    if header[0].count(header[0]) != len(header):
+    if header.count(header[0]) != len(header):
         logger.error("The headers of the provided csv are different!")
 
     all_lines = []
