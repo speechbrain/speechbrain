@@ -169,7 +169,7 @@ Audio files and supervision labels can be embedded into bigger shards with:
 
 Each set "**large, medium, small, clean, val, test** must be exported individually. This is done by overriding the yaml variable, such as:
 
-```python generate.py hparams/data_prep.yaml --ACTION_TO_PERFORM=export_to_parquet --PARQUET_SUBSET=large --PARQUET_SPLIT=train  --MAX_SHARD_SIZE=500MB --PARQUET_OUTPUT_FOLDER=/path/ThelargescaleasrSet_sharded/large --PARQUET_ORIG_CSV=/ThelargescaleasrSet/manifests/thelargescaleasrset_small_train.csv --HF_DATASET_ROOT=/ThelargescaleasrSet```
+```python generate.py hparams/data_prep.yaml --ACTION_TO_PERFORM=export_to_parquet --PARQUET_SUBSET=large --PARQUET_SPLIT=train  --MAX_SHARD_SIZE=500MB --PARQUET_OUTPUT_FOLDER=/path/ThelargescaleasrSet_sharded/large --PARQUET_ORIG_CSV=/ThelargescaleasrSet/manifests/thelargescaleasrset_small_train.csv```
 
 This step will also copy the original csv to the parquet folder. wav path are simplified to only the filename to prevent any security issue. This is necessary for two reasons:
 1. The user may want to inspect the dataset, and a csv is much easier to view than a parquet file.
