@@ -15,9 +15,10 @@ from dataclasses import dataclass
 
 from speechbrain.dataio.dataio import read_audio_info
 from speechbrain.utils.data_utils import get_all_files
-from speechbrain.utils.logger import get_logger
+from speechbrain.utils.logger import get_logger, setup_logging
 from speechbrain.utils.parallel import parallel_map
 
+setup_logging()
 logger = get_logger(__name__)
 OPT_FILE = "opt_librispeech_prepare.pkl"
 SAMPLING_RATE = 16000

@@ -18,12 +18,13 @@ from dataclasses import dataclass
 from nemo_text_processing.text_normalization.normalize import Normalizer
 
 from speechbrain.dataio.dataio import read_audio_info
-from speechbrain.utils.logger import get_logger
+from speechbrain.utils.logger import get_logger, setup_logging
 from speechbrain.utils.parallel import parallel_map
 from speechbrain.utils.text_normalisation import TextNormaliser
 
 normaliser = Normalizer(input_case="cased", lang="en")
 
+setup_logging()
 logger = get_logger(__name__)
 
 SAMPLING_RATE = 16000
