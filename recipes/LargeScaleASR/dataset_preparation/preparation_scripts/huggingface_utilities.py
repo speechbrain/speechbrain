@@ -105,7 +105,7 @@ def clean_the_parquet(hparams):
     )
 
     ds = datasets.load_dataset(
-        hparams["HF_DATASET_ROOT"],
+        hparams["DATASET_ROOT"],
         name=hparams["PARQUET_SUBSET"],
         features=header,
     ).cast_column("wav", Audio(decode=False))[hparams["PARQUET_SPLIT"]]
