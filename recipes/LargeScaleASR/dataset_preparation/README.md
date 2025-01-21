@@ -174,3 +174,64 @@ Each set "**large, medium, small, clean, val, test** must be exported individual
 This step will also copy the original csv to the parquet folder. wav path are simplified to only the filename to prevent any security issue. This is necessary for two reasons:
 1. The user may want to inspect the dataset, and a csv is much easier to view than a parquet file.
 2. The tokenizer may need to access all the text to be trained, and this is also easier from a csv file.
+
+Once this is done, another README.md must be created to document the HuggingFace dataset.
+This must be created at the root of the dataset.
+
+```
+---
+configs:
+- config_name: small
+  features:
+  - name: ID
+    dtype: string
+  - name: duration
+    dtype: float32
+  - name: start
+    dtype: float32
+  - name: wav
+    dtype:
+      audio:
+        sample_rate: 16000
+        decode: False
+  - name: spk_id
+    dtype: string
+  - name: sex
+    dtype: string
+  - name: text
+    dtype: string
+  data_files:
+  - split: train
+    path: small/train*
+  - split: dev
+    path: dev/dev*
+  - split: test
+    path: test/test*
+- config_name: medium
+  features:
+  - name: ID
+    dtype: string
+  - name: duration
+    dtype: float32
+  - name: start
+    dtype: float32
+  - name: wav
+    dtype:
+      audio:
+        sample_rate: 16000
+        decode: False
+  - name: spk_id
+    dtype: string
+  - name: sex
+    dtype: string
+  - name: text
+    dtype: string
+  data_files:
+  - split: train
+    path: medium/train*
+  - split: dev
+    path: dev/dev*
+  - split: test
+    path: test/test*
+---
+```
