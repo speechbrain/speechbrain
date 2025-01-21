@@ -33,7 +33,7 @@ LOWER_WORDS_THRESHOLD = 3
 
 
 @dataclass
-class TheLoquaciousRow:
+class LargeScaleASRRow:
     ID: str
     duration: float
     wav: str
@@ -182,7 +182,7 @@ def process_line(line, data_folder, save_folder, text_normaliser):
 
     Returns
     -------
-    TheLoquaciousRow
+    LargeScaleASRRow
         A dataclass containing the information about the line.
     """
     year_path = os.path.join(line[0:4], line.split("\t")[0])
@@ -222,7 +222,7 @@ def process_line(line, data_folder, save_folder, text_normaliser):
     wav_path = convert_to_wav_and_copy(ogg_path, save_folder)
 
     # Composition of the csv_line
-    return TheLoquaciousRow(snt_id, duration, wav_path, spk_id, sex, words)
+    return LargeScaleASRRow(snt_id, duration, wav_path, spk_id, sex, words)
 
 
 def create_csv_and_copy_wav(

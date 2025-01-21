@@ -33,7 +33,7 @@ LOWER_WORDS_THRESHOLD = 3
 
 
 @dataclass
-class TheLoquaciousRow:
+class LargeScaleASRRow:
     ID: str
     duration: float
     wav: str
@@ -226,7 +226,7 @@ def process_line(line, data_folder, save_folder, text_normaliser):
 
     Returns
     -------
-    TheLoquaciousRow
+    LargeScaleASRRow
         A dataclass containing the information about the line.
     """
 
@@ -280,7 +280,7 @@ def process_line(line, data_folder, save_folder, text_normaliser):
     # file_name = save_audio_path.split(".")[-2].split("/")[-1]
 
     # Composition of the csv_line
-    return TheLoquaciousRow(
+    return LargeScaleASRRow(
         snt_id, duration, save_audio_path, spk_id, sex, words
     )
 

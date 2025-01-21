@@ -42,7 +42,7 @@ SAMPLING_RATE = 16000
 
 
 @dataclass
-class TheLoquaciousRow:
+class LargeScaleASRRow:
     ID: str
     duration: float
     wav: str
@@ -244,59 +244,6 @@ def HF_create_csv(
 
     total_duration = 0.0
     nb_samples = 0
-
-    #
-    # Check if LID has been done. If True, we can shortcut.
-    # TO REMOVE THIS IS JUST FOR RECREATION OF THE DATASET
-    csv_file_tmp_2 = csv_file + "_lid.tmp"
-    if os.path.isfile(csv_file_tmp_2):
-        valid_corpus_lines = open(
-            csv_file_tmp_2, "r", encoding="utf-8"
-        ).readlines()[1:]
-        id_to_text = {}
-        for line in valid_corpus_lines:
-            split = line.split(",")
-            id_wav = split[0]
-            id_to_text[id_wav] = split[1]
-
-        text_normaliser = TextNormaliser()
-        line_processor = functools.partial(
-            HF_process_line_LID_index,
-            text_normaliser=text_normaliser,
-            lid_dict=id_to_text,
-        )
-        csv_file_tmp = csv_file + ".tmp"
-
-        with open(csv_file_tmp, mode="w", encoding="utf-8") as csv_f:
-            csv_writer = csv.writer(
-                csv_f, delimiter=",", quotechar='"', quoting=csv.QUOTE_MINIMAL
-            )
-            header = ["ID", "duration", "wav", "spk_id", "sex", "text"]
-            csv_writer.writerow(header)
-
-            for row in parallel_map(line_processor, hf_dataset):
-                if row is None:
-                    continue
-
-                csv_writer.writerow(
-                    [
-                        row.ID,
-                        str(row.duration),
-                        row.wav,
-                        row.spk_id,
-                        row.sex,
-                        row.text,
-                    ]
-                )
-
-                total_duration += row.duration
-                nb_samples += 1
-
-        logger.info(f"First filtering. Number of samples in: {nb_samples}")
-        logger.info(f"Total duration: {round(total_duration / 3600, 2)} Hours")
-        valid_corpus_lines = open(
-            csv_file_tmp, "r", encoding="utf-8"
-        ).readlines()[1:]
 
     #
     # Step 1 first filtering based on text
@@ -682,7 +629,7 @@ def process_line_copy_wav_and_last_filter(row, save_folder):
 
     Returns
     -------
-    TheLoquaciousRow
+    LargeScaleASRRow
         A dataclass containing the information about the line.
     """
     id, duration, wav, spk_id, sex, text = row.split("\n")[0].split(",")
@@ -694,7 +641,7 @@ def process_line_copy_wav_and_last_filter(row, save_folder):
         if not os.path.isfile(save_audio_path):
             shutil.copyfile(wav, save_audio_path)
 
-        row = TheLoquaciousRow(
+        row = LargeScaleASRRow(
             ID=id,
             duration=float(duration),
             wav=save_audio_path,
@@ -722,7 +669,7 @@ def HF_process_line_first_txt_filter(row, text_normaliser):
 
     Returns
     -------
-    TheLoquaciousRow
+    LargeScaleASRRow
         A dataclass containing the information about the line.
     """
 
@@ -753,7 +700,7 @@ def HF_process_line_first_txt_filter(row, text_normaliser):
         if text is None or len(text.split(" ")) < LOWER_WORDS_THRESHOLD:
             return None
 
-        row = TheLoquaciousRow(
+        row = LargeScaleASRRow(
             ID=audio_id,
             duration=duration,
             wav=audio_path,
@@ -783,7 +730,7 @@ def HF_process_line_LID_index(row, text_normaliser, lid_dict):
 
     Returns
     -------
-    TheLoquaciousRow
+    LargeScaleASRRow
         A dataclass containing the information about the line.
     """
 
@@ -805,7 +752,7 @@ def HF_process_line_LID_index(row, text_normaliser, lid_dict):
         if text is None or len(text.split(" ")) < LOWER_WORDS_THRESHOLD:
             return None
 
-        row = TheLoquaciousRow(
+        row = LargeScaleASRRow(
             ID=audio_id,
             duration=duration,
             wav=audio_path,

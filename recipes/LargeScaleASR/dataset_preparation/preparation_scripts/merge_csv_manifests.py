@@ -25,7 +25,6 @@ def merge_csv_files(
     dest_csv: str,
     hours_per_csv=-1,
     duration_column_indice=1,
-    split_and_clean_wavs=False,
 ):
     """This function takes a list of speechbrain csv files and concatenate them. The lines are shuffled. This function can also pick only a subset of
     a given duration from each file. CSVS MUST HAVE THE SAME HEADER.
@@ -41,9 +40,6 @@ def merge_csv_files(
         is taken. The duration column must be in seconds.
     duration_column_indice : float
         If hours_per_csv is specified, then the indice of the column (starting at zero) must be specified to retrieve the value from each line.
-    split_and_clean_wavs : bool
-        If True, wav that must be accessed with start and duration (slicing)
-        will be converted to single audio files using soundfile. False will just keep that. Start is set to -1 once done.
     Returns
     -------
     None
@@ -90,38 +86,17 @@ def merge_csv_files(
     logger.info("New total duration is: " + str(total_duration / 3600))
     logger.info("Writing back to: " + str(dest_csv))
 
-    if split_and_clean_wavs:
-        line_processor = functools.partial(process_line_split_and_clean_wav)
-        wavs_to_delete = []
-        with open(dest_csv, mode="w", newline="", encoding="utf-8") as csv_f:
-            csv_writer = csv.writer(
-                csv_f, delimiter=",", quotechar='"', quoting=csv.QUOTE_MINIMAL
-            )
-            csv_writer.writerow(header[0].split("\n")[0].split(","))
-            for row, row2 in parallel_map(line_processor, all_lines):
-                if row is None:
-                    continue
+    line_processor = functools.partial(process_line)
+    with open(dest_csv, mode="w", newline="", encoding="utf-8") as csv_f:
+        csv_writer = csv.writer(
+            csv_f, delimiter=",", quotechar='"', quoting=csv.QUOTE_MINIMAL
+        )
+        csv_writer.writerow(header[0].split("\n")[0].split(","))
+        for row in parallel_map(line_processor, all_lines):
+            if row is None:
+                continue
 
-                if row2 is not None:
-                    wavs_to_delete.append(row2)
-                csv_writer.writerow(row)
-
-        logger.info("Deleting old wav files.")
-        for line in wavs_to_delete:
-            if os.path.isfile(line):
-                os.remove(line)
-    else:
-        line_processor = functools.partial(process_line)
-        with open(dest_csv, mode="w", newline="", encoding="utf-8") as csv_f:
-            csv_writer = csv.writer(
-                csv_f, delimiter=",", quotechar='"', quoting=csv.QUOTE_MINIMAL
-            )
-            csv_writer.writerow(header[0].split("\n")[0].split(","))
-            for row in parallel_map(line_processor, all_lines):
-                if row is None:
-                    continue
-
-                csv_writer.writerow(row)
+            csv_writer.writerow(row)
 
 
 def copy_and_remove_path_csvs(orig_csv, output_path):
@@ -161,7 +136,7 @@ def process_line_remove_wav_path(row: str) -> list:
 
     Returns
     -------
-    TheLoquaciousRow
+    LargeScaleASRRow
         A dataclass containing the information about the line.
     """
     ID, duration, start, wav, spk_id, sex, text = row.split("\n")[0].split(",")
@@ -182,7 +157,7 @@ def process_line_split_and_clean_wav(row: str) -> list:
 
     Returns
     -------
-    TheLoquaciousRow
+    LargeScaleASRRow
         A dataclass containing the information about the line.
     """
 
@@ -222,7 +197,7 @@ def process_line(row: str) -> list:
 
     Returns
     -------
-    TheLoquaciousRow
+    LargeScaleASRRow
         A dataclass containing the information about the line.
     """
 

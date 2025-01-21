@@ -132,17 +132,16 @@ def prepare_librispeech(
 
 
 @dataclass
-class TheLoquaciousRow:
+class LargeScaleASRRow:
     ID: str
     duration: float
-    start: float
     wav: str
     spk_id: str
     sex: str
     text: str
 
 
-def process_line(wav_file, text_dict, save_folder) -> TheLoquaciousRow:
+def process_line(wav_file, text_dict, save_folder) -> LargeScaleASRRow:
     snt_id = wav_file.split("/")[-1].replace(".flac", "")
     spk_id = "-".join(snt_id.split("-")[0:2])
     wrds = text_dict[snt_id]
@@ -153,11 +152,10 @@ def process_line(wav_file, text_dict, save_folder) -> TheLoquaciousRow:
 
     wav_file = convert_to_wav_and_copy(wav_file, save_folder)
 
-    return TheLoquaciousRow(
+    return LargeScaleASRRow(
         ID=snt_id,
         spk_id=spk_id,
         duration=duration,
-        start=-1,
         wav=wav_file,
         sex=None,
         text=wrds,
@@ -199,7 +197,7 @@ def create_csv(
     msg = "Creating csv lists in  %s..." % (csv_file)
     logger.info(msg)
 
-    csv_lines = [["ID", "duration", "start", "wav", "spk_id", "sex", "text"]]
+    csv_lines = [["ID", "duration", "wav", "spk_id", "sex", "text"]]
 
     snt_cnt = 0
     line_processor = functools.partial(
@@ -212,7 +210,6 @@ def create_csv(
         csv_line = [
             row.ID,
             str(row.duration),
-            row.start,
             row.wav,
             row.spk_id,
             row.sex,

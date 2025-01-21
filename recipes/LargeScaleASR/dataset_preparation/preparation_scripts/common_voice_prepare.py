@@ -34,7 +34,7 @@ MAX_NB_OF_SAMPLES_PER_SPK = 9000
 
 
 @dataclass
-class TheLoquaciousRow:
+class LargeScaleASRRow:
     ID: str
     duration: float
     wav: str
@@ -153,7 +153,7 @@ def process_line(line, data_folder, save_folder, header_map, text_norm):
 
     Returns
     -------
-    TheLoquaciousRow
+    LargeScaleASRRow
         A dataclass containing the information about the line.
     """
 
@@ -195,7 +195,7 @@ def process_line(line, data_folder, save_folder, header_map, text_norm):
     snt_id = file_name
 
     # Composition of the csv_line
-    return TheLoquaciousRow(snt_id, duration, audio_path, spk_id, sex, words)
+    return LargeScaleASRRow(snt_id, duration, audio_path, spk_id, sex, words)
 
 
 def create_csv(

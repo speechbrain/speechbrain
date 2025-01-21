@@ -35,7 +35,7 @@ LOWER_WORDS_THRESHOLD = 3
 
 
 @dataclass
-class TheLoquaciousRow:
+class LargeScaleASRRow:
     ID: str
     duration: float
     wav: str
@@ -296,7 +296,7 @@ def HF_process_line(row, save_folder, text_normaliser):
 
     Returns
     -------
-    TheLoquaciousRow
+    LargeScaleASRRow
         A dataclass containing the information about the line.
     text_norm : speechbrain.utils.text_normalisation.TextNormaliser
     """
@@ -322,7 +322,7 @@ def HF_process_line(row, save_folder, text_normaliser):
             else:
                 return None
 
-        row = TheLoquaciousRow(
+        row = LargeScaleASRRow(
             ID=audio_id,
             duration=duration,
             wav=wav_path,
