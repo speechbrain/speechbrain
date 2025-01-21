@@ -36,7 +36,6 @@ LOWER_WORDS_THRESHOLD = 3
 class TheLoquaciousRow:
     ID: str
     duration: float
-    start: float
     wav: str
     spk_id: str
     sex: str
@@ -192,7 +191,6 @@ def process_line(line, data_folder, save_folder, text_normaliser):
     spk_id = str(line.split("\t")[3])
     sex = str(line.split("\t")[5])
     snt_id = file_name
-    start = -1
 
     # Reading the signal (to retrieve duration in seconds)
     if os.path.isfile(ogg_path):
@@ -224,9 +222,7 @@ def process_line(line, data_folder, save_folder, text_normaliser):
     wav_path = convert_to_wav_and_copy(ogg_path, save_folder)
 
     # Composition of the csv_line
-    return TheLoquaciousRow(
-        snt_id, duration, start, wav_path, spk_id, sex, words
-    )
+    return TheLoquaciousRow(snt_id, duration, wav_path, spk_id, sex, words)
 
 
 def create_csv_and_copy_wav(
@@ -287,9 +283,7 @@ def create_csv_and_copy_wav(
             csv_f, delimiter=",", quotechar='"', quoting=csv.QUOTE_MINIMAL
         )
 
-        csv_writer.writerow(
-            ["ID", "duration", "start", "wav", "spk_id", "sex", "text"]
-        )
+        csv_writer.writerow(["ID", "duration", "wav", "spk_id", "sex", "text"])
 
         for row in parallel_map(line_processor, loaded_csv):
             if row is None:
@@ -305,7 +299,6 @@ def create_csv_and_copy_wav(
                 [
                     row.ID,
                     str(row.duration),
-                    str(row.start),
                     row.wav,
                     row.spk_id,
                     row.sex,

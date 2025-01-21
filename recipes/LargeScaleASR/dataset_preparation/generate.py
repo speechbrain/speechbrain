@@ -73,7 +73,7 @@ if __name__ == "__main__":
             hparams["PEOPLES_SPEECH_PATH"],
             hparams["DATASET_ROOT"],
             subsets=["clean"],
-            audio_decoding=False,
+            audio_decoding=True,
         )
     elif hparams["ACTION_TO_PERFORM"] == "yodas":
         from preparation_scripts.yodas_prepare import prepare_yodas
