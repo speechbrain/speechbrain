@@ -155,7 +155,8 @@ After this stage, the dataset is already ready to be loaded by HuggingFace. For 
 
 ```python
 from datasets import load_dataset
-load_dataset('path_to_folder_with_the_above_readme')
+ds = load_dataset('path_to_folder_with_the_above_readme', 'medium')
+print(ds['train'])
 ```
 But another step is necessary if one wants to
 shard the dataset instead of relying on individual files.
