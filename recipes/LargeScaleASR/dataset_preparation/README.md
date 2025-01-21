@@ -42,7 +42,120 @@ Examples:
 ```python generate.py hparams/data_prep.yaml --ACTION_TO_PERFORM=medium_set```
 ```python generate.py hparams/data_prep.yaml --ACTION_TO_PERFORM=val_test_sets```
 
-After this stage, the dataset is already ready to be loaded by HuggingFace. But another step is necessary if one wants to
+Now, you are left with a typical SpeechBrain csv based dataset, you can already use it as is.
+However, we recommend continuing with the HuggingFace interface.
+
+First, you will need to put a README.md file with the following metadata:
+
+```
+dataset_info:
+configs:
+- config_name: large
+  features:
+  - name: ID
+    dtype: string
+  - name: duration
+    dtype: float32
+  - name: wav
+    dtype: string
+  - name: spk_id
+    dtype: string
+  - name: sex
+    dtype: string
+  - name: text
+    dtype: string
+  default: true
+  data_files:
+  - split: train
+    path:
+    - "manifests/largescaleasr_large_train.csv"
+  - split: dev
+    path:
+    - "manifests/largescaleasr_dev.csv"
+  - split: test
+    path:
+    - "manifests/largescaleasr_test.csv"
+- config_name: medium
+  features:
+  - name: ID
+    dtype: string
+  - name: duration
+    dtype: float32
+  - name: wav
+    dtype: string
+  - name: spk_id
+    dtype: string
+  - name: sex
+    dtype: string
+  - name: text
+    dtype: string
+  data_files:
+  - split: train
+    path:
+    - "manifests/largescaleasr_medium_train.csv"
+  - split: dev
+    path:
+    - "manifests/largescaleasr_dev.csv"
+  - split: test
+    path:
+    - "manifests/largescaleasr_test.csv"
+- config_name: small
+  features:
+  - name: ID
+    dtype: string
+  - name: duration
+    dtype: float32
+  - name: wav
+    dtype: string
+  - name: spk_id
+    dtype: string
+  - name: sex
+    dtype: string
+  - name: text
+    dtype: string
+  data_files:
+  - split: train
+    path:
+    - "manifests/largescaleasr_small_train.csv"
+  - split: dev
+    path:
+    - "manifests/largescaleasr_dev.csv"
+  - split: test
+    path:
+    - "manifests/largescaleasr_test.csv"
+- config_name: clean
+  features:
+  - name: ID
+    dtype: string
+  - name: duration
+    dtype: float32
+  - name: wav
+    dtype: string
+  - name: spk_id
+    dtype: string
+  - name: sex
+    dtype: string
+  - name: text
+    dtype: string
+  data_files:
+  - split: train
+    path:
+    - "manifests/largescaleasr_clean_train.csv"
+  - split: dev
+    path:
+    - "manifests/largescaleasr_dev.csv"
+  - split: test
+    path:
+    - "manifests/largescaleasr_test.csv"
+```
+
+After this stage, the dataset is already ready to be loaded by HuggingFace. For instance:
+
+```python
+from datasets import load_dataset
+load_dataset('path_to_folder_with_the_above_readme')
+```
+But another step is necessary if one wants to
 shard the dataset instead of relying on individual files.
 
 ## Step 4: Sharding with .parquet files and HuggingFace
