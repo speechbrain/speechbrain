@@ -10,13 +10,14 @@ import numpy as np
 import soundfile as sf
 from tqdm import tqdm
 
-from speechbrain.utils.logger import get_logger
+from speechbrain.utils.logger import get_logger, setup_logging
 from speechbrain.utils.parallel import parallel_map
 
 MAX_DURATION_LIMIT = 40
 MAX_WORD_COUNT = 150
 SEED = 666
 
+setup_logging()
 logger = get_logger(__name__)
 
 

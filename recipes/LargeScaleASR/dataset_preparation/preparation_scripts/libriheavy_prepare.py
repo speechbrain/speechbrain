@@ -20,10 +20,11 @@ from dataclasses import dataclass
 import numpy as np
 import soundfile as sf
 
-from speechbrain.utils.logger import get_logger
+from speechbrain.utils.logger import get_logger, setup_logging
 from speechbrain.utils.parallel import parallel_map
 from speechbrain.utils.text_normalisation import TextNormaliser
 
+setup_logging()
 logger = get_logger(__name__)
 
 SAMPLING_RATE = 16000
