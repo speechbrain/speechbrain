@@ -25,7 +25,7 @@ def merge_csv_files(
     dest_csv: str,
     hours_per_csv=-1,
     duration_column_indice=1,
-    split_and_clean_wavs=True,
+    split_and_clean_wavs=False,
 ):
     """This function takes a list of speechbrain csv files and concatenate them. The lines are shuffled. This function can also pick only a subset of
     a given duration from each file. CSVS MUST HAVE THE SAME HEADER.
@@ -226,7 +226,7 @@ def process_line(row: str) -> list:
         A dataclass containing the information about the line.
     """
 
-    ID, duration, start, wav, spk_id, sex, text = row.split("\n")[0].split(",")
+    ID, duration, wav, spk_id, sex, text = row.split("\n")[0].split(",")
 
     if len(text.split(" ")) > MAX_WORD_COUNT:
         return None

@@ -38,7 +38,6 @@ LOWER_WORDS_THRESHOLD = 3
 class TheLoquaciousRow:
     ID: str
     duration: float
-    start: float
     wav: str
     spk_id: str
     sex: str
@@ -255,7 +254,7 @@ def HF_create_csv(
         csv_writer = csv.writer(
             csv_f, delimiter=",", quotechar='"', quoting=csv.QUOTE_MINIMAL
         )
-        header = ["ID", "duration", "start", "wav", "spk_id", "sex", "text"]
+        header = ["ID", "duration", "wav", "spk_id", "sex", "text"]
         csv_writer.writerow(header)
 
         for row in parallel_map(line_processor, hf_dataset):
@@ -266,7 +265,6 @@ def HF_create_csv(
                 [
                     row.ID,
                     str(row.duration),
-                    str(row.start),
                     row.wav,
                     row.spk_id,
                     row.sex,
@@ -327,7 +325,6 @@ def HF_process_line(row, save_folder, text_normaliser):
         row = TheLoquaciousRow(
             ID=audio_id,
             duration=duration,
-            start=-1,
             wav=wav_path,
             spk_id=None,
             sex=None,
