@@ -48,6 +48,7 @@ However, we recommend continuing with the HuggingFace interface.
 First, you will need to put a README.md file with the following metadata:
 
 ```
+---
 dataset_info:
 configs:
 - config_name: large
@@ -147,6 +148,7 @@ configs:
   - split: test
     path:
     - "manifests/largescaleasr_test.csv"
+---
 ```
 
 After this stage, the dataset is already ready to be loaded by HuggingFace. For instance:
