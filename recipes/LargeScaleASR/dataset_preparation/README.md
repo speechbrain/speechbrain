@@ -176,7 +176,8 @@ This step will also copy the original csv to the parquet folder. wav path are si
 2. The tokenizer may need to access all the text to be trained, and this is also easier from a csv file.
 
 Once this is done, another README.md must be created to document the HuggingFace dataset.
-This must be created at the root of the dataset.
+This must be created at the root of the dataset. An example for the small set is
+as follows (just copy paste and change the path for medium / large etc):
 
 ```
 ---
@@ -203,32 +204,6 @@ configs:
   data_files:
   - split: train
     path: small/train*
-  - split: dev
-    path: dev/dev*
-  - split: test
-    path: test/test*
-- config_name: medium
-  features:
-  - name: ID
-    dtype: string
-  - name: duration
-    dtype: float32
-  - name: start
-    dtype: float32
-  - name: wav
-    dtype:
-      audio:
-        sample_rate: 16000
-        decode: False
-  - name: spk_id
-    dtype: string
-  - name: sex
-    dtype: string
-  - name: text
-    dtype: string
-  data_files:
-  - split: train
-    path: medium/train*
   - split: dev
     path: dev/dev*
   - split: test
