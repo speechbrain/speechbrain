@@ -70,7 +70,7 @@ class Mimi(HFTransformersInterface):
     def __init__(
         self,
         source,
-        save_path=None,
+        save_path,
         sample_rate=24000,
         freeze=True,
         num_codebooks=8,
@@ -115,8 +115,6 @@ class Mimi(HFTransformersInterface):
         audio : torch.Tensor
             the reconstructed audio
         """
-        if self.embeddings is None:
-            self.embeddings = self._compute_embedding()
 
         tokens, embedding = self.encode(inputs, length)
         audio = self.decode(tokens, length)
