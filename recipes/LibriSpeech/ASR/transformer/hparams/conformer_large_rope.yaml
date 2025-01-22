@@ -114,6 +114,7 @@ d_ffn: 2048
 transformer_dropout: 0.1
 activation: !name:torch.nn.GELU
 output_neurons: 5000
+attention_type: RoPEPytorchMHA
 
 # Outputs
 blank_index: 0
@@ -153,7 +154,7 @@ Transformer: !new:speechbrain.lobes.models.transformer.TransformerASR.Transforme
     dropout: !ref <transformer_dropout>
     activation: !ref <activation>
     encoder_module: conformer
-    attention_type: RoPEMHA
+    attention_type: !ref <attention_type>
     normalize_before: True
     causal: False
 
