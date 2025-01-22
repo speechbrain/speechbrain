@@ -91,6 +91,7 @@ class WavTokenizer(nn.Module):
             config_path, checkpoint_path
         )
         self.embeddings = self._compute_embedding()
+        self.sample_rate = sample_rate
 
     def forward(self, inputs):
         """Encodes the input audio as tokens and embeddings and  decodes audio from tokens
