@@ -101,8 +101,8 @@ def prepare_yodas(
     os.makedirs(wav_folder, exist_ok=True)
 
     save_csv_train = manifest_folder + "/yodas_train.csv"
-    save_csv_dev = manifest_folder + "/yodas_dev.csv"
-    save_csv_test = manifest_folder + "/yodas_test.csv"
+    save_csv_dev = manifest_folder + "/yodas_dev_cleaned.csv"
+    save_csv_test = manifest_folder + "/yodas_test_cleaned.csv"
 
     # check if the data is already prepared
     if os.path.isfile(save_csv_train):
