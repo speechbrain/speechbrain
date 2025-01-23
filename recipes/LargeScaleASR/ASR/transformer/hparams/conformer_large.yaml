@@ -75,6 +75,9 @@ dynamic_batch_sampler_valid:
     batch_ordering: !ref <batch_ordering>
     max_batch_ex: !ref <max_batch_ex>
 
+train_dataloader_opts:
+    num_workers: !ref <num_workers>
+
 valid_dataloader_opts:
     batch_size: 8
 
