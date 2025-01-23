@@ -229,7 +229,7 @@ def dataio_prepare_hf(hparams, tokenizer):
     It also defines the data processing pipeline through user-defined functions.
     This is valid for The LargeScaleASR Set prepared with HuggingFace
     """
-    from large_scale_ASR_set_prepare import load_datasets
+    from large_scale_ASR_prepare import load_datasets
 
     hf_data_dict = load_datasets(
         hparams["tls_subset"],
