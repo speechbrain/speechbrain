@@ -6,35 +6,43 @@ Authors
 
 import re
 
-import nltk
-
 from speechbrain.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
 
 class TextNormaliser:
-    """Used to normalise text with nemo / nltk and custom rules."""
+    """Used to normalise text with custom rules. Note that we do not provide any numeral conversion. This must be done before hand with, for instance the Nemo text processing tool."""
 
-    def __init__(self, use_nltk=True):
-
-        self.use_nltk = use_nltk
-
-        self.tokenizer = nltk.RegexpTokenizer(r"(?:\[[^][]*]|\s)+", gaps=True)
-
-    def english_specific_preprocess(self, sentence):
+    def english_specific_preprocess(
+        self, sentence, upper_case=True, symbols_limit=4
+    ):
         """
-        Preprocess English text. This function relies on different tools (nemo normalised, nltk) to convert numerals and special symbols. This also removes various punctuation and treats it as word boundaries. It normalises and retains various apostrophes (’‘´) between letters, but not other ones, which are probably quotation marks. It capitalises all text. This function may error out if new characters show up in the given sentence.
+        Preprocess English text. This function relies on different tools to convert numerals and special symbols. This also removes various punctuation and treats it as word boundaries. It normalises and retains various apostrophes (’‘´) between letters, but not other ones, which are probably quotation marks. It capitalises all text. This function may error out if new characters show up in the given sentence.
 
         Parameters
         ----------
         sentence : str
             The string to modify.
-
+        upper_case : bool
+            Whether to upper case (if True) or lower case (if False) the string.
+        symbols_limit : int
+            If a sentence contains more than symbols_limit, it will not be normalised and skipped. This is because in most case, the pronunciation will not be certain enough.
         Returns
         -------
         str
-            The normalised sentence.
+            The normalised sentence. Returns None if it was not possible to
+            normalise the sentence.
+
+        Example
+        -------
+        >>> norm = TextNormaliser()
+        >>> txt = norm.english_specific_preprocess("Over the Rainbow! How are you today? Good + one hundred %")
+        >>> print(txt)
+        OVER THE RAINBOW HOW ARE YOU TODAY GOOD PLUS ONE HUNDRED PERCENT
+        >>> txt = norm.english_specific_preprocess("Over the Rainbow! How are you today? Good + 100 %")
+        >>> print(txt)
+        None
         """
 
         # These characters mean we should discard the sentence, because the
@@ -93,18 +101,8 @@ class TextNormaliser:
 
         # Remove sentences that contain too many symbols.
         symbol_list = list(sentence_level_mapping.keys())
-        if self.count_symbols_in_str(sentence, symbol_list) >= 4:
+        if self.count_symbols_in_str(sentence, symbol_list) >= symbols_limit:
             return None
-
-        # Removing descriptions like [applause]
-        if self.use_nltk:
-            sentence = " ".join(self.tokenizer.tokenize(sentence))
-
-        # If it contains anything numerical, we remove it as it is only on val and
-        # test. Unfortunately, we can't make sure of what is actually being uttered.
-        # Hence, we must throw it away from the evaluation (roughly 1 hours each)
-        # if bool(re.search(r'\d', sentence)):
-        #    return None
 
         final_characters = set(" ABCDEFGHIJKLMNOPQRSTUVWXYZ'")
 
@@ -124,7 +122,10 @@ class TextNormaliser:
         ]
 
         # Processing that does not change the length.
-        words_upper = [word.upper() for word in words_quotes]
+        if upper_case:
+            words_upper = [word.upper() for word in words_quotes]
+        else:
+            words_upper = [word.lower() for word in words_quotes]
 
         words_mapped = [
             # word.translate(character_mapping)
@@ -137,9 +138,7 @@ class TextNormaliser:
 
         result = " ".join(words_mapped)
         character_set = set(result)
-        # if character_set <= final_characters:
-        #    print("Invalid rejected sample: "+str(result))
-        #    return None
+
         if not character_set <= final_characters:
             logger.warning(
                 "Sentence not properly normalised and removed: " + result
@@ -147,15 +146,6 @@ class TextNormaliser:
             return None
         else:
             return result
-        assert character_set <= final_characters, (
-            "Unprocessed characters",
-            sentence,
-            result,
-            character_set,
-            final_characters,
-            character_set - final_characters,
-        )
-        return result
 
     def clean_text(self, text):
         """Some sentences are poorly decoded from people's speech or yodas. This
