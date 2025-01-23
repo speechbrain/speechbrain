@@ -21,7 +21,7 @@ data_folder: !PLACEHOLDER  # path to the dataset
 hf_caching_dir: !PLACEHOLDER # path to where the dataset will be extracted by HF.
 
 # Necessary for the BPE tokenization
-train_csv: !ref <data_folder>/largescaleasr_<tls_subset>_train.csv
+train_csv: !PLACEHOLDER
 
 
 ckpt_interval_minutes: 15 # save checkpoint every N min

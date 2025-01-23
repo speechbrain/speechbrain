@@ -16,12 +16,12 @@ train_log: !ref <output_folder>/train_log.txt
 
 # Data files
 # Whether to use HuggingFace or SpeechBrain data loader. This depends on how your LargeScaleASR has been prepared.
-tls_subset: large
+tls_subset: !PLACEHOLDER
 data_folder: !PLACEHOLDER  # path to the dataset
 hf_caching_dir: !PLACEHOLDER # path to where the dataset will be extracted by HF.
 
 # Necessary for the BPE tokenization
-train_csv: !ref <data_folder>/largescaleasr_large_train.csv
+train_csv: !PLACEHOLDER
 
 
 ckpt_interval_minutes: 15 # save checkpoint every N min
