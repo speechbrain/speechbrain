@@ -40,11 +40,6 @@ def load_datasets(subset, hf_download_folder, hf_caching_dir):
             f"{str(error)}\n" f"HuggingFace datasets must be installed."
         )
 
-    if not os.path.isdir(hf_download_folder):
-        msg = "You must download the dataset with HuggingFace before starting "
-        msg += "this recipe. Please check the HuggingFace hub of The LargeScaleASR."
-        raise ValueError(msg)
-
     # Managing the download dir as HF can be capricious with this.
     logger.info("Caching to: " + str(hf_caching_dir))
 
