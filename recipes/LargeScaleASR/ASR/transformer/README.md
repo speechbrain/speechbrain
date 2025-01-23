@@ -31,7 +31,7 @@ wget https://huggingface.co/datasets/speechbrain/LargeScaleASR/resolve/main/larg
 # How to run
 
 ```shell
-torchrun --nproc_per_node=[nb_of_gpu] train.py hparams/{hparam_file}.py --data_folder=/path/to/the/HF/downloaded_folder_with_csv_and_parquet_files --hf_caching_dir=/path/to/hf/cache/dir --tls_subset=[large||medium||small] --train_csv=/path/to/the/downloaded/train.csv
+torchrun --nproc_per_node=[nb_of_gpu] train.py hparams/{hparam_file}.py --data_folder=/path/to/the/HF/downloaded_folder --hf_caching_dir=/path/to/hf/cache/dir --tls_subset=[large||medium||small] --train_csv=/path/to/the/downloaded/train.csv
 ```
 
 We note that *hf_caching_dir* usually is equal to $HF_HUB_CACHE. If this variable is not set in your
