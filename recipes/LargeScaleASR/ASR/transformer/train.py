@@ -233,7 +233,7 @@ def dataio_prepare_hf(hparams, tokenizer):
 
     hf_data_dict = load_datasets(
         hparams["tls_subset"],
-        hparams["data_folder"],
+        hparams["hf_hub"],
         hparams["hf_caching_dir"],
     )
 
