@@ -540,8 +540,10 @@ def bce_loss(
         # In 1-dimensional case, add singleton dimension for time
         # so that we don't run into errors with the time-masked loss
         inputs, targets = inputs.unsqueeze(-1), targets.unsqueeze(-1)
-        if weight is not None and weight.dim() == 1:
-            weight = weight.unsqueeze(-1)
+
+    # input / target cannot be 1D so bump weight up to match
+    if weight is not None and weight.dim() == 1:
+        weight = weight.unsqueeze(-1)
 
     # Pass the loss function but apply reduction="none" first
     loss = functools.partial(
