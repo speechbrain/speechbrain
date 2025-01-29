@@ -37,10 +37,10 @@ num_workers: 6
 precision: fp16 # bf16, fp16 or fp32
 
 # stages related parameters
-lr_adam: 0.0008
-weight_decay: 0.003
-warmup_steps: 40000
-augment_warmup: 9000
+lr_adam: 0.0007
+weight_decay: 0.001
+warmup_steps: 60000
+augment_warmup: 80000
 
 # BPE parameters
 token_type: bpe  # ["unigram", "bpe", "char"]
