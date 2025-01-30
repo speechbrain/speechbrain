@@ -1432,15 +1432,17 @@ class RoPEPytorchMHA(RoPEMHA):
             key_padding_mask = key_padding_mask.view(bsz, 1, 1, klen).expand(
                 bsz, self.num_heads, klen, qlen
             )
+            torch.logical_not(key_padding_mask)
 
         x = F.scaled_dot_product_attention(
             query=q_rotated.permute(0, 2, 1, 3),
             key=k_rotated.permute(0, 2, 1, 3),
             value=value.permute(0, 2, 1, 3),
-            attn_mask=torch.logical_not(key_padding_mask),
+            attn_mask=key_padding_mask,
             dropout_p=self.dropout,
+            scale=self.scale,
         )
-
+        
         x = (
             x.transpose(1, 2)
             .contiguous()
