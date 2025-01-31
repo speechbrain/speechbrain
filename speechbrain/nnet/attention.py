@@ -1443,7 +1443,7 @@ class RoPEPytorchMHA(RoPEMHA):
             dropout_p=self.dropout,
             scale=self.scale,
         )
-
+        
         x = (
             x.transpose(1, 2)
             .contiguous()
