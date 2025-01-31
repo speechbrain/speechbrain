@@ -69,7 +69,7 @@ class ASR(sb.core.Brain):
         ):
             feats, fea_lens = self.hparams.fea_augment(feats, wav_lens)
             tokens_bos = self.hparams.fea_augment.replicate_labels(tokens_bos)
-
+            
         # forward modules
         src = self.modules.CNN(feats)
 
@@ -142,7 +142,7 @@ class ASR(sb.core.Brain):
         loss_ctc = self.hparams.ctc_cost(
             p_ctc, tokens, wav_lens, tokens_lens
         ).sum()
-
+        breakpoint()
         loss = (
             self.hparams.ctc_weight * loss_ctc
             + (1 - self.hparams.ctc_weight) * loss_seq
