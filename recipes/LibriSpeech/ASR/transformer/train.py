@@ -142,7 +142,7 @@ class ASR(sb.core.Brain):
         loss_ctc = self.hparams.ctc_cost(
             p_ctc, tokens, wav_lens, tokens_lens
         ).sum()
-        breakpoint()
+        
         loss = (
             self.hparams.ctc_weight * loss_ctc
             + (1 - self.hparams.ctc_weight) * loss_seq
