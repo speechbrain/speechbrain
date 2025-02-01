@@ -56,6 +56,7 @@ sorting: random
 num_workers: 4
 precision: fp32 # bf16, fp16 or fp32
 avg_checkpoints: 10 # Number of checkpoints to average for evaluation
+augment_warmup: 15000
 
 # stages related parameters
 # stage_one_epochs: 90
