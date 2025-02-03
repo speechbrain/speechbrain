@@ -219,7 +219,9 @@ class WandBLogger(TrainLogger):
         try:
             import wandb
         except ImportError:
-            raise ImportError("WandB is not installed. Please install it using `pip install wandb`")
+            raise ImportError(
+                "WandB is not installed. Please install it using `pip install wandb`"
+            )
         try:
             self.run = None
             if if_main_process():
