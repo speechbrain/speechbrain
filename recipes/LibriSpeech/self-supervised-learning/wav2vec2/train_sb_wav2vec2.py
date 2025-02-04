@@ -211,7 +211,6 @@ class W2V2Brain(sb.core.Brain):
             self.train_stats = stage_stats
 
         if stage == sb.Stage.VALID:
-            print(self.acc_metric)
             stage_stats["accuracy"] = sum(self.acc_metric) / len(
                 self.acc_metric
             )
@@ -365,6 +364,8 @@ def main():
         run_opts=run_opts,
         checkpointer=hparams["checkpointer"],
     )
+
+    print(brain.modules)
 
     brain.fit(
         brain.hparams.epoch_counter,

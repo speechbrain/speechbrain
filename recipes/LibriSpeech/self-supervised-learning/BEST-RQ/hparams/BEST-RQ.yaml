@@ -35,7 +35,7 @@ number_of_epochs: 3000
 optimizer_step_limit: 300000
 
 # This setup is for 8 V100.
-seconds_per_batch: 400
+max_batch_len: 400 # In second and per gpu
 train_num_buckets: 150
 grad_accumulation_factor: 2
 
