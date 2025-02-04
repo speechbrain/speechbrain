@@ -371,7 +371,6 @@ def main():
         train_dataset,
         valid_loader,
         train_loader_kwargs=train_loader_kwargs,
-        progressbar=False,
     )
 
 
