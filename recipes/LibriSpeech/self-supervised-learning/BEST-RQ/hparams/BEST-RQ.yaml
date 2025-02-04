@@ -69,7 +69,7 @@ d_ffn: 2048
 transformer_dropout: 0.1
 activation: !name:torch.nn.GELU
 output_neurons: 5000
-encoder_layerdrop: 0.05
+encoder_layerdrop: 0.0
 
 # Masking parameters
 mask_length: 4
