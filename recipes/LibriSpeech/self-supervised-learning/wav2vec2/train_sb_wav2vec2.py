@@ -365,8 +365,6 @@ def main():
         checkpointer=hparams["checkpointer"],
     )
 
-    print(brain.modules)
-
     brain.fit(
         brain.hparams.epoch_counter,
         train_dataset,
