@@ -42,6 +42,12 @@ def seed_everything(
         The seed that was set.
     """
 
+    if not (min_seed_value <= seed <= max_seed_value):
+        logger.info(
+            f"{seed} is not in bounds, numpy accepts from {min_seed_value} to {max_seed_value}",
+        )
+        seed = min_seed_value
+
     if verbose:
         logger.info(f"Setting seed to {seed}")
 
