@@ -1715,20 +1715,21 @@ class Brain:
         if not self.distributed_launch and not self.data_parallel_backend:
             return
         elif self.distributed_launch:
-            self.modules = SyncBatchNorm.convert_sync_batchnorm(self.modules)
-            if self.distributed_backend == "gloo":
-                self.modules = DDP(
-                    self.modules,
-                    device_ids=None,
-                    find_unused_parameters=self.find_unused_parameters,
-                )
-            else:
-                self.modules = DDP(
-                    self.modules,
-                    device_ids=[self.device],
-                    find_unused_parameters=self.find_unused_parameters,
-                )
-            self.modules = self.modules.module
+            for name, module in self.modules.items():
+                module = SyncBatchNorm.convert_sync_batchnorm(module)
+                if self.distributed_backend == "gloo":
+                    module = DDP(
+                        module,
+                        device_ids=None,
+                        find_unused_parameters=self.find_unused_parameters,
+                    )
+                else:
+                    module = DDP(
+                        module,
+                        device_ids=[self.device],
+                        find_unused_parameters=self.find_unused_parameters,
+                    )
+                self.modules[name] = module
         else:
             # data_parallel_backend
             for name, module in self.modules.items():
