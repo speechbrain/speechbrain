@@ -249,6 +249,8 @@ def process_line(
         logger.info(msg)
         return None
 
+    # if file is /path/to/file.wav, replace it to $data_root/file.wav
+    audio_path = "$data_root/clips/" + audio_path_filename
     duration = info.num_frames / info.sample_rate
 
     # Getting transcript
