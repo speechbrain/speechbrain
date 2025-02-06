@@ -39,10 +39,10 @@ environment then you will need to find out where HF stored it! (Have a look arou
 
 # Results
 
-| hyperparams file | #params  | validation WER | test WER |  GPUs | Model Link | HuggingFace Link |
-|:-------------:|:-------------:|:-------------:| :-----:| :-----:| :-----:| :-----:|
-| conformer_large.yaml | 250M | 7.9 | 8.8 | 8xV100 32GB | To come | [model](https://huggingface.co/speechbrain/asr-conformer-largescaleasr) |
-| conformer_xlarge.yaml | 480M | 6.8 | 7.5 | 8xV100 32GB | To come | To come |
+| hyperparams file | #params  | validation WER | test WER |  GPUs | HuggingFace Link |
+|:-------------:|:-------------:|:-------------:| :-----:| :-----:| :-----:| 
+| conformer_large.yaml | 250M | 7.9 | 8.8 | 8xV100 32GB | N/A |
+| conformer_xlarge.yaml | 480M | 6.8 | 7.5 | 8xV100 32GB | [model](https://huggingface.co/speechbrain/asr-conformer-largescaleasr) | 
 
 
 
