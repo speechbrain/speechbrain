@@ -34,6 +34,7 @@ speech
 test
 writer
 your
+wit
 
 ####### Compound Words With 1 or 2 letter Words #######
 aMax

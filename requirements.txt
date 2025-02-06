@@ -2,6 +2,7 @@
 huggingface_hub>=0.8.0
 hyperpyyaml>=0.0.1
 joblib>=0.14.1
+nltk>=3.9
 numpy>=1.17.0
 packaging
 pandas>=1.0.1
