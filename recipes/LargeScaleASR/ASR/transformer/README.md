@@ -1,5 +1,6 @@
 # The LargeScale ASR with CTC + Attention transformers
 
+
 This folder contains scripts necessary to run an ASR experiment with the LargeScaleASR dataset: [HuggingFace webpage](https://huggingface.co/datasets/speechbrain/LargeScaleASR) and pytorch 2.0.
 
 # Downloading the data
@@ -40,9 +41,9 @@ environment then you will need to find out where HF stored it! (Have a look arou
 # Results
 
 | hyperparams file | #params  | validation WER | test WER |  GPUs | HuggingFace Link |
-|:-------------:|:-------------:|:-------------:| :-----:| :-----:| :-----:| 
+|:-------------:|:-------------:|:-------------:| :-----:| :-----:| :-----:|
 | conformer_large.yaml | 250M | 7.9 | 8.8 | 8xV100 32GB | N/A |
-| conformer_xlarge.yaml | 480M | 6.8 | 7.5 | 8xV100 32GB | [model](https://huggingface.co/speechbrain/asr-conformer-largescaleasr) | 
+| conformer_xlarge.yaml | 480M | 6.8 | 7.5 | 8xV100 32GB | [model](https://huggingface.co/speechbrain/asr-conformer-largescaleasr) |
 
 
 
