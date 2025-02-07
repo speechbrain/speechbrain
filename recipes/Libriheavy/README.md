@@ -10,7 +10,7 @@ After this step, please make sure you have all the "jsonl.gz" Libriheavy manifes
 
 **Note 1:** This recipe relies on the `soundfile` backend for fast audio processing. Libriheavy comes with long audio files, and we need to read them in chunks. In our experiments, we found that `soundfile` was the only audio backend fast enough to read these long audio files. You can dynamically change the backend through the `--audio_backend` parameter in the YAML file.
 
-**Note 2:** If you don't have the `large` folder but want to run this recipe with the `small` and/or `medium` splits, you need to download the official `dev` and `test` splits from the LibriSpeech dataset. This is necessary because the `dev` and `test` splits for Libriheavy are located in the `large` folder. You can download LibriSpeech at [http://www.openslr.org/12](http://www.openslr.org/12) and run the `librispeech_prepare.py` script from the `recipes/LibriSpeech/` folder. Then, specify the `dev_splits` and `test_splits` parameters in the YAML file.
+**Note 2:** If you don't have the `large` folder but want to run this recipe with the `small` and/or `medium` splits, you need to download the official `dev` and `test` splits from the LibriSpeech dataset. This is necessary because the `dev` and `test` splits for Libriheavy are located in the `large` folder. You can download LibriSpeech at http://www.openslr.org/12 and run the `librispeech_prepare.py` script from the `recipes/LibriSpeech/` folder. Then, specify the `dev_splits` and `test_splits` parameters in the YAML file.
 
 # **About SpeechBrain**
 - Website: https://speechbrain.github.io/
