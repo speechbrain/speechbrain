@@ -46,6 +46,7 @@ class LibriheavyRow:
     text : str
         Transcription text corresponding to the audio segment.
     """
+
     ID: str
     duration: float
     start: float
