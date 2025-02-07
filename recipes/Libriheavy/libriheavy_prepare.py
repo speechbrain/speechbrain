@@ -42,6 +42,7 @@ def prepare_libriheavy(
     manifest_folder,
     save_folder,
     tr_splits=[],
+    dev_splits=[],
     te_splits=[],
     skip_prep=False,
     data_placeholder="data_root",
@@ -69,6 +70,8 @@ def prepare_libriheavy(
         ['small'] -> 0.5 hours data
         ['medium'] -> 5k hours data
         ['large'] -> 50k hours data
+    dev_splits : list
+        Dev split to prepare from.
     te_splits : list
         List of test splits to prepare from ['test_clean','test_others',
         'test_clean_large','test_others_large'].
@@ -87,11 +90,10 @@ def prepare_libriheavy(
     if skip_prep:
         return
 
-    splits = tr_splits + te_splits
+    splits = tr_splits + dev_splits + te_splits
 
     # Setting the save folder
-    if not os.path.exists(save_folder):
-        os.makedirs(save_folder)
+    os.makedirs(save_folder, exist_ok=True)
 
     for split_index in range(len(splits)):
         split = splits[split_index]
