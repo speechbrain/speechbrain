@@ -29,7 +29,9 @@ data_folder: !PLACEHOLDER  # e.g., /path/to/Libri-Light
 manifest_folder: !PLACEHOLDER # e.g., /path/to/Libriheavy
 # I/O
 audio_backend: soundfile
+data_placeholder: data_root
 train_splits: ["large"] # ["small"], ["medium"], or ["large"]
+dev_splits: ["dev"]
 test_splits: ["test_clean", "test_other"] # you can also add "test_clean_large" and/or "test_other_large"
 skip_prep: False
 train_csv: !ref <output_folder>/large.csv # or small.csv or medium.csv
