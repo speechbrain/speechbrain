@@ -21,6 +21,10 @@ different encoders, decoders, tokens (e.g, characters instead of BPE),
 training split (e.g, small, medium, or large), and many
 other possible variations.
 
+Note: This recipe relies on the `soundfile` backend for fast audio processing. 
+Libriheavy comes with long audio files, and we need to read them in chunks. 
+In our experiments, we found that `soundfile` was the only audio backend fast enough to read these long audio files. 
+You can dynamically change the backend through the `audio_backend` parameter in the YAML file.
 
 Authors
  * Titouan Parcollet 2024
@@ -312,7 +316,7 @@ def dataio_prepare(hparams):
         
         sig = sb.dataio.dataio.read_audio(
             {"file": wav, "start": start, "stop": start + duration},
-            backend="soundfile",
+            backend=hparams["audio_backend"],
         )
         return sig
 
@@ -484,8 +488,7 @@ if __name__ == "__main__":
     )
 
     # Testing
-    if not os.path.exists(hparams["output_wer_folder"]):
-        os.makedirs(hparams["output_wer_folder"])
+    os.makedirs(hparams["output_wer_folder"], exist_ok=True)
 
     for k in test_datasets.keys():  # keys are test_clean, test_other etc
         asr_brain.hparams.test_wer_file = os.path.join(
