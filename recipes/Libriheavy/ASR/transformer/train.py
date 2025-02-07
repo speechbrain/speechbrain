@@ -422,6 +422,7 @@ if __name__ == "__main__":
                 "manifest_folder": hparams["manifest_folder"],
                 "save_folder": hparams["output_folder"],
                 "tr_splits": hparams["train_splits"],
+                "dev_splits": hparams["dev_splits"],
                 "te_splits": hparams["test_splits"],
                 "skip_prep": hparams["skip_prep"],
                 "data_placeholder": hparams["data_placeholder"],
