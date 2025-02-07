@@ -280,11 +280,6 @@ epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
 
 ############################## Augmentations ###################################
 
-# Speed perturbation
-speed_perturb: !new:speechbrain.augment.time_domain.SpeedPerturb
-    orig_freq: !ref <sample_rate>
-    speeds: [95, 100, 105]
-
 # Time Drop
 time_drop: !new:speechbrain.augment.freq_domain.SpectrogramDrop
     drop_length_low: 15
