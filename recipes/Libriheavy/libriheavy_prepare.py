@@ -29,6 +29,23 @@ JSON_SAMPLE_PROGRESS = 1000000
 
 @dataclass
 class LibriheavyRow:
+    """Represents one row of data from the LibriHeavy dataset.
+
+    Arguments
+    ---------
+    ID : str
+        Unique identifier for the audio segment.
+    duration : float
+        Duration of the audio segment in seconds.
+    start : float
+        Start time of the segment within the original audio file in seconds.
+    wav : str
+        Path to the audio file.
+    spk_id : str
+        Speaker identifier.
+    text : str
+        Transcription text corresponding to the audio segment.
+    """
     ID: str
     duration: float
     start: float
