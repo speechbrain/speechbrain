@@ -31,7 +31,6 @@ import os
 import sys
 from pathlib import Path
 
-import soundfile as sf
 import torch
 from hyperpyyaml import load_hyperpyyaml
 
@@ -41,6 +40,7 @@ from speechbrain.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
+SAMPLING_RATE = 16000
 
 # Define training procedure
 class ASR(sb.core.Brain):
@@ -307,13 +307,13 @@ def dataio_prepare(hparams):
     def audio_pipeline_train(wav, duration, start):
         duration = float(duration)
         start = float(start)
-        duration = int(duration * 16000)
-        start = int(start * 16000)
-
-        sig = torch.from_numpy(
-            sf.read(wav, frames=duration, start=start)[0]
-        ).to(dtype=torch.float32)
-
+        duration = int(duration * SAMPLING_RATE)
+        start = int(start * SAMPLING_RATE)
+        
+        sig = sb.dataio.dataio.read_audio(
+            {"file": wav, "start": start, "stop": start + duration},
+            backend="soundfile",
+        )
         return sig
 
     sb.dataio.dataset.add_dynamic_item([train_data], audio_pipeline_train)
