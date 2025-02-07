@@ -1,8 +1,8 @@
 """
-Data preparation for libriheavy
+This script prepares the Libriheavy dataset for ASR.
 
-Author
-------
+Authors
+-------
 * Titouan Parcollet 2024
 * Shucong Zhang 2024
 """
@@ -44,6 +44,7 @@ def prepare_libriheavy(
     tr_splits=[],
     te_splits=[],
     skip_prep=False,
+    data_placeholder="data_root",
 ):
     """
     Prepares the csv files for the Libriheavy dataset.
@@ -73,6 +74,9 @@ def prepare_libriheavy(
         'test_clean_large','test_others_large'].
     skip_prep: bool
         If True, data preparation is skipped.
+    data_placeholder: str
+        This variable is used to replace the audio path by the data_placeholder
+        in the csv file.
 
     Returns
     -------
@@ -83,7 +87,7 @@ def prepare_libriheavy(
     if skip_prep:
         return
 
-    splits = tr_splits + ["dev"] + te_splits
+    splits = tr_splits + te_splits
 
     # Setting the save folder
     if not os.path.exists(save_folder):
@@ -96,6 +100,7 @@ def prepare_libriheavy(
         if os.path.isfile(save_csv):
             msg = "%s already exists, skipping data preparation!" % (save_csv)
             logger.info(msg)
+            continue
 
         csv_corpus = extract_transcripts(
             manifest_folder + f"/libriheavy_cuts_{split}.jsonl.gz"
@@ -110,6 +115,7 @@ def prepare_libriheavy(
             csv_corpus,
             save_csv,
             data_folder_for_split,
+            data_placeholder,
         )
 
 
@@ -171,7 +177,7 @@ def extract_transcripts(jsonl_gz_file_path):
     return csv_corpus
 
 
-def process_line(line, data_folder):
+def process_line(line, data_folder, data_placeholder):
     """Process a line of Libryheavy csv list.
 
     Arguments
@@ -180,6 +186,9 @@ def process_line(line, data_folder):
         A line of the Libriheavy csv list.
     data_folder : str
         Path to the Libri-Light dataset.
+    data_placeholder : str
+        This variable is used to replace the audio path by the data_placeholder
+        in the csv file.
 
     Returns
     -------
@@ -215,6 +224,8 @@ def process_line(line, data_folder):
         logger.info(msg)
         return None
 
+    audio_path = audio_path.replace(data_placeholder, data_folder)
+
     if duration < LOWER_DURATION_THRESHOLD_IN_S:
         return None
     elif duration > UPPER_DURATION_THRESHOLD_IN_S:
@@ -228,6 +239,7 @@ def create_csv(
     filtered_csv_corpus,
     csv_file,
     data_folder,
+    data_placeholder,
 ):
     """
     Creates the csv file given a list of wav files.
@@ -241,6 +253,9 @@ def create_csv(
         New csv file.
     data_folder : str
         Path of the Libri-Light dataset.
+    data_placeholder : str
+        This variable is used to replace the audio path by the data_placeholder
+        in the csv file.
 
     """
 
@@ -262,6 +277,7 @@ def create_csv(
     line_processor = functools.partial(
         process_line,
         data_folder=data_folder,
+        data_placeholder=data_placeholder,
     )
 
     # Stream into a .tmp file, and rename it to the real path at the end.

@@ -27,6 +27,7 @@ In our experiments, we found that `soundfile` was the only audio backend fast en
 You can dynamically change the backend through the `audio_backend` parameter in the YAML file.
 
 Authors
+-------
  * Titouan Parcollet 2024
  * Shucong Zhang 2024
 """
@@ -250,7 +251,7 @@ def dataio_prepare(hparams):
 
     train_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
         csv_path=hparams["train_csv"],
-        replacements={"data_root": data_folder},
+        replacements={"data_placeholder": data_folder},
     )
 
     if hparams["sorting"] == "ascending":
@@ -275,7 +276,7 @@ def dataio_prepare(hparams):
         )
     valid_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
         csv_path=hparams["valid_csv"],
-        replacements={"data_root": data_folder},
+        replacements={"data_placeholder": data_folder},
     )
     valid_data = valid_data.filtered_sorted(sort_key="duration")
 
@@ -284,7 +285,7 @@ def dataio_prepare(hparams):
     for csv_file in hparams["test_csv"]:
         name = Path(csv_file).stem
         test_datasets[name] = sb.dataio.dataset.DynamicItemDataset.from_csv(
-            csv_path=csv_file, replacements={"data_root": data_folder}
+            csv_path=csv_file, replacements={"data_placeholder": data_folder}
         )
         test_datasets[name] = test_datasets[name].filtered_sorted(
             sort_key="duration"
@@ -423,6 +424,7 @@ if __name__ == "__main__":
                 "tr_splits": hparams["train_splits"],
                 "te_splits": hparams["test_splits"],
                 "skip_prep": hparams["skip_prep"],
+                "data_placeholder": hparams["data_placeholder"],
             },
         )
 
