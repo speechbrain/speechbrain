@@ -163,7 +163,9 @@ def load_data_csv(csv_path, replacements={}):
     return result
 
 
-def read_audio_info(path, backend=None) -> "torchaudio.backend.common.AudioMetaData":
+def read_audio_info(
+    path, backend=None
+) -> "torchaudio.backend.common.AudioMetaData":
     """Retrieves audio metadata from a file path. Behaves identically to
     torchaudio.info, but attempts to fix metadata (such as frame count) that is
     otherwise broken with certain torchaudio version and codec combinations.
@@ -175,7 +177,7 @@ def read_audio_info(path, backend=None) -> "torchaudio.backend.common.AudioMetaD
     path : str
         Path to the audio file to examine.
     backend : str, optional
-        Audio backend to use for loading the audio file. Must be one of 
+        Audio backend to use for loading the audio file. Must be one of
         'ffmpeg', 'sox', 'soundfile' or None. If None, uses torchaudio's default backend.
 
     Returns
@@ -192,7 +194,9 @@ def read_audio_info(path, backend=None) -> "torchaudio.backend.common.AudioMetaD
     the processing time.
     """
     if backend not in [None, "ffmpeg", "sox", "soundfile"]:
-        raise ValueError("backend must be one of 'ffmpeg', 'sox', 'soundfile' or None")
+        raise ValueError(
+            "backend must be one of 'ffmpeg', 'sox', 'soundfile' or None"
+        )
 
     _path_no_ext, path_ext = os.path.splitext(path)
 
@@ -218,7 +222,9 @@ def read_audio_info(path, backend=None) -> "torchaudio.backend.common.AudioMetaD
     # double-checking anyway. If I am wrong and you are reading this comment
     # because of it: sorry
     if info.num_frames == 0:
-        channels_data, sample_rate = torchaudio.load(path, normalize=False, backend=backend)
+        channels_data, sample_rate = torchaudio.load(
+            path, normalize=False, backend=backend
+        )
 
         info.num_frames = channels_data.size(1)
         info.sample_rate = sample_rate  # because we might as well
@@ -283,7 +289,9 @@ def read_audio(waveforms_obj, backend=None):
     True
     """
     if backend not in [None, "ffmpeg", "sox", "soundfile"]:
-        raise ValueError("backend must be one of 'ffmpeg', 'sox', 'soundfile' or None")
+        raise ValueError(
+            "backend must be one of 'ffmpeg', 'sox', 'soundfile' or None"
+        )
 
     if isinstance(waveforms_obj, str):
         audio, _ = torchaudio.load(waveforms_obj, backend=backend)
@@ -316,7 +324,9 @@ def read_audio(waveforms_obj, backend=None):
             )
         else:
             # Load to the end.
-            audio, fs = torchaudio.load(path, frame_offset=start, backend=backend)
+            audio, fs = torchaudio.load(
+                path, frame_offset=start, backend=backend
+            )
 
     audio = audio.transpose(0, 1)
     return audio.squeeze(1)
@@ -379,7 +389,9 @@ def read_audio_multichannel(waveforms_obj, backend=None):
     True
     """
     if backend not in [None, "ffmpeg", "sox", "soundfile"]:
-        raise ValueError("backend must be one of 'ffmpeg', 'sox', 'soundfile' or None")
+        raise ValueError(
+            "backend must be one of 'ffmpeg', 'sox', 'soundfile' or None"
+        )
 
     if isinstance(waveforms_obj, str):
         audio, _ = torchaudio.load(waveforms_obj, backend=backend)

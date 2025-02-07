@@ -21,9 +21,9 @@ different encoders, decoders, tokens (e.g, characters instead of BPE),
 training split (e.g, small, medium, or large), and many
 other possible variations.
 
-Note: This recipe relies on the `soundfile` backend for fast audio processing. 
-Libriheavy comes with long audio files, and we need to read them in chunks. 
-In our experiments, we found that `soundfile` was the only audio backend fast enough to read these long audio files. 
+Note: This recipe relies on the `soundfile` backend for fast audio processing.
+Libriheavy comes with long audio files, and we need to read them in chunks.
+In our experiments, we found that `soundfile` was the only audio backend fast enough to read these long audio files.
 You can dynamically change the backend through the `audio_backend` parameter in the YAML file.
 
 Authors
@@ -46,6 +46,7 @@ from speechbrain.utils.logger import get_logger
 logger = get_logger(__name__)
 
 SAMPLING_RATE = 16000
+
 
 # Define training procedure
 class ASR(sb.core.Brain):
@@ -314,7 +315,7 @@ def dataio_prepare(hparams):
         start = float(start)
         duration = int(duration * SAMPLING_RATE)
         start = int(start * SAMPLING_RATE)
-        
+
         sig = sb.dataio.dataio.read_audio(
             {"file": wav, "start": start, "stop": start + duration},
             backend=hparams["audio_backend"],
