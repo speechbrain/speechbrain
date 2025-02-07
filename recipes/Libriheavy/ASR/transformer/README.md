@@ -1,4 +1,4 @@
-# Libriheavy ASR with Transformers.
+# Libriheavy Dataset
 This folder contains the scripts to train a Transformer-based speech recognizer.
 
 1. Please download Libri-Light at https://github.com/facebookresearch/libri-light/tree/main/data_preparation
@@ -8,10 +8,13 @@ Please note if you want to use the large split, the large.tar file is 3.05TB. Al
 2. Please git clone the repo https://github.com/k2-fsa/libriheavy, and follow the repo's instruction to prepare Libriheavy manifests.
 After this step, please make sure you have all the "jsonl.gz" Libriheavy manifest files in one folder.
 
+**Note 1:** This recipe relies on the `soundfile` backend for fast audio processing. Libriheavy comes with long audio files, and we need to read them in chunks. In our experiments, we found that `soundfile` was the only audio backend fast enough to read these long audio files. You can dynamically change the backend through the `--audio_backend` parameter in the YAML file.
+
+**Note 2:** If you don't have the `large` folder but want to run this recipe with the `small` and/or `medium` splits, you need to download the official `dev` and `test` splits from the LibriSpeech dataset. This is necessary because the `dev` and `test` splits for Libriheavy are located in the `large` folder. You can download LibriSpeech at [http://www.openslr.org/12](http://www.openslr.org/12) and run the `librispeech_prepare.py` script from the `recipes/LibriSpeech/` folder. Then, specify the `dev_splits` and `test_splits` parameters in the YAML file.
+
 # How to run
 ```shell
 python train.py hparams/transformer.yaml --data_folder=/path/to/Libri-Light --manifest_folder=/path/to/Libriheavy
-
 ```
 
 # LibriSpeech Dev/Test Results
