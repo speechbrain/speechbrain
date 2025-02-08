@@ -1,6 +1,8 @@
-""" Simple utilities to load the mysterious LargeScaleASR dataset from HuggingFace. This does not actually prepare the LargeScaleASR dataset. For this, please refer to the dataset_preparation folder. This only load the prepared dataset to be used in a SpeechBrain recipe.
+"""Simple utilities to load the mysterious LargeScaleASR dataset from HuggingFace. 
+This does not actually prepare the LargeScaleASR dataset. For this, please refer to the dataset_preparation folder. 
+This only load the prepared dataset to be used in a SpeechBrain recipe.
 
-Author
+Authors
 -------
  * Titouan Parcollet, 2024
 """
