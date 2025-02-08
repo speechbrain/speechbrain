@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Recipe for training a Transformer ASR system with The LargeScaleASR Set.
 
-
 Authors
+-------
  * Titouan Parcollet 2024
 """
 
@@ -30,7 +30,6 @@ class ASR(sb.core.Brain):
         """Forward computations from the waveform batches to the output probabilities."""
         batch = batch.to(self.device)
         wavs, wav_lens = batch.sig
-        wavs, wav_lens = wavs.to(self.device), wav_lens.to(self.device)
         tokens_bos, _ = batch.tokens_bos
         # Add waveform augmentation if specified.
         if (
@@ -308,7 +307,7 @@ def dataio_prepare_hf(hparams, tokenizer):
         ["id", "sig", "tokens_bos", "tokens_eos", "tokens"],
     )
 
-    # 5. If Dynamic Batching is used, we instantiate the needed samplers.
+    # 5. we instantiate the needed samplers with dynamic batching
     dynamic_hparams_train = hparams["dynamic_batch_sampler_train"]
     dynamic_hparams_valid = hparams["dynamic_batch_sampler_valid"]
 
@@ -324,13 +323,21 @@ def dataio_prepare_hf(hparams, tokenizer):
         lengths_list=val_len_list,
         **dynamic_hparams_valid,
     )
+    
+    train_loader_kwargs = {
+        "batch_sampler": train_batch_sampler,
+        "num_workers": hparams["num_workers"],
+    }
+    valid_loader_kwargs = {
+        "batch_sampler": valid_batch_sampler
+    }
 
     return (
         train_data,
         valid_data,
         test_data,
-        train_batch_sampler,
-        valid_batch_sampler,
+        train_loader_kwargs,
+        valid_loader_kwargs,
     )
 
 
@@ -367,8 +374,8 @@ if __name__ == "__main__":
         train_data,
         valid_data,
         test_data,
-        train_bsampler,
-        valid_bsampler,
+        train_loader_kwargs,
+        valid_loader_kwargs,
     ) = dataio_prepare_hf(hparams, tokenizer)
 
     # Trainer initialization
@@ -383,39 +390,13 @@ if __name__ == "__main__":
     # adding objects to trainer:
     asr_brain.tokenizer = tokenizer
 
-    # Manage dynamic batching
-    train_dataloader_opts = hparams["train_dataloader_opts"]
-    valid_dataloader_opts = hparams["valid_dataloader_opts"]
-    if train_bsampler is not None:
-        collate_fn = None
-        if "collate_fn" in train_dataloader_opts:
-            collate_fn = train_dataloader_opts["collate_fn"]
-
-        train_dataloader_opts = {
-            "batch_sampler": train_bsampler,
-            "num_workers": hparams["num_workers"],
-        }
-
-        if collate_fn is not None:
-            train_dataloader_opts["collate_fn"] = collate_fn
-
-    if valid_bsampler is not None:
-        collate_fn = None
-        if "collate_fn" in valid_dataloader_opts:
-            collate_fn = valid_dataloader_opts["collate_fn"]
-
-        valid_dataloader_opts = {"batch_sampler": valid_bsampler}
-
-        if collate_fn is not None:
-            valid_dataloader_opts["collate_fn"] = collate_fn
-
     # Training
     asr_brain.fit(
         asr_brain.hparams.epoch_counter,
         train_data,
         valid_data,
-        train_loader_kwargs=train_dataloader_opts,
-        valid_loader_kwargs=valid_dataloader_opts,
+        train_loader_kwargs=train_loader_kwargs,
+        valid_loader_kwargs=valid_loader_kwargs,
     )
 
     # Testing
