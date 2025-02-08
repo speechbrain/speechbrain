@@ -23,7 +23,6 @@ hf_caching_dir: !PLACEHOLDER # path to where the dataset will be extracted by HF
 # Necessary for the BPE tokenization
 train_csv: !PLACEHOLDER
 
-
 ckpt_interval_minutes: 15 # save checkpoint every N min
 
 ####################### Training Parameters ####################################
@@ -52,8 +51,6 @@ n_fft: 400
 n_mels: 80
 
 # This setup works well for A100 80GB GPU, adapts it to your needs.
-# Or turn it off (but training speed will decrease)
-dynamic_batching: True
 max_batch_length_train: 300
 max_batch_length_val: 100 # we reduce it as the beam is much wider (VRAM)
 num_bucket: 200
@@ -78,12 +75,8 @@ dynamic_batch_sampler_valid:
 train_dataloader_opts:
     num_workers: !ref <num_workers>
 
-valid_dataloader_opts:
-    batch_size: 8
-
 test_dataloader_opts:
     batch_size: 2
-
 
 ####################### Model Parameters ###########################
 # Transformer
@@ -182,7 +175,6 @@ valid_search: !new:speechbrain.decoders.S2STransformerBeamSearcher
     beam_size: !ref <valid_beam_size>
     using_eos_threshold: False
     length_normalization: True
-    # scorer: !ref <scorer>
 
 test_search: !new:speechbrain.decoders.S2STransformerBeamSearcher
     modules: [!ref <Transformer>, !ref <seq_lin>]

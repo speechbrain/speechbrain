@@ -51,7 +51,6 @@ n_fft: 400
 n_mels: 80
 
 # This setup works well for A100 80GB GPU, adapts it to your needs.
-# Or turn it off (but training speed will decrease)
 max_batch_length_train: 300
 max_batch_length_val: 100 # we reduce it as the beam is much wider (VRAM)
 num_bucket: 200
