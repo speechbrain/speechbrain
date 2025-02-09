@@ -266,7 +266,7 @@ def dataio_prepare(hparams):
     # We create the DynamicBatch Sampler
     train_sampler = DynamicBatchSampler(
         train_data,
-        hparams["seconds_per_batch"],
+        hparams["max_batch_len"],
         num_buckets=hparams["train_num_buckets"],
         length_func=lambda x: x["duration"],
         batch_ordering="random",

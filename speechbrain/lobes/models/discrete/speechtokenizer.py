@@ -37,6 +37,8 @@ class SpeechTokenizer(nn.Module):
         HuggingFace hub name: e.g "fnlp/SpeechTokenizer"
     save_path : str
         Path (dir) of the downloaded model.
+    sample_rate : int (default: 16000)
+        The audio sampling rate
 
     Example
     -------
@@ -57,6 +59,7 @@ class SpeechTokenizer(nn.Module):
         self,
         source,
         save_path,
+        sample_rate=16000,
     ):
 
         # Lazy import to avoid circular dependency issues
@@ -84,6 +87,7 @@ class SpeechTokenizer(nn.Module):
             config_path, ckpt_path
         )
         self.model.eval()
+        self.sample_rate = sample_rate
 
     def forward(self, wav, wav_lens=None):
         """Takes an input waveform and return its corresponding wav2vec encoding.
