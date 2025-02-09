@@ -35,11 +35,11 @@ class DiscreteSSL(nn.Module):
 
     The following table summarizes the compatible SSL models, their respective HF encoders, k-means training details, supported layers, and pretrained vocoder:
 
-    | SSL Model  | HF Encoder                             | K-Means Dataset | K-Means Size | SSL Layers           | Vocoder Model                            |
-    |------------|----------------------------------------|-----------------|--------------|----------------------|------------------------------------------|
-    | WavLM      | microsoft/wavlm-large                  | LibriSpeech960  | 1000         | 1, 3, 7, 12, 18, 23  | speechbrain/hifigan-wavlm-k1000-LibriTTS |
-    | HuBERT     | facebook/hubert-large-ll60k            | LibriSpeech960  | 1000         | 1, 3, 7, 12, 18, 23  | WIP                                      |
-    | Wav2Vec2   | facebook/wav2vec2-large-960h-lv60-self | LibriSpeech960  | 1000         | 1, 3, 7, 12, 18, 23  | WIP                                      |
+    | SSL Model  | HF Encoder                             | K-Means Dataset | K-Means Size | SSL Layers           | Vocoder Model                               |
+    |------------|----------------------------------------|-----------------|--------------|----------------------|---------------------------------------------|
+    | WavLM      | microsoft/wavlm-large                  | LibriSpeech960  | 1000         | 1, 3, 7, 12, 18, 23  | speechbrain/hifigan-wavlm-k1000-LibriTTS    |
+    | HuBERT     | facebook/hubert-large-ll60k            | LibriSpeech960  | 1000         | 1, 3, 7, 12, 18, 23  | speechbrain/hifigan-hubert-k1000-LibriTTS   |
+    | Wav2Vec2   | facebook/wav2vec2-large                | LibriSpeech960  | 1000         | 1, 3, 7, 12, 18, 23  | speechbrain/hifigan-wav2vec2-k1000-LibriTTS |
 
 
     Arguments

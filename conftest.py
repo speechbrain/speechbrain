@@ -10,7 +10,10 @@ def pytest_generate_tests(metafunc):
         metafunc.parametrize("device", [option_value])
 
 
-collect_ignore = ["setup.py"]
+collect_ignore = [
+    "setup.py",
+    "speechbrain/lobes/models/huggingface_transformers/mert.py",
+]
 try:
     import numba  # noqa: F401
 except ModuleNotFoundError:
@@ -62,5 +65,9 @@ try:
     from speechtokenizer import SpeechTokenizer  # noqa: F401
 except ModuleNotFoundError:
     collect_ignore.append(
-        "speechbrain/lobes/models/discrete/speechtokenizer_interface.py"
+        "speechbrain/lobes/models/discrete/speechtokenizer.py"
     )
+try:
+    import wavtokenizer  # noqa: F401
+except ModuleNotFoundError:
+    collect_ignore.append("speechbrain/lobes/models/discrete/wavtokenizer.py")
