@@ -63,14 +63,14 @@ class SpeechTokenizer_interface(nn.Module):
     ):
         super().__init__()
 
-        saved_dir = snapshot_download(
-            repo_id=source,
-            allow_patterns=["*config.json", "*SpeechTokenizer.pt"],
-            cache_dir=save_path,
-        )
+        # saved_dir = snapshot_download(
+        # repo_id=source,
+        # allow_patterns=["*config.json", "*SpeechTokenizer.pt"],
+        # cache_dir=save_path,
+        # )
 
-        config_path = f"{saved_dir}/speechtokenizer_hubert_avg/config.json"
-        ckpt_path = f"{saved_dir}/speechtokenizer_hubert_avg/SpeechTokenizer.pt"
+        config_path = f"{save_path}/speechtokenizer_hubert_avg/config.json"
+        ckpt_path = f"{save_path}/speechtokenizer_hubert_avg/SpeechTokenizer.pt"
         self.model = SpeechTokenizer.load_from_checkpoint(
             config_path, ckpt_path
         )
