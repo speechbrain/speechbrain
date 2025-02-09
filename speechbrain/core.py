@@ -803,7 +803,11 @@ class Brain:
         elif "cuda" in self.device and self.precision in ["fp16", "bf16"]:
             self.use_amp = True
 
-        if gradscaler_enabled and self.use_amp and self.checkpointer is not None:
+        if (
+            gradscaler_enabled
+            and self.use_amp
+            and self.checkpointer is not None
+        ):
             self.checkpointer.add_recoverable(
                 "scaler", self.scaler, optional_load=True
             )
@@ -830,6 +834,9 @@ class Brain:
                         "Only the main process is alive, "
                         "all other subprocess were killed."
                     )
+                world_size = int(os.environ["WORLD_SIZE"])
+                assert self.grad_accumulation_steps % world_size == 0
+                self.grad_accumulation_factor //= world_size
 
         # Prepare iterating variables
         self.avg_train_loss = 0.0
@@ -1430,7 +1437,7 @@ class Brain:
         steps_since_ckpt = 0
         with tqdm(
             train_set,
-            initial=self.step,
+            initial=self.optimizer_step,
             dynamic_ncols=True,
             disable=not enable,
             colour=self.tqdm_barcolor["train"],
