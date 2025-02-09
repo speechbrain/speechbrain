@@ -10,8 +10,8 @@ import copy
 import math
 from types import MethodType
 
+import torch
 from torch.utils.data import Dataset
-import torch 
 
 from speechbrain.dataio.dataio import load_data_csv, load_data_json
 from speechbrain.utils.data_pipeline import DataPipeline
@@ -19,6 +19,7 @@ from speechbrain.utils.data_utils import batch_shuffle
 from speechbrain.utils.logger import get_logger
 
 logger = get_logger(__name__)
+
 
 class DynamicItemDataset(Dataset):
     """Dataset that reads, wrangles, and produces dicts.
@@ -506,11 +507,12 @@ def apply_overfit_test(
 
 class PackedDatasetWrapper(Dataset):
     """Wrapper that packs tokens from an existing DynamicItemDataset."""
+
     def __init__(self, original_dataset, block_size, token_key="tokens"):
         self.original_dataset = original_dataset
         self.block_size = block_size
         self.token_key = token_key
-        
+
         # Precompute the mapping from block index to original data indices
         self.blocks = []
         self.blocks_ids = []
@@ -531,8 +533,12 @@ class PackedDatasetWrapper(Dataset):
 
         for idx in indices:
             data_point = self.original_dataset[idx]
-            tokens = data_point['tokens']  # Assuming 'tokens' is a list or tensor
-            id_name = data_point.get('id', idx)  # Optional: fetch an 'id' if available
+            tokens = data_point[
+                "tokens"
+            ]  # Assuming 'tokens' is a list or tensor
+            id_name = data_point.get(
+                "id", idx
+            )  # Optional: fetch an 'id' if available
 
             # Convert tokens to tensor if they aren't already
             if isinstance(tokens, list):
@@ -551,8 +557,8 @@ class PackedDatasetWrapper(Dataset):
                     packed_tokens = torch.cat(buffer, dim=0)
                     self.blocks.append(packed_tokens)
                     self.blocks_ids.append(buffer_ids)
-                    
-                     # reset buffer
+
+                    # reset buffer
                     buffer = []
                     buffer_length = 0
                     buffer_ids = []
@@ -574,7 +580,7 @@ class PackedDatasetWrapper(Dataset):
                     buffer_length = splitted_tokens[-1].size(0)
                 else:
                     # If single data point exceeds block_size, split it
-                    new_tokens = tokens[:self.block_size]
+                    new_tokens = tokens[: self.block_size]
                     buffer_ids.append(id_name)
                     self.blocks.append(new_tokens)
                     self.blocks_ids.append(buffer_ids)
@@ -585,7 +591,7 @@ class PackedDatasetWrapper(Dataset):
                     buffer_ids = []
 
                     # calculate upper boundary of tokens to keep
-                    splitted_tokens = tokens[self.block_size:].split(
+                    splitted_tokens = tokens[self.block_size :].split(
                         self.block_size
                     )
                     if len(splitted_tokens) > 0:
@@ -597,7 +603,9 @@ class PackedDatasetWrapper(Dataset):
 
                     buffer = [splitted_tokens[-1]]
                     buffer_ids = [id_name]
-                    buffer_length = splitted_tokens[-1].size(0) # - self.block_size
+                    buffer_length = splitted_tokens[-1].size(
+                        0
+                    )  # - self.block_size
             else:
                 buffer.append(tokens)
                 buffer_ids.append(id_name)
@@ -607,16 +615,6 @@ class PackedDatasetWrapper(Dataset):
         if buffer:
             concatenated = torch.cat(buffer, dim=0)
             buffer_ids.append(id_name)
-            # # we need to pad the buffer if it's not full
-            # if buffer_length < self.block_size:
-            #     padding_length = self.block_size - buffer_length
-            #     padded_buffer = torch.cat([
-            #         concatenated,
-            #         torch.full((padding_length, concatenated.size(1)), self.pad_token_id, dtype=concatenated.dtype)
-            #     ], dim=0)
-            #     self.blocks.append(padded_buffer)
-            #     self.blocks_ids.append(buffer_ids)
-            # else:
             self.blocks.append(concatenated)
             self.blocks_ids.append(buffer_ids)
 
@@ -624,7 +622,7 @@ class PackedDatasetWrapper(Dataset):
         return len(self.blocks)
 
     def __getitem__(self, idx: int) -> dict[str, torch.Tensor]:
-        data_id = '@'.join(self.blocks_ids[idx])
+        data_id = "@".join(self.blocks_ids[idx])
         data_point = self.blocks[idx]
         return {
             "id": data_id,

@@ -239,8 +239,9 @@ class HFTransformersInterface(nn.Module):
             If the checkpoint file is not found.
         """
         import os
-        from huggingface_hub import snapshot_download, model_info
         import pathlib
+
+        from huggingface_hub import model_info, snapshot_download
 
         checkpoint_filename = ""
         source = pathlib.Path(path)
@@ -253,8 +254,7 @@ class HFTransformersInterface(nn.Module):
             # Attempt to find the model in the local cache
             try:
                 local_path = snapshot_download(
-                    repo_id=path,
-                    local_files_only=True
+                    repo_id=path, local_files_only=True
                 )
                 is_local = True
             except FileNotFoundError:

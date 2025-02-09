@@ -1,13 +1,13 @@
 # Seed needs to be set at top of yaml, before objects with parameters are made
 # TODO: add LinearScheduler ? Or Trapezoidal.
 # TODO: add custom sampling logic.
+# TODO: move this to Template
 seed: 1986
 __set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
 experiment_name: hubert_overfit_dev_clean
 output_folder: !ref results/LibriSpeech/<experiment_name>/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
-
 # Data files
 data_folder: !PLACEHOLDER # e,g./path/to/LibriSpeech
 tokens_folder: !PLACEHOLDER  # Path to the folder where extracted tokens are saved.
@@ -30,11 +30,11 @@ lr: 3e-3
 sorting: ascending
 precision: bf16
 eval_precision: bf16
-skip_prep: False 
-num_codebooks: 8 
+skip_prep: False
+num_codebooks: 8
 sample_rate: 16000
 codebook_size: 1024
-block_size: 2048 
+block_size: 2048
 eos_token: !ref <codebook_size>
 pad_token: !ref <codebook_size> + 1
 vocabsize: !ref <codebook_size> + 2 # card(codebook) + eos + pad -> 1026
@@ -57,16 +57,16 @@ train_dataloader_opts:
   collate_fn: !name:speechbrain.dataio.batch.PaddedBatch
       padding_kwargs:
           value: !ref <pad_token>
-# todo: limit the num of steps on val
+
 valid_dataloader_opts:
   batch_size: !ref <batch_size>
   num_workers: !ref <num_workers>
   collate_fn: !name:speechbrain.dataio.batch.PaddedBatch
       padding_kwargs:
           value: !ref <pad_token>
+
 test_dataloader_opts:
   batch_size: !ref <test_batch_size>
-  # num_workers: !ref <num_workers>
   collate_fn: !name:speechbrain.dataio.batch.PaddedBatch
       padding_kwargs:
           value: !ref <pad_token>
@@ -85,7 +85,7 @@ model_backbone: !apply:transformers.AutoModelForCausalLM.from_pretrained
   pretrained_model_name_or_path: "HuggingFaceTB/SmolLM-135M"
   torch_dtype: !name:torch.bfloat16
   attn_implementation: "flash_attention_2"
-  cache_dir: "/scratch/adelmou/hf_home/hub/" 
+  cache_dir: "/scratch/adelmou/hf_home/hub/"
 
 # define LM in the YAML
 config: !new:speechbrain.lobes.models.huggingface_transformers.discrete_speechlm.DiscreteSpeechLMConfig
@@ -108,7 +108,7 @@ lr_annealing: !new:speechbrain.nnet.schedulers.LinearScheduler
 opt_class: !name:torch.optim.AdamW
   lr: !ref <lr>
   betas: (0.9, 0.95)
-   
+
 modules:
   # codec: !ref <codec>
   model: !ref <model>
@@ -118,15 +118,16 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
   recoverables:
         model: !ref <model>
         counter: !ref <epoch_counter>
-  
-wandb_logger: !new:speechbrain.utils.train_logger.WandBLogger
-  entity: Zarko
-  project: SLMs
-  name: !ref <experiment_name> 
-  reinit: True
-  resume: False
-  mode: "offline"
-  dir: /home/adelmou/proj/speechbrain/gslms/speechbrain/recipes/LibriSpeech/SpeechLM/discrete/
+
+# every N logs steps call this
+# wandb_logger: !new:speechbrain.utils.train_logger.WandBLogger
+#   entity: Zarko
+#   project: SLMs
+#   name: !ref <experiment_name>
+#   reinit: True
+#   resume: False
+#   mode: "offline"
+#   dir: /home/adelmou/proj/speechbrain/gslms/speechbrain/recipes/LibriSpeech/SpeechLM/discrete/
 
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
-  save_file: !ref <train_log>  
+  save_file: !ref <train_log>

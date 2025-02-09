@@ -1,26 +1,29 @@
+import os
+import pickle
+
+import joblib
+import numpy as np
 import torch
 import torch.nn.functional as F
 import torchaudio
-import os
 import tqdm
-import pickle
-import numpy as np
-import joblib
 
 MIN_WAV_LEN = 720
 MODEL_SR = 16000
 
+
 class FairseqHuBERT(torch.nn.Module):
     def __init__(
-            self, 
-            feat_extractor_path, 
-            layer, 
-            km_path, 
-            max_chunk=1600000,
-            vocoder=None,
-        ):
+        self,
+        feat_extractor_path,
+        layer,
+        km_path,
+        max_chunk=1600000,
+        vocoder=None,
+    ):
         super().__init__()
         import fairseq
+
         # Feature extractor
         (
             model,
@@ -36,7 +39,7 @@ class FairseqHuBERT(torch.nn.Module):
         # Quantizer
         km_model = joblib.load(km_path)
         self.C_np = km_model.cluster_centers_.transpose()
-        self.Cnorm_np = (self.C_np ** 2).sum(0, keepdims=True)
+        self.Cnorm_np = (self.C_np**2).sum(0, keepdims=True)
         self.register_buffer("C", torch.from_numpy(self.C_np))
         self.register_buffer("Cnorm", torch.from_numpy(self.Cnorm_np))
         self.sample_rate = MODEL_SR
@@ -70,4 +73,4 @@ class FairseqHuBERT(torch.nn.Module):
     def decode(self, tokens):
         if self.vocoder is None:
             raise ValueError("Vocoder is not set")
-        return self.vocoder(tokens, dur_prediction = True)
+        return self.vocoder(tokens, dur_prediction=True)
