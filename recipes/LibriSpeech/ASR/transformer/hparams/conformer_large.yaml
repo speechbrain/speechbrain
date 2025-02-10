@@ -155,7 +155,7 @@ Transformer: !new:speechbrain.lobes.models.transformer.TransformerASR.Transforme
     dropout: !ref <transformer_dropout>
     activation: !ref <activation>
     encoder_module: conformer
-    attention_type: RoPEPytorchMHA
+    attention_type: RoPEMHA
     normalize_before: True
     causal: False
 
