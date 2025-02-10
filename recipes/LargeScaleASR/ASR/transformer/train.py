@@ -287,8 +287,6 @@ def dataio_prepare_hf(hparams, tokenizer):
         "wrd", "tokens_list", "tokens_bos", "tokens_eos", "tokens"
     )
     def text_pipeline(wrd):
-        if len(wrd.split(" ")) > 200:
-            wrd = " ".join(wrd.split(" ")[:200])
         yield wrd
         tokens_list = tokenizer.sp.encode_as_ids(wrd)
         yield tokens_list
@@ -323,14 +321,12 @@ def dataio_prepare_hf(hparams, tokenizer):
         lengths_list=val_len_list,
         **dynamic_hparams_valid,
     )
-    
+
     train_loader_kwargs = {
         "batch_sampler": train_batch_sampler,
         "num_workers": hparams["num_workers"],
     }
-    valid_loader_kwargs = {
-        "batch_sampler": valid_batch_sampler
-    }
+    valid_loader_kwargs = {"batch_sampler": valid_batch_sampler}
 
     return (
         train_data,
