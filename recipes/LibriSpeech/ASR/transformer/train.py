@@ -62,11 +62,11 @@ class ASR(sb.core.Brain):
         feats = self.modules.normalize(feats, wav_lens, epoch=current_epoch)
 
         # Add feature augmentation if specified.
+        augment_warmup = 0
+        if hasattr(self.hparams, "augment_warmup"):
+            augment_warmup = self.hparams.augment_warmup
         if stage == sb.Stage.TRAIN and hasattr(self.hparams, "fea_augment"):
-            if (
-                hasattr(self.hparams, "augment_warmup")
-                and self.optimizer_step > self.hparams.augment_warmup
-            ) or not hasattr(self.hparams, "augment_warmup"):
+            if self.optimizer_step > augment_warmup:
                 feats, fea_lens = self.hparams.fea_augment(feats, wav_lens)
                 tokens_bos = self.hparams.fea_augment.replicate_labels(
                     tokens_bos
@@ -124,9 +124,12 @@ class ASR(sb.core.Brain):
         if stage == sb.Stage.TRAIN:
             # Labels must be extended if parallel augmentation or concatenated
             # augmentation was performed on the input (increasing the time dimension)
+            augment_warmup = 0
+            if hasattr(self.hparams, "augment_warmup"):
+                augment_warmup = self.hparams.augment_warmup
             if (
                 hasattr(self.hparams, "fea_augment")
-                and self.optimizer_step > self.hparams.augment_warmup
+                and self.optimizer_step > augment_warmup
             ):
                 (
                     tokens,
