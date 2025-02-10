@@ -24,7 +24,7 @@ torchrun --nproc_per_node=[number_of_gpus] train.py hparams/{hparam_file}.py \
   --train_csv=/path/to/downloaded/train.csv
 ```
 
-**Note:**  
+**Note:**
 The `hf_caching_dir` typically corresponds to the `$HF_HUB_CACHE` environment variable. If this variable isn’t set, locate your HuggingFace cache directory (commonly in the `.cache` folder) and provide its path.
 
 ## Results

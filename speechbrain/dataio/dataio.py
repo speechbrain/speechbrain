@@ -19,11 +19,11 @@ import os
 import pickle
 import re
 import time
+from io import BytesIO
 
 import numpy as np
 import torch
 import torchaudio
-from io import BytesIO
 
 from speechbrain.utils.logger import get_logger
 from speechbrain.utils.torch_audio_backend import check_torchaudio_backend
