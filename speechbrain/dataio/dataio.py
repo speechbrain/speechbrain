@@ -23,6 +23,7 @@ import time
 import numpy as np
 import torch
 import torchaudio
+from io import BytesIO
 
 from speechbrain.utils.logger import get_logger
 from speechbrain.utils.torch_audio_backend import check_torchaudio_backend
@@ -274,8 +275,18 @@ def read_audio(waveforms_obj):
     >>> loaded.allclose(dummywav.squeeze(0),atol=1e-4) # replace with eq with sox_io backend
     True
     """
-    if isinstance(waveforms_obj, str):
+    # If a file-like object, ensure the pointer is at the beginning.
+    if hasattr(waveforms_obj, "seek"):
+        waveforms_obj.seek(0)
+
+    # Case 1: Directly a file path (str) or file-like object or raw bytes.
+    if isinstance(waveforms_obj, (str, BytesIO, bytes)):
+        # If raw bytes, wrap them in a BytesIO.
+        if isinstance(waveforms_obj, bytes):
+            waveforms_obj = BytesIO(waveforms_obj)
+            waveforms_obj.seek(0)
         audio, _ = torchaudio.load(waveforms_obj)
+    # Case 2: A dict with more options. Only works with file paths.
     else:
         path = waveforms_obj["file"]
         start = waveforms_obj.get("start", 0)
