@@ -1206,6 +1206,7 @@ class RoPEMHA(nn.Module):
         value,
         key_padding_mask=None,
         attn_mask=None,
+        pos_embs=None,
         return_attn_weights=True,
     ):
         """Compute attention.
@@ -1239,6 +1240,12 @@ class RoPEMHA(nn.Module):
             be unchanged. If a BoolTensor is provided, positions with True is
             not allowed to attend while False values will be unchanged. If a
             FloatTensor is provided, it will be added to the attention weight.
+            Not supported but included for compatibility.
+            This must be None.
+        pos_embs : torch.Tensor, optional
+            Positional embeddings added to the attention map of shape (L, S, E) or (L, S, 1).
+            Not supported but included for compatibility.
+            This must be None.
         return_attn_weights : bool
             Whether to additionally return the attention weights.
 
@@ -1251,6 +1258,9 @@ class RoPEMHA(nn.Module):
             (B, L, S) where B is the batch size, L is the target
             sequence length, S is the source sequence length.
         """
+
+        assert attn_mask is None, "attn_mask is not supported."
+        assert pos_embs is None, "pos_embs is not supported."
 
         # query, key and value are of shape batch, time, embed_dim
         bsz = query.shape[0]
@@ -1410,6 +1420,7 @@ class RoPEPytorchMHA(RoPEMHA):
         value,
         key_padding_mask=None,
         attn_mask=None,
+        pos_embs=None,
         return_attn_weights=True,
     ):
         """Compute attention through Pytorch attention.
@@ -1443,6 +1454,12 @@ class RoPEPytorchMHA(RoPEMHA):
             be unchanged. If a BoolTensor is provided, positions with True is
             not allowed to attend while False values will be unchanged. If a
             FloatTensor is provided, it will be added to the attention weight.
+            Not supported but included for compatibility.
+            This must be None.
+        pos_embs : torch.Tensor, optional
+            Positional embeddings added to the attention map of shape (L, S, E) or (L, S, 1).
+            Not supported but included for compatibility.
+            This must be None.
         return_attn_weights : bool
             Whether to additionally return the attention weights.
 
@@ -1455,6 +1472,9 @@ class RoPEPytorchMHA(RoPEMHA):
             (B, L, S) where B is the batch size, L is the target
             sequence length, S is the source sequence length.
         """
+
+        assert attn_mask is None, "attn_mask is not supported."
+        assert pos_embs is None, "pos_embs is not supported."
 
         # query, key and value are of shape batch, time, embed_dim
         bsz = query.shape[0]

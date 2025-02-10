@@ -740,11 +740,7 @@ class ConformerEncoder(nn.Module):
             The output of the hidden layers of the encoder.
             Only works if output_hidden_states is set to true.
         """
-        if (
-            self.attention_type == "RelPosMHAXL"
-            or self.attention_type == "RoPEMHA"
-            or self.attention_type == "RoPEPytorchMHA"
-        ):
+        if self.attention_type == "RelPosMHAXL":
             if pos_embs is None:
                 raise ValueError(
                     f"The chosen attention type for the Conformer is {self.attention_type}. For this attention type, the positional embeddings are mandatory"
