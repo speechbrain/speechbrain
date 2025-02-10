@@ -10,15 +10,18 @@ Authors
  * Gaëlle Laperrière 2021
  * Sahar Ghannay 2021
  * Sylvain de Langen 2022
+ * Adel Moumen 2025
 """
 
 import csv
 import hashlib
+import inspect
 import json
 import os
 import pickle
 import re
 import time
+from io import BytesIO
 
 import numpy as np
 import torch
@@ -163,6 +166,99 @@ def load_data_csv(csv_path, replacements={}):
     return result
 
 
+def _safe_torchaudio_call(func, *args, backend=None, **kwargs):
+    """
+    Safely calls a torchaudio function while handling the backend parameter.
+
+    This function ensures compatibility with different versions of torchaudio
+    by checking if the 'backend' parameter is supported. If the backend is
+    specified and the function accepts it, the backend is passed directly.
+    Otherwise, it falls back to setting the torchaudio backend before calling
+    the function.
+
+    Arguments
+    ---------
+    func : callable
+        A torchaudio function to be called (e.g., torchaudio.load, torchaudio.info).
+    *args : tuple
+        Positional arguments to be passed to the function.
+    backend : str, optional
+        Audio backend to use. Must be one of 'ffmpeg', 'sox', 'soundfile', or None.
+        If None, the function is executed using the default torchaudio backend.
+    **kwargs : dict
+        Keyword arguments to be passed to the function.
+
+    Returns
+    -------
+    Any
+        The return value of the called torchaudio function.
+    """
+    sig = inspect.signature(func)
+    if backend is not None and "backend" in sig.parameters:
+        return func(*args, backend=backend, **kwargs)
+    else:
+        # torchaudio <= 2.0.1
+        torchaudio.set_audio_backend(backend)
+        return func(*args, **kwargs)
+
+
+def _safe_torchaudio_load(*args, backend=None, **kwargs):
+    """
+    Loads an audio file safely with torchaudio.load while handling backend compatibility.
+
+    This function wraps `torchaudio.load`, ensuring that the backend parameter is
+    handled correctly across different torchaudio versions.
+
+    Arguments
+    ---------
+    *args : tuple
+        Positional arguments to be passed to `torchaudio.load`.
+    backend : str, optional
+        Audio backend to use. Must be one of 'ffmpeg', 'sox', 'soundfile', or None.
+        If None, the function is executed using the default torchaudio backend.
+    **kwargs : dict
+        Keyword arguments to be passed to `torchaudio.load`.
+
+    Returns
+    -------
+    Tuple[torch.Tensor, int]
+        A tuple containing:
+        - The waveform as a torch.Tensor of shape (channels, samples).
+        - The sample rate as an integer.
+    """
+    return _safe_torchaudio_call(
+        torchaudio.load, *args, backend=backend, **kwargs
+    )
+
+
+def _safe_torchaudio_info(*args, backend=None, **kwargs):
+    """
+    Retrieves metadata for an audio file safely using torchaudio.info.
+
+    This function wraps `torchaudio.info`, ensuring that the backend parameter is
+    handled correctly across different torchaudio versions.
+
+    Arguments
+    ---------
+    *args : tuple
+        Positional arguments to be passed to `torchaudio.info`.
+    backend : str, optional
+        Audio backend to use. Must be one of 'ffmpeg', 'sox', 'soundfile', or None.
+        If None, the function is executed using the default torchaudio backend.
+    **kwargs : dict
+        Keyword arguments to be passed to `torchaudio.info`.
+
+    Returns
+    -------
+    torchaudio.backend.common.AudioMetaData
+        Metadata containing information such as sample rate, number of channels,
+        and duration of the audio file.
+    """
+    return _safe_torchaudio_call(
+        torchaudio.info, *args, backend=backend, **kwargs
+    )
+
+
 def read_audio_info(
     path, backend=None
 ) -> "torchaudio.backend.common.AudioMetaData":
@@ -195,7 +291,9 @@ def read_audio_info(
     """
     if backend not in [None, "ffmpeg", "sox", "soundfile"]:
         raise ValueError(
-            "backend must be one of 'ffmpeg', 'sox', 'soundfile' or None"
+            "backend must be one of 'ffmpeg', 'sox', 'soundfile' or None",
+            "Available backends on your system: ",
+            torchaudio.list_audio_backends(),
         )
 
     _path_no_ext, path_ext = os.path.splitext(path)
@@ -205,9 +303,9 @@ def read_audio_info(
         # autodetect mp3.
         # HACK: here, we check for the file extension to force mp3 detection,
         # which prevents an error from occurring in torchaudio.
-        info = torchaudio.info(path, format="mp3", backend=backend)
+        info = _safe_torchaudio_info(path, format="mp3", backend=backend)
     else:
-        info = torchaudio.info(path, backend=backend)
+        info = _safe_torchaudio_info(path, backend=backend)
 
     # Certain file formats, such as MP3, do not provide a reliable way to
     # query file duration from metadata (when there is any).
@@ -222,7 +320,7 @@ def read_audio_info(
     # double-checking anyway. If I am wrong and you are reading this comment
     # because of it: sorry
     if info.num_frames == 0:
-        channels_data, sample_rate = torchaudio.load(
+        channels_data, sample_rate = _safe_torchaudio_load(
             path, normalize=False, backend=backend
         )
 
@@ -288,13 +386,25 @@ def read_audio(waveforms_obj, backend=None):
     >>> loaded.allclose(dummywav.squeeze(0),atol=1e-4) # replace with eq with sox_io backend
     True
     """
+    # Case 1: Directly a file path (str) or file-like object or raw bytes.
     if backend not in [None, "ffmpeg", "sox", "soundfile"]:
         raise ValueError(
-            "backend must be one of 'ffmpeg', 'sox', 'soundfile' or None"
+            "backend must be one of 'ffmpeg', 'sox', 'soundfile' or None",
+            "Available backends on your system: ",
+            torchaudio.list_audio_backends(),
         )
 
-    if isinstance(waveforms_obj, str):
-        audio, _ = torchaudio.load(waveforms_obj, backend=backend)
+    # If a file-like object, ensure the pointer is at the beginning.
+    if hasattr(waveforms_obj, "seek"):
+        waveforms_obj.seek(0)
+
+    if isinstance(waveforms_obj, (str, BytesIO, bytes)):
+        # If raw bytes, wrap them in a BytesIO.
+        if isinstance(waveforms_obj, bytes):
+            waveforms_obj = BytesIO(waveforms_obj)
+            waveforms_obj.seek(0)
+        audio, _ = _safe_torchaudio_load(waveforms_obj, backend=backend)
+    # Case 2: A dict with more options. Only works with file paths.
     else:
         path = waveforms_obj["file"]
         start = waveforms_obj.get("start", 0)
@@ -319,12 +429,12 @@ def read_audio(waveforms_obj, backend=None):
         # Requested to load until a specific frame?
         if start != stop:
             num_frames = stop - start
-            audio, fs = torchaudio.load(
+            audio, fs = _safe_torchaudio_load(
                 path, num_frames=num_frames, frame_offset=start, backend=backend
             )
         else:
             # Load to the end.
-            audio, fs = torchaudio.load(
+            audio, fs = _safe_torchaudio_load(
                 path, frame_offset=start, backend=backend
             )
 
@@ -390,11 +500,13 @@ def read_audio_multichannel(waveforms_obj, backend=None):
     """
     if backend not in [None, "ffmpeg", "sox", "soundfile"]:
         raise ValueError(
-            "backend must be one of 'ffmpeg', 'sox', 'soundfile' or None"
+            "backend must be one of 'ffmpeg', 'sox', 'soundfile' or None",
+            "Available backends on your system: ",
+            torchaudio.list_audio_backends(),
         )
 
     if isinstance(waveforms_obj, str):
-        audio, _ = torchaudio.load(waveforms_obj, backend=backend)
+        audio, _ = _safe_torchaudio_load(waveforms_obj, backend=backend)
         return audio.transpose(0, 1)
 
     files = waveforms_obj["files"]
@@ -408,7 +520,7 @@ def read_audio_multichannel(waveforms_obj, backend=None):
     stop = waveforms_obj.get("stop", start - 1)
     num_frames = stop - start
     for f in files:
-        audio, fs = torchaudio.load(
+        audio, fs = _safe_torchaudio_load(
             f, num_frames=num_frames, frame_offset=start, backend=backend
         )
         waveforms.append(audio)
