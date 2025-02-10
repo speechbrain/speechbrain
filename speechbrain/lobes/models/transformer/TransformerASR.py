@@ -398,7 +398,7 @@ class TransformerASR(TransformerInterface):
             pos_embs_encoder = None
             pos_embs_target = None
         elif (
-            self.attention_type == "RoPEMHA" 
+            self.attention_type == "RoPEMHA"
             or self.attention_type == "RoPEPytorchMHA"
         ):
             tgt = tgt + self.positional_encoding_decoder(tgt)
@@ -457,7 +457,7 @@ class TransformerASR(TransformerInterface):
             pos_embs_encoder = None
             pos_embs_target = None
         elif (
-            self.attention_type == "RoPEMHA" 
+            self.attention_type == "RoPEMHA"
             or self.attention_type == "RoPEPytorchMHA"
         ):
             tgt = tgt + self.positional_encoding_decoder(tgt)

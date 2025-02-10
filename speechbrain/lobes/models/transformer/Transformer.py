@@ -13,7 +13,7 @@ import torch.nn as nn
 
 import speechbrain as sb
 from speechbrain.nnet.activations import Swish
-from speechbrain.nnet.attention import RelPosEncXL, RotationMatrix
+from speechbrain.nnet.attention import RelPosEncXL
 from speechbrain.nnet.CNN import Conv1d
 from speechbrain.utils.checkpoints import map_old_state_dict_weights
 
@@ -165,12 +165,9 @@ class TransformerInterface(nn.Module):
             )
 
         if (
-            attention_type == "RoPEMHA" 
+            attention_type == "RoPEMHA"
             or self.attention_type == "RoPEPytorchMHA"
         ):
-            self.positional_encoding = RotationMatrix(
-                max_length, d_model // nhead
-            )
             self.positional_encoding_decoder = PositionalEncoding(
                 d_model, max_length
             )
