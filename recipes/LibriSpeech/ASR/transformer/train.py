@@ -62,13 +62,15 @@ class ASR(sb.core.Brain):
         feats = self.modules.normalize(feats, wav_lens, epoch=current_epoch)
 
         # Add feature augmentation if specified.
-        if (
-            stage == sb.Stage.TRAIN
-            and hasattr(self.hparams, "fea_augment")
-            and self.optimizer_step > self.hparams.augment_warmup
-        ):
-            feats, fea_lens = self.hparams.fea_augment(feats, wav_lens)
-            tokens_bos = self.hparams.fea_augment.replicate_labels(tokens_bos)
+        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "fea_augment"):
+            if (
+                hasattr(self.hparams, "augment_warmup")
+                and self.optimizer_step > self.hparams.augment_warmup
+            ) or not hasattr(self.hparams, "augment_warmup"):
+                feats, fea_lens = self.hparams.fea_augment(feats, wav_lens)
+                tokens_bos = self.hparams.fea_augment.replicate_labels(
+                    tokens_bos
+                )
 
         # forward modules
         src = self.modules.CNN(feats)
