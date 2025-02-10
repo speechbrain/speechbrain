@@ -143,7 +143,6 @@ class TransformerInterface(nn.Module):
             "RelPosMHAXL",
             "hypermixing",
             "RoPEMHA",
-            "RoPEPytorchMHA",
         ]
         assert positional_encoding in ["fixed_abs_sine", None]
 
@@ -164,10 +163,7 @@ class TransformerInterface(nn.Module):
                 d_model, max_length
             )
 
-        if (
-            attention_type == "RoPEMHA"
-            or self.attention_type == "RoPEPytorchMHA"
-        ):
+        if attention_type == "RoPEMHA":
             self.positional_encoding_decoder = PositionalEncoding(
                 d_model, max_length
             )
@@ -391,12 +387,6 @@ class TransformerEncoderLayer(nn.Module):
             )
         elif attention_type == "RoPEMHA":
             self.self_att = sb.nnet.attention.RoPEMHA(
-                d_model,
-                nhead,
-                dropout,
-            )
-        elif attention_type == "RoPEPytorchMHA":
-            self.self_att = sb.nnet.attention.RoPEPytorchMHA(
                 d_model,
                 nhead,
                 dropout,

@@ -23,7 +23,6 @@ from speechbrain.nnet.attention import (
     PositionalwiseFeedForward,
     RelPosMHAXL,
     RoPEMHA,
-    RoPEPytorchMHA,
 )
 from speechbrain.nnet.hypermixing import HyperMixing
 from speechbrain.nnet.normalization import LayerNorm
@@ -412,12 +411,6 @@ class ConformerEncoderLayer(nn.Module):
             )
         elif attention_type == "RoPEMHA":
             self.mha_layer = RoPEMHA(
-                num_heads=nhead,
-                embed_dim=d_model,
-                dropout=dropout,
-            )
-        elif attention_type == "RoPEPytorchMHA":
-            self.mha_layer = RoPEPytorchMHA(
                 num_heads=nhead,
                 embed_dim=d_model,
                 dropout=dropout,
@@ -812,7 +805,6 @@ class ConformerEncoder(nn.Module):
         if (
             self.attention_type == "RelPosMHAXL"
             or self.attention_type == "RoPEMHA"
-            or self.attention_type == "RoPEPytorchMHA"
         ):
             if pos_embs is None:
                 raise ValueError(

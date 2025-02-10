@@ -955,10 +955,12 @@ class PrecomputedRoPESinusoids(nn.Module):
     input_size : int
         Size of each vector in the input sequence, i.e. the dimension of each
         attention head.
+    device : torch.device
+        The Torch device to put the tensors on.
 
     Example
     -------
-    >>> precomputed = PrecomputedRoPESinusoids(3, 8)
+    >>> precomputed = PrecomputedRoPESinusoids(3, 8, torch.device('cpu'))
     >>> precomputed.cosines.shape
     torch.Size([3, 8])
     >>> precomputed.sines.shape == precomputed.cosines.shape
@@ -975,7 +977,7 @@ class PrecomputedRoPESinusoids(nn.Module):
     tensor([1, 0, 3, 2, 5, 4, 7, 6])
     """
 
-    def __init__(self, max_length: int, input_size: int):
+    def __init__(self, max_length: int, input_size: int, device: torch.device):
         super().__init__()
 
         assert (input_size % 2) == 0
@@ -984,13 +986,13 @@ class PrecomputedRoPESinusoids(nn.Module):
 
         # 10000**(-2(i-1)/d) for i in [1,2,...,d/2]
         angles = torch.exp(
-            torch.arange(0, input_size, 2, dtype=torch.float32)
+            torch.arange(0, input_size, 2, dtype=torch.float32, device=device)
             * -(math.log(10000.0) / input_size)
         )
 
-        dimensions = torch.arange(input_size)
+        dimensions = torch.arange(input_size, device=device)
 
-        times = torch.arange(0, max_length, dtype=torch.float32)
+        times = torch.arange(0, max_length, dtype=torch.float32, device=device)
 
         # equation (15) without zeros in the matrix
         times_angles = torch.outer(times, angles)
@@ -1011,7 +1013,9 @@ class PrecomputedRoPESinusoids(nn.Module):
             [unsigned_sines, unsigned_sines], dim=-1
         ).reshape(max_length, input_size)
 
-        sines = ((-1) ** torch.arange(input_size)) * -unsigned_repeated_sines
+        sines = (
+            (-1) ** torch.arange(input_size, device=device)
+        ) * -unsigned_repeated_sines
 
         # To perform a 2-d rotation of every pair of dimensions, a vector will
         # need to be created with every pair swapped with each other.
@@ -1082,8 +1086,10 @@ def memoise_at_least(
 
 
 @memoise_at_least(lambda length: 2 ** int(math.ceil(math.log2(length))))
-def _get_precomputed_values(max_length: int, input_size: int):
-    return PrecomputedRoPESinusoids(max_length, input_size)
+def _get_precomputed_values(
+    max_length: int, input_size: int, device: torch.device
+):
+    return PrecomputedRoPESinusoids(max_length, input_size, device)
 
 
 def _rope_rotate(x):
@@ -1095,7 +1101,7 @@ def _rope_rotate(x):
 
     assert (head_dim % 2) == 0
 
-    precomputed = _get_precomputed_values(length, head_dim)
+    precomputed = _get_precomputed_values(length, head_dim, x.device)
 
     # Cut the sinusoids down to the correct length.
     cosines = precomputed.cosines[:length]
@@ -1123,7 +1129,7 @@ class RoPEMHA(nn.Module):
     vbias: bool, optional
         Whether to use bias for computing value.
     vdim: int, optional
-        Size for value. Default is embed_dim (Each head's dimension is embed_dim // num_heads).
+        Size for value. Default is embed_dim (Note each head is embed_dim // num_heads).
 
     Example
     -------
@@ -1209,220 +1215,6 @@ class RoPEMHA(nn.Module):
         pos_embs=None,
         return_attn_weights=True,
     ):
-        """Compute attention.
-
-        Arguments
-        ---------
-        query : torch.Tensor
-            (B, L, E) where L is the target sequence length,
-            B is the batch size, E is the embedding dimension.
-        key : torch.Tensor
-            (B, S, E) where S is the source sequence length,
-            B is the batch size, E is the embedding dimension.
-        value : torch.Tensor
-            (B, S, E) where S is the source sequence length,
-            B is the batch size, E is the embedding dimension.
-        key_padding_mask : torch.Tensor
-            (B, S) where B is the batch size, S is the source sequence
-            length. If a ByteTensor is provided, the non-zero positions will
-            be ignored while the position with the zero positions will be
-            unchanged. If a BoolTensor is provided, the positions with the
-            value of True will be ignored while the position with the value
-            of False will be unchanged.
-        attn_mask : torch.Tensor
-            2D mask (L, S) where L is the target sequence length, S is
-            the source sequence length.
-            3D mask (N*num_heads, L, S) where N is the batch
-            size, L is the target sequence length, S is the source sequence
-            length. attn_mask ensure that position i is allowed to attend the
-            unmasked positions. If a ByteTensor is provided, the non-zero
-            positions are not allowed to attend while the zero positions will
-            be unchanged. If a BoolTensor is provided, positions with True is
-            not allowed to attend while False values will be unchanged. If a
-            FloatTensor is provided, it will be added to the attention weight.
-            Not supported but included for compatibility.
-            This must be None.
-        pos_embs : torch.Tensor, optional
-            Positional embeddings added to the attention map of shape (L, S, E) or (L, S, 1).
-            Not supported but included for compatibility.
-            This must be None.
-        return_attn_weights : bool
-            Whether to additionally return the attention weights.
-
-        Returns
-        -------
-        out : torch.Tensor
-            (B, L, E) where L is the target sequence length, B is the
-            batch size, E is the embedding dimension.
-        attn_score : torch.Tensor
-            (B, L, S) where B is the batch size, L is the target
-            sequence length, S is the source sequence length.
-        """
-
-        assert attn_mask is None, "attn_mask is not supported."
-        assert pos_embs is None, "pos_embs is not supported."
-
-        # query, key and value are of shape batch, time, embed_dim
-        bsz = query.shape[0]
-        klen = key.shape[1]
-        qlen = query.shape[1]
-
-        if self._qkv_same_embed_dim:
-            # self-attention
-            if (query is key or torch.equal(query, key)) and (
-                key is value or torch.equal(key, value)
-            ):
-                query, key, value = (
-                    nn.functional.linear(query, self.in_proj_weight)
-                    .view(bsz, -1, self.num_heads, self.head_dim * 3)
-                    .chunk(3, dim=-1)
-                )
-            else:
-                qweight, kweight, vweight = self.in_proj_weight.chunk(3, dim=0)
-                query = nn.functional.linear(query, qweight).view(
-                    bsz, -1, self.num_heads, self.head_dim
-                )
-                key = nn.functional.linear(key, kweight).view(
-                    bsz, -1, self.num_heads, self.head_dim
-                )
-                value = nn.functional.linear(value, vweight).view(
-                    bsz, -1, self.num_heads, self.head_dim
-                )
-        else:
-            raise NotImplementedError
-            query, key = (
-                nn.functional.linear(query, self.qk_proj_weight)
-                .view(bsz, -1, self.num_heads, self.head_dim * 2)
-                .chunk(2, dim=-1)
-            )
-            value = nn.functional.linear(value, self.v_proj_weight).view(
-                bsz, -1, self.num_heads, self.vhead_dim
-            )
-
-        if self.vbias is not None:
-            value = value + self.value_bias_weight.view(
-                1, 1, self.num_heads, self.vhead_dim
-            )
-
-        # bsz, q_len, num_heads, qhead_dim
-        q_rotated = _rope_rotate(query)
-        k_rotated = _rope_rotate(key)
-
-        attn_score = torch.matmul(
-            q_rotated.transpose(1, 2) * self.scale,
-            k_rotated.permute(0, 2, 3, 1),
-        )
-
-        # compute attention probability
-        if attn_mask is not None:
-            if attn_mask.ndim == 2:
-                attn_mask = attn_mask.view(1, 1, qlen, klen)
-            else:
-                attn_mask = attn_mask.view(-1, self.num_heads, qlen, klen)
-
-            if attn_mask.dtype == torch.bool:
-                attn_score = attn_score.masked_fill(
-                    attn_mask, self.attn_fill_value
-                )
-            else:
-                attn_score += attn_mask
-
-        if key_padding_mask is not None:
-            attn_score = attn_score.masked_fill(
-                key_padding_mask.view(bsz, 1, 1, klen),
-                self.attn_fill_value,
-            )
-
-        attn_score = F.softmax(attn_score, dim=-1, dtype=torch.float32)
-        attn_score = self.dropout_att(attn_score)
-
-        # it is possible for us to hit full NaN when using chunked training
-        # so reapply masks, except with 0.0 instead as we are after the softmax
-        # because -inf would output 0.0 regardless anyway
-        if attn_mask is not None:
-            if attn_mask.dtype == torch.bool:
-                attn_score = attn_score.masked_fill(attn_mask, 0.0)
-            else:
-                # NOTE: the above fix is not implemented for this case as
-                # summing the mask with NaN would still result in NaN
-                pass
-
-        if key_padding_mask is not None:
-            attn_score = attn_score.masked_fill(
-                key_padding_mask.view(bsz, 1, 1, klen),
-                0.0,
-            )
-
-        x = torch.matmul(
-            attn_score, value.transpose(1, 2)
-        )  # (batch, head, time1, d_k)
-
-        x = (
-            x.transpose(1, 2)
-            .contiguous()
-            .view(bsz, -1, self.vhead_dim * self.num_heads)
-        )  # (batch, time1, d_model)
-
-        out = self.out_proj(x)
-
-        if return_attn_weights:
-            return out, None  # out, attn_score
-
-        return out
-
-
-class RoPEPytorchMHA(RoPEMHA):
-    """
-    Arguments
-    ---------
-    embed_dim : int
-        Size of the encoder feature vectors from which keys and values are computed.
-    num_heads: int
-        Number of attention heads.
-    dropout : float, optional
-        Dropout rate.
-    vbias: bool, optional
-        Whether to use bias for computing value.
-    vdim: int, optional
-        Size for value. Default is embed_dim (Note each head is embed_dim // num_heads).
-
-    Example
-    -------
-    >>> max_len = 64
-    >>> inputs = torch.rand([6, 60, 512])
-    >>> num_heads = 8
-    >>> net = RoPEMHA(num_heads=num_heads, embed_dim=inputs.shape[-1])
-    >>> outputs, attn = net(inputs, inputs, inputs)
-    >>> outputs.shape
-    torch.Size([6, 60, 512])
-    """
-
-    def __init__(
-        self,
-        embed_dim,
-        num_heads,
-        dropout=0.0,
-        vbias=False,
-        vdim=None,
-    ):
-        super().__init__(
-            embed_dim,
-            num_heads,
-            dropout,
-            vbias,
-            vdim,
-        )
-
-    def forward(
-        self,
-        query,
-        key,
-        value,
-        key_padding_mask=None,
-        attn_mask=None,
-        pos_embs=None,
-        return_attn_weights=True,
-    ):
         """Compute attention through Pytorch attention.
 
         Arguments
@@ -1444,22 +1236,9 @@ class RoPEPytorchMHA(RoPEMHA):
             value of True will be ignored while the position with the value
             of False will be unchanged.
         attn_mask : torch.Tensor
-            2D mask (L, S) where L is the target sequence length, S is
-            the source sequence length.
-            3D mask (N*num_heads, L, S) where N is the batch
-            size, L is the target sequence length, S is the source sequence
-            length. attn_mask ensure that position i is allowed to attend the
-            unmasked positions. If a ByteTensor is provided, the non-zero
-            positions are not allowed to attend while the zero positions will
-            be unchanged. If a BoolTensor is provided, positions with True is
-            not allowed to attend while False values will be unchanged. If a
-            FloatTensor is provided, it will be added to the attention weight.
-            Not supported but included for compatibility.
-            This must be None.
-        pos_embs : torch.Tensor, optional
-            Positional embeddings added to the attention map of shape (L, S, E) or (L, S, 1).
-            Not supported but included for compatibility.
-            This must be None.
+            Not used by this class. It is kept for compliance.
+        pos_embs : torch.Tensor
+            Not used by this class. It is kept for compliance.
         return_attn_weights : bool
             Whether to additionally return the attention weights.
 
@@ -1473,8 +1252,8 @@ class RoPEPytorchMHA(RoPEMHA):
             sequence length, S is the source sequence length.
         """
 
-        assert attn_mask is None, "attn_mask is not supported."
-        assert pos_embs is None, "pos_embs is not supported."
+        assert attn_mask is None, "attn_mask is not supported"
+        assert pos_embs is None, "pos_embs is not supported"
 
         # query, key and value are of shape batch, time, embed_dim
         bsz = query.shape[0]
