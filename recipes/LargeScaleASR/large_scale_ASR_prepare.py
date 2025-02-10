@@ -1,5 +1,5 @@
-"""Simple utilities to load the mysterious LargeScaleASR dataset from HuggingFace. 
-This does not actually prepare the LargeScaleASR dataset. For this, please refer to the dataset_preparation folder. 
+"""Simple utilities to load the mysterious LargeScaleASR dataset from HuggingFace.
+This does not actually prepare the LargeScaleASR dataset. For this, please refer to the dataset_preparation folder.
 This only load the prepared dataset to be used in a SpeechBrain recipe.
 
 Authors
@@ -38,24 +38,20 @@ def load_datasets(subset, hf_download_folder, hf_caching_dir):
         import datasets
         from datasets import load_dataset
     except ImportError as error:
-        raise ImportError(
-            f"{str(error)}\n" f"HuggingFace datasets must be installed."
-        )
+        raise ImportError(error)
 
     # Managing the download dir as HF can be capricious with this.
-    logger.info("Caching to: " + str(hf_caching_dir))
+    logger.info("Loading dataset from: " + str(hf_download_folder))
 
     nproc = multiprocessing.cpu_count()
     os.environ["HF_DATASETS_OFFLINE"] = "1"
     datasets.disable_progress_bars()
-
     hf_data = load_dataset(
         hf_download_folder,
         name=subset,
         num_proc=nproc,
         cache_dir=hf_caching_dir,
     )
-
     os.environ["HF_DATASETS_OFFLINE"] = "0"
 
     return hf_data
