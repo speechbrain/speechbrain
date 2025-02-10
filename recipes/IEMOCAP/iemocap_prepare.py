@@ -312,12 +312,12 @@ def load_session(pathSession):
 
     Arguments
     ---------
-        pathSession: str
-            Path folder of IEMOCAP session.
+    pathSession: str
+        Path folder of IEMOCAP session.
     Returns
     -------
-        improvisedUtteranceList: list
-            List of improvised utterancefor IEMOCAP session.
+    improvisedUtteranceList: list
+        List of improvised utterancefor IEMOCAP session.
     """
     pathEmo = pathSession + "/dialog/EmoEvaluation/"
     pathWavFolder = pathSession + "/sentences/wav/"
