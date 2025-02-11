@@ -10,7 +10,7 @@ Simply type:
 # single GPU example
 python train.py hparams/BEST-RQ.yaml --data_folder /path/to/LibriSpeech/
 
-# multi GPU example
+# single node multi GPU example
 torchrun --rdzv-backend=c10d --rdzv-endpoint=localhost:0 --nnodes=1 --nproc-per-node=2 train.py hparams/BEST-RQ.yaml --data_folder /path/to/LibriSpeech/
 ```
 
