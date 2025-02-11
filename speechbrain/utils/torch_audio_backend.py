@@ -70,3 +70,35 @@ def check_torchaudio_backend():
                 'Switched audio backend to "soundfile" because you are running Windows and you are running an old torchaudio version.'
             )
             torchaudio.set_audio_backend("soundfile")
+
+def validate_backend(backend):
+    """
+    Validates the specified audio backend.
+
+    Parameters
+    ----------
+    backend : str or None
+        The name of the backend to validate. Must be one of [None, 'ffmpeg', 'sox', 'soundfile'].
+
+    Raises
+    ------
+    ValueError
+        If the `backend` is not one of the allowed values.
+
+    Examples
+    --------
+    >>> validate_backend('ffmpeg')
+    # No exception raised
+
+    >>> validate_backend('invalid_backend')
+    Traceback (most recent call last):
+        ...
+    ValueError: ('backend must be one of [None, 'ffmpeg', 'sox', 'soundfile']', 'Available backends on your system: ', ['ffmpeg', 'sox'])
+    """
+    allowed_backends = [None, 'ffmpeg', 'sox', 'soundfile']
+    if backend not in allowed_backends:
+        raise ValueError(
+            f"backend must be one of {allowed_backends}",
+            "Available backends on your system: ",
+            torchaudio.list_audio_backends(),
+        )
