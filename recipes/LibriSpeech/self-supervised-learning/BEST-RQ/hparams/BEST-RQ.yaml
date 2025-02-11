@@ -146,7 +146,8 @@ compute_features: !new:speechbrain.lobes.features.Fbank
     n_mels: !ref <n_mels>
 
 normalize: !new:speechbrain.processing.features.InputNormalization
-    norm_type: sentence
+    norm_type: global
+    update_until_epoch: 4
 
 ############################## running ################################
 
@@ -169,7 +170,7 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     recoverables:
         model: !ref <model>
         noam_scheduler: !ref <noam_annealing>
-        normalizer: !ref <normalize>
+        normalize: !ref <normalize>
         counter: !ref <epoch_counter>
         quantizer: !ref <Quantizer>
         linear: !ref <linear>
