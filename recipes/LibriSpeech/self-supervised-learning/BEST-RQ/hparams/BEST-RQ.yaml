@@ -146,8 +146,8 @@ compute_features: !new:speechbrain.lobes.features.Fbank
     n_mels: !ref <n_mels>
 
 normalize: !new:speechbrain.processing.features.InputNormalization
-   norm_type: global
-   update_until_epoch: 4
+    norm_type: global
+    update_until_epoch: 4
 
 ############################## running ################################
 
