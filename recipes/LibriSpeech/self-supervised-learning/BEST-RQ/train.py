@@ -56,7 +56,7 @@ class BestRQBrain(sb.core.Brain):
         mask_idx = mask[::4] // 4
         B, T, C = feats.shape
         targets = self.modules.Quantizer(
-            feats.view(B, feats.shape[1] // divis_by, -1)[:,mask_idx,:]
+            feats.view(B, feats.shape[1] // divis_by, -1)[:, mask_idx, :]
         )
 
         # generate random noise
