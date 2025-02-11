@@ -22,13 +22,17 @@ import pickle
 import re
 import time
 from io import BytesIO
+from typing import Union
 
 import numpy as np
 import torch
 import torchaudio
 
 from speechbrain.utils.logger import get_logger
-from speechbrain.utils.torch_audio_backend import check_torchaudio_backend
+from speechbrain.utils.torch_audio_backend import (
+    check_torchaudio_backend,
+    validate_backend,
+)
 
 check_torchaudio_backend()
 logger = get_logger(__name__)
@@ -276,6 +280,12 @@ def read_audio_info(
         Audio backend to use for loading the audio file. Must be one of
         'ffmpeg', 'sox', 'soundfile' or None. If None, uses torchaudio's default backend.
 
+    Raises
+    ------
+    ValueError
+        If the `backend` is not one of the allowed values.
+        Must be one of [None, 'ffmpeg', 'sox', 'soundfile'].
+
     Returns
     -------
     torchaudio.backend.common.AudioMetaData
@@ -289,12 +299,7 @@ def read_audio_info(
     In these cases, you may as well read the entire audio file to avoid doubling
     the processing time.
     """
-    if backend not in [None, "ffmpeg", "sox", "soundfile"]:
-        raise ValueError(
-            "backend must be one of 'ffmpeg', 'sox', 'soundfile' or None",
-            "Available backends on your system: ",
-            torchaudio.list_audio_backends(),
-        )
+    validate_backend(backend)
 
     _path_no_ext, path_ext = os.path.splitext(path)
 
@@ -375,6 +380,12 @@ def read_audio(waveforms_obj, backend=None):
         1-channel: audio tensor with shape: `(samples, )`.
         >=2-channels: audio tensor with shape: `(samples, channels)`.
 
+    Raises
+    ------
+    ValueError
+        If the `backend` is not one of the allowed values.
+        Must be one of [None, 'ffmpeg', 'sox', 'soundfile'].
+
     Example
     -------
     >>> dummywav = torch.rand(16000)
@@ -386,14 +397,9 @@ def read_audio(waveforms_obj, backend=None):
     >>> loaded.allclose(dummywav.squeeze(0),atol=1e-4) # replace with eq with sox_io backend
     True
     """
-    # Case 1: Directly a file path (str) or file-like object or raw bytes.
-    if backend not in [None, "ffmpeg", "sox", "soundfile"]:
-        raise ValueError(
-            "backend must be one of 'ffmpeg', 'sox', 'soundfile' or None",
-            "Available backends on your system: ",
-            torchaudio.list_audio_backends(),
-        )
+    validate_backend(backend)
 
+    # Case 1: Directly a file path (str) or file-like object or raw bytes.
     # If a file-like object, ensure the pointer is at the beginning.
     if hasattr(waveforms_obj, "seek"):
         waveforms_obj.seek(0)
@@ -403,7 +409,7 @@ def read_audio(waveforms_obj, backend=None):
         if isinstance(waveforms_obj, bytes):
             waveforms_obj = BytesIO(waveforms_obj)
             waveforms_obj.seek(0)
-        audio, _ = _safe_torchaudio_load(waveforms_obj, backend=backend)
+        audio, _ = torchaudio.load(waveforms_obj, backend=backend)
     # Case 2: A dict with more options. Only works with file paths.
     else:
         path = waveforms_obj["file"]
@@ -482,6 +488,12 @@ def read_audio_multichannel(waveforms_obj, backend=None):
         Audio backend to use for loading the audio file. Must be one of
         'ffmpeg', 'sox', 'soundfile' or None. If None, uses torchaudio's default backend.
 
+    Raises
+    ------
+    ValueError
+        If the `backend` is not one of the allowed values.
+        Must be one of [None, 'ffmpeg', 'sox', 'soundfile'].
+
     Returns
     -------
     torch.Tensor
@@ -498,17 +510,22 @@ def read_audio_multichannel(waveforms_obj, backend=None):
     >>> loaded.allclose(dummywav.squeeze(0),atol=1e-4) # replace with eq with sox_io backend
     True
     """
-    if backend not in [None, "ffmpeg", "sox", "soundfile"]:
-        raise ValueError(
-            "backend must be one of 'ffmpeg', 'sox', 'soundfile' or None",
-            "Available backends on your system: ",
-            torchaudio.list_audio_backends(),
-        )
+    validate_backend(backend)
 
-    if isinstance(waveforms_obj, str):
-        audio, _ = _safe_torchaudio_load(waveforms_obj, backend=backend)
+    # Case 1: Directly a file path (str) or file-like object or raw bytes.
+    # If a file-like object, ensure the pointer is at the beginning.
+    if hasattr(waveforms_obj, "seek"):
+        waveforms_obj.seek(0)
+
+    if isinstance(waveforms_obj, (str, BytesIO, bytes)):
+        # If raw bytes, wrap them in a BytesIO.
+        if isinstance(waveforms_obj, bytes):
+            waveforms_obj = BytesIO(waveforms_obj)
+            waveforms_obj.seek(0)
+        audio, _ = torchaudio.load(waveforms_obj, backend=backend)
         return audio.transpose(0, 1)
 
+    # Case 2: A dict with more options. Only works with file paths.
     files = waveforms_obj["files"]
     if not isinstance(files, list):
         files = [files]
@@ -579,7 +596,7 @@ def load_pickle(pickle_path):
     return out
 
 
-def to_floatTensor(x: (list, tuple, np.ndarray)):
+def to_floatTensor(x: Union[list, tuple, np.ndarray]):
     """
     Arguments
     ---------
@@ -599,7 +616,7 @@ def to_floatTensor(x: (list, tuple, np.ndarray)):
         return torch.tensor(x, dtype=torch.float)
 
 
-def to_doubleTensor(x: (list, tuple, np.ndarray)):
+def to_doubleTensor(x: Union[list, tuple, np.ndarray]):
     """
     Arguments
     ---------
@@ -619,7 +636,7 @@ def to_doubleTensor(x: (list, tuple, np.ndarray)):
         return torch.tensor(x, dtype=torch.double)
 
 
-def to_longTensor(x: (list, tuple, np.ndarray)):
+def to_longTensor(x: Union[list, tuple, np.ndarray]):
     """
     Arguments
     ---------
