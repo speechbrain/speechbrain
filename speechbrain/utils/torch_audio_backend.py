@@ -35,7 +35,7 @@ def try_parse_torchaudio_major_version() -> Optional[int]:
         return None
 
     try:
-        major_version = int(version_split[0]) 
+        major_version = int(version_split[0])
         minor_version = int(version_split[1])
     except Exception:
         return None
