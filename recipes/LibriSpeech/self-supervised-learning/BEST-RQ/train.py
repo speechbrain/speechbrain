@@ -53,9 +53,10 @@ class BestRQBrain(sb.core.Brain):
         feats = pad_feats(feats, divis_by)
 
         # get targets from quantizer and stack the frames!
+        mask_idx = mask[::4] // 4
         B, T, C = feats.shape
         targets = self.modules.Quantizer(
-            feats.view(B, feats.shape[1] // divis_by, -1)
+            feats.view(B, feats.shape[1] // divis_by, -1)[:,mask_idx,:]
         )
 
         # generate random noise
@@ -78,9 +79,7 @@ class BestRQBrain(sb.core.Brain):
         logits = self.modules.linear(enc_out)
 
         ##### get masked region for loss computation only over these.
-        mask_idx = mask[::divis_by] // divis_by
         logits = logits[:, mask_idx, :]
-        targets = targets[:, mask_idx]
 
         B, T, C = logits.shape
         return logits.view(B * T, C), targets.view(B * T)
