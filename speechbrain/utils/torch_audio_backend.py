@@ -48,7 +48,7 @@ def check_torchaudio_backend():
     windows is detected.
     """
     torchaudio_major, torchaudio_minor = try_parse_torchaudio_major_version()
-    
+
     if torchaudio_major is None:
         logger.warning(
             "Failed to detect torchaudio major version; unsure how to check your setup. We recommend that you keep torchaudio up-to-date."
@@ -70,6 +70,7 @@ def check_torchaudio_backend():
                 'Switched audio backend to "soundfile" because you are running Windows and you are running an old torchaudio version.'
             )
             torchaudio.set_audio_backend("soundfile")
+
 
 def validate_backend(backend):
     """
@@ -95,7 +96,7 @@ def validate_backend(backend):
         ...
     ValueError: ('backend must be one of [None, 'ffmpeg', 'sox', 'soundfile']', 'Available backends on your system: ', ['ffmpeg', 'sox'])
     """
-    allowed_backends = [None, 'ffmpeg', 'sox', 'soundfile']
+    allowed_backends = [None, "ffmpeg", "sox", "soundfile"]
     if backend not in allowed_backends:
         raise ValueError(
             f"backend must be one of {allowed_backends}",

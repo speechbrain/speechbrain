@@ -28,7 +28,10 @@ import torch
 import torchaudio
 
 from speechbrain.utils.logger import get_logger
-from speechbrain.utils.torch_audio_backend import check_torchaudio_backend, validate_backend
+from speechbrain.utils.torch_audio_backend import (
+    check_torchaudio_backend,
+    validate_backend,
+)
 
 check_torchaudio_backend()
 logger = get_logger(__name__)
@@ -164,6 +167,7 @@ def load_data_csv(csv_path, replacements={}):
                 row["duration"] = float(row["duration"])
             result[data_id] = row
     return result
+
 
 def read_audio_info(
     path, backend=None
