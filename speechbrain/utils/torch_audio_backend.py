@@ -85,16 +85,6 @@ def validate_backend(backend):
     ------
     ValueError
         If the `backend` is not one of the allowed values.
-
-    Examples
-    --------
-    >>> validate_backend('ffmpeg')
-    # No exception raised
-
-    >>> validate_backend('invalid_backend')
-    Traceback (most recent call last):
-        ...
-    ValueError: ('backend must be one of [None, 'ffmpeg', 'sox', 'soundfile']', 'Available backends on your system: ', ['ffmpeg', 'sox'])
     """
     allowed_backends = [None, "ffmpeg", "sox", "soundfile"]
     if backend not in allowed_backends:
