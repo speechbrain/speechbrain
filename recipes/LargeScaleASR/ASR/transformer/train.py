@@ -8,13 +8,12 @@ Authors
 
 import os
 import sys
-from io import BytesIO
 
 import torch
-import torchaudio
 from hyperpyyaml import load_hyperpyyaml
 
 import speechbrain as sb
+from speechbrain.dataio.dataio import read_audio
 from speechbrain.dataio.sampler import DynamicBatchSampler  # noqa
 from speechbrain.tokenizers.SentencePiece import SentencePiece
 from speechbrain.utils.data_utils import undo_padding
@@ -276,8 +275,8 @@ def dataio_prepare_hf(hparams, tokenizer):
     @sb.utils.data_pipeline.takes("wav")
     @sb.utils.data_pipeline.provides("sig")
     def audio_pipeline(wav):
-        buffer = BytesIO(wav["bytes"])
-        return torchaudio.load(buffer)[0].squeeze()
+        sig = read_audio(wav["bytes"])
+        return sig
 
     sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline)
 
