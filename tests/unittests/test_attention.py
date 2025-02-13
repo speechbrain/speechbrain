@@ -108,7 +108,9 @@ def rope_rotate_slow(x: np.ndarray):
 
     for batch_index in range(batch_size):
         for time in range(length):
-            rotation_matrix = make_rotation_matrix(time, num_dimensions)
+            rotation_matrix = make_rotation_matrix(time, num_dimensions).astype(
+                x.dtype
+            )
             for head_index in range(num_heads):
                 result[batch_index][time][head_index] = (
                     rotation_matrix @ x[batch_index][time][head_index]
@@ -128,10 +130,24 @@ def rope_rotate_slow(x: np.ndarray):
         (2, 170, 2, 22),
     ],
 )
-def test_rope_rotate(batch_size, length, num_heads, num_dimensions):
+@pytest.mark.parametrize(
+    "numpy_dtype, torch_dtype, tolerance",
+    [
+        (np.float16, torch.float16, 1e-3),
+        (np.float32, torch.float32, 1e-5),
+        (np.float64, torch.float64, 1e-10),
+    ],
+)
+def test_rope_rotate(
+    numpy_dtype,
+    torch_dtype,
+    tolerance,
+    batch_size,
+    length,
+    num_heads,
+    num_dimensions,
+):
     from speechbrain.nnet.attention import _rope_rotate
-
-    tolerance = 1e-5
 
     generator: np.random.Generator = np.random.default_rng(
         seed=20250205 + batch_size + length + num_heads
@@ -139,9 +155,11 @@ def test_rope_rotate(batch_size, length, num_heads, num_dimensions):
 
     x = generator.uniform(
         -1, +1, (batch_size, length, num_heads, num_dimensions)
-    )
+    ).astype(numpy_dtype)
 
-    result = _rope_rotate(torch.tensor(x)).cpu().numpy()
+    result = _rope_rotate(torch.tensor(x, dtype=torch_dtype))
+    assert result.dtype == torch_dtype
+    result_np = result.cpu().numpy()
 
     reference = rope_rotate_slow(x)
 
@@ -149,4 +167,4 @@ def test_rope_rotate(batch_size, length, num_heads, num_dimensions):
     # (But the first element is always rotated with an angle of 0.)
     assert length == 1 or not np.allclose(x, reference, atol=tolerance)
 
-    assert np.allclose(result, reference, atol=tolerance)
+    assert np.allclose(result_np, reference, atol=tolerance)

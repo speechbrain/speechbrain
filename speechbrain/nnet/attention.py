@@ -955,12 +955,14 @@ class PrecomputedRoPESinusoids(nn.Module):
     input_size : int
         Size of each vector in the input sequence, i.e. the dimension of each
         attention head.
+    dtype : torch.dtype
+        The dtype of the tensors.
     device : torch.device
         The Torch device to put the tensors on.
 
     Example
     -------
-    >>> precomputed = PrecomputedRoPESinusoids(3, 8, torch.device('cpu'))
+    >>> precomputed = PrecomputedRoPESinusoids(3, 8, torch.float32, torch.device('cpu'))
     >>> precomputed.cosines.shape
     torch.Size([3, 8])
     >>> precomputed.sines.shape == precomputed.cosines.shape
@@ -977,8 +979,20 @@ class PrecomputedRoPESinusoids(nn.Module):
     tensor([1, 0, 3, 2, 5, 4, 7, 6])
     """
 
-    def __init__(self, max_length: int, input_size: int, device: torch.device):
+    def __init__(
+        self,
+        max_length: int,
+        input_size: int,
+        dtype: torch.dtype,
+        device: torch.device,
+    ):
         super().__init__()
+
+        # To precompute the values, use at least float32, because
+        # otherwise final accuracy is unnecessarily dreadful.
+        internal_dtype = (
+            torch.float64 if dtype == torch.float64 else torch.float32
+        )
 
         assert (input_size % 2) == 0
 
@@ -986,13 +1000,13 @@ class PrecomputedRoPESinusoids(nn.Module):
 
         # 10000**(-2(i-1)/d) for i in [1,2,...,d/2]
         angles = torch.exp(
-            torch.arange(0, input_size, 2, dtype=torch.float32, device=device)
+            torch.arange(0, input_size, 2, dtype=internal_dtype, device=device)
             * -(math.log(10000.0) / input_size)
         )
 
         dimensions = torch.arange(input_size, device=device)
 
-        times = torch.arange(0, max_length, dtype=torch.float32, device=device)
+        times = torch.arange(0, max_length, dtype=internal_dtype, device=device)
 
         # equation (15) without zeros in the matrix
         times_angles = torch.outer(times, angles)
@@ -1014,7 +1028,8 @@ class PrecomputedRoPESinusoids(nn.Module):
         ).reshape(max_length, input_size)
 
         sines = (
-            (-1) ** torch.arange(input_size, device=device)
+            (-1)
+            ** torch.arange(input_size, dtype=internal_dtype, device=device)
         ) * -unsigned_repeated_sines
 
         # To perform a 2-d rotation of every pair of dimensions, a vector will
@@ -1025,8 +1040,8 @@ class PrecomputedRoPESinusoids(nn.Module):
             [dimensions[1::2], dimensions[::2]], dim=-1
         ).reshape(-1)
 
-        self.register_buffer("cosines", cosines)
-        self.register_buffer("sines", sines)
+        self.register_buffer("cosines", cosines.to(dtype))
+        self.register_buffer("sines", sines.to(dtype))
         self.register_buffer("index_swap", index_swap)
 
 
@@ -1087,9 +1102,9 @@ def memoise_at_least(
 
 @memoise_at_least(lambda length: 2 ** int(math.ceil(math.log2(length))))
 def _get_precomputed_values(
-    max_length: int, input_size: int, device: torch.device
+    max_length: int, input_size: int, dtype: torch.dtype, device: torch.device
 ):
-    return PrecomputedRoPESinusoids(max_length, input_size, device)
+    return PrecomputedRoPESinusoids(max_length, input_size, dtype, device)
 
 
 def _rope_rotate(x):
@@ -1101,7 +1116,7 @@ def _rope_rotate(x):
 
     assert (head_dim % 2) == 0
 
-    precomputed = _get_precomputed_values(length, head_dim, x.device)
+    precomputed = _get_precomputed_values(length, head_dim, x.dtype, x.device)
 
     # Cut the sinusoids down to the correct length.
     cosines = precomputed.cosines[:length]
