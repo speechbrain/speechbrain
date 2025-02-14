@@ -20,7 +20,12 @@ from speechbrain.utils.checkpoints import (
     get_default_hook,
 )
 from speechbrain.utils.distributed import run_on_main
-from speechbrain.utils.fetching import FetchSource, LocalStrategy, fetch
+from speechbrain.utils.fetching import (
+    FetchConfig,
+    FetchSource,
+    LocalStrategy,
+    fetch,
+)
 from speechbrain.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -181,12 +186,7 @@ class Pretrainer:
         else:
             return split(path)
 
-    def collect_files(
-        self,
-        default_source=None,
-        use_auth_token=False,
-        local_strategy: LocalStrategy = LocalStrategy.SYMLINK,
-    ):
+    def collect_files(self, default_source=None, fetch_config=FetchConfig()):
         """Fetches parameters from known paths with fallback default_source
 
         The actual parameter files may reside elsewhere, but this ensures a
@@ -204,14 +204,8 @@ class Pretrainer:
             specified.
             e.g. if the loadable has key `"asr"`, then the file to look for is
             `<default_source>/asr.ckpt`
-        use_auth_token : bool (default: False)
-            If true Huggingface's auth_token will be used to load private models from the HuggingFace Hub,
-            default is False because the majority of models are public.
-        local_strategy : speechbrain.utils.fetching.LocalStrategy
-            The fetching strategy to use, which controls the behavior of remote file
-            fetching with regards to symlinking and copying.
-            Ignored if a `collect_in` directory was not specified.
-            See :func:`speechbrain.utils.fetching.fetch` for further details.
+        fetch_config : FetchConfig
+            Configuration options like caching strategy for fetching files.
 
         Returns
         -------
@@ -229,7 +223,7 @@ class Pretrainer:
 
             if (
                 platform.system() == "Windows"
-                and local_strategy == LocalStrategy.SYMLINK
+                and fetch_config.local_strategy == LocalStrategy.SYMLINK
             ):
                 warnings.warn(
                     "Requested Pretrainer collection using symlinks on Windows. This might not work; see `LocalStrategy` documentation. Consider unsetting `collect_in` in Pretrainer to avoid symlinking altogether."
@@ -259,11 +253,8 @@ class Pretrainer:
                 "filename": filename,
                 "source": source,
                 "savedir": self.collect_in,
-                "overwrite": False,
                 "save_filename": save_filename,
-                "use_auth_token": use_auth_token,
-                "revision": None,
-                "local_strategy": local_strategy,
+                "fetch_config": fetch_config,
             }
 
             path = None
