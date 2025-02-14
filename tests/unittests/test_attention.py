@@ -139,6 +139,7 @@ def rope_rotate_slow(x: np.ndarray):
     ],
 )
 def test_rope_rotate(
+    device,
     numpy_dtype,
     torch_dtype,
     tolerance,
@@ -157,7 +158,7 @@ def test_rope_rotate(
         -1, +1, (batch_size, length, num_heads, num_dimensions)
     ).astype(numpy_dtype)
 
-    result = _rope_rotate(torch.tensor(x, dtype=torch_dtype))
+    result = _rope_rotate(torch.tensor(x, dtype=torch_dtype, device=device))
     assert result.dtype == torch_dtype
     result_np = result.cpu().numpy()
 
