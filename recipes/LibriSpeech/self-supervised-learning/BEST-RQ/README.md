@@ -7,7 +7,11 @@ More information on the architecture can be found in [the original paper](https:
 # Go !
 Simply type:
 ```shell
-python train.py hparams/BEST-RQ.yaml --find_unused_parameters
+# single GPU example
+python train.py hparams/BEST-RQ.yaml --data_folder /path/to/LibriSpeech/
+
+# single node multi GPU example
+torchrun --rdzv-backend=c10d --rdzv-endpoint=localhost:0 --nnodes=1 --nproc-per-node=2 train.py hparams/BEST-RQ.yaml --data_folder /path/to/LibriSpeech/
 ```
 
 Do not forget to replace the `!PLACEHOLDER` variables in the yaml corresponding to your local configuration.
