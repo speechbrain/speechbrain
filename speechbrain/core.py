@@ -756,12 +756,10 @@ class Brain:
             f"Gradscaler enabled: {gradscaler_enabled}. Using precision: {self.precision}."
         )
         self.scaler = torch.GradScaler(self.device, enabled=gradscaler_enabled)
-
         dtype = AMPConfig.from_name(self.precision).dtype
         self.training_ctx = TorchAutocast(
-            enabled=gradscaler_enabled, device=self.device, dtype=dtype
+            enabled=self.precision == "fp16" or self.precision == "bf16", device_type=self.device, dtype=dtype
         )
-        print(self.training_ctx)
         if (
             gradscaler_enabled
             and self.checkpointer is not None
@@ -1191,7 +1189,6 @@ class Brain:
                 loss = self.compute_objectives(
                     outputs, batch, sb.Stage.TRAIN
                 )
-    
             scaled_loss = self.scaler.scale(
                 loss / self.grad_accumulation_factor
             )
