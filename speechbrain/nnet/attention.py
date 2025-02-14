@@ -1331,7 +1331,6 @@ class RoPEMHA(nn.Module):
         return out
 
 
-@torch.compile
 def masks_union(bsz, klen, num_heads, attn_mask, key_padding_mask):
     """This is an utility function combining standard key_padding_mask and
     attn_mask from SpeechBrain into a single one for scaled_dot_product_attention. This function does not support weighting of the attn_score. Hence, if one wish to use float values as masks, they should not use this function.
