@@ -795,7 +795,7 @@ class Brain:
         logger.info(
             f"Gradscaler enabled: {gradscaler_enabled}. Using precision: {self.precision}."
         )
-        self.scaler = torch.cuda.amp.GradScaler(enabled=gradscaler_enabled)
+        self.scaler = torch.GradScaler(self.device, enabled=gradscaler_enabled)
 
         self.use_amp = False
         if self.device == "cpu" and self.precision == "bf16":
@@ -803,7 +803,11 @@ class Brain:
         elif "cuda" in self.device and self.precision in ["fp16", "bf16"]:
             self.use_amp = True
 
-        if self.use_amp and self.checkpointer is not None:
+        if (
+            gradscaler_enabled
+            and self.use_amp
+            and self.checkpointer is not None
+        ):
             self.checkpointer.add_recoverable(
                 "scaler", self.scaler, optional_load=True
             )
