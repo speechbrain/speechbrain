@@ -1430,7 +1430,7 @@ class Brain:
         steps_since_ckpt = 0
         with tqdm(
             train_set,
-            initial=self.step,
+            initial=self.optimizer_step,
             dynamic_ncols=True,
             disable=not enable,
             colour=self.tqdm_barcolor["train"],
