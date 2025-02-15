@@ -753,12 +753,19 @@ class Brain:
             )
 
         logger.info(
-            f"Gradscaler enabled: {gradscaler_enabled}. Using precision: {self.precision}."
+            f"Gradscaler enabled: {gradscaler_enabled}. Using training precision: {self.precision}."
+        )
+        logger.info(
+            f"Evaluation precision: {self.eval_precision}."
         )
         self.scaler = torch.GradScaler(self.device, enabled=gradscaler_enabled)
-        dtype = AMPConfig.from_name(self.precision).dtype
+        train_dtype = AMPConfig.from_name(self.precision).dtype
         self.training_ctx = TorchAutocast(
-            enabled=self.precision == "fp16" or self.precision == "bf16", device_type=self.device, dtype=dtype
+            enabled=self.precision == "fp16" or self.precision == "bf16", device_type=self.device, dtype=train_dtype
+        )
+        eval_dtype = AMPConfig.from_name(self.eval_precision).dtype
+        self.evaluation_ctx = TorchAutocast(
+            enabled=self.eval_precision == "fp16" or self.eval_precision == "bf16", device_type=self.device, dtype=eval_dtype
         )
         if (
             gradscaler_enabled
@@ -1351,7 +1358,7 @@ class Brain:
         -------
         detached loss
         """
-        with self.training_ctx:
+        with self.evaluation_ctx:
             out = self.compute_forward(batch, stage=stage)
             loss = self.compute_objectives(out, batch, stage=stage)
         return loss.detach().cpu()
