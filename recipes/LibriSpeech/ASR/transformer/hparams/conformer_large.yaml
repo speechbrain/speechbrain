@@ -69,7 +69,7 @@ n_fft: 512
 n_mels: 80
 win_length: 32
 
-# This setup works well for A100 80GB GPU, adapts it to your needs.
+# This setup works well for V100 32GB GPU, adapts it to your needs.
 # Or turn it off (but training speed will decrease)
 dynamic_batching: True
 max_batch_length_train: 150
