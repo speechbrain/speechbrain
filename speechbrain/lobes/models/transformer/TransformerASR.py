@@ -263,7 +263,7 @@ class TransformerASR(TransformerInterface):
         conformer_activation: Optional[nn.Module] = Swish,
         branchformer_activation: Optional[nn.Module] = nn.GELU,
         attention_type: Optional[str] = "regularMHA",
-        max_length: Optional[int] = 10000,
+        max_length: Optional[int] = 2500,
         causal: Optional[bool] = None,
         csgu_linear_units: Optional[int] = 3072,
         gate_activation: Optional[nn.Module] = nn.Identity,
