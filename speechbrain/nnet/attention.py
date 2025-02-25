@@ -952,6 +952,8 @@ class PrecomputedRoPESinusoids(nn.Module):
     ---------
     max_length : int
         The allowed max length of the input sequence.
+        For a fixed setting of the other arguments, the computation takes
+        O(max_length) time.
     input_size : int
         Size of each vector in the input sequence, i.e. the dimension of each
         attention head.
@@ -1062,6 +1064,9 @@ class MemoiseAtLeastSize:
     def __init__(self, function: Callable, round_up: Callable[[Any], Any]):
         self.function = function
         self.round_up = round_up
+        # A memo from (parameters 2, 3, ...) to (parameter_1_rounded, result)
+        # that stores the result of the call to
+        # function(parameter_1_rounded, parameters 2, 3, ...).
         self.memo: Dict[tuple, Tuple[Any, Any]] = {}
 
     def __call__(self, size: Any, *args):
@@ -1102,9 +1107,47 @@ def memoise_at_least(
 
 @memoise_at_least(lambda length: 2 ** int(math.ceil(math.log2(length))))
 def _get_precomputed_values(
-    max_length: int, input_size: int, dtype: torch.dtype, device: torch.device
-):
-    return PrecomputedRoPESinusoids(max_length, input_size, dtype, device)
+    length: int, input_size: int, dtype: torch.dtype, device: torch.device
+) -> PrecomputedRoPESinusoids:
+    """
+    Return an object of type PrecomputedRoPESinusoids that is valid for the
+    length, input_size, dtype and device.
+    Consider a single (input_size, dtype, device), which are usually fixed for
+    one model.
+    The sinusoids will be recomputed only if they are not yet available for such
+    a long length (because of the decorator applied to the function).
+    Each time they are precomputed, the length is rounded up to the next power
+    of two.
+
+    As a consequence, the total number of calls during one program run is
+    upper-bounded by ceil(log2(max_length)) where max_length is the highest
+    length that is seen in the program run.
+    On realistic lengths, the total number of calls is likely only a few.
+    The total number of time steps for which sinusoids are precomputed during
+    the program run is O(max_length).
+
+    Arguments
+    ---------
+    length : int
+        The length of the input sequence.
+    input_size : int
+        Size of each vector in the input sequence, i.e. the dimension of each
+        attention head.
+    dtype : torch.dtype
+        The dtype of the tensors.
+    device : torch.device
+        The Torch device to put the tensors on.
+
+    Return
+    ------
+    An object of type PrecomputedRoPESinusoids that is valid for the length,
+    input_size, dtype and device.
+    """
+    # length should have been rounded up to the nearest power of two by the
+    # decorator.
+    length_power = int(round(math.log2(length)))
+    assert length == 2**length_power
+    return PrecomputedRoPESinusoids(length, input_size, dtype, device)
 
 
 def _rope_rotate(x):
