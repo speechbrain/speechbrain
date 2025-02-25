@@ -1250,8 +1250,9 @@ class RoPEMHA(nn.Module):
             unchanged. If a BoolTensor is provided, the positions with the
             value of True will be ignored while the position with the value
             of False will be unchanged.
-        attn_mask : torch.Tensor
-            Not used by this class. It is kept for compliance.
+        attn_mask : torch.BoolTensor
+            2D mask (L, S) where L is the target sequence length, S is
+            the source sequence length. The positions with the value of True will be ignored while the position with the value of False will be unchanged.
         pos_embs : torch.Tensor
             Not used by this class. It is kept for compliance.
         return_attn_weights : bool
@@ -1267,13 +1268,11 @@ class RoPEMHA(nn.Module):
             sequence length, S is the source sequence length.
         """
 
-        assert attn_mask is None, "attn_mask is not supported"
         assert pos_embs is None, "pos_embs is not supported"
 
         # query, key and value are of shape batch, time, embed_dim
         bsz = query.shape[0]
         klen = key.shape[1]
-        qlen = query.shape[1]
 
         if self._qkv_same_embed_dim:
             # self-attention
@@ -1298,14 +1297,6 @@ class RoPEMHA(nn.Module):
                 )
         else:
             raise NotImplementedError
-            query, key = (
-                nn.functional.linear(query, self.qk_proj_weight)
-                .view(bsz, -1, self.num_heads, self.head_dim * 2)
-                .chunk(2, dim=-1)
-            )
-            value = nn.functional.linear(value, self.v_proj_weight).view(
-                bsz, -1, self.num_heads, self.vhead_dim
-            )
 
         if self.vbias is not None:
             value = value + self.value_bias_weight.view(
@@ -1315,17 +1306,15 @@ class RoPEMHA(nn.Module):
         q_rotated = _rope_rotate(query)
         k_rotated = _rope_rotate(key)
 
-        if key_padding_mask is not None:
-            key_padding_mask = key_padding_mask.view(bsz, 1, 1, klen).expand(
-                bsz, self.num_heads, klen, qlen
-            )
-            key_padding_mask = torch.logical_not(key_padding_mask)
+        final_masks = masks_union(
+            bsz, klen, self.num_heads, attn_mask, key_padding_mask
+        )
 
         x = F.scaled_dot_product_attention(
             query=q_rotated.permute(0, 2, 1, 3),
             key=k_rotated.permute(0, 2, 1, 3),
             value=value.permute(0, 2, 1, 3),
-            attn_mask=key_padding_mask,
+            attn_mask=final_masks,
             dropout_p=self.dropout,
             scale=self.scale,
         )
@@ -1340,3 +1329,51 @@ class RoPEMHA(nn.Module):
         if return_attn_weights:
             return out, None  # out, attn_score
         return out
+
+
+def masks_union(bsz, klen, num_heads, attn_mask, key_padding_mask):
+    """This is an utility function combining standard key_padding_mask and
+    attn_mask from SpeechBrain into a single one for scaled_dot_product_attention. This function does not support weighting of the attn_score. Hence, if one wish to use float values as masks, they should not use this function.
+
+    Arguments
+    ---------
+    bsz : int
+        Batch size dimension.
+    klen : int
+        Time dimension of the key tensor. (Sequence length).
+    num_heads : int
+        Number of heads of the attention module using these masks.
+    attn_mask : torch.BoolTensor
+        2D mask (L, S) where L is the target sequence length, S is
+        the source sequence length. The positions with the value of True will be ignored while the position with the value of False will be unchanged.
+    key_padding_mask : torch.BoolTensor
+        (B, S) where B is the batch size, S is the source sequence
+        length. The positions with the value of True will be ignored while the position with the value of False will be unchanged.
+
+    Returns
+    -------
+    out : torch.BoolTensor
+        (bsz, num_heads, klen, klen) where False values are masked and True are unmasked (opposite of the input tensors).
+
+    """
+    final_mask = None
+
+    if key_padding_mask is not None:
+        key_padding_mask = key_padding_mask.view(bsz, 1, 1, klen).expand(
+            bsz, num_heads, klen, klen
+        )
+        final_mask = key_padding_mask
+
+    if attn_mask is not None:
+        attn_mask = attn_mask.view(1, 1, klen, klen).expand(
+            bsz, num_heads, klen, klen
+        )
+        final_mask = attn_mask
+
+    if attn_mask is not None and key_padding_mask is not None:
+        final_mask = torch.logical_or(attn_mask, key_padding_mask)
+
+    if final_mask is not None:
+        final_mask = torch.logical_not(final_mask)
+
+    return final_mask
