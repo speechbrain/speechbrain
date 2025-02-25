@@ -55,11 +55,13 @@ max_grad_norm: 5.0
 loss_reduction: 'batchmean'
 sorting: random
 num_workers: 4
-precision: fp32 # bf16, fp16 or fp32
+precision: fp16 # bf16, fp16 or fp32
 avg_checkpoints: 10 # Number of checkpoints to average for evaluation
 
 # stages related parameters
 lr_adam: 0.0008
+warmup: 50000
+augment_warmup: 8000
 
 # Feature parameters
 sample_rate: 16000
@@ -70,7 +72,7 @@ win_length: 32
 # This setup works well for A100 80GB GPU, adapts it to your needs.
 # Or turn it off (but training speed will decrease)
 dynamic_batching: True
-max_batch_length_train: 500
+max_batch_length_train: 150
 max_batch_length_val: 100 # we reduce it as the beam is much wider (VRAM)
 num_bucket: 200
 shuffle: True # if true re-creates batches at each epoch shuffling examples.
@@ -153,7 +155,7 @@ Transformer: !new:speechbrain.lobes.models.transformer.TransformerASR.Transforme
     dropout: !ref <transformer_dropout>
     activation: !ref <activation>
     encoder_module: conformer
-    attention_type: RelPosMHAXL
+    attention_type: RoPEMHA
     normalize_before: True
     causal: False
 
@@ -261,7 +263,7 @@ seq_cost: !name:speechbrain.nnet.losses.kldiv_loss
 
 noam_annealing: !new:speechbrain.nnet.schedulers.NoamScheduler
     lr_initial: !ref <lr_adam>
-    n_warmup_steps: 30000
+    n_warmup_steps: !ref <warmup>
 
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     checkpoints_dir: !ref <save_folder>

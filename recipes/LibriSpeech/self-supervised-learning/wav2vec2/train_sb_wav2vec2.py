@@ -211,7 +211,6 @@ class W2V2Brain(sb.core.Brain):
             self.train_stats = stage_stats
 
         if stage == sb.Stage.VALID:
-            print(self.acc_metric)
             stage_stats["accuracy"] = sum(self.acc_metric) / len(
                 self.acc_metric
             )
@@ -371,7 +370,6 @@ def main():
         train_dataset,
         valid_loader,
         train_loader_kwargs=train_loader_kwargs,
-        progressbar=False,
     )
 
 

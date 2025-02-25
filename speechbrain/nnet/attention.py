@@ -9,7 +9,7 @@ Authors
 """
 
 import math
-from typing import Optional
+from typing import Any, Callable, Dict, Optional, Tuple
 
 import numpy as np
 import torch
@@ -941,77 +941,194 @@ class PositionalwiseFeedForward(nn.Module):
         return x
 
 
-class RotationMatrix(nn.Module):
+class PrecomputedRoPESinusoids(nn.Module):
     """
-    The rotation matrice for the :class:`~RoPEMHA`.
-    The shape of these matrices is supposedly to be max_lengh * d_attnhead * d_attnhead.
-    However, due to the sparsity of the rotation matrices, we only need to store max_lengh * d_attnhead elements
-    of the matrix.
-    see eq(15) of https://arxiv.org/pdf/2104.09864
+    A cache for the sines and cosines needed to rotate the vectors for rotary
+    position embeddings (RoPE).
+    This stores the nonzero entries from eq(15) from
+    https://arxiv.org/pdf/2104.09864
 
     Arguments
     ---------
-    max_len : int
+    max_length : int
         The allowed max length of the input sequence.
-    emb_dim : int
-        Size of the embedding, which should be consistent with the dimsion of
-        each attention head
+    input_size : int
+        Size of each vector in the input sequence, i.e. the dimension of each
+        attention head.
+    dtype : torch.dtype
+        The dtype of the tensors.
+    device : torch.device
+        The Torch device to put the tensors on.
+
+    Example
+    -------
+    >>> precomputed = PrecomputedRoPESinusoids(3, 8, torch.float32, torch.device('cpu'))
+    >>> precomputed.cosines.shape
+    torch.Size([3, 8])
+    >>> precomputed.sines.shape == precomputed.cosines.shape
+    True
+    >>> precomputed.cosines
+    tensor([[ 1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000],
+            [ 0.5403,  0.5403,  0.9950,  0.9950,  0.9999,  0.9999,  1.0000,  1.0000],
+            [-0.4161, -0.4161,  0.9801,  0.9801,  0.9998,  0.9998,  1.0000,  1.0000]])
+    >>> precomputed.sines
+    tensor([[-0.0000,  0.0000, -0.0000,  0.0000, -0.0000,  0.0000, -0.0000,  0.0000],
+            [-0.8415,  0.8415, -0.0998,  0.0998, -0.0100,  0.0100, -0.0010,  0.0010],
+            [-0.9093,  0.9093, -0.1987,  0.1987, -0.0200,  0.0200, -0.0020,  0.0020]])
+    >>> precomputed.index_swap
+    tensor([1, 0, 3, 2, 5, 4, 7, 6])
     """
 
-    def __init__(self, max_len: int, emb_dim: int):
+    def __init__(
+        self,
+        max_length: int,
+        input_size: int,
+        dtype: torch.dtype,
+        device: torch.device,
+    ):
         super().__init__()
 
-        # 10000**(-2(i-1)/d) for i in [1,2,...,d/2]
-        inv_freq = torch.exp(
-            torch.arange(0, emb_dim, 2, dtype=torch.float32)
-            * -(math.log(10000.0) / emb_dim)
+        # To precompute the values, use at least float32, because
+        # otherwise final accuracy is unnecessarily dreadful.
+        internal_dtype = (
+            torch.float64 if dtype == torch.float64 else torch.float32
         )
 
-        positions = torch.arange(
-            0,
-            max_len,
-            dtype=torch.float32,
+        assert (input_size % 2) == 0
+
+        self.max_length = max_length
+
+        # 10000**(-2(i-1)/d) for i in [1,2,...,d/2]
+        angles = torch.exp(
+            torch.arange(0, input_size, 2, dtype=internal_dtype, device=device)
+            * -(math.log(10000.0) / input_size)
         )
+
+        dimensions = torch.arange(input_size, device=device)
+
+        times = torch.arange(0, max_length, dtype=internal_dtype, device=device)
 
         # equation (15) without zeros in the matrix
-        positions_inv_freq = torch.outer(positions, inv_freq)
+        times_angles = torch.outer(times, angles)
 
-        cosines = torch.cos(positions_inv_freq)
-        # (cos(m*theta_0), cos(m*theta_0), cos(m*theta_1), cos(m*theta_1) ,... ) for equantion (34)
+        # Construct
+        #     [cos(theta_0), cos(theta_0), cos(theta_1), cos(theta_1), ... ]
+        # for equation (34)
+        cosines = torch.cos(times_angles)
         cosines = torch.stack([cosines, cosines], dim=-1).reshape(
-            max_len, emb_dim
+            max_length, input_size
         )
 
-        sines = torch.sin(positions_inv_freq)
-        # (sin(m*theta_0), sin(m*theta_0), sin(m*theta_1), sin(m*theta_1) ,... ) for equantion (34)
-        sines = torch.stack([sines, sines], dim=-1).reshape(max_len, emb_dim)
+        # Construct
+        #     [sin(theta_0), -sin(theta_0), sin(theta_1), -sin(theta_1), ... ]
+        # for equation (34)
+        unsigned_sines = torch.sin(times_angles)
+        unsigned_repeated_sines = torch.stack(
+            [unsigned_sines, unsigned_sines], dim=-1
+        ).reshape(max_length, input_size)
 
-        self.register_buffer("cosines", cosines)
-        self.register_buffer("sines", sines)
+        sines = (
+            (-1)
+            ** torch.arange(input_size, dtype=internal_dtype, device=device)
+        ) * -unsigned_repeated_sines
 
-    @torch.no_grad()
-    def forward(self, x: torch.Tensor):
+        # To perform a 2-d rotation of every pair of dimensions, a vector will
+        # need to be created with every pair swapped with each other.
+        # To make this easy, swap every pair of indices:
+        # [1, 0, 3, 2, 5, 4, 7, 6, ...]
+        index_swap = torch.stack(
+            [dimensions[1::2], dimensions[::2]], dim=-1
+        ).reshape(-1)
+
+        self.register_buffer("cosines", cosines.to(dtype))
+        self.register_buffer("sines", sines.to(dtype))
+        self.register_buffer("index_swap", index_swap)
+
+
+class MemoiseAtLeastSize:
+    """
+    Memoises a function which has as its first argument a value that indicates a
+    minimum value to call the underlying function with.
+
+    Args:
+    function
+        The function to call.
+    round_up
+        A function that rounds up.
+        The fewer values this rounds up to, the less likely it is that the
+        function will be called repeatedly.
+    """
+
+    def __init__(self, function: Callable, round_up: Callable[[Any], Any]):
+        self.function = function
+        self.round_up = round_up
+        self.memo: Dict[tuple, Tuple[Any, Any]] = {}
+
+    def __call__(self, size: Any, *args):
+        if args not in self.memo or self.memo[args][0] < size:
+            rounded_size = self.round_up(size)
+            assert not (rounded_size < size)
+            self.memo[args] = rounded_size, self.function(rounded_size, *args)
+        return self.memo[args][1]
+
+
+def memoise_at_least(
+    round_up: Callable[[Any], Any]
+) -> Callable[[Callable], MemoiseAtLeastSize]:
+    """
+    Decorator that memoises a function which has as its first argument a value
+    that indicates a minimum value to call the underlying function with.
+    If the memo has stored the result from a matching previous function call,
+    The stored result will be returned instead of calling the function again.
+
+    Args:
+    round_up
+        A function that rounds up.
+        This will be called with the first argument passed in.
+        The underlying function will receive, instead of this first argument,
+        the rounded-up version.
+        The fewer values this rounds up to, the less likely it is that the
+        function will be called repeatedly.
+    """
+
+    def with_function(function: Callable) -> MemoiseAtLeastSize:
         """
-        Builds the rotation matrice.
-
-        Arguments
-        ---------
-        x : torch.Tensor
-            input tensor with shape batch_size, seq_len, head_dim
-
-        Returns
-        -------
-        cosines, sines: torch.Tensor
-            The cosine and sine part of the rotation matrix.
-            Each part has a shape of `[seq_len, head_dim]`
+        Set the function to be memoised.
         """
+        return MemoiseAtLeastSize(function, round_up)
 
-        with torch.no_grad():
-            seq_len = x.size(1)
-            return (
-                self.cosines[:seq_len, :],
-                self.sines[:seq_len, :],
-            )
+    return with_function
+
+
+@memoise_at_least(lambda length: 2 ** int(math.ceil(math.log2(length))))
+def _get_precomputed_values(
+    max_length: int, input_size: int, dtype: torch.dtype, device: torch.device
+):
+    return PrecomputedRoPESinusoids(max_length, input_size, dtype, device)
+
+
+def _rope_rotate(x):
+    """
+    Perform the rotation for RoPE on each of the vectors in x.
+    Details about RoPE: https://arxiv.org/pdf/2104.09864.
+    """
+    _batch_size, length, _num_heads, head_dim = x.shape
+
+    assert (head_dim % 2) == 0
+
+    precomputed = _get_precomputed_values(length, head_dim, x.dtype, x.device)
+
+    # Cut the sinusoids down to the correct length.
+    cosines = precomputed.cosines[:length]
+    sines = precomputed.sines[:length]
+
+    # The fast implementation for pair-wise rotation requires a version of x
+    # with the elements of each pair swapped.
+    # (34) in https://arxiv.org/pdf/2104.09864.
+    swapped_pairs = torch.index_select(x, dim=-1, index=precomputed.index_swap)
+
+    # (batch_size, L, num_heads, head_dim) * (L, 1, hdead_dim)
+    return x * cosines.unsqueeze(1) + swapped_pairs * sines.unsqueeze(1)
 
 
 class RoPEMHA(nn.Module):
@@ -1027,15 +1144,15 @@ class RoPEMHA(nn.Module):
     vbias: bool, optional
         Whether to use bias for computing value.
     vdim: int, optional
-        Size for value. Default is embed_dim (Each head's dimension is embed_dim // num_heads).
+        Size for value. Default is embed_dim (Note each head is embed_dim // num_heads).
 
     Example
     -------
+    >>> max_len = 64
     >>> inputs = torch.rand([6, 60, 512])
     >>> num_heads = 8
-    >>> sinusoid_table = RotationMatrix([max_len, 512])
     >>> net = RoPEMHA(num_heads=num_heads, embed_dim=inputs.shape[-1])
-    >>> outputs, attn = net(inputs, inputs, inputs, pos_emb)
+    >>> outputs, attn = net(inputs, inputs, inputs)
     >>> outputs.shape
     torch.Size([6, 60, 512])
     """
@@ -1103,238 +1220,14 @@ class RoPEMHA(nn.Module):
         if self.vbias is not None:
             torch.nn.init.constant_(self.value_bias_weight, 0.0)
 
-    def rotate(self, x, sinusoid_table):
-        # x: bsz, L, num_heads, head_dim
-        bsz, seq_len, _, head_dim = x.shape
-
-        cosine, sine = sinusoid_table
-
-        # equation 34 of https://arxiv.org/pdf/2104.09864
-        rotate_half = torch.stack(
-            [-x[:, :, :, 1::2], x[:, :, :, ::2]], dim=-1
-        ).reshape(bsz, seq_len, -1, head_dim)
-
-        # (bsz, L, num_heads, head_dim) * (L, 1, hdead_dim)
-        return x * cosine[:seq_len].unsqueeze(1) + rotate_half * sine[
-            :seq_len
-        ].unsqueeze(1)
-
     def forward(
         self,
         query,
         key,
         value,
-        pos_embs,
         key_padding_mask=None,
         attn_mask=None,
-        return_attn_weights=True,
-    ):
-        """Compute attention.
-
-        Arguments
-        ---------
-        query : torch.Tensor
-            (B, L, E) where L is the target sequence length,
-            B is the batch size, E is the embedding dimension.
-        key : torch.Tensor
-            (B, S, E) where S is the source sequence length,
-            B is the batch size, E is the embedding dimension.
-        value : torch.Tensor
-            (B, S, E) where S is the source sequence length,
-            B is the batch size, E is the embedding dimension.
-        pos_embs : torch.Tensor
-            bidirectional sinusoidal positional embedding tensor (1, 2*S-1, E) where S is the max length between source and target sequence lengths,
-            and E is the embedding dimension.
-        key_padding_mask : torch.Tensor
-            (B, S) where B is the batch size, S is the source sequence
-            length. If a ByteTensor is provided, the non-zero positions will
-            be ignored while the position with the zero positions will be
-            unchanged. If a BoolTensor is provided, the positions with the
-            value of True will be ignored while the position with the value
-            of False will be unchanged.
-        attn_mask : torch.Tensor
-            2D mask (L, S) where L is the target sequence length, S is
-            the source sequence length.
-            3D mask (N*num_heads, L, S) where N is the batch
-            size, L is the target sequence length, S is the source sequence
-            length. attn_mask ensure that position i is allowed to attend the
-            unmasked positions. If a ByteTensor is provided, the non-zero
-            positions are not allowed to attend while the zero positions will
-            be unchanged. If a BoolTensor is provided, positions with True is
-            not allowed to attend while False values will be unchanged. If a
-            FloatTensor is provided, it will be added to the attention weight.
-        return_attn_weights : bool
-            Whether to additionally return the attention weights.
-
-        Returns
-        -------
-        out : torch.Tensor
-            (B, L, E) where L is the target sequence length, B is the
-            batch size, E is the embedding dimension.
-        attn_score : torch.Tensor
-            (B, L, S) where B is the batch size, L is the target
-            sequence length, S is the source sequence length.
-        """
-
-        # query, key and value are of shape batch, time, embed_dim
-        bsz = query.shape[0]
-        klen = key.shape[1]
-        qlen = query.shape[1]
-
-        if self._qkv_same_embed_dim:
-            # self-attention
-            if (query is key or torch.equal(query, key)) and (
-                key is value or torch.equal(key, value)
-            ):
-                query, key, value = (
-                    nn.functional.linear(query, self.in_proj_weight)
-                    .view(bsz, -1, self.num_heads, self.head_dim * 3)
-                    .chunk(3, dim=-1)
-                )
-            else:
-                qweight, kweight, vweight = self.in_proj_weight.chunk(3, dim=0)
-                query = nn.functional.linear(query, qweight).view(
-                    bsz, -1, self.num_heads, self.head_dim
-                )
-                key = nn.functional.linear(key, kweight).view(
-                    bsz, -1, self.num_heads, self.head_dim
-                )
-                value = nn.functional.linear(value, vweight).view(
-                    bsz, -1, self.num_heads, self.head_dim
-                )
-        else:
-            raise NotImplementedError
-            query, key = (
-                nn.functional.linear(query, self.qk_proj_weight)
-                .view(bsz, -1, self.num_heads, self.head_dim * 2)
-                .chunk(2, dim=-1)
-            )
-            value = nn.functional.linear(value, self.v_proj_weight).view(
-                bsz, -1, self.num_heads, self.vhead_dim
-            )
-
-        if self.vbias is not None:
-            value = value + self.value_bias_weight.view(
-                1, 1, self.num_heads, self.vhead_dim
-            )
-        
-        # bsz, q_len, num_heads, qhead_dim
-        q_rotated = self.rotate(query, pos_embs)
-        k_rotated = self.rotate(key, pos_embs)
-
-        attn_score = torch.matmul(
-            q_rotated.transpose(1, 2) * self.scale,
-            k_rotated.permute(0, 2, 3, 1),
-        )
-
-        # compute attention probability
-        if attn_mask is not None:
-            if attn_mask.ndim == 2:
-                attn_mask = attn_mask.view(1, 1, qlen, klen)
-            else:
-                attn_mask = attn_mask.view(-1, self.num_heads, qlen, klen)
-
-            if attn_mask.dtype == torch.bool:
-                attn_score = attn_score.masked_fill(
-                    attn_mask, self.attn_fill_value
-                )
-            else:
-                attn_score += attn_mask
-
-        if key_padding_mask is not None:
-            attn_score = attn_score.masked_fill(
-                key_padding_mask.view(bsz, 1, 1, klen),
-                self.attn_fill_value,
-            )
-
-        attn_score = F.softmax(attn_score, dim=-1, dtype=torch.float32)
-        attn_score = self.dropout_att(attn_score)
-
-        # it is possible for us to hit full NaN when using chunked training
-        # so reapply masks, except with 0.0 instead as we are after the softmax
-        # because -inf would output 0.0 regardless anyway
-        if attn_mask is not None:
-            if attn_mask.dtype == torch.bool:
-                attn_score = attn_score.masked_fill(attn_mask, 0.0)
-            else:
-                # NOTE: the above fix is not implemented for this case as
-                # summing the mask with NaN would still result in NaN
-                pass
-
-        if key_padding_mask is not None:
-            attn_score = attn_score.masked_fill(
-                key_padding_mask.view(bsz, 1, 1, klen),
-                0.0,
-            )
-
-        x = torch.matmul(
-            attn_score, value.transpose(1, 2)
-        )  # (batch, head, time1, d_k)
-
-        x = (
-            x.transpose(1, 2)
-            .contiguous()
-            .view(bsz, -1, self.vhead_dim * self.num_heads)
-        )  # (batch, time1, d_model)
-
-        out = self.out_proj(x)
-
-        if return_attn_weights:
-            return out, None  # out, attn_score
-
-        return out
-
-
-class RoPEPytorchMHA(RoPEMHA):
-    """
-    Arguments
-    ---------
-    embed_dim : int
-        Size of the encoder feature vectors from which keys and values are computed.
-    num_heads: int
-        Number of attention heads.
-    dropout : float, optional
-        Dropout rate.
-    vbias: bool, optional
-        Whether to use bias for computing value.
-    vdim: int, optional
-        Size for value. Default is embed_dim (Note each head is embed_dim // num_heads).
-
-    Example
-    -------
-    >>> inputs = torch.rand([6, 60, 512])
-    >>> num_heads = 8
-    >>> sinusoid_table = RotationMatrix([max_len, 512])
-    >>> net = RoPEMHA(num_heads=num_heads, embed_dim=inputs.shape[-1])
-    >>> outputs, attn = net(inputs, inputs, inputs, pos_emb)
-    >>> outputs.shape
-    torch.Size([6, 60, 512])
-    """
-
-    def __init__(
-        self,
-        embed_dim,
-        num_heads,
-        dropout=0.0,
-        vbias=False,
-        vdim=None,
-    ):
-        super().__init__(
-            embed_dim,
-            num_heads,
-            dropout,
-            vbias,
-            vdim,
-        )
-
-    def forward(
-        self,
-        query,
-        key,
-        value,
-        pos_embs,
-        key_padding_mask=None,
-        attn_mask=None,
+        pos_embs=None,
         return_attn_weights=True,
     ):
         """Compute attention through Pytorch attention.
@@ -1350,9 +1243,6 @@ class RoPEPytorchMHA(RoPEMHA):
         value : torch.Tensor
             (B, S, E) where S is the source sequence length,
             B is the batch size, E is the embedding dimension.
-        pos_embs : torch.Tensor
-            bidirectional sinusoidal positional embedding tensor (1, 2*S-1, E) where S is the max length between source and target sequence lengths,
-            and E is the embedding dimension.
         key_padding_mask : torch.Tensor
             (B, S) where B is the batch size, S is the source sequence
             length. If a ByteTensor is provided, the non-zero positions will
@@ -1361,16 +1251,9 @@ class RoPEPytorchMHA(RoPEMHA):
             value of True will be ignored while the position with the value
             of False will be unchanged.
         attn_mask : torch.Tensor
-            2D mask (L, S) where L is the target sequence length, S is
-            the source sequence length.
-            3D mask (N*num_heads, L, S) where N is the batch
-            size, L is the target sequence length, S is the source sequence
-            length. attn_mask ensure that position i is allowed to attend the
-            unmasked positions. If a ByteTensor is provided, the non-zero
-            positions are not allowed to attend while the zero positions will
-            be unchanged. If a BoolTensor is provided, positions with True is
-            not allowed to attend while False values will be unchanged. If a
-            FloatTensor is provided, it will be added to the attention weight.
+            Not used by this class. It is kept for compliance.
+        pos_embs : torch.Tensor
+            Not used by this class. It is kept for compliance.
         return_attn_weights : bool
             Whether to additionally return the attention weights.
 
@@ -1383,6 +1266,9 @@ class RoPEPytorchMHA(RoPEMHA):
             (B, L, S) where B is the batch size, L is the target
             sequence length, S is the source sequence length.
         """
+
+        assert attn_mask is None, "attn_mask is not supported"
+        assert pos_embs is None, "pos_embs is not supported"
 
         # query, key and value are of shape batch, time, embed_dim
         bsz = query.shape[0]
@@ -1426,8 +1312,8 @@ class RoPEPytorchMHA(RoPEMHA):
                 1, 1, self.num_heads, self.vhead_dim
             )
 
-        q_rotated = self.rotate(query, pos_embs)
-        k_rotated = self.rotate(key, pos_embs)
+        q_rotated = _rope_rotate(query)
+        k_rotated = _rope_rotate(key)
 
         if key_padding_mask is not None:
             key_padding_mask = key_padding_mask.view(bsz, 1, 1, klen).expand(
@@ -1443,7 +1329,7 @@ class RoPEPytorchMHA(RoPEMHA):
             dropout_p=self.dropout,
             scale=self.scale,
         )
-        
+
         x = (
             x.transpose(1, 2)
             .contiguous()

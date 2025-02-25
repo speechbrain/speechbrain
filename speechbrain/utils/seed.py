@@ -9,7 +9,6 @@ import random
 
 import torch
 
-from speechbrain.utils.distributed import get_rank, rank_prefixed_message
 from speechbrain.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -21,7 +20,12 @@ min_seed_value = 0
 def seed_everything(
     seed: int = 0, verbose: bool = True, deterministic: bool = False
 ) -> int:
-    r"""Function that sets the seed for pseudo-random number generators in: torch, numpy, and Python's random module.
+    r"""Function that sets the seed for pseudo-random number generators in: torch, numpy, and Python's random module. Important note on DDP: all DDP
+    process have the same seed. This is important to ensure that parameters
+    without a require_grad set to True are the same across processes. This
+    must be taken into account if one wants to build a custom data sampler as
+    the processes would pick the same samples... SpeechBrain takes care of that
+    internally.
 
     Arguments
     ---------
@@ -38,23 +42,14 @@ def seed_everything(
         The seed that was set.
     """
 
-    # if DDP, we need to offset the seed by the rank
-    # to avoid having the same seed on all processes
-    seed_offset = 0 if get_rank() is None else get_rank()
-
     if not (min_seed_value <= seed <= max_seed_value):
         logger.info(
             f"{seed} is not in bounds, numpy accepts from {min_seed_value} to {max_seed_value}",
         )
-        seed = seed_offset
-    else:
-        seed += seed_offset
+        seed = min_seed_value
 
     if verbose:
-        logger.info(
-            rank_prefixed_message(f"Setting seed to {seed}"),
-            main_process_only=False,
-        )
+        logger.info(f"Setting seed to {seed}")
 
     os.environ["SB_GLOBAL_SEED"] = str(seed)
     random.seed(seed)

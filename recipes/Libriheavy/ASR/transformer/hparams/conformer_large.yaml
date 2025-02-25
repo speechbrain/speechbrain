@@ -4,8 +4,8 @@
 # Decoder: Transformer Decoder + (CTC/ATT joint) beamsearch + TransformerLM
 # Tokens: unigram
 # losses: CTC + KLdiv (Label Smoothing loss)
-# Training: Librispeech 960h
-# Authors:  Jianyuan Zhong, Titouan Parcollet, Samuele Cornell, Shucong Zhang
+# Training: Libriheavy 50k
+# Authors: Titouan Parcollet, Shucong Zhang
 # ############################################################################
 # Seed needs to be set at top of yaml, before objects with parameters are made
 
@@ -25,21 +25,22 @@ train_log: !ref <output_folder>/train_log.txt
 pretrained_lm_tokenizer_path: speechbrain/asr-transformer-transformerlm-librispeech
 
 # Data files
-data_folder: !PLACEHOLDER  # e.g., /path/to/LibriSpeech
-# If RIRS_NOISES dir exists in /localscratch/xxx_corpus/RIRS_NOISES
-# then data_folder_rirs should be /localscratch/xxx_corpus
-# otherwise the dataset will automatically be downloaded
-# data_folder_rirs: !ref <data_folder>
-train_splits: ["train-clean-100", "train-clean-360", "train-other-500"]
-dev_splits: ["dev-clean"]
-test_splits: ["dev-clean", "test-clean", "test-other"]
+data_folder: !PLACEHOLDER  # e.g., /path/to/Libri-Light
+manifest_folder: !PLACEHOLDER # e.g., /path/to/Libriheavy
+# I/O
+audio_backend: soundfile
+data_placeholder: data_root
+train_splits: ["large"] # ["small"], ["medium"], or ["large"]
+dev_splits: ["dev"]
+test_splits: ["test_clean", "test_other"] # you can also add "test_clean_large" and/or "test_other_large"
 skip_prep: False
-train_csv: !ref <output_folder>/train.csv
-valid_csv: !ref <output_folder>/dev-clean.csv
+train_csv: !ref <output_folder>/large.csv # or small.csv or medium.csv
+valid_csv: !ref <output_folder>/dev.csv
 test_csv:
-    - !ref <output_folder>/dev-clean.csv
-    - !ref <output_folder>/test-clean.csv
-    - !ref <output_folder>/test-other.csv
+    - !ref <output_folder>/dev.csv
+    - !ref <output_folder>/test_clean.csv
+    - !ref <output_folder>/test_other.csv # you can also add "test_clean_large.csv" and/or "test_other_large.csv"
+
 
 ####################### Training Parameters ####################################
 
@@ -47,7 +48,9 @@ test_csv:
 # The global batch size is computed as batch_size * n_gpus * grad_accumulation_factor.
 # Empirically, we found that this value should be >= 128.
 # Please, set your parameters accordingly.
-number_of_epochs: 120
+# 6 epochs are enough for the model to converge with the large split.
+# If you are using the small or medium split, please adjust this.
+number_of_epochs: 6
 batch_size: 16 # This works for 2x GPUs with 32GB
 ctc_weight: 0.3
 grad_accumulation_factor: 1
@@ -55,11 +58,12 @@ max_grad_norm: 5.0
 loss_reduction: 'batchmean'
 sorting: random
 num_workers: 4
-precision: fp32 # bf16, fp16 or fp32
+precision: bf16 # bf16, fp16 or fp32
 avg_checkpoints: 10 # Number of checkpoints to average for evaluation
+ckpt_interval_minutes: 15
 
 # stages related parameters
-lr_adam: 0.0008
+lr_adam: 0.0005
 
 # Feature parameters
 sample_rate: 16000
@@ -70,7 +74,7 @@ win_length: 32
 # This setup works well for A100 80GB GPU, adapts it to your needs.
 # Or turn it off (but training speed will decrease)
 dynamic_batching: True
-max_batch_length_train: 500
+max_batch_length_train: 250 # we use 250 bz * 8 GPUs
 max_batch_length_val: 100 # we reduce it as the beam is much wider (VRAM)
 num_bucket: 200
 shuffle: True # if true re-creates batches at each epoch shuffling examples.
@@ -106,15 +110,14 @@ test_dataloader_opts:
 ####################### Model Parameters #######################################
 
 # Transformer
-d_model: 512
+d_model: 640
 nhead: 8
-num_encoder_layers: 12
+num_encoder_layers: 14
 num_decoder_layers: 6
 d_ffn: 2048
 transformer_dropout: 0.1
 activation: !name:torch.nn.GELU
 output_neurons: 5000
-attention_type: RoPEPytorchMHA
 
 # Outputs
 blank_index: 0
@@ -154,7 +157,7 @@ Transformer: !new:speechbrain.lobes.models.transformer.TransformerASR.Transforme
     dropout: !ref <transformer_dropout>
     activation: !ref <activation>
     encoder_module: conformer
-    attention_type: !ref <attention_type>
+    attention_type: RelPosMHAXL
     normalize_before: True
     causal: False
 
@@ -262,7 +265,7 @@ seq_cost: !name:speechbrain.nnet.losses.kldiv_loss
 
 noam_annealing: !new:speechbrain.nnet.schedulers.NoamScheduler
     lr_initial: !ref <lr_adam>
-    n_warmup_steps: 30000
+    n_warmup_steps: 50000
 
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     checkpoints_dir: !ref <save_folder>
@@ -276,11 +279,6 @@ epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
 
 ############################## Augmentations ###################################
-
-# Speed perturbation
-speed_perturb: !new:speechbrain.augment.time_domain.SpeedPerturb
-    orig_freq: !ref <sample_rate>
-    speeds: [95, 100, 105]
 
 # Time Drop
 time_drop: !new:speechbrain.augment.freq_domain.SpectrogramDrop

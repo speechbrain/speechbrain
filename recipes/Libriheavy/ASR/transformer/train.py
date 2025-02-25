@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
-"""Recipe for training a Transformer ASR system with librispeech.
+"""Recipe for training a Transformer ASR system with Lirbiheavy.
 The system employs an encoder, a decoder, and an attention mechanism
 between them. Decoding is performed with (CTC/Att joint) beamsearch coupled with a neural
 language model.
 
 To run this recipe, do the following:
-> python train.py hparams/transformer.yaml
-> python train.py hparams/conformer.yaml
+> python train.py hparams/conformer_large.yaml
 
 With the default hyperparameters, the system employs a convolutional frontend and a transformer.
 The decoder is based on a Transformer decoder. Beamsearch coupled with a Transformer
@@ -14,24 +13,23 @@ language model is used  on the top of decoder probabilities.
 
 The neural network is trained on both CTC and negative-log likelihood
 targets and sub-word units estimated with Byte Pairwise Encoding (BPE)
-are used as basic recognition tokens. Training is performed on the full
-LibriSpeech dataset (960 h).
-
-The best model is the average of the checkpoints from last 5 epochs.
+are used as basic recognition tokens.
 
 The experiment file is flexible enough to support a large variety of
 different systems. By properly changing the parameter files, you can try
 different encoders, decoders, tokens (e.g, characters instead of BPE),
-training split (e.g, train-clean 100 rather than the full one), and many
+training split (e.g, small, medium, or large), and many
 other possible variations.
 
+Note: This recipe relies on the `soundfile` backend for fast audio processing.
+Libriheavy comes with long audio files, and we need to read them in chunks.
+In our experiments, we found that `soundfile` was the only audio backend fast enough to read these long audio files.
+You can dynamically change the backend through the `audio_backend` parameter in the YAML file.
 
 Authors
- * Jianyuan Zhong 2020
- * Mirco Ravanelli 2020
- * Peter Plantinga 2020
- * Samuele Cornell 2020, 2021, 2022
- * Titouan Parcollet 2021, 2022
+-------
+ * Titouan Parcollet 2024
+ * Shucong Zhang 2024
 """
 
 import os
@@ -46,6 +44,8 @@ from speechbrain.utils.distributed import if_main_process, run_on_main
 from speechbrain.utils.logger import get_logger
 
 logger = get_logger(__name__)
+
+SAMPLING_RATE = 16000
 
 
 # Define training procedure
@@ -62,15 +62,9 @@ class ASR(sb.core.Brain):
         feats = self.modules.normalize(feats, wav_lens, epoch=current_epoch)
 
         # Add feature augmentation if specified.
-        augment_warmup = 0
-        if hasattr(self.hparams, "augment_warmup"):
-            augment_warmup = self.hparams.augment_warmup
         if stage == sb.Stage.TRAIN and hasattr(self.hparams, "fea_augment"):
-            if self.optimizer_step > augment_warmup:
-                feats, fea_lens = self.hparams.fea_augment(feats, wav_lens)
-                tokens_bos = self.hparams.fea_augment.replicate_labels(
-                    tokens_bos
-                )
+            feats, fea_lens = self.hparams.fea_augment(feats, wav_lens)
+            tokens_bos = self.hparams.fea_augment.replicate_labels(tokens_bos)
 
         # forward modules
         src = self.modules.CNN(feats)
@@ -124,13 +118,7 @@ class ASR(sb.core.Brain):
         if stage == sb.Stage.TRAIN:
             # Labels must be extended if parallel augmentation or concatenated
             # augmentation was performed on the input (increasing the time dimension)
-            augment_warmup = 0
-            if hasattr(self.hparams, "augment_warmup"):
-                augment_warmup = self.hparams.augment_warmup
-            if (
-                hasattr(self.hparams, "fea_augment")
-                and self.optimizer_step > augment_warmup
-            ):
+            if hasattr(self.hparams, "fea_augment"):
                 (
                     tokens,
                     tokens_lens,
@@ -264,7 +252,7 @@ def dataio_prepare(hparams):
 
     train_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
         csv_path=hparams["train_csv"],
-        replacements={"data_root": data_folder},
+        replacements={"data_placeholder": data_folder},
     )
 
     if hparams["sorting"] == "ascending":
@@ -289,7 +277,7 @@ def dataio_prepare(hparams):
         )
     valid_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
         csv_path=hparams["valid_csv"],
-        replacements={"data_root": data_folder},
+        replacements={"data_placeholder": data_folder},
     )
     valid_data = valid_data.filtered_sorted(sort_key="duration")
 
@@ -298,7 +286,7 @@ def dataio_prepare(hparams):
     for csv_file in hparams["test_csv"]:
         name = Path(csv_file).stem
         test_datasets[name] = sb.dataio.dataset.DynamicItemDataset.from_csv(
-            csv_path=csv_file, replacements={"data_root": data_folder}
+            csv_path=csv_file, replacements={"data_placeholder": data_folder}
         )
         test_datasets[name] = test_datasets[name].filtered_sorted(
             sort_key="duration"
@@ -320,23 +308,24 @@ def dataio_prepare(hparams):
 
     sb.dataio.dataset.add_dynamic_item(valtest_datasets, audio_pipeline)
 
-    @sb.utils.data_pipeline.takes("wav")
+    @sb.utils.data_pipeline.takes("wav", "duration", "start")
     @sb.utils.data_pipeline.provides("sig")
-    def audio_pipeline_train(wav):
-        # Speed Perturb is done here so it is multi-threaded with the
-        # workers of the dataloader (faster).
-        if "speed_perturb" in hparams:
-            sig = sb.dataio.dataio.read_audio(wav)
+    def audio_pipeline_train(wav, duration, start):
+        duration = float(duration)
+        start = float(start)
+        duration = int(duration * SAMPLING_RATE)
+        start = int(start * SAMPLING_RATE)
 
-            sig = hparams["speed_perturb"](sig.unsqueeze(0)).squeeze(0)
-        else:
-            sig = sb.dataio.dataio.read_audio(wav)
+        sig = sb.dataio.dataio.read_audio(
+            {"file": wav, "start": start, "stop": start + duration},
+            backend=hparams["audio_backend"],
+        )
         return sig
 
     sb.dataio.dataset.add_dynamic_item([train_data], audio_pipeline_train)
 
     # 3. Define text pipeline:
-    @sb.utils.data_pipeline.takes("wrd")
+    @sb.utils.data_pipeline.takes("text")
     @sb.utils.data_pipeline.provides(
         "wrd", "tokens_list", "tokens_bos", "tokens_eos", "tokens"
     )
@@ -351,7 +340,24 @@ def dataio_prepare(hparams):
         tokens = torch.LongTensor(tokens_list)
         yield tokens
 
-    sb.dataio.dataset.add_dynamic_item(datasets, text_pipeline)
+    # 3. Define text pipeline:
+    @sb.utils.data_pipeline.takes("wrd")
+    @sb.utils.data_pipeline.provides(
+        "wrd", "tokens_list", "tokens_bos", "tokens_eos", "tokens"
+    )
+    def text_pipeline_libri(wrd):
+        yield wrd
+        tokens_list = tokenizer.encode_as_ids(wrd)
+        yield tokens_list
+        tokens_bos = torch.LongTensor([hparams["bos_index"]] + (tokens_list))
+        yield tokens_bos
+        tokens_eos = torch.LongTensor(tokens_list + [hparams["eos_index"]])
+        yield tokens_eos
+        tokens = torch.LongTensor(tokens_list)
+        yield tokens
+
+    sb.dataio.dataset.add_dynamic_item(valtest_datasets, text_pipeline_libri)
+    sb.dataio.dataset.add_dynamic_item([train_data], text_pipeline)
 
     # 4. Set output:
     sb.dataio.dataset.set_output_keys(
@@ -398,8 +404,8 @@ if __name__ == "__main__":
     # create ddp_group with the right communication protocol
     sb.utils.distributed.ddp_init_group(run_opts)
 
-    # 1.  # Dataset prep (parsing Librispeech)
-    from librispeech_prepare import prepare_librispeech  # noqa
+    # 1.  # Dataset prep
+    from libriheavy_prepare import prepare_libriheavy
 
     # Create experiment directory
     sb.create_experiment_directory(
@@ -409,19 +415,20 @@ if __name__ == "__main__":
     )
 
     # multi-gpu (ddp) save data preparation
-    run_on_main(
-        prepare_librispeech,
-        kwargs={
-            "data_folder": hparams["data_folder"],
-            "tr_splits": hparams["train_splits"],
-            "dev_splits": hparams["dev_splits"],
-            "te_splits": hparams["test_splits"],
-            "save_folder": hparams["output_folder"],
-            "merge_lst": hparams["train_splits"],
-            "merge_name": "train.csv",
-            "skip_prep": hparams["skip_prep"],
-        },
-    )
+    if not hparams["skip_prep"]:
+        run_on_main(
+            prepare_libriheavy,
+            kwargs={
+                "data_folder": hparams["data_folder"],
+                "manifest_folder": hparams["manifest_folder"],
+                "save_folder": hparams["output_folder"],
+                "tr_splits": hparams["train_splits"],
+                "dev_splits": hparams["dev_splits"],
+                "te_splits": hparams["test_splits"],
+                "skip_prep": hparams["skip_prep"],
+                "data_placeholder": hparams["data_placeholder"],
+            },
+        )
 
     # here we create the datasets objects as well as tokenization and encoding
     (
@@ -485,8 +492,7 @@ if __name__ == "__main__":
     )
 
     # Testing
-    if not os.path.exists(hparams["output_wer_folder"]):
-        os.makedirs(hparams["output_wer_folder"])
+    os.makedirs(hparams["output_wer_folder"], exist_ok=True)
 
     for k in test_datasets.keys():  # keys are test_clean, test_other etc
         asr_brain.hparams.test_wer_file = os.path.join(

@@ -228,6 +228,34 @@ def ddp_broadcast(communication_object, src=0):
     return communication_list[0]
 
 
+def ddp_all_reduce(communication_object, reduce_op):
+    r"""In DDP mode, this function will perform an all_reduce operation with the
+    specified torch operator.
+
+    See: https://pytorch.org/docs/stable/distributed.html#torch.distributed.all_reduce
+
+    Arguments
+    ---------
+    communication_object: Any
+        The object to be reduced across processes.
+    reduce_op: torch.distributed.ReduceOp
+        The operation to perform. E.g. include torch.distributed.ReduceOp.AVG or
+        torch.distributed.ReduceOp.SUM. See the Torch documentation for more.
+
+    Returns
+    -------
+    The communication_object once reduced (or itself if DDP not initialised)
+    """
+
+    # If DDP not initialised or executed with a main process barrier
+    if MAIN_PROC_ONLY >= 1 or not is_distributed_initialized():
+        return communication_object
+
+    torch.distributed.all_reduce(communication_object, op=reduce_op)
+
+    return communication_object
+
+
 def ddp_init_group(run_opts):
     r"""This function will initialize the ddp group if
     distributed_launch bool is given in the python command line.

@@ -23,7 +23,6 @@ from speechbrain.nnet.attention import (
     PositionalwiseFeedForward,
     RelPosMHAXL,
     RoPEMHA,
-    RoPEPytorchMHA,
 )
 from speechbrain.nnet.hypermixing import HyperMixing
 from speechbrain.nnet.normalization import LayerNorm
@@ -416,12 +415,6 @@ class ConformerEncoderLayer(nn.Module):
                 embed_dim=d_model,
                 dropout=dropout,
             )
-        elif attention_type == "RoPEPytorchMHA":
-            self.mha_layer = RoPEPytorchMHA(
-                num_heads=nhead,
-                embed_dim=d_model,
-                dropout=dropout,
-            )
 
         self.convolution_module = ConvolutionModule(
             d_model, kernel_size, bias, activation, dropout, causal=causal
@@ -740,11 +733,7 @@ class ConformerEncoder(nn.Module):
             The output of the hidden layers of the encoder.
             Only works if output_hidden_states is set to true.
         """
-        if (
-            self.attention_type == "RelPosMHAXL"
-            or self.attention_type == "RoPEMHA"
-            or self.attention_type == "RoPEPytorchMHA"
-        ):
+        if self.attention_type == "RelPosMHAXL":
             if pos_embs is None:
                 raise ValueError(
                     f"The chosen attention type for the Conformer is {self.attention_type}. For this attention type, the positional embeddings are mandatory"
@@ -816,7 +805,6 @@ class ConformerEncoder(nn.Module):
         if (
             self.attention_type == "RelPosMHAXL"
             or self.attention_type == "RoPEMHA"
-            or self.attention_type == "RoPEPytorchMHA"
         ):
             if pos_embs is None:
                 raise ValueError(
