@@ -218,7 +218,7 @@ def fetch(
     source: Union[str, FetchSource],
     savedir: Optional[Union[str, pathlib.Path]] = None,
     overwrite: bool = False,
-    allow_updates: bool = True,
+    allow_updates: bool = False,
     allow_network: bool = True,
     save_filename: Optional[str] = None,
     use_auth_token: bool = False,
