@@ -34,8 +34,6 @@ from speechbrain.processing.vocal_features import (
 from speechbrain.utils.autocast import fwd_default_precision
 from speechbrain.utils.filter_analysis import FilterProperties
 
-VOICE_EPSILON = 1e-3
-
 
 class Fbank(torch.nn.Module):
     """Generate features for input to the speech pipeline.
@@ -695,12 +693,17 @@ class VocalFeatures(torch.nn.Module):
     sample_rate: int
         The number of samples in a second.
     log_scores: bool
-        Whether to represent the jitter/shimmer/hnr on a log scale.
+        Whether to represent the jitter/shimmer/hnr/gne on a log scale,
+        as these features are typically close to zero.
     eps: float
         The minimum value before log transformation, default of
         1e-3 results in a maximum value of 30 dB.
     sma_neighbors: int
         Number of frames to average -- default 3
+    n_mels: int (default: 23)
+        Number of filters to use for creating filterbank.
+    n_mfcc: int (default: 4)
+        Number of output coefficients
 
     Example
     -------
@@ -721,6 +724,8 @@ class VocalFeatures(torch.nn.Module):
         log_scores: bool = True,
         eps: float = 1e-3,
         sma_neighbors: int = 3,
+        n_mels: int = 23,
+        n_mfcc: int = 4,
     ):
         super().__init__()
 
@@ -738,7 +743,6 @@ class VocalFeatures(torch.nn.Module):
             self.max_lag * PERIODIC_NEIGHBORS <= self.window_samples
         ), f"Need at least {PERIODIC_NEIGHBORS} periods in a window"
 
-        n_mels, n_mfcc = 23, 4
         self.compute_fbanks = Filterbank(
             sample_rate=sample_rate,
             n_fft=self.window_samples,
@@ -760,7 +764,7 @@ class VocalFeatures(torch.nn.Module):
         Returns
         -------
         features: torch.Tensor
-            A [batch, frame, 17] tensor with the following features per-frame.
+            A [batch, frame, 13+n_mfcc] tensor with the following features per-frame.
              * autocorr_f0: A per-frame estimate of the f0 in Hz.
              * autocorr_hnr: harmonicity-to-noise ratio for each frame.
              * periodic_jitter: Average deviation in period length.
@@ -774,10 +778,7 @@ class VocalFeatures(torch.nn.Module):
              * spectral_flatness: The ratio of geometric mean to arithmetic mean.
              * spectral_crest: The ratio of spectral maximum to arithmetic mean.
              * spectral_flux: The 2-normed diff between successive spectral values.
-             * mfcc_0: The first mel cepstral coefficient.
-             * mfcc_1: The second mel cepstral coefficient.
-             * mfcc_2: The third mel cepstral coefficient.
-             * mfcc_3: The fourth mel cepstral coefficient.
+             * mfcc_{0-n_mfcc}: The mel cepstral coefficients.
         """
         assert (
             audio.dim() == 2
