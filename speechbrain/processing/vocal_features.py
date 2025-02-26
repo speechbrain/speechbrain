@@ -11,8 +11,6 @@ Authors
 import torch
 import torchaudio
 
-# Minimum value for log measures, results in max of 30dB
-EPSILON = 10**-3
 PERIODIC_NEIGHBORS = 4
 
 
@@ -285,8 +283,7 @@ def compute_gne(
     Godino-Llorente et al. in "The Effectiveness of the Glottal to Noise
     Excitation Ratio for the Screening of Voice Disorders." explore the
     goodness of the bandwidth and frequency shift parameters, the defaults
-    here are the ones recommended in that work. They also suggest using
-    log( 1 - GNE ), which they called GNE_L as the final score, as done here.
+    here are the ones recommended in that work.
 
     Arguments
     ---------
