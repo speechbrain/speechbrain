@@ -1041,6 +1041,9 @@ class InputNormalization(torch.nn.Module):
         During distributed processing, whether each speaker has been assigned
         to a specific process, used to disable the warning about speaker stats
         not communicated across processes.
+    device : str or torch.device
+        The device on which to create the global statistics. Can be changed
+        later with `.to(device)`
 
     Example
     -------
@@ -1097,6 +1100,7 @@ class InputNormalization(torch.nn.Module):
         update_until_epoch=2,
         epsilon=1e-10,
         spk_process_split=False,
+        device="cpu",
     ):
         super().__init__()
 
@@ -1111,6 +1115,7 @@ class InputNormalization(torch.nn.Module):
         self.norm_type = norm_type
         self.avg_factor = avg_factor
         self.epsilon = epsilon
+        self.device = device
 
         # Show warning if speaker & distributed & not turned off
         self.spk_warning = not spk_process_split and norm_type == "speaker"
@@ -1119,8 +1124,8 @@ class InputNormalization(torch.nn.Module):
         self.update_until_epoch = update_until_epoch or torch.inf
 
         # Containers for running mean/variance calculation
-        self.glob_mean = torch.tensor([0.0])
-        self.glob_var = torch.tensor([0.0])
+        self.glob_mean = torch.tensor([0.0], device=self.device)
+        self.glob_var = torch.tensor([0.0], device=self.device)
         self.spk_dict_mean = {}
         self.spk_dict_var = {}
         self.spk_dict_count = {}
@@ -1330,6 +1335,7 @@ class InputNormalization(torch.nn.Module):
 
     def to(self, device):
         """Puts the needed tensors in the right device."""
+        self.device = device
         self = super(InputNormalization, self).to(device)
         self.glob_mean = self.glob_mean.to(device)
         self.glob_var = self.glob_var.to(device)
@@ -1364,8 +1370,7 @@ class InputNormalization(torch.nn.Module):
             Here for compatibility, but not used.
         """
         del end_of_epoch  # Unused here.
-        device = "cpu"
-        stats = torch.load(path, map_location=device)
+        stats = torch.load(path, map_location=self.device)
         self._load_statistics_dict(stats)
 
 
