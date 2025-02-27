@@ -999,7 +999,7 @@ class ContextWindow(torch.nn.Module):
 
 @register_checkpoint_hooks
 class InputNormalization(torch.nn.Module):
-    """Performs mean and variance normalization of the input tensor.
+    """Performs mean and variance normalization over the time dimension of the input.
 
     Running mean and running variance calculation is done using Welford's
     Algorithm. A slight adaptation is used where each sample is weighted
@@ -1117,6 +1117,10 @@ class InputNormalization(torch.nn.Module):
         self.epsilon = epsilon
         self.device = device
 
+        # All norms operate over length dim, "batch", "global" over batch as well
+        self.norm_dims = (0, 1) if norm_type in ["batch", "global"] else (1,)
+
+        # Global stats can be updated with current tensor and mask
         # Show warning if speaker & distributed & not turned off
         self.spk_warning = not spk_process_split and norm_type == "speaker"
 
@@ -1125,9 +1129,9 @@ class InputNormalization(torch.nn.Module):
 
         # Containers for running mean/variance calculation
         self.glob_mean = torch.tensor([0.0], device=self.device)
-        self.glob_var = torch.tensor([0.0], device=self.device)
+        self.glob_std = torch.tensor([0.0], device=self.device)
         self.spk_dict_mean = {}
-        self.spk_dict_var = {}
+        self.spk_dict_std = {}
         self.spk_dict_count = {}
         self.count = 0
 
@@ -1167,127 +1171,87 @@ class InputNormalization(torch.nn.Module):
         # Padding mask is used to protect padding elements from updates
         mask = get_mask(x, lengths, length_dim=1)
 
-        # For full-batch norms, compute stats on all non-padding values
-        if self.norm_type == "global" or self.norm_type == "batch":
-            if self.norm_type == "batch":
-                mean, var = self._compute_current_stats(x[mask])
-            elif self.norm_type == "global":
-                if self._should_update(epoch):
-                    self._update_global_stats(x[mask], weight=x.size(0))
-                mean, var = self.glob_mean, self.glob_var
+        # Global stats should be updated, then collected
+        if self.norm_type == "global":
+            if self._should_update(epoch):
+                self._update_global_stats(x, mask)
+            mean, std = self.glob_mean, self.glob_std
+        elif self.norm_type == "speaker":
+            if self._should_update(epoch):
+                self._update_speaker_stats(x, mask, spk_ids)
+            mean, std = self._collect_speaker_stats(spk_ids)
 
-            # Normalize mean and standard deviation ignoring padding
-            mean = mean.masked_fill(~mask, 0.0)
-            std = var.sqrt().masked_fill(~mask, 1.0)
-            return (x - mean) / std
-
-        # For utterance-based norm_types "sentence" and "speaker" we require stats
-        # on variable length tensors, which are not yet supported by built-in
-        # `mean()` and `var()` functions in torch, so compute them manually.
-        elif self.norm_type == "sentence" or self.norm_type == "speaker":
-
-            # Compute mean over non-first dimensions (per-utterance)
-            dims = tuple(range(1, x.ndim))
-            mean = (x * mask).sum(dim=dims) / mask.sum(dim=dims)
-            if self.norm_type == "speaker":
-                mean = self._update_collect_spk_mean(mean, spk_ids, epoch)
-
-            # Broadcast mean to all dims, but exclude padding
-            view = (-1,) + (1,) * (x.ndim - 1)
-            mean = mean.view(view).masked_fill(~mask, 0.0)
-
-            # Compute variance per-utterance if requested
-            if self.std_norm:
-                square_diff = ((x - mean) * mask).square()
-                var = square_diff.sum(dim=dims) / (mask.sum(dim=dims) - 1)
-                if self.norm_type == "speaker":
-                    var = self._update_collect_spk_variance(var, spk_ids, epoch)
-            else:
-                var = torch.ones(x.size(0), device=x.device)
-
-            # Also broadcast standard deviation excluding padding
-            return (x - mean) / var.sqrt().view(view).masked_fill(~mask, 1.0)
-
-        # Should never get here, this is simply for safety
+        # These are the same except for `self.norm_dims`
+        elif self.norm_type in ["batch", "sentence"]:
+            mean, std = self._compute_current_stats(x, mask)
         else:
-            raise ValueError(
-                "Only 'global', 'batch', 'sentence', and 'speaker' norm_type supported"
-            )
+            raise ValueError(f"Unknown norm_type {self.norm_type}")
+
+        # Normalize using collected stats
+        return (x - mean) / std
 
     def _should_update(self, epoch):
         """Whether to perform an update, based on epoch count."""
         still_training = epoch is None or epoch < self.update_until_epoch
         return still_training and self.training
 
-    def _compute_current_stats(self, x):
-        """Computes mean and variance of an input tensor."""
-        if self.std_norm:
-            var, mean = torch.var_mean(x)
-
-            # Clamp variance for numerical stability
-            var = var.clamp(min=self.epsilon)
-        else:
-            mean = torch.mean(x)
-            var = torch.tensor(1.0, device=x.device)
-
-        return mean, var
-
-    def _update_global_stats(self, x, weight):
+    def _update_global_stats(self, x, mask, spk_ids=None):
         """Use input tensor to update global statistics."""
+        run_std = self.glob_std if self.std_norm else None
         if self.avg_factor is not None:
-            weight, self.count = self.avg_factor, (1 - self.avg_factor)
-
-        if self.std_norm:
-            self.count, self.glob_mean, self.glob_var = global_norm_update(
-                x, weight, self.count, self.glob_mean, self.glob_var
-            )
-
+            weight, run_weight = self.avg_factor, (1 - self.avg_factor)
         else:
-            self.count, self.glob_mean = global_norm_update(
-                x, weight, self.count, self.glob_mean
-            )
+            weight, run_weight = x.size(0), self.count
+        self.count, self.glob_mean, self.glob_std = mean_std_update(
+            x, mask, weight, run_weight, self.glob_mean, run_std
+        )
 
-    def _update_collect_spk_mean(self, utterance_means, spk_ids, epoch):
-        """Perform a per-speaker mean update, returning per-utterance means."""
-        if self._should_update(epoch):
-            for mean, spk_id in zip(utterance_means, spk_ids):
-                if spk_id not in self.spk_dict_count:
-                    self.spk_dict_count[spk_id] = 1
-                    self.spk_dict_mean[spk_id] = mean
-                else:
-                    self.spk_dict_count[spk_id] += 1
-                    self.spk_dict_mean[spk_id] = self._compute_spk_stat_update(
-                        self.spk_dict_mean[spk_id], mean, spk_id
-                    )
+    def _update_speaker_stats(self, x, mask, spk_ids):
+        """Perform a per-speaker statistics update."""
+        means, stds = self._compute_current_stats(x, mask)
+        for mean, std, spk_id in zip(means, stds, spk_ids):
+            if spk_id not in self.spk_dict_count:
+                self.spk_dict_count[spk_id] = 1
+                self.spk_dict_mean[spk_id] = mean
+                self.spk_dict_std[spk_id] = std
+            else:
+                self.spk_dict_count[spk_id] += 1
+                self._update_stat(self.spk_dict_mean, mean, spk_id)
+                self._update_stat(self.spk_dict_std, std, spk_id)
 
-        for i, spk_id in enumerate(spk_ids):
-            utterance_means[i] = self.spk_dict_mean[spk_id]
-        return utterance_means
-
-    def _update_collect_spk_variance(self, utterance_vars, spk_ids, epoch):
-        """Perform a per-speaker variance update, returning per-utterance variances."""
-        if self._should_update(epoch):
-            for var, spk_id in zip(utterance_vars, spk_ids):
-                if spk_id not in self.spk_dict_var:
-                    self.spk_dict_var[spk_id] = var
-                else:
-                    self.spk_dict_var[spk_id] = self._compute_spk_stat_update(
-                        self.spk_dict_var[spk_id], var, spk_id
-                    )
-
-        for i, spk_id in enumerate(spk_ids):
-            utterance_vars[i] = self.spk_dict_var[spk_id]
-        return utterance_vars
-
-    def _compute_spk_stat_update(self, old_value, new_value, spk_id):
+    def _update_stat(self, dictionary, new_value, spk_id):
         """Compute weighted update according to avg_factor or count."""
         count = self.spk_dict_count[spk_id]
         if self.avg_factor:
             new_w, old_w = self.avg_factor, (1 - self.avg_factor)
         else:
             new_w, old_w = 1 / count, (count - 1) / count
+        dictionary[spk_id] = dictionary[spk_id] * old_w + new_value * new_w
 
-        return old_value * old_w + new_value * new_w
+    def _collect_speaker_stats(self, spk_ids):
+        """Take a list of spk_ids and turn it into usable speaker stats."""
+        mean = torch.stack(self.spk_dict_mean[s] for s in spk_ids)
+        std = torch.stack(self.spk_dict_std[s] for s in spk_ids)
+        return mean, std
+
+    def _compute_current_stats(self, x, mask):
+        """Computes mean and variance of an input tensor along time dimension."""
+        n = mask.sum(dim=self.norm_dims, keepdim=True)
+        mean = (x * mask).sum(dim=self.norm_dims, keepdim=True) / n
+
+        if self.std_norm:
+            sq_diff = ((x - mean) * mask).square()
+            var = sq_diff.sum(dim=self.norm_dims, keepdim=True) / (n - 1)
+            # Clamp variance for numerical stability
+            var = var.clamp(min=self.epsilon)
+        else:
+            var = torch.tensor(1.0, device=x.device)
+
+        # Broadcast back to reduced dimensions ignoring padding
+        mean = mean.masked_fill(~mask, 0.0)
+        std = var.sqrt().masked_fill(~mask, 1.0)
+
+        return mean, std
 
     def _statistics_dict(self):
         """Fills the dictionary containing the normalization statistics.
@@ -1297,19 +1261,15 @@ class InputNormalization(torch.nn.Module):
         state = {}
         state["count"] = self.count
         state["glob_mean"] = self.glob_mean
-        state["glob_std"] = self.glob_var.sqrt()
+        state["glob_std"] = self.glob_std
         state["spk_dict_count"] = self.spk_dict_count
         state["spk_dict_mean"] = self.spk_dict_mean
-        state["spk_dict_std"] = {
-            spk: var.sqrt() for spk, var in self.spk_dict_var.items()
-        }
+        state["spk_dict_std"] = self.spk_dict_std
 
         return state
 
     def _load_statistics_dict(self, state):
         """Loads the dictionary containing the statistics.
-
-        Standard deviation is loaded instead of variance for backward compatibility.
 
         Arguments
         ---------
@@ -1322,14 +1282,10 @@ class InputNormalization(torch.nn.Module):
         """
         self.count = state["count"]
         self.glob_mean = state["glob_mean"]
-        self.glob_var = state["glob_std"] ** 2
-
-        # Loading the speaker-specific stats
-        self.spk_dict_count = state["spk_dict_count"]
+        self.glob_std = state["glob_std"]
         self.spk_dict_mean = state["spk_dict_mean"].copy()
-        self.spk_dict_var = {
-            spk: std**2 for spk, std in state["spk_dict_std"].items()
-        }
+        self.spk_dict_std = state["spk_dict_std"].copy()
+        self.spk_dict_count = state["spk_dict_count"]
 
         return state
 
@@ -1338,10 +1294,10 @@ class InputNormalization(torch.nn.Module):
         self.device = device
         self = super(InputNormalization, self).to(device)
         self.glob_mean = self.glob_mean.to(device)
-        self.glob_var = self.glob_var.to(device)
+        self.glob_std = self.glob_std.to(device)
         for spk in self.spk_dict_mean:
             self.spk_dict_mean[spk] = self.spk_dict_mean[spk].to(device)
-            self.spk_dict_var[spk] = self.spk_dict_var[spk].to(device)
+            self.spk_dict_std[spk] = self.spk_dict_std[spk].to(device)
         return self
 
     @mark_as_saver
@@ -1374,8 +1330,8 @@ class InputNormalization(torch.nn.Module):
         self._load_statistics_dict(stats)
 
 
-def global_norm_update(new_tensor, new_weight, weight, mean, var=None):
-    """Welford's algorithm for running mean, squared-diff (from Wikipedia)
+def mean_std_update(x, mask, weight, dim, run_sum, run_mean, run_std=None):
+    """Welford's algorithm for running mean, variance (from Wikipedia)
 
     Incorporate a new tensor into running statistics. Allows for weighting
     each tensor differently, e.g. by length. Handles sync across processes.
@@ -1385,44 +1341,49 @@ def global_norm_update(new_tensor, new_weight, weight, mean, var=None):
 
     Arguments
     ---------
-    new_tensor : torch.Tensor
+    x : torch.Tensor
         The new values to add to the running stats
-    new_weight : float or torch.Tensor
-        The amount to weight this sample (e.g. 1.0 or relative length)
+    mask : torch.Tensor
+        A mask indicating padding positions to be ignored
     weight : float or torch.Tensor
+        The amount to weight this sample (e.g. 1.0 or relative length)
+    dim : tuple or int
+        The dimension or dimensions to reduce (e.g. 1 for length)
+    run_sum : float or torch.Tensor
         The running weight of samples seen so far
-    mean : float or torch.Tensor
+    run_mean : float or torch.Tensor
         The running mean of samples seen so far
-    var : float or torch.Tensor, optional
-        The running variance (mean squared-diff) from the mean
+    run_std : float or torch.Tensor, optional
+        The running standard deviations from the mean
         If None, the variance is not computed.
 
     Returns
     -------
-    weight : torch.Tensor
+    run_sum : torch.Tensor
         Updated weight sum for all samples so far.
-    mean : torch.Tensor
+    run_mean : torch.Tensor
         Updated running mean of all samples so far.
-    var : torch.Tensor (if passed)
-        Updated running variance of all samples so far.
+    run_std : torch.Tensor (if passed)
+        Updated running standard deviations of all samples so far.
     """
     # Update mean for use in variance
-    delta = new_tensor - mean
-    mean += delta.mean() * new_weight / (weight + new_weight)
+    delta = x - run_mean
+    run_mean += delta.mean(dim=dim) * weight / (run_sum + weight)
 
     # Update variance, including sync
-    if var is not None:
-        delta2 = new_tensor - mean
-        new_var = (delta * delta2).sum() / (delta.numel() - 1)
-        var = (var * weight + new_var * new_weight) / (weight + new_weight)
-        var = ddp_all_reduce(var, torch.distributed.ReduceOp.AVG)
+    if run_std is not None:
+        var = run_std.square()
+        delta2 = x - run_mean
+        new_var = (delta * delta2).sum(dim=dim) / (delta.size(dim).numel() - 1)
+        std = ((var * run_sum + new_var * weight) / (run_sum + weight)).sqrt()
+        run_std = ddp_all_reduce(std, torch.distributed.ReduceOp.AVG)
 
     # Communicate mean, weight across processes
     # Wait til after variance update to avoid negative variance
-    mean = ddp_all_reduce(mean, torch.distributed.ReduceOp.AVG)
-    weight += ddp_all_reduce(new_weight, torch.distributed.ReduceOp.SUM)
+    run_mean = ddp_all_reduce(run_mean, torch.distributed.ReduceOp.AVG)
+    run_sum += ddp_all_reduce(weight, torch.distributed.ReduceOp.SUM)
 
-    return (weight, mean, var) if var is not None else (weight, mean)
+    return run_sum, run_mean, run_std
 
 
 def get_mask(x, lengths=None, length_dim=1):
@@ -1529,10 +1490,10 @@ class GlobalNorm(torch.nn.Module):
         super().__init__()
 
         running_mean = torch.tensor(0.0)
-        running_var = torch.tensor(0.0)
+        running_std = torch.tensor(0.0)
         weight = torch.tensor(0.0)
         self.register_buffer("running_mean", running_mean)
-        self.register_buffer("running_var", running_var)
+        self.register_buffer("running_std", running_std)
         self.register_buffer("weight", weight)
         self.norm_mean = norm_mean
         self.norm_std = norm_std
@@ -1571,7 +1532,7 @@ class GlobalNorm(torch.nn.Module):
 
         # Update statistics using this tensor if needed
         if not skip_update and self.should_update():
-            self.perform_update(x[mask], weight=lengths.sum())
+            self.perform_update(x, mask, weight=lengths.sum())
 
         # Perform normalization using running stats to desired mean and std
         x = self.normalize(x)
@@ -1595,10 +1556,16 @@ class GlobalNorm(torch.nn.Module):
             return True
         return self.step_count < self.update_steps
 
-    def perform_update(self, tensor, weight):
+    def perform_update(self, tensor, mask, weight):
         """Update running statistics with new tensor data."""
-        self.weight, self.running_mean, self.running_var = global_norm_update(
-            tensor, weight, self.weight, self.running_mean, self.running_var
+        self.weight, self.running_mean, self.running_std = mean_std_update(
+            x=tensor,
+            mask=mask,
+            weight=weight,
+            dim=None,
+            run_sum=self.weight,
+            run_mean=self.running_mean,
+            run_std=self.running_std,
         )
 
     def normalize(self, x):
@@ -1615,7 +1582,7 @@ class GlobalNorm(torch.nn.Module):
         result: torch.Tensor
             the normalized tensor
         """
-        x = (x - self.running_mean) / self.running_var.sqrt()
+        x = (x - self.running_mean) / self.running_std
         x = (x * self.norm_std) + self.norm_mean
         return x
 
@@ -1633,7 +1600,7 @@ class GlobalNorm(torch.nn.Module):
             a denormalized version of x
         """
         x = (x - self.norm_mean) / self.norm_std
-        x = x * self.running_var.sqrt() + self.running_mean
+        x = x * self.running_std + self.running_mean
         return x
 
     def freeze(self):

@@ -354,9 +354,9 @@ def test_global_norm_update():
 
     # Call the function
     try:
-        from speechbrain.processing.features import global_norm_update
+        from speechbrain.processing.features import mean_var_update
 
-        updated_weight, updated_mean, updated_var = global_norm_update(
+        updated_weight, updated_mean, updated_var = mean_var_update(
             new_tensor, new_weight, weight, mean, var
         )
     finally:
