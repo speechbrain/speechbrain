@@ -259,13 +259,13 @@ DEFAULT_LOAD_HOOKS = {
     torch.nn.Module: torch_recovery,
     torch.optim.Optimizer: torch_recovery,
     torch.optim.lr_scheduler.ReduceLROnPlateau: torch_recovery,
-    torch.cuda.amp.grad_scaler.GradScaler: torch_recovery,
+    torch.amp.grad_scaler.GradScaler: torch_recovery,
 }
 DEFAULT_SAVE_HOOKS = {
     torch.nn.Module: torch_save,
     torch.optim.Optimizer: torch_save,
     torch.optim.lr_scheduler.ReduceLROnPlateau: torch_save,
-    torch.cuda.amp.grad_scaler.GradScaler: torch_save,
+    torch.amp.grad_scaler.GradScaler: torch_save,
 }
 if version.parse(torch.__version__) < version.parse("2.0.0"):
     DEFAULT_LOAD_HOOKS[torch.optim.lr_scheduler._LRScheduler] = torch_recovery
