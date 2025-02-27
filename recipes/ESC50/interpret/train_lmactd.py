@@ -11,10 +11,13 @@ Authors
     * Francesco Paissan 2024
     * Cem Subakan 2024
 """
+import os
 import sys
 
+import matplotlib.pyplot as plt
 import torch
 import torch.nn.functional as F
+import torchaudio
 from esc50_prepare import dataio_prep, prepare_esc50
 from hyperpyyaml import load_hyperpyyaml
 from interpreter_brain import InterpreterBrain
@@ -40,6 +43,7 @@ def tv_loss(mask, tv_weight=1, power=2, border_penalty=0.3):
 
 
 class LMAC(InterpreterBrain):
+
     def crosscor(self, spectrogram, template):
         """Compute the cross correlation metric defined in the L-MAC paper, used in finetuning"""
         if self.hparams.crosscortype == "conv":
@@ -82,28 +86,33 @@ class LMAC(InterpreterBrain):
 
     def interpret_computation_steps(self, wavs, print_probability=False):
         """Computation steps to get the interpretation spectrogram"""
-        X_stft_logpower, X_mel, X_stft, _ = self.preprocess(wavs)
-        X_stft_phase = spectral_phase(X_stft)
+        X_stft_logpower, X_mel, _, X_stft_power = self.preprocess(wavs)
 
-        hcat, _, predictions, class_pred = self.classifier_forward(X_mel)
-        if print_probability:
-            predictions = F.softmax(predictions, dim=1)
-            class_prob = predictions[0, class_pred].item()
-            print(f"classifier_prob: {class_prob}")
+        # Embeddings + sound classifier
+        hcat, _, predictions, _ = self.classifier_forward(X_mel)
 
-        xhat = self.modules.psi(hcat).squeeze(1)
+        wavs_encoded = self.modules.encoder(wavs)
+        decoder_out = self.modules.convt_decoder(hcat)
+        decoder_out = decoder_out.squeeze(1).permute(0, 2, 1)[
+            :, :, : wavs_encoded.shape[-1]
+        ]
 
-        Tmax = xhat.shape[1]
-        if self.hparams.use_mask_output:
-            xhat = F.sigmoid(xhat)
-            X_int = xhat * X_stft_logpower[:, :Tmax, :]
+        al = self.hparams.alpha_mix
+        est_mask = self.modules.masknet(
+            wavs_encoded * (1 - al) + decoder_out * (al)
+        ).squeeze()
 
-        return (
-            X_int.transpose(1, 2),
-            xhat.transpose(1, 2),
-            X_stft_phase,
-            X_stft_logpower,
+        sep_h = wavs_encoded * est_mask
+        # the [0] is bc we only have one source
+        interp = self.modules.decoder(sep_h)
+        mask_out_t = self.modules.decoder((wavs_encoded * (1 - est_mask)))
+
+        # Preliminary operations for visualization
+        X_stft_logpower_interp, X_mel_interp, _, X_stft_power_interp = (
+            self.preprocess(interp)
         )
+
+        return X_stft_logpower_interp.transpose(1, 2), interp
 
     def compute_forward(self, batch, stage):
         """Forward computation defined for to generate the saliency maps with L-MAC"""
@@ -114,16 +123,45 @@ class LMAC(InterpreterBrain):
         if hasattr(self.hparams, "add_wham_noise"):
             if self.hparams.add_wham_noise:
                 wavs = combine_batches(wavs, iter(self.hparams.wham_dataset))
-
-        X_stft_logpower, X_mel, X_stft, _ = self.preprocess(wavs)
+        X_stft_logpower, X_mel, _, X_stft_power = self.preprocess(wavs)
 
         # Embeddings + sound classifier
-        hcat, _, predictions, class_pred = self.classifier_forward(X_mel)
+        hcat, _, predictions, _ = self.classifier_forward(X_mel)
 
-        xhat = self.modules.psi(hcat).squeeze(1)
+        wavs_encoded = self.modules.encoder(wavs)
+        decoder_out = self.modules.convt_decoder(hcat)
+        decoder_out = decoder_out.squeeze().permute(0, 2, 1)[
+            :, :, : wavs_encoded.shape[-1]
+        ]
 
-        if self.hparams.use_mask_output:
-            xhat = F.sigmoid(xhat)
+        al = self.hparams.alpha_mix
+        est_mask = self.modules.masknet(
+            wavs_encoded * (1 - al) + decoder_out * (al)
+        ).squeeze()
+
+        sep_h = wavs_encoded * est_mask
+        # the [0] is bc we only have one source
+        interp = self.modules.decoder(sep_h)
+        mask_out_t = self.modules.decoder((wavs_encoded * (1 - est_mask)))
+
+        # Preliminary operations for visualization
+        X_stft_logpower_interp, X_mel_interp, _, X_stft_power_interp = (
+            self.preprocess(interp)
+        )
+        est_mask_time_domain = self.modules.decoder(est_mask)
+        X_stft_logpower_mask, X_mel_mask, _, _ = self.preprocess(
+            est_mask_time_domain
+        )
+
+        saliency_map = X_mel_interp / (
+            X_mel + 1e-8
+        )  # Add a small constant to avoid division by zero
+
+        # interp_mask = self.modules.masknet(sep_h[0], hcat)
+        # interp_mask_time_domain = self.modules.decoder(interp_mask[0])
+        # X_stft_logpower_interp_mask, _, _, X_stft_power_interp_mask = self.preprocess(interp_mask_time_domain)
+
+        # saliency_map = X_stft_logpower_interp_mask / (X_stft_power + 1e-8)  # Add a small constant to avoid division by zero
 
         if stage == sb.Stage.VALID:
             # save some samples
@@ -131,13 +169,46 @@ class LMAC(InterpreterBrain):
                 self.hparams.epoch_counter.current
                 % self.hparams.interpret_period
             ) == 0 and self.hparams.save_interpretations:
-                self.viz_ints(X_stft, X_stft_logpower, batch, wavs)
+                self.viz_ints(
+                    wavs,
+                    X_stft_logpower,
+                    interp,
+                    X_stft_logpower_interp,
+                    est_mask_time_domain,
+                    X_stft_logpower_mask,
+                    est_mask,
+                    saliency_map,
+                    batch,
+                )
 
         if stage == sb.Stage.TEST and self.hparams.save_interpretations:
             # During TEST save always, if required
-            self.viz_ints(X_stft, X_stft_logpower, batch, wavs)
+            self.viz_ints(
+                wavs,
+                X_stft_logpower,
+                interp,
+                X_stft_logpower_interp,
+                est_mask_time_domain,
+                X_stft_logpower_mask,
+                est_mask,
+                saliency_map,
+                batch,
+            )
 
-        return ((wavs, lens), predictions, xhat, hcat)
+        # if stage == sb.Stage.TEST and self.hparams.save_interpretations:
+        #     # During TEST save always, if required
+        #     self.viz_ints(
+        #         wavs,
+        #         X_stft_logpower,
+        #         interp,
+        #         X_stft_logpower_interp,
+        #         est_mask_time_domain,
+        #         X_stft_logpower_mask,
+        #         est_mask[0],
+        #         batch
+        #     )
+
+        return ((wavs, lens), predictions, interp, hcat, est_mask, mask_out_t)
 
     def extra_metrics(self):
         """This function defines the extra metrics required for L-MAC.
@@ -147,16 +218,12 @@ class LMAC(InterpreterBrain):
         def counter(c):
             return c
 
-        return {"in_masks": counter}
+        # return {"in_masks": counter}
+        return {}
 
     def compute_objectives(self, pred, batch, stage):
         """Helper function to compute the objectives"""
-        (
-            batch_sig,
-            predictions,
-            xhat,
-            _,
-        ) = pred
+        (batch_sig, predictions, interp, _, est_mask, mask_out_t) = pred
 
         batch = batch.to(self.device)
         wavs_clean, _ = batch.sig
@@ -175,85 +242,34 @@ class LMAC(InterpreterBrain):
         ) = self.preprocess(wavs_clean)
         X_stft_logpower, _, _, _ = self.preprocess(wavs)
 
-        Tmax = xhat.shape[1]
-
         # map clean to same dimensionality
-        X_stft_logpower_clean = X_stft_logpower_clean[:, :Tmax, :]
+        # X_stft_logpower_clean = X_stft_logpower_clean[:, :Tmax, :]
 
-        mask_in = xhat * X_stft_logpower[:, :Tmax, :]
-        mask_out = (1 - xhat) * X_stft_logpower[:, :Tmax, :]
+        X_stft_logpower_interp, X_interp_mel, _, _ = self.preprocess(interp)
+        _, mask_out_mel, _, _ = self.preprocess(mask_out_t)
 
-        if self.hparams.use_stft2mel:
-            X_in = torch.expm1(mask_in)
-            mask_in_mel = self.hparams.compute_fbank(X_in)
-            mask_in_mel = torch.log1p(mask_in_mel)
+        # mask_in = xhat * X_stft_logpower[:, :Tmax, :]
+        # mask_out = (1 - xhat) * X_stft_logpower[:, :Tmax, :]
 
-            X_out = torch.expm1(mask_out)
-            mask_out_mel = self.hparams.compute_fbank(X_out)
-            mask_out_mel = torch.log1p(mask_out_mel)
-
-        if self.hparams.finetuning:
-            crosscor = self.crosscor(X_stft_logpower_clean, mask_in)
-            crosscor_mask = (crosscor >= self.hparams.crosscor_th).float()
-
-            max_batch = (
-                X_stft_logpower_clean.view(X_stft_logpower_clean.shape[0], -1)
-                .max(1)
-                .values.view(-1, 1, 1)
-            )
-            binarized_oracle = (
-                X_stft_logpower_clean >= self.hparams.bin_th * max_batch
-            ).float()
-
-            if self.hparams.guidelosstype == "binary":
-                rec_loss = (
-                    F.binary_cross_entropy(
-                        xhat, binarized_oracle, reduce=False
-                    ).mean((-1, -2))
-                    * self.hparams.g_w
-                    * crosscor_mask
-                ).mean()
-            else:
-                temp = (
-                    (
-                        (
-                            xhat
-                            * X_stft_logpower[
-                                :, : X_stft_logpower_clean.shape[1], :
-                            ]
-                        )
-                        - X_stft_logpower_clean
-                    )
-                    .pow(2)
-                    .mean((-1, -2))
-                )
-                rec_loss = (temp * crosscor_mask).mean() * self.hparams.g_w
-
-        else:
-            rec_loss = 0
-            crosscor_mask = torch.zeros(xhat.shape[0], device=self.device)
-
-        mask_in_preds = self.classifier_forward(mask_in_mel)[2]
+        mask_in_preds = self.classifier_forward(X_interp_mel)[2]
         mask_out_preds = self.classifier_forward(mask_out_mel)[2]
 
         class_pred = predictions.argmax(1)
         l_in = F.nll_loss(mask_in_preds.log_softmax(1), class_pred)
         l_out = -F.nll_loss(mask_out_preds.log_softmax(1), class_pred)
+
         ao_loss = l_in * self.hparams.l_in_w + self.hparams.l_out_w * l_out
 
-        r_m = (
-            xhat.abs().mean((-1, -2, -3))
-            * self.hparams.reg_w_l1
-            * torch.logical_not(crosscor_mask)
-        ).sum()
-        r_m += (
-            tv_loss(xhat)
-            * self.hparams.reg_w_tv
-            * torch.logical_not(crosscor_mask)
-        ).sum()
+        rec_loss = (
+            self.hparams.rec_loss(
+                (mask_out_t + interp)[..., None], wavs[..., None]
+            )
+        ).mean() * self.hparams.reg_w_sum
+
+        # l1_reg = est_mask.abs().mean() * self.hparams.reg_w_l1
+        l1_reg = X_stft_logpower_interp.abs().mean() * self.hparams.reg_w_l1
 
         mask_in_preds = mask_in_preds.softmax(1)
-        mask_out_preds = mask_out_preds.softmax(1)
 
         if stage == sb.Stage.VALID or stage == sb.Stage.TEST:
             self.inp_fid.append(
@@ -281,10 +297,10 @@ class LMAC(InterpreterBrain):
             self.faithfulness.append(
                 uttid,
                 predictions.softmax(1),
-                mask_out_preds,
+                mask_out_preds.softmax(1),
             )
 
-        self.in_masks.append(uttid, c=crosscor_mask)
+        # self.in_masks.append(uttid, c=crosscor_mask)
         self.acc_metric.append(
             uttid,
             predict=predictions,
@@ -295,7 +311,7 @@ class LMAC(InterpreterBrain):
             if hasattr(self.hparams.lr_annealing, "on_batch_end"):
                 self.hparams.lr_annealing.on_batch_end(self.optimizer)
 
-        return ao_loss + r_m + rec_loss
+        return ao_loss + l1_reg + rec_loss
 
 
 if __name__ == "__main__":
@@ -378,6 +394,7 @@ if __name__ == "__main__":
         # assert hparams["out_n_neurons"] == 50, "Fix number of outputs classes!"
 
     class_labels = list(label_encoder.ind2lab.values())
+    hparams["class_labels"] = class_labels
     print("Class Labels:", class_labels)
 
     if hparams["finetuning"]:
@@ -403,6 +420,17 @@ if __name__ == "__main__":
         print("Loading model...")
         run_on_main(hparams["pretrained_esc50"].collect_files)
         hparams["pretrained_esc50"].load_collected()
+
+    if hparams["pretrained_ed_path"] is not None:
+        print(
+            "Loading pretrained encoder-decoder for interpreter finetuning..."
+        )
+        run_on_main(hparams["load_encoder"].collect_files)
+        hparams["load_encoder"].load_collected()
+        if hparams["freeze_encoder"]:
+            hparams["Encoder"].requires_grad_(False)
+        if hparams["freeze_decoder"]:
+            hparams["Decoder"].requires_grad_(False)
 
     hparams["embedding_model"].to(Interpreter_brain.device)
     hparams["classifier"].to(Interpreter_brain.device)

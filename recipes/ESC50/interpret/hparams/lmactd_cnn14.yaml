@@ -7,13 +7,16 @@
 # #################################
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
-seed: 1234
+seed: 44
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 
 # Set up folders for reading from and writing to
 # Dataset must already exist at `audio_data_folder`
 data_folder: /mnt/data/ESC50 # e.g., /localscratch/UrbanSound8K
+#data_folder: /mnt/hdd/emancini/Repositories_Ele/audio_interpretability/recipes/ESC50/data2/ESC-50-master
 audio_data_folder: !ref <data_folder>/audio
+
+rec_loss: !name:speechbrain.nnet.losses.get_si_snr_with_pitwrapper
 
 single_sample: null
 
@@ -24,6 +27,8 @@ l_in_w: 4
 l_out_w: 0.2
 reg_w_tv: 0.0
 reg_w_l1: 0.4
+alpha_mix: 1
+reg_w_sum: 0.0
 
 g_w: 4 # regularization weight of oracles
 crosscor_th: 0.6
@@ -32,7 +37,8 @@ finetuning: False
 guidelosstype: binary
 crosscortype: 'dotp'
 
-experiment_name: LMAC_cnn14
+#experiment_name: SepformerLMAC_cnn14_Sigmoid
+experiment_name: sepformerlmac_classifierreps
 output_folder: !ref ./results/<experiment_name>/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
@@ -43,6 +49,12 @@ wham_audio_folder: !ref <wham_folder>/tr
 test_only: False
 save_interpretations: True
 interpret_period: 10
+
+# Conditioning
+cond_attention_type: 'block' # can be 'cross' or 'block'
+use_intra_transformer_encoder: False
+condition_intra: True
+condition_inter: False
 
 # Tensorboard logs
 use_tensorboard: False
@@ -68,7 +80,7 @@ ckpt_interval_minutes: 15 # save checkpoint every N min
 
 # Training parameters
 number_of_epochs: 200
-batch_size: 16
+batch_size: 2
 lr: 0.0002
 sample_rate: 16000
 use_mask_output: True
@@ -107,18 +119,22 @@ train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     checkpoints_dir: !ref <save_folder>
     recoverables:
-        psi_model: !ref <psi_model>
         counter: !ref <epoch_counter>
-
+        masknet: !ref <MaskNet>
+        encoder: !ref <Encoder>
+        decoder: !ref <Decoder>
+        convt_decoder: !ref <convt_decoder>
+        # psi_model: !ref <psi_model>
 
 return_reps: True
+emb_dim: 2048
 embedding_model: !new:speechbrain.lobes.models.Cnn14.Cnn14
     mel_bins: !ref <n_mels>
-    emb_dim: 2048
+    emb_dim: !ref <emb_dim>
     return_reps: !ref <return_reps>
 
 classifier: !new:torch.nn.Linear
-    in_features: 2048
+    in_features: !ref <emb_dim>
     out_features: !ref <out_n_neurons>
 
 
@@ -126,12 +142,26 @@ classifier: !new:torch.nn.Linear
 # the typical path would be similar to results/LMAC_cnn14/1234/save/CKPT+2024-06-20+16-05-44+00/psi_model.ckpt
 pretrained_interpreter: null
 
-load_pretrained: !new:speechbrain.utils.parameter_transfer.Pretrainer
+# load_pretrained: !new:speechbrain.utils.parameter_transfer.Pretrainer
+#     collect_in: !ref <save_folder>
+#     loadables:
+#         psi: !ref <psi_model>
+#     paths:
+#         psi: !ref <pretrained_interpreter>
+#
+
+freeze_encoder: True
+freeze_decoder: True
+
+pretrained_ed_path: null
+load_encoder: !new:speechbrain.utils.parameter_transfer.Pretrainer
     collect_in: !ref <save_folder>
     loadables:
-        psi: !ref <psi_model>
+        encoder: !ref <Encoder>
+        decoder: !ref <Decoder>
     paths:
-        psi: !ref <pretrained_interpreter>
+        encoder: !ref <pretrained_ed_path>/encoder.ckpt
+        decoder: !ref <pretrained_ed_path>/decoder.ckpt
 
 use_pretrained: True
 embedding_model_path: fpaissan/r/embedding_model.ckpt
@@ -170,11 +200,79 @@ compute_istft: !new:speechbrain.processing.features.ISTFT
     hop_length: !ref <hop_length>
     win_length: !ref <win_length>
 
-psi_model: !new:speechbrain.lobes.models.Cnn14.CNN14PSI_stft
-    dim: 2048
+
+kernel_size: 16
+kernel_stride: 8
+N_encoder_out: 256
+out_channels: 256
+num_spks: 1
+Encoder: !new:speechbrain.lobes.models.dual_path.Encoder
+    kernel_size: !ref <kernel_size>
+    out_channels: !ref <N_encoder_out>
+
+n_heads_conditioning: 4
+
+SBtfintra: !new:speechbrain.lobes.models.dual_path.SBTransformerBlock
+    num_layers: 8
+    d_model: !ref <out_channels>
+    nhead: 8
+    d_ffn: 256
+    dropout: 0
+    use_positional_encoding: True
+    norm_before: True
+
+SBtfinter: !new:speechbrain.lobes.models.dual_path.SBTransformerBlock
+    num_layers: 2
+    d_model: !ref <out_channels>
+    nhead: 8
+    d_ffn: 256
+    dropout: 0
+    use_positional_encoding: True
+    norm_before: True
+
+MaskNet: !new:speechbrain.lobes.models.dual_path.Dual_Path_Model
+    num_spks: !ref <num_spks>
+    in_channels: !ref <N_encoder_out>
+    out_channels: !ref <out_channels>
+    num_layers: 2
+    K: 250
+    intra_model: !ref <SBtfintra>
+    inter_model: !ref <SBtfinter>
+    norm: ln
+    linear_layer_after_inter_intra: False
+    skip_around_intra: True
+    activation_type: sigmoid
+
+
+#MaskNet: !new:speechbrain.lobes.models.dual_path.Dual_Path_Model
+convt_decoder: !new:lmac_sepformerstuff.CNN14PSI_encoderdecoder
+    dim: 2048    
+    outdim: 1 
+    apply_sigmoid: False
+
+#Decoder: !new:speechbrain.lobes.models.dual_path.Decoder
+Decoder: !new:speechbrain.lobes.models.dual_path.Decoder
+    in_channels: !ref <N_encoder_out>
+    out_channels: 1
+    kernel_size: !ref <kernel_size>
+    stride: !ref <kernel_stride>
+    bias: False
+
+#common_dim: 256
+# pooling_type: 'attention' 
+# output_size: (1, 1)
+
+# MultiResolutionPooling: !new:lmac_sepformerstuff.MultiResolutionPooling
+#     pooling_type: !ref <pooling_type>
+#     out_dim: !ref <emb_dim>
+#     output_size: !ref <output_size>
 
 modules:
     compute_stft: !ref <compute_stft>
     compute_fbank: !ref <compute_fbank>
     compute_istft: !ref <compute_istft>
-    psi: !ref <psi_model>
+    convt_decoder: !ref <convt_decoder>
+    masknet: !ref <MaskNet>
+    encoder: !ref <Encoder>
+    decoder: !ref <Decoder>
+    #pooling: !ref <MultiResolutionPooling>
