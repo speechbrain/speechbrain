@@ -1,4 +1,3 @@
-import numpy as np
 import pytest
 import torch
 
@@ -130,7 +129,7 @@ class TestInputNormalization:
 
         # Save statistics after first epoch
         saved_mean = norm.glob_mean.clone()
-        saved_var = norm.glob_var.clone()
+        saved_std = norm.glob_std.clone()
         saved_count = norm.count
 
         # Second call (epoch 1) - should update statistics
@@ -139,11 +138,11 @@ class TestInputNormalization:
 
         # Check that statistics have been updated
         assert not torch.allclose(saved_mean, norm.glob_mean, atol=1e-5)
-        assert not torch.allclose(saved_var, norm.glob_var, atol=1e-5)
+        assert not torch.allclose(saved_std, norm.glob_std, atol=1e-5)
 
         # Save statistics after second input
         saved_mean = norm.glob_mean.clone()
-        saved_var = norm.glob_var.clone()
+        saved_std = norm.glob_std.clone()
         saved_count = norm.count
 
         # Third call (epoch 2) - should not update statistics
@@ -152,7 +151,7 @@ class TestInputNormalization:
 
         # Check that statistics have not been updated
         assert torch.allclose(saved_mean, norm.glob_mean, atol=1e-5)
-        assert torch.allclose(saved_var, norm.glob_var, atol=1e-5)
+        assert torch.allclose(saved_std, norm.glob_std, atol=1e-5)
         assert saved_count == norm.count
 
     def test_speaker_normalization(self, sample_data, speaker_ids):
@@ -165,7 +164,7 @@ class TestInputNormalization:
 
         # Check that speaker stats have been created
         assert 1 in norm.spk_dict_mean and 2 in norm.spk_dict_mean
-        assert 1 in norm.spk_dict_var and 2 in norm.spk_dict_var
+        assert 1 in norm.spk_dict_std and 2 in norm.spk_dict_std
         assert 1 in norm.spk_dict_count and 2 in norm.spk_dict_count
 
         # Each speaker should have count equal to occurrences
@@ -209,21 +208,21 @@ class TestInputNormalization:
         saved_mean = norm.glob_mean.clone()
 
         # Second call with shifted data
-        x2 = x + 10.0  # Large shift
+        shift = 10.0
+        x2 = x + shift
         _ = norm(x2, lengths)
 
-        # With avg_factor=0.1, the mean should change to:
-        expected_mean = 0.9 * saved_mean + 0.1 * x2[mask].mean()
+        expected_mean = saved_mean + shift * avg_factor
 
         # Check that mean has been updated with the expected weight
-        assert np.isclose(norm.glob_mean, expected_mean, atol=1e-4)
+        assert torch.allclose(norm.glob_mean, expected_mean, atol=1e-4)
 
         # Check that after many trials, the overall stats match the tensor stats
         for i in range(100):
             _ = norm(x, lengths)
 
-        assert np.isclose(norm.glob_mean, x[mask].mean(), atol=1e-4)
-        assert np.isclose(norm.glob_var, x[mask].var(), atol=1e-3)
+        assert torch.allclose(norm.glob_mean, x[mask].mean(), atol=1e-4)
+        assert torch.allclose(norm.glob_std, x[mask].std(), atol=1e-3)
 
     def test_no_std_normalization(self, sample_data):
         """Test normalization with std_norm=False."""
@@ -256,7 +255,7 @@ class TestInputNormalization:
 
         # Check that the loaded statistics match
         assert torch.allclose(norm.glob_mean, new_norm.glob_mean)
-        assert torch.allclose(norm.glob_var, new_norm.glob_var)
+        assert torch.allclose(norm.glob_std, new_norm.glob_std)
         assert norm.count == new_norm.count
 
         # Ensure both normalizers produce the same output
@@ -282,7 +281,7 @@ class TestInputNormalization:
 
         # Check that tensors are on the right device
         assert norm.glob_mean.device.type == "cuda"
-        assert norm.glob_var.device.type == "cuda"
+        assert norm.glob_std.device.type == "cuda"
 
         # Test on GPU
         x_cuda = x.to("cuda")
@@ -328,11 +327,13 @@ def test_global_norm_update():
     """Test the global_norm_update function."""
 
     # Setup
-    new_tensor = torch.tensor([1.0, 2.0, 3.0])
-    new_weight = 1.0
-    weight = 2.0
-    mean = torch.tensor(2.0)
-    var = torch.tensor(1.0)
+    tensor = torch.tensor([[1.0, 2.0, 3.0]])
+    mask = torch.tensor([[True, True, True]])
+    dims = (1,)
+    weight = 1.0
+    run_weight = 2.0
+    run_mean = torch.tensor([2.0])
+    run_std = torch.tensor([1.0])
 
     # Mock the distributed functions
     def mock_ddp_all_reduce(tensor, op):
@@ -354,10 +355,17 @@ def test_global_norm_update():
 
     # Call the function
     try:
-        from speechbrain.processing.features import mean_var_update
+        from speechbrain.processing.features import mean_std_update
 
-        updated_weight, updated_mean, updated_var = mean_var_update(
-            new_tensor, new_weight, weight, mean, var
+        updated_weight, updated_mean, updated_std = mean_std_update(
+            tensor,
+            mask=mask,
+            dim=dims,
+            weight=weight,
+            run_sum=run_weight,
+            run_mean=run_mean,
+            run_std=run_std,
+            keepdim=False,
         )
     finally:
         builtins.__import__ = real_import
@@ -371,4 +379,4 @@ def test_global_norm_update():
 
     # Check variance update
     # The formula is complex but can be verified
-    assert updated_var <= var  # In this case, should be smaller
+    assert updated_std <= run_std  # In this case, should be smaller
