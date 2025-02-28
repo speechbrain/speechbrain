@@ -34,11 +34,6 @@ class TestInputNormalization:
 
         return x, lengths, mask
 
-    @pytest.fixture
-    def speaker_ids(self):
-        """Create sample speaker IDs for testing."""
-        return [1, 2, 1]
-
     def test_constructor_defaults(self):
         """Test constructor with default parameters."""
         norm = InputNormalization()
@@ -153,47 +148,6 @@ class TestInputNormalization:
         assert torch.allclose(saved_mean, norm.glob_mean, atol=1e-5)
         assert torch.allclose(saved_std, norm.glob_std, atol=1e-5)
         assert saved_count == norm.count
-
-    def test_speaker_normalization(self, sample_data, speaker_ids):
-        """Test speaker-level normalization."""
-        x, lengths, mask = sample_data
-        norm = InputNormalization(norm_type="speaker")
-
-        # First call - should create and update speaker stats
-        _ = norm(x, lengths, speaker_ids, epoch=0)
-
-        # Check that speaker stats have been created
-        assert 1 in norm.spk_dict_mean and 2 in norm.spk_dict_mean
-        assert 1 in norm.spk_dict_std and 2 in norm.spk_dict_std
-        assert 1 in norm.spk_dict_count and 2 in norm.spk_dict_count
-
-        # Each speaker should have count equal to occurrences
-        assert norm.spk_dict_count[1] == 2  # Speaker 1 appears twice
-        assert norm.spk_dict_count[2] == 1  # Speaker 2 appears once
-
-        # Create new batch with same speakers but different values
-        x2 = x + 3.0
-
-        # Second call - should update speaker stats
-        _ = norm(x2, lengths, speaker_ids, epoch=0)
-
-        # Check that counts have been updated
-        assert norm.spk_dict_count[1] == 4  # Speaker 1 now seen 4 times
-        assert norm.spk_dict_count[2] == 2  # Speaker 2 now seen 2 times
-
-        # Third call with epoch > update_until_epoch should not update stats
-        saved_means = {k: v.clone() for k, v in norm.spk_dict_mean.items()}
-        saved_counts = dict(norm.spk_dict_count)
-
-        x3 = x + 5.0
-        _ = norm(x3, lengths, speaker_ids, epoch=norm.update_until_epoch)
-
-        # Check that speaker stats have not been updated
-        for spk in saved_means:
-            assert torch.allclose(
-                saved_means[spk], norm.spk_dict_mean[spk], atol=1e-5
-            )
-            assert saved_counts[spk] == norm.spk_dict_count[spk]
 
     def test_normalization_with_avg_factor(self, sample_data):
         """Test normalization with custom avg_factor."""

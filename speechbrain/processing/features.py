@@ -36,7 +36,6 @@ Authors
 """
 
 import math
-import warnings
 
 import torch
 
@@ -46,10 +45,7 @@ from speechbrain.utils.checkpoints import (
     mark_as_transfer,
     register_checkpoint_hooks,
 )
-from speechbrain.utils.distributed import (
-    ddp_all_reduce,
-    is_distributed_initialized,
-)
+from speechbrain.utils.distributed import ddp_all_reduce
 from speechbrain.utils.filter_analysis import FilterProperties
 from speechbrain.utils.logger import get_logger
 
@@ -1025,7 +1021,7 @@ class InputNormalization(torch.nn.Module):
          * 'sentence' computes norms per utterance (no running stats)
          * 'batch' computes norms per input tensor (no running stats)
          * 'global' computes norms over all inputs (single mean, variance)
-         * 'speaker' computes norms per input id (mean, variance per id)
+         * 'speaker' - DEPRECATED
     avg_factor : float, optional
         It can be used to manually set the weighting factor between
         current statistics and accumulated ones. Stats are affected as:
@@ -1037,10 +1033,6 @@ class InputNormalization(torch.nn.Module):
         By default, stops after one epoch of updates.
     epsilon : float, default 1e-10
         A small value to improve the numerical stability of the variance.
-    spk_process_split : bool
-        During distributed processing, whether each speaker has been assigned
-        to a specific process, used to disable the warning about speaker stats
-        not communicated across processes.
     device : str or torch.device
         The device on which to create the global statistics. Can be changed
         later with `.to(device)`
@@ -1089,7 +1081,7 @@ class InputNormalization(torch.nn.Module):
     spk_dict_mean: Dict[int, torch.Tensor]
     spk_dict_std: Dict[int, torch.Tensor]
     spk_dict_count: Dict[int, int]
-    NORM_TYPES = ("global", "batch", "sentence", "speaker")
+    NORM_TYPES = ("global", "batch", "sentence")
 
     def __init__(
         self,
@@ -1099,7 +1091,6 @@ class InputNormalization(torch.nn.Module):
         avg_factor=None,
         update_until_epoch=2,
         epsilon=1e-10,
-        spk_process_split=False,
         device="cpu",
     ):
         super().__init__()
@@ -1107,6 +1098,8 @@ class InputNormalization(torch.nn.Module):
         # Validate and store input arguments
         if not mean_norm:
             raise ValueError("Passing `False` for `mean_norm` is deprecated.")
+        if norm_type == "speaker":
+            raise ValueError("per-speaker normalization is deprecated.")
         if norm_type not in self.NORM_TYPES:
             raise ValueError(f"norm_type must be one of {self.NORM_TYPES}.")
 
@@ -1120,20 +1113,13 @@ class InputNormalization(torch.nn.Module):
         # All norms operate over length dim, "batch", "global" over batch as well
         self.norm_dims = (0, 1) if norm_type in ["batch", "global"] else (1,)
 
-        # Global stats can be updated with current tensor and mask
-        # Show warning if speaker & distributed & not turned off
-        self.spk_warning = not spk_process_split and norm_type == "speaker"
-
         # Set a suitably huge epoch if None is passed
         self.update_until_epoch = update_until_epoch or torch.inf
 
         # Containers for running mean/variance calculation
-        # Compute the size and initialize based on the first input tensor
+        # These will be initialized based on the first input tensor
         self.glob_mean = torch.empty(0)
         self.glob_std = torch.empty(0)
-        self.spk_dict_mean = {}
-        self.spk_dict_std = {}
-        self.spk_dict_count = {}
         self.count = 0
 
     def forward(self, x, lengths=None, spk_ids=None, epoch=None):
@@ -1161,14 +1147,6 @@ class InputNormalization(torch.nn.Module):
         x : torch.Tensor
             The normalized tensor.
         """
-        if self.spk_warning and is_distributed_initialized():
-            warnings.warn(
-                "InputNormalization(norm_type='speaker') does not currently "
-                "support distributed statistics. Proceeding with statistics "
-                "computed individually for each process (this is okay if the "
-                "speakers are not shared across processes.)"
-            )
-
         # Padding mask is used to protect padding elements from updates
         mask = get_mask(x, lengths, length_dim=1)
 
@@ -1177,20 +1155,14 @@ class InputNormalization(torch.nn.Module):
             if self._should_update(epoch):
                 self._update_global_stats(x, mask)
             mean, std = self.glob_mean, self.glob_std
-        elif self.norm_type == "speaker":
-            if self._should_update(epoch):
-                self._update_speaker_stats(x, mask, spk_ids)
-            mean, std = self._collect_speaker_stats(spk_ids)
 
         # Local stats are just computed, difference is self.norm_dims
-        elif self.norm_type in ["batch", "sentence"]:
-            mean, std = self._compute_current_stats(x, mask)
         else:
-            raise ValueError(f"Unknown norm_type {self.norm_type}")
+            mean, std = self._compute_current_stats(x, mask)
 
         # Broadcast back to reduced dimensions ignoring padding
         mean = mean.masked_fill(~mask, 0.0)
-        std = std.masked_fill(~mask, 1.0)
+        std = std.clamp(min=self.epsilon).masked_fill(~mask, 1.0)
 
         # Normalize using collected stats
         return (x - mean) / std
@@ -1223,34 +1195,6 @@ class InputNormalization(torch.nn.Module):
             run_std=self.glob_std if self.std_norm else None,
         )
 
-    def _update_speaker_stats(self, x, mask, spk_ids):
-        """Perform a per-speaker statistics update."""
-        means, stds = self._compute_current_stats(x, mask)
-        for mean, std, spk_id in zip(means, stds, spk_ids):
-            if spk_id not in self.spk_dict_count:
-                self.spk_dict_count[spk_id] = 1
-                self.spk_dict_mean[spk_id] = mean
-                self.spk_dict_std[spk_id] = std
-            else:
-                self.spk_dict_count[spk_id] += 1
-                self._update_stat(self.spk_dict_mean, mean, spk_id)
-                self._update_stat(self.spk_dict_std, std, spk_id)
-
-    def _update_stat(self, dictionary, new_value, spk_id):
-        """Compute weighted update according to avg_factor or count."""
-        count = self.spk_dict_count[spk_id]
-        if self.avg_factor:
-            new_w, old_w = self.avg_factor, (1 - self.avg_factor)
-        else:
-            new_w, old_w = 1 / count, (count - 1) / count
-        dictionary[spk_id] = dictionary[spk_id] * old_w + new_value * new_w
-
-    def _collect_speaker_stats(self, spk_ids):
-        """Take a list of spk_ids and turn it into usable speaker stats."""
-        mean = torch.stack([self.spk_dict_mean[s] for s in spk_ids])
-        std = torch.stack([self.spk_dict_std[s] for s in spk_ids])
-        return mean, std
-
     def _compute_current_stats(self, x, mask):
         """Computes mean and variance of an input tensor along time dimension."""
         mean = masked_mean(x, mask, dim=self.norm_dims)
@@ -1258,25 +1202,17 @@ class InputNormalization(torch.nn.Module):
         if self.std_norm:
             sq_diff = (x - mean).square()
             var = masked_mean(sq_diff, mask, dim=self.norm_dims, correction=1)
-            # Clamp variance for numerical stability
-            std = var.clamp(min=self.epsilon).sqrt()
         else:
-            std = torch.tensor(1.0, device=x.device)
+            var = torch.tensor(1.0, device=x.device)
 
-        return mean, std
+        return mean, var.sqrt()
 
     def _statistics_dict(self):
-        """Fills the dictionary containing the normalization statistics.
-
-        Standard deviation is stored instead of variance for backward compatibility.
-        """
+        """Fills the dictionary containing the normalization statistics."""
         state = {}
         state["count"] = self.count
         state["glob_mean"] = self.glob_mean
         state["glob_std"] = self.glob_std
-        state["spk_dict_count"] = self.spk_dict_count
-        state["spk_dict_mean"] = self.spk_dict_mean
-        state["spk_dict_std"] = self.spk_dict_std
 
         return state
 
@@ -1295,9 +1231,6 @@ class InputNormalization(torch.nn.Module):
         self.count = state["count"]
         self.glob_mean = state["glob_mean"]
         self.glob_std = state["glob_std"]
-        self.spk_dict_mean = state["spk_dict_mean"].copy()
-        self.spk_dict_std = state["spk_dict_std"].copy()
-        self.spk_dict_count = state["spk_dict_count"]
 
         return state
 
@@ -1307,9 +1240,7 @@ class InputNormalization(torch.nn.Module):
         self = super(InputNormalization, self).to(device)
         self.glob_mean = self.glob_mean.to(device)
         self.glob_std = self.glob_std.to(device)
-        for spk in self.spk_dict_mean:
-            self.spk_dict_mean[spk] = self.spk_dict_mean[spk].to(device)
-            self.spk_dict_std[spk] = self.spk_dict_std[spk].to(device)
+
         return self
 
     @mark_as_saver
