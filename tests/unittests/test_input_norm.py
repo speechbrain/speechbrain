@@ -319,7 +319,6 @@ def test_global_norm_update():
             run_sum=run_weight,
             run_mean=run_mean,
             run_std=run_std,
-            keepdim=False,
         )
     finally:
         builtins.__import__ = real_import

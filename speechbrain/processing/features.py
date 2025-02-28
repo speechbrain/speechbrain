@@ -1161,8 +1161,9 @@ class InputNormalization(torch.nn.Module):
             mean, std = self._compute_current_stats(x, mask)
 
         # Broadcast back to reduced dimensions ignoring padding
-        mean = mean.masked_fill(~mask, 0.0)
-        std = std.clamp(min=self.epsilon).masked_fill(~mask, 1.0)
+        mean = unsqueeze_dims(mean, dims=self.norm_dims)
+        std = unsqueeze_dims(std, dims=self.norm_dims).clamp(min=self.epsilon)
+        mean, std = mean.masked_fill(~mask, 0.0), std.masked_fill(~mask, 1.0)
 
         # Normalize using collected stats
         return (x - mean) / std
@@ -1200,7 +1201,7 @@ class InputNormalization(torch.nn.Module):
         mean = masked_mean(x, mask, dim=self.norm_dims)
 
         if self.std_norm:
-            sq_diff = (x - mean).square()
+            sq_diff = (x - unsqueeze_dims(mean, self.norm_dims)).square()
             var = masked_mean(sq_diff, mask, dim=self.norm_dims, correction=1)
         else:
             var = torch.tensor(1.0, device=x.device)
@@ -1273,9 +1274,14 @@ class InputNormalization(torch.nn.Module):
         self._load_statistics_dict(stats)
 
 
-def mean_std_update(
-    x, mask, weight, dim, run_sum, run_mean, run_std=None, keepdim=True
-):
+def unsqueeze_dims(x, dims):
+    """Simple helper for unsqueezing multiple dims."""
+    for d in dims:
+        x = x.unsqueeze(d)
+    return x
+
+
+def mean_std_update(x, mask, weight, dim, run_sum, run_mean, run_std=None):
     """Welford's algorithm for running mean, variance (from Wikipedia)
 
     Incorporate a new tensor into running statistics. Allows for weighting
@@ -1301,8 +1307,6 @@ def mean_std_update(
     run_std : float or torch.Tensor, optional
         The running standard deviations from the mean
         If None, the variance is not computed.
-    keepdim : bool, default True
-        Whether to keep the reduced dimensions as a singleton dimension.
 
     Returns
     -------
@@ -1319,12 +1323,12 @@ def mean_std_update(
         return (old * old_w + new * new_w) / (old_w + new_w)
 
     delta = x - run_mean
-    delta_mean = masked_mean(delta, mask, dim, keepdim, correction=0)
+    delta_mean = masked_mean(delta, mask, dim, correction=0)
     run_mean += weighted_avg(0, delta_mean, run_sum, weight)
 
     if run_std is not None:
         delta2 = x - run_mean
-        new_var = masked_mean(delta * delta2, mask, dim, keepdim, correction=1)
+        new_var = masked_mean(delta * delta2, mask, dim, correction=1)
         std = weighted_avg(run_std.square(), new_var, run_sum, weight).sqrt()
         run_std = ddp_all_reduce(std, torch.distributed.ReduceOp.AVG)
     else:
@@ -1338,7 +1342,7 @@ def mean_std_update(
     return run_sum, run_mean, run_std
 
 
-def masked_mean(x, mask, dim, keepdim=True, correction=0):
+def masked_mean(x, mask, dim, correction=0):
     """Compute the mean over given dimensions ignoring the mask.
 
     Arguments
@@ -1349,8 +1353,6 @@ def masked_mean(x, mask, dim, keepdim=True, correction=0):
         Binary mask indicating positions to be ignored (e.g. padding)
     dim : int or tuple
         The dimensions to average over
-    keepdim : bool, default True
-        Whether to keep the reduced dimensions as singleton dimensions.
     correction : int, default 0
         This is subtracted from "n" for e.g. unbiased variance computation
 
@@ -1359,8 +1361,8 @@ def masked_mean(x, mask, dim, keepdim=True, correction=0):
     mean : torch.Tensor
         The original tensor with all mean dims reduced by average
     """
-    n = mask.sum(dim=dim, keepdim=keepdim) - correction
-    return (x * mask).sum(dim=dim, keepdim=keepdim) / n
+    n = mask.sum(dim=dim) - correction
+    return (x * mask).sum(dim=dim) / n
 
 
 def get_mask(x, lengths=None, length_dim=1):
@@ -1543,7 +1545,6 @@ class GlobalNorm(torch.nn.Module):
             run_sum=self.weight,
             run_mean=self.running_mean,
             run_std=self.running_std,
-            keepdim=False,
         )
 
     def normalize(self, x):
