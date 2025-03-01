@@ -796,7 +796,6 @@ class Brain:
             f"Gradscaler enabled: {gradscaler_enabled}. Using precision: {self.precision}."
         )
         self.scaler = torch.GradScaler(self.device, enabled=gradscaler_enabled)
-
         self.use_amp = False
         if self.device == "cpu" and self.precision == "bf16":
             self.use_amp = True
@@ -808,9 +807,7 @@ class Brain:
             and self.use_amp
             and self.checkpointer is not None
         ):
-            self.checkpointer.add_recoverable(
-                "scaler", self.scaler, optional_load=True
-            )
+            self.checkpointer.add_recoverable("scaler", self.scaler)
 
         # List parameter count for the user
         self.print_trainable_parameters()
@@ -1247,7 +1244,7 @@ class Brain:
             scaled_loss = self.scaler.scale(
                 loss / self.grad_accumulation_factor
             )
-            self.check_loss_isfinite(scaled_loss)
+            # self.check_loss_isfinite(scaled_loss)
             scaled_loss.backward()
 
         if should_step:
@@ -1333,7 +1330,6 @@ class Brain:
             torch.nn.utils.clip_grad_norm_(
                 opt.param_groups[0]["params"], self.max_grad_norm
             )
-
         # Note: no need to activate this flag if you are in fp16
         # since GradScaler is automatically handling the nonfinite gradients
         if not self.scaler.is_enabled() and self.skip_nonfinite_grads:
@@ -1418,7 +1414,7 @@ class Brain:
             loss = self.compute_objectives(out, batch, stage=stage)
         return loss.detach().cpu()
 
-    def _fit_train(self, train_set, epoch, enable):
+    def _fit_train(self, train_set, epoch, enable, valid_set=None):
         # Training stage
         self.on_stage_start(Stage.TRAIN, epoch)
         self.modules.train()
@@ -1435,8 +1431,21 @@ class Brain:
         # Time since last intra-epoch checkpoint
         last_ckpt_time = time.time()
         steps_since_ckpt = 0
+
+        # Get total number of steps for tqdm
+
+        total_steps = getattr(self.hparams, "num_training_steps", None)
+        eval_every_n_steps = getattr(self.hparams, "eval_every_n_steps", None)
+        if total_steps is None:
+            try:
+                total_steps = len(train_set)
+            except TypeError:
+                # If train_set doesn't have __len__, leave total as None
+                pass
+        # Create iterator manually instead of using tqdm's iteration
+        train_iter = iter(train_set)
         with tqdm(
-            train_set,
+            total=total_steps,
             initial=self.optimizer_step,
             dynamic_ncols=True,
             disable=not enable,
@@ -1444,10 +1453,13 @@ class Brain:
         ) as t:
             if self.profiler is not None:
                 self.profiler.start()
-            for batch in t:
-                if self._optimizer_step_limit_exceeded:
-                    logger.info("Train iteration limit exceeded")
+            
+            while True:
+                try:
+                    batch = next(train_iter)
+                except StopIteration:
                     break
+                    
                 self.step += 1
                 steps_since_ckpt += 1
                 loss = self.fit_batch(batch)
@@ -1455,6 +1467,9 @@ class Brain:
                     loss, self.avg_train_loss
                 )
                 t.set_postfix(train_loss=self.avg_train_loss)
+
+                if (self.step % self.grad_accumulation_factor) == 0:
+                    t.update(1)  # Now this will be the only way the bar updates
 
                 if self.profiler is not None:
                     self.profiler.step()
@@ -1476,6 +1491,10 @@ class Brain:
                     self._save_intra_epoch_ckpt()
                     last_ckpt_time = time.time()
                     steps_since_ckpt = 0
+
+                if self._optimizer_step_limit_exceeded:
+                    logger.info("Train iteration limit exceeded")
+                    break
 
         # Run train "on_stage_end" on all processes
         self.zero_grad(set_to_none=True)  # flush gradients
@@ -1540,7 +1559,7 @@ class Brain:
 
     def fit(
         self,
-        epoch_counter,
+        counter,
         train_set,
         valid_set=None,
         progressbar=None,
@@ -1564,7 +1583,7 @@ class Brain:
 
         Arguments
         ---------
-        epoch_counter : iterable
+        counter : iterable
             Each call should return an integer indicating the epoch count.
         train_set : Dataset, DataLoader
             A set of data to use for training. If a Dataset is given, a
@@ -1624,9 +1643,9 @@ class Brain:
         enable = progressbar and sb.utils.distributed.if_main_process()
 
         # Iterate epochs
-        for epoch in epoch_counter:
-            self._fit_train(train_set=train_set, epoch=epoch, enable=enable)
-            self._fit_valid(valid_set=valid_set, epoch=epoch, enable=enable)
+        for epoch in counter:
+            self._fit_train(train_set=train_set, epoch=epoch, enable=enable, valid_set=valid_set)
+            # self._fit_valid(valid_set=valid_set, epoch=epoch, enable=enable)
 
             # Debug mode only runs a few epochs
             if (

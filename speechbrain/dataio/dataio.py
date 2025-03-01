@@ -152,16 +152,18 @@ def load_data_csv(csv_path, replacements={}):
             if data_id in result:
                 raise ValueError(f"Duplicate id: {data_id}")
             # Replacements:
-            for key, value in row.items():
-                try:
-                    row[key] = variable_finder.sub(
-                        lambda match: str(replacements[match[1]]), value
-                    )
-                except KeyError:
-                    raise KeyError(
-                        f"The item {value} requires replacements "
-                        "which were not supplied."
-                    )
+            if replacements:  # Only do replacements if dict is not empty
+                for key, value in row.items():
+                    if variable_finder.search(value):  # Check if value contains variables
+                        try:
+                            row[key] = variable_finder.sub(
+                                lambda match: str(replacements[match[1]]), value
+                            )
+                        except KeyError:
+                            raise KeyError(
+                                f"The item {value} requires replacements "
+                                "which were not supplied."
+                            )
             # Duration:
             if "duration" in row:
                 row["duration"] = float(row["duration"])

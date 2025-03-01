@@ -45,21 +45,14 @@ class InterleavedCodebookPattern:
 
     def undelay_logits(self, logits):
         B, K, T, D = logits.shape
-        unpadded_length = T - K
-        # Create an empty tensor to store the reconstructed sequence
-        undelayed_logits = torch.full(
-            (B, K, T, D), float("nan"), dtype=logits.dtype, device=logits.device
-        )
-        undelayed_logits_mask = torch.ones(
-            (B, K, T), dtype=bool, device=logits.device
-        )
+        undelayed_logits = torch.zeros((B, K, T, D), dtype=logits.dtype, device=logits.device)
+        undelayed_logits_mask = torch.ones((B, K, T), dtype=bool, device=logits.device)
         undelayed_logits_mask[..., -K:] = False
         # Reconstruct the original sequence by removing the delays
         for i in range(K):
-            undelayed_logits[:, i, :-K] = logits[
-                :, i, i : i + unpadded_length, :
-            ]
+            undelayed_logits[:, i, :T-K] = logits[:, i, i: i + T - K, :]
         return undelayed_logits, undelayed_logits_mask
+
 
 
 class DiscreteSpeechLM(nn.Module):
@@ -81,7 +74,7 @@ class DiscreteSpeechLM(nn.Module):
         self.dim = config.hidden_size
         self.n_layers = config.num_hidden_layers
         self.n_heads = config.num_attention_heads
-
+        print("Vocabulary size: ", self.vocabsize)
         # remove embeddings and output projections from the backbone
         self.model.set_input_embeddings(None)
         self.model.set_output_embeddings(None)
@@ -139,13 +132,17 @@ class DiscreteSpeechLM(nn.Module):
         )
 
         # obtain contextual embeddings
-        # todo: allows to retrieve all the hidden states of the model.
-        h = self.model.model(inputs_embeds=h, use_cache=False)[
-            "last_hidden_state"
-        ]
-
+        # Cast inputs to fp32 before model forward pass
+        h_fp32 = h.to(dtype=torch.float32)
+        with torch.cuda.amp.autocast(enabled=False):
+            h = self.model.model(inputs_embeds=h_fp32, use_cache=False)[
+                "last_hidden_state"
+            ]
+        # Convert back to original dtype
+        h = h.to(dtype=h.dtype)
+            
+        # check if nan
         logits_audio = torch.stack(
             [self.audio_out[k](h) for k in range(self.n_codebooks)], dim=1
         )
-
         return logits_audio

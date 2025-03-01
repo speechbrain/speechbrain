@@ -1,0 +1,135 @@
+# Seed needs to be set at top of yaml, before objects with parameters are made
+# TODO: add LinearScheduler ? Or Trapezoidal.
+# TODO: add custom sampling logic.
+# TODO: move this to Template
+seed: 1986
+__set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
+experiment_name: mimi_libriheavy
+output_folder: !ref /scratch/adelmou/results/<experiment_name>/<seed>
+save_folder: !ref <output_folder>/save
+train_log: !ref <output_folder>/train_log.txt
+# Data files
+data_path: !PLACEHOLDER # e.g. /localscratch/adelmou.55632336.0
+tokens_folder: !ref <data_path>/mimi_libriheavy/save/libriheavy
+# IMPORTANT: the CSVs files should be generated BEFORE when extracting the tokens.
+train_csv: !ref <data_path>/train.csv
+valid_csv: !ref <data_path>/dev-dev.csv
+test_csv:
+   - !ref <data_path>/test-clean.csv
+   - !ref <data_path>/test-other.csv
+
+# Training parameters
+num_warmup_steps: 1_000
+num_training_steps: 20_000
+optimizer_step_limit: !ref <num_training_steps>
+number_of_epochs: 500000000
+backbone: "Qwen/Qwen2-0.5B" # "HuggingFaceTB/SmolLM2-360M"
+shuffle: False
+lr: 5e-4
+max_grad_norm: 0.5
+sorting: random
+precision: fp16
+eval_precision: fp32
+rope_theta: 10000.0
+num_codebooks: 8
+codebook_size: 2048
+block_size: 1024
+eos_token: !ref <codebook_size>
+pad_token: !ref <codebook_size> + 1
+vocabsize: !ref <codebook_size> + 2 # card(codebook) + eos + pad
+save_interval: 1000
+# eval_every_n_steps: 1
+# aim for something like 1M tokens / BP step.
+# 32 * 2048 * 16 ~= 1M tokens
+batch_size: 2
+grad_accumulation_factor: 60
+test_batch_size: 1
+num_workers: 10
+
+### discrete SSL configuration
+
+# Dataloader options
+train_dataloader_opts:
+  shuffle: !ref <shuffle>
+  batch_size: !ref <batch_size>
+  num_workers: !ref <num_workers>
+  collate_fn: !name:speechbrain.dataio.batch.PaddedBatch
+      padding_kwargs:
+          value: !ref <pad_token>
+
+valid_dataloader_opts:
+  shuffle: !ref <shuffle>
+  batch_size: !ref <batch_size>
+  num_workers: !ref <num_workers>
+  collate_fn: !name:speechbrain.dataio.batch.PaddedBatch
+      padding_kwargs:
+          value: !ref <pad_token>
+
+test_dataloader_opts:
+  batch_size: !ref <test_batch_size>
+  collate_fn: !name:speechbrain.dataio.batch.PaddedBatch
+      padding_kwargs:
+          value: !ref <pad_token>
+
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+   limit: !ref <number_of_epochs>
+
+### Config for Tokenizer
+tokens_loader: !new:utils.TokensLoader
+   data_path: !ref <tokens_folder>
+
+codebook_pattern: !new:speechbrain.lobes.models.huggingface_transformers.discrete_speechlm.InterleavedCodebookPattern
+  audio_pad_token: !ref <pad_token>
+
+model_backbone: !apply:transformers.AutoModelForCausalLM.from_pretrained
+  pretrained_model_name_or_path: !ref <backbone>
+  # torch_dtype: !name:torch.float16
+  # attn_implementation: "flash_attention_2"
+  cache_dir: "/scratch/adelmou/hf_home/hub/"
+  rope_theta: !ref <rope_theta>
+
+# define LM in the YAML
+config: !new:speechbrain.lobes.models.huggingface_transformers.discrete_speechlm.DiscreteSpeechLMConfig
+  source: !ref <backbone>
+  cache_dir: "/scratch/adelmou/hf_home/hub/"
+  block_size: !ref <block_size>
+  n_codebooks: !ref <num_codebooks>
+  vocabsize: !ref <vocabsize>
+  tie_embds: True
+
+model: !new:speechbrain.lobes.models.huggingface_transformers.discrete_speechlm.DiscreteSpeechLM
+  config: !ref <config>
+  model_backbone: !ref <model_backbone>
+
+lr_annealing: !new:speechbrain.nnet.schedulers.LinearWarmupScheduler
+  initial_value: !ref <lr>
+  num_warmup_steps: !ref <num_warmup_steps>
+  num_training_steps: !ref <num_training_steps>
+
+opt_class: !name:torch.optim.AdamW
+  lr: !ref <lr>
+  betas: (0.9, 0.95)
+
+modules:
+  # codec: !ref <codec>
+  model: !ref <model>
+
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+  checkpoints_dir: !ref <save_folder>
+  recoverables:
+    model: !ref <model>
+    scheduler: !ref <lr_annealing>
+    counter: !ref <epoch_counter>
+
+# every N logs steps call this
+wandb_logger: !new:speechbrain.utils.train_logger.WandBLogger
+  entity: Zarko
+  project: SLMs
+  name: !ref <experiment_name>
+  reinit: True
+  resume: False
+  mode: "online"
+  dir: !ref <output_folder>/wandb
+
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+  save_file: !ref <train_log>
