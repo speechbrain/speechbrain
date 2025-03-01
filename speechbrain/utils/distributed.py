@@ -273,8 +273,9 @@ def ddp_init_group(run_opts):
     -------
     None
     """
-    rank = os.environ.get("RANK")
-    local_rank = os.environ.get("LOCAL_RANK")
+    local_rank = os.environ.get("SLURM_LOCALID")
+    ngpus_per_node = torch.cuda.device_count()
+    rank = int(os.environ.get("SLURM_NODEID"))* ngpus_per_node + int(local_rank)
     if local_rank is None or rank is None:
         return
 
@@ -313,8 +314,17 @@ def ddp_init_group(run_opts):
     # server2:
     #   GPU0: local_rank=device=0, rank=2
     #   GPU1: local_rank=device=1, rank=3
+    # SLURM_NTASKS_PER_NODE * SLURM_JOB_NUM_NODES
+    # if none, use get attribute
+    world_size = int(os.environ.get("WORLD_SIZE"))
+    if world_size == 0:
+        world_size = 1
+    print(f"World size: {world_size}")
+    init_method = f"tcp://{os.environ.get('MASTER_ADDR')}:{os.environ.get('MASTER_PORT')}"
     torch.distributed.init_process_group(
         backend=run_opts["distributed_backend"],
+        world_size=world_size, 
         rank=rank,
         timeout=datetime.timedelta(seconds=7200),
+        init_method=init_method,
     )

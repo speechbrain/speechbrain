@@ -1,4 +1,4 @@
-"""Implements a checkpointable epoch counter (loop), optionally integrating early stopping.
+"""Implements checkpointable counters (loop) for epochs and steps, optionally integrating early stopping.
 
 Authors
  * Aku Rouhe 2020
@@ -16,6 +16,66 @@ from .checkpoints import (
 )
 
 logger = get_logger(__name__)
+
+
+@register_checkpoint_hooks
+class StepCounter:
+    """A step counter which can save and recall its state.
+
+    Use this as the iterator for training steps.
+    Note that this iterator gives you the numbers from [1 ... limit] not
+    [0 ... limit-1] as range(limit) would.
+
+    Arguments
+    ---------
+    limit: int
+        maximum number of steps
+
+    Example
+    -------
+    >>> from speechbrain.utils.checkpoints import Checkpointer
+    >>> tmpdir = getfixture('tmpdir')
+    >>> step_counter = StepCounter(1000)
+    >>> recoverer = Checkpointer(tmpdir, {"step": step_counter})
+    >>> recoverer.recover_if_possible()
+    >>> # Now after recovery,
+    >>> # the step starts from where it left off!
+    >>> for step in step_counter:
+    ...     # Run training...
+    ...     ckpt = recoverer.save_checkpoint()
+    """
+
+    def __init__(self, limit):
+        self.current = 0
+        self.limit = int(limit)
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        if self.current < self.limit:
+            self.current += 1
+            logger.info(f"Going into step {self.current}")
+            return self.current
+        raise StopIteration
+
+    @mark_as_saver
+    def _save(self, path):
+        with open(path, "w", encoding="utf-8") as fo:
+            fo.write(str(self.current))
+
+    @mark_as_loader
+    def _recover(self, path, end_of_step=True):
+        # NOTE: end_of_step = True by default so that when
+        #  loaded in parameter transfer, this starts a new step.
+        #  However, parameter transfer to StepCounter should
+        #  probably never be used really.
+        with open(path, encoding="utf-8") as fi:
+            saved_value = int(fi.read())
+            if end_of_step:
+                self.current = saved_value
+            else:
+                self.current = saved_value - 1
 
 
 @register_checkpoint_hooks
