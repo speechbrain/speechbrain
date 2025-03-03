@@ -1138,7 +1138,7 @@ class InputNormalization(torch.nn.Module):
         self.glob_std = torch.empty(0)
         self.count = 0
 
-    def forward(self, x, lengths=None, spk_ids=None, epoch=None):
+    def forward(self, x, lengths=None, epoch=None):
         """Normalizes the input tensor, x, according to the `norm_type`.
 
         Excludes the padded portion of the tensor by using the passed relative lengths.
@@ -1151,9 +1151,6 @@ class InputNormalization(torch.nn.Module):
         lengths : torch.Tensor, optional
             The relative length of each sentence (e.g, `[0.7, 0.9, 1.0]`), used
             to avoid computing stats on the padding part of the tensor.
-        spk_ids : torch.Tensor, optional
-            Contains the ids of each speaker (e.g, `[0 10 6]`), used to
-            perform per-speaker normalization when `norm_type='speaker'`.
         epoch : int, optional
             The current epoch count, used to stop updates to global stats after
             enough samples have been seen (e.g. one epoch).
@@ -1198,7 +1195,7 @@ class InputNormalization(torch.nn.Module):
         still_training = epoch is None or epoch < self.update_until_epoch
         return still_training and self.training
 
-    def _update_global_stats(self, x, mask, spk_ids=None):
+    def _update_global_stats(self, x, mask):
         """Use input tensor to update global statistics."""
         if self.count == 0:
             # Initialize with the mean, std of the first batch
