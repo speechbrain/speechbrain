@@ -1334,7 +1334,7 @@ def mean_std_update(x, mask, dim, run_count, run_mean, run_std=None):
     else:
         run_std = torch.ones_like(run_mean)
 
-    return run_count + n, run_mean, run_std
+    return run_count + n.sum(), run_mean, run_std
 
 
 def get_mask(x, lengths=None, length_dim=1):
