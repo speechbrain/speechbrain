@@ -1,5 +1,6 @@
 {
     "spk1_snt5": {
+        "uttid": "spk1_snt5",
         "wav": "{data_root}/spk1_snt5.wav",
         "path": "{data_root}/spk1_snt5.wav",
         "duration": "2.6",
@@ -20,6 +21,7 @@
         "frame_label": ["a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "a"]
     },
     "spk2_snt5": {
+        "uttid": "spk2_snt5",
         "wav": "{data_root}/spk2_snt5.wav",
         "path": "{data_root}/spk2_snt5.wav",
         "duration": "1.98",

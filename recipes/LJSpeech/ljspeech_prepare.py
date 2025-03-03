@@ -53,6 +53,9 @@ def prepare_ljspeech(
     pitch_max_f0=400,
     skip_prep=False,
     use_custom_cleaner=False,
+    extract_phonemes=None,
+    g2p_src="speechbrain/soundchoice-g2p",
+    skip_ignore_folders=False,
     device="cpu",
 ):
     """
@@ -84,6 +87,19 @@ def prepare_ljspeech(
         If True, skip preparation
     use_custom_cleaner : bool
         If True, uses custom cleaner defined for this recipe
+    extract_phonemes : bool
+        Whether phonemes need to be extracted. By default, it will be
+        true if model_name is "Tacotron2" or "FastSpeech2WithAlignment",
+        false otherwise. This behaviour is for backwards
+        compatibility
+    g2p_src : str
+        The source (HuggingFace hub or path) of the G2P model to
+        be used
+    skip_ignore_folders : bool
+        Whether to ignore differences in data and save folders when
+        checking if the dataset has already been prepared. This is
+        useful on high-performance compute clusters where such
+        folders are not permanent
     device : str
         Device for to be used for computation (used as required)
 
@@ -106,6 +122,11 @@ def prepare_ljspeech(
 
     if skip_prep:
         return
+    if extract_phonemes is None:
+        extract_phonemes = model_name in [
+            "Tacotron2",
+            "FastSpeech2WithAlignment",
+        ]
 
     # Creating configuration for easily skipping data_preparation stage
     conf = {
@@ -155,7 +176,7 @@ def prepare_ljspeech(
             os.makedirs(pitch_folder)
 
     # Check if this phase is already done (if so, skip it)
-    if skip(splits, save_folder, conf):
+    if skip(splits, save_folder, conf, ignore_folders=skip_ignore_folders):
         logger.info("Skipping preparation, completed in previous run.")
         return
 
@@ -183,6 +204,9 @@ def prepare_ljspeech(
             pitch_min_f0,
             pitch_max_f0,
             use_custom_cleaner,
+            extract_phonemes,
+            g2p_src,
+            skip_ignore_folders,
             device,
         )
     if "valid" in splits:
@@ -200,6 +224,9 @@ def prepare_ljspeech(
             pitch_min_f0,
             pitch_max_f0,
             use_custom_cleaner,
+            extract_phonemes,
+            g2p_src,
+            skip_ignore_folders,
             device,
         )
     if "test" in splits:
@@ -217,12 +244,15 @@ def prepare_ljspeech(
             pitch_min_f0,
             pitch_max_f0,
             use_custom_cleaner,
+            extract_phonemes,
+            g2p_src,
+            skip_ignore_folders,
             device,
         )
     save_pkl(conf, save_opt)
 
 
-def skip(splits, save_folder, conf):
+def skip(splits, save_folder, conf, ignore_folders=False):
     """
     Detects if the ljspeech data_preparation has been already done.
     If the preparation has been done, we can skip it.
@@ -235,6 +265,11 @@ def skip(splits, save_folder, conf):
         The path to the directory containing prepared files.
     conf : dict
         Configuration to match against saved config.
+    ignore_folders : bool
+        Whether to ignore differences in data and save folders when
+        checking if the dataset has already been prepared. This is
+        useful on high-performance compute clusters where such
+        folders are not permanent
 
     Returns
     -------
@@ -260,6 +295,9 @@ def skip(splits, save_folder, conf):
     if skip is True:
         if os.path.isfile(save_opt):
             opts_old = load_pkl(save_opt)
+            if ignore_folders:
+                opts_old = remove_folder_opts(opts_old)
+                conf = remove_folder_opts(opts_old)
             if opts_old == conf:
                 skip = True
             else:
@@ -267,6 +305,11 @@ def skip(splits, save_folder, conf):
         else:
             skip = False
     return skip
+
+
+def remove_folder_opts(conf):
+    """Removes all folder options from  the configuration dict"""
+    return {k: v for k, v in conf.items() if not k.endswith("_folder")}
 
 
 def split_sets(data_folder, splits, split_ratio):
@@ -354,6 +397,9 @@ def prepare_json(
     pitch_min_f0,
     pitch_max_f0,
     use_custom_cleaner=False,
+    extract_phonemes=False,
+    g2p_src="speechbrain/soundchoice-g2p",
+    skip_ignore_folders=False,
     device="cpu",
 ):
     """
@@ -387,19 +433,29 @@ def prepare_json(
         Max f0 for pitch computation
     use_custom_cleaner : bool
         If True, uses custom cleaner defined for this recipe
+    extract_phonemes : bool
+        Whether phonemes need to be extracted
+    g2p_src : str
+        The source (HuggingFace hub or path) of the G2P model to
+        be used
+    skip_ignore_folders : bool
+        Whether to ignore differences in data and save folders when
+        checking if the dataset has already been prepared. This is
+        useful on high-performance compute clusters where such
+        folders are not permanent
     device : str
         Device for to be used for computation (used as required)
     """
 
     logger.info(f"preparing {json_file}.")
-    if model_name in ["Tacotron2", "FastSpeech2WithAlignment"]:
+    if extract_phonemes:
         logger.info(
             "Computing phonemes for LJSpeech labels using SpeechBrain G2P. This may take a while."
         )
         g2p = GraphemeToPhoneme.from_hparams(
-            "speechbrain/soundchoice-g2p", run_opts={"device": device}
+            g2p_src, run_opts={"device": device}
         )
-    if model_name is not None and "FastSpeech2" in model_name:
+    if extract_phonemes:
         logger.info(
             "Computing pitch as required for FastSpeech2. This may take a while."
         )
