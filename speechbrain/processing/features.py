@@ -38,6 +38,7 @@ Authors
 import math
 
 import torch
+from torch.distributed import ReduceOp
 
 from speechbrain.utils.checkpoints import (
     mark_as_loader,
@@ -997,18 +998,15 @@ class ContextWindow(torch.nn.Module):
 class InputNormalization(torch.nn.Module):
     """Performs mean and variance normalization over the time dimension of the input.
 
-    Running mean and running variance calculation is done using Welford's
-    Algorithm. A slight adaptation is used where each sample is weighted
-    equally, rather than each value in each tensor.
+    Running mean and running variance calculation is done using Welford's Algorithm.
 
     WARNING: at first, the running statistics do not represent the "true" mean
     and variance, but are estimates based on the data seen so far. Once enough
     data has been seen, the stats should closely approximate the "true" values.
 
-    WARNING: Using global normalization, `forward()` will throw a division
-    by zero error if no updates have been performed (including the current
-    batch), i.e. on first call the epoch >= update_until_epoch. This is
-    because the variance is undefined on initialization.
+    WARNING: Using global normalization, the first call of `forward()` will
+    throw an error if no updates have been performed (including the current batch),
+    i.e. on first call the epoch >= update_until_epoch or in eval() mode.
 
     Arguments
     ---------
@@ -1023,19 +1021,24 @@ class InputNormalization(torch.nn.Module):
          * 'global' computes norms over all inputs (single mean, variance)
          * 'speaker' - DEPRECATED
     avg_factor : float, optional
-        It can be used to manually set the weighting factor between
-        current statistics and accumulated ones. Stats are affected as:
-        `(1 - avg_factor) * old + avg_factor * new`, so use values close to 0.
-        Compared to global stats, is biased towards recent values when
-        used over long-enough horizons (i.e. 1 / avg_factor samples).
+        Passing avg_factor is DEPRECATED as this exactly matches the
+        behavior of BatchNorm. To maintain this behavior, use
+        `speechbrain.nnet.normalization.BatchNorm1d(momentum=avg_factor)`.
+    length_dim : int, default 1
+        The dimension for which to mask out the padding positions.
     update_until_epoch : int, default 2
         The epoch for which updates to the norm stats should stop.
         By default, stops after one epoch of updates.
+    avoid_padding_norm : bool, default False
+        Regardless of the value passed here, padding is ignored for statistics
+        computation. However, if False is passed for `avoid_padding_norm`, padding
+        will get normalized along with the rest of the input tensor. If True,
+        the padding will not be affected by this normalization operation.
     epsilon : float, default 1e-10
         A small value to improve the numerical stability of the variance.
     device : str or torch.device
         The device on which to create the global statistics. Can be changed
-        later with `.to(device)`
+        later with `.to(device)`.
 
     Example
     -------
@@ -1055,9 +1058,9 @@ class InputNormalization(torch.nn.Module):
     >>> norm = InputNormalization(norm_type="batch")
     >>> features = norm(inputs, input_lens)
     >>> features
-    tensor([[-1.4606, -1.0954, -0.7303],
-            [-0.3651,  0.0000,  0.3651],
-            [ 0.7303,  1.0954,  1.4606]])
+    tensor([[-4., -3., -2.],
+            [-1.,  0.,  1.],
+            [ 2.,  3.,  4.]])
     >>> norm = InputNormalization(norm_type="global")
     >>> features = norm(inputs, input_lens)
     >>> features.mean()
@@ -1089,7 +1092,9 @@ class InputNormalization(torch.nn.Module):
         std_norm=True,
         norm_type="global",
         avg_factor=None,
+        length_dim=1,
         update_until_epoch=2,
+        avoid_padding_norm=False,
         epsilon=1e-10,
         device="cpu",
     ):
@@ -1098,20 +1103,31 @@ class InputNormalization(torch.nn.Module):
         # Validate and store input arguments
         if not mean_norm:
             raise ValueError("Passing `False` for `mean_norm` is deprecated.")
+        if avg_factor is not None:
+            raise ValueError(
+                "Passing avg_factor is DEPRECATED as this exactly matches the "
+                "behavior of BatchNorm. To maintain this behavior, use "
+                "`speechbrain.nnet.normalization.BatchNorm1d(momentum=avg_factor)`."
+            )
         if norm_type == "speaker":
             raise ValueError("per-speaker normalization is deprecated.")
-        if norm_type not in self.NORM_TYPES:
+        elif norm_type == "batch":
+            logger.warning(
+                "norm_type=batch computation is not technically correct under "
+                "the current algorithm, but is kept for backwards compatibility. "
+                "For correct computation, use speechbrain.nnet.normalization."
+                "BatchNorm1d(track_running_stats=False) to perform normalization."
+            )
+        elif norm_type not in self.NORM_TYPES:
             raise ValueError(f"norm_type must be one of {self.NORM_TYPES}.")
 
         self.mean_norm = mean_norm
         self.std_norm = std_norm
         self.norm_type = norm_type
-        self.avg_factor = avg_factor
+        self.avoid_padding_norm = avoid_padding_norm
         self.epsilon = epsilon
         self.device = device
-
-        # All norms operate over length dim, "batch", "global" over batch as well
-        self.norm_dims = (0, 1) if norm_type in ["batch", "global"] else (1,)
+        self.length_dim = length_dim
 
         # Set a suitably huge epoch if None is passed
         self.update_until_epoch = update_until_epoch or torch.inf
@@ -1150,23 +1166,32 @@ class InputNormalization(torch.nn.Module):
         # Padding mask is used to protect padding elements from updates
         mask = get_mask(x, lengths, length_dim=1)
 
-        # Global stats should be updated, then collected
+        # Global stats should be updated before performing normalization
         if self.norm_type == "global":
             if self._should_update(epoch):
                 self._update_global_stats(x, mask)
             mean, std = self.glob_mean, self.glob_std
 
-        # Local stats are just computed, difference is self.norm_dims
+        # Local stats are computed over self.length_dim
         else:
-            mean, std = self._compute_current_stats(x, mask)
+            mean, std = self._compute_current_stats(x, mask, self.length_dim)
+            # averaging std across samples is not correct, but is kept
+            # for backwards compatibility. For correct batch norm, you can use:
+            # speechbrain.nnet.normalization.BatchNorm1d(track_running_stats=False)
+            if self.norm_type == "batch":
+                mean, std = mean.mean(dim=0), std.mean(dim=0)
 
-        # Broadcast back to reduced dimensions ignoring padding
-        mean = unsqueeze_dims(mean, dims=self.norm_dims)
-        std = unsqueeze_dims(std, dims=self.norm_dims).clamp(min=self.epsilon)
-        mean, std = mean.masked_fill(~mask, 0.0), std.masked_fill(~mask, 1.0)
+        # Add back reduced dimensions (avoiding padding if needed)
+        if self.norm_type in ["global", "batch"]:
+            mean, std = mean.unsqueeze(0), std.unsqueeze(0)
+        mean = mean.unsqueeze(self.length_dim)
+        std = std.unsqueeze(self.length_dim)
+        if self.avoid_padding_norm:
+            mean = mean.masked_fill(~mask, 0.0)
+            std = std.masked_fill(~mask, 1.0)
 
-        # Normalize using collected stats
-        return (x - mean) / std
+        # Normalize using collected stats and avoiding division by 0
+        return (x - mean) / std.clamp(min=self.epsilon)
 
     def _should_update(self, epoch):
         """Whether to perform an update, based on epoch count."""
@@ -1175,38 +1200,32 @@ class InputNormalization(torch.nn.Module):
 
     def _update_global_stats(self, x, mask, spk_ids=None):
         """Use input tensor to update global statistics."""
-
-        # Weight is just count unless we're using an avg_factor
-        weight, run_weight = x.size(0), self.count
-        if self.avg_factor is not None:
-            weight, run_weight = self.avg_factor, (1 - self.avg_factor)
-
-        # For the first iteration, initialize with first mean, std
         if self.count == 0:
-            self.glob_mean, self.glob_std = self._compute_current_stats(x, mask)
+            # Initialize with the mean, std of the first batch
+            self.glob_mean, self.glob_std = self._compute_current_stats(
+                x, mask, dim=(0, self.length_dim)
+            )
 
-        # Compute statistic update and store result
         self.count, self.glob_mean, self.glob_std = mean_std_update(
             x,
             mask=mask,
-            weight=weight,
-            dim=self.norm_dims,
-            run_sum=run_weight,
+            dim=(0, self.length_dim),
+            run_count=self.count,
             run_mean=self.glob_mean,
             run_std=self.glob_std if self.std_norm else None,
         )
 
-    def _compute_current_stats(self, x, mask):
-        """Computes mean and variance of an input tensor along time dimension."""
-        mean = masked_mean(x, mask, dim=self.norm_dims)
+    def _compute_current_stats(self, x, mask, dim):
+        """Computes masked mean and std of an input tensor along the given dimension(s)."""
+        n = mask.sum(dim, keepdim=True)
+        mean = (x * mask).sum(dim, keepdim=True) / n
 
         if self.std_norm:
-            sq_diff = (x - unsqueeze_dims(mean, self.norm_dims)).square()
-            var = masked_mean(sq_diff, mask, dim=self.norm_dims, correction=1)
+            var = ((x - mean) * mask).square().sum(dim, keepdim=True) / (n - 1)
         else:
-            var = torch.tensor(1.0, device=x.device)
+            var = torch.ones_like(mean)
 
-        return mean, var.sqrt()
+        return mean.squeeze(dim), var.squeeze(dim).sqrt()
 
     def _statistics_dict(self):
         """Fills the dictionary containing the normalization statistics."""
@@ -1274,95 +1293,51 @@ class InputNormalization(torch.nn.Module):
         self._load_statistics_dict(stats)
 
 
-def unsqueeze_dims(x, dims):
-    """Simple helper for unsqueezing multiple dims."""
-    for d in dims:
-        x = x.unsqueeze(d)
-    return x
-
-
-def mean_std_update(x, mask, weight, dim, run_sum, run_mean, run_std=None):
+def mean_std_update(x, mask, dim, run_count, run_mean, run_std=None):
     """Welford's algorithm for running mean, variance (from Wikipedia)
 
-    Incorporate a new tensor into running statistics. Allows for weighting
-    each tensor differently, e.g. by length. Handles sync across processes.
-
-    WARNING: Must be called in sync across processes. Does not handle normalizing
-    separate statistics on separate processes (e.g. per-speaker statistics).
+    WARNING: Must be called in sync across processes.
 
     Arguments
     ---------
     x : torch.Tensor
-        The new values to add to the running stats
+        The new values to add to the running stats.
     mask : torch.Tensor
-        A mask indicating padding positions to be ignored
-    weight : float or torch.Tensor
-        The amount to weight this sample (e.g. 1.0 or relative length)
+        A mask indicating padding positions to be ignored.
     dim : tuple or int
-        The dimension or dimensions to reduce (e.g. 1 for length)
-    run_sum : float or torch.Tensor
-        The running weight of samples seen so far
+        The dimension or dimensions to reduce (e.g. 1 for length).
+    run_count : float or torch.Tensor
+        The running number of samples seen so far.
     run_mean : float or torch.Tensor
-        The running mean of samples seen so far
+        The running mean of samples seen so far.
     run_std : float or torch.Tensor, optional
-        The running standard deviations from the mean
-        If None, the variance is not computed.
+        The running standard deviations from the mean. If `None`, the
+        variance is not computed and this returns 1.0 for the `run_std`.
 
     Returns
     -------
-    run_sum : torch.Tensor
-        Updated weight sum for all samples so far.
+    run_count : torch.Tensor
+        Updated count all samples so far.
     run_mean : torch.Tensor
         Updated running mean of all samples so far.
     run_std : torch.Tensor (if passed)
         Updated running standard deviations of all samples so far.
     """
-
-    def weighted_avg(old, new, old_w, new_w):
-        """Simple function for computing statistic updates"""
-        return (old * old_w + new * new_w) / (old_w + new_w)
-
     delta = x - run_mean
-    delta_mean = masked_mean(delta, mask, dim, correction=0)
-    run_mean += weighted_avg(0, delta_mean, run_sum, weight)
+    n = ddp_all_reduce(mask.sum(dim), ReduceOp.SUM)
+    delta_sum = ddp_all_reduce((delta * mask).sum(dim), ReduceOp.SUM)
+    run_mean += delta_sum / (run_count + n)
 
+    # Only compute variance if needed (for efficiency)
     if run_std is not None:
-        delta2 = x - run_mean
-        new_var = masked_mean(delta * delta2, mask, dim, correction=1)
-        std = weighted_avg(run_std.square(), new_var, run_sum, weight).sqrt()
-        run_std = ddp_all_reduce(std, torch.distributed.ReduceOp.AVG)
+        var_sum = (delta * (x - run_mean) * mask).sum(dim)
+        new_var = ddp_all_reduce(var_sum, ReduceOp.SUM) / (n - 1)
+        run_var = (run_std.square() * run_count + new_var * n) / (run_count + n)
+        run_std = run_var.sqrt()
     else:
-        run_std = torch.tensor(1.0, device=x.device)
+        run_std = torch.ones_like(run_mean)
 
-    # Communicate mean, weight across processes, but wait til after
-    # after variance update to avoid wrong variance (e.g. negative variance)
-    run_mean = ddp_all_reduce(run_mean, torch.distributed.ReduceOp.AVG)
-    run_sum += ddp_all_reduce(weight, torch.distributed.ReduceOp.SUM)
-
-    return run_sum, run_mean, run_std
-
-
-def masked_mean(x, mask, dim, correction=0):
-    """Compute the mean over given dimensions ignoring the mask.
-
-    Arguments
-    ---------
-    x : torch.Tensor
-        Inputs to compute the mean over
-    mask : torch.Tensor
-        Binary mask indicating positions to be ignored (e.g. padding)
-    dim : int or tuple
-        The dimensions to average over
-    correction : int, default 0
-        This is subtracted from "n" for e.g. unbiased variance computation
-
-    Returns
-    -------
-    mean : torch.Tensor
-        The original tensor with all mean dims reduced by average
-    """
-    n = mask.sum(dim=dim) - correction
-    return (x * mask).sum(dim=dim) / n
+    return run_count + n, run_mean, run_std
 
 
 def get_mask(x, lengths=None, length_dim=1):
@@ -1384,21 +1359,20 @@ def get_mask(x, lengths=None, length_dim=1):
         for padding positions.
     """
     if lengths is None:
-        lengths = torch.ones(x.size(0), device=x.device)
+        return torch.ones_like(x)
 
+    # Convert relative lengths to absolute lengths, then compute boolean mask
     max_len = x.size(length_dim)
     abs_lengths = lengths.unsqueeze(1) * max_len
     mask = torch.arange(max_len, device=x.device).unsqueeze(0) < abs_lengths
 
-    # Add extra dimensions back in to the mask
+    # Add dimensions other than (batch, length) back into the mask
     for dim in range(1, x.ndim):
         if dim != length_dim:
             mask = mask.unsqueeze(dim)
 
     # Repeat values (without copying) into singleton dimensions
-    mask = mask.expand_as(x)
-
-    return mask
+    return mask.expand_as(x)
 
 
 class GlobalNorm(torch.nn.Module):
@@ -1511,7 +1485,14 @@ class GlobalNorm(torch.nn.Module):
 
         # Update statistics using this tensor if needed
         if not skip_update and self.should_update():
-            self.perform_update(x, mask, weight=lengths.sum())
+            self.weight, self.running_mean, self.running_std = mean_std_update(
+                x=x,
+                mask=mask,
+                dim=None,
+                run_count=self.weight,
+                run_mean=self.running_mean,
+                run_std=self.running_std,
+            )
 
         # Perform normalization using running stats to desired mean and std
         x = self.normalize(x)
@@ -1534,18 +1515,6 @@ class GlobalNorm(torch.nn.Module):
         if self.update_steps is None:
             return True
         return self.step_count < self.update_steps
-
-    def perform_update(self, tensor, mask, weight):
-        """Update running statistics with new tensor data."""
-        self.weight, self.running_mean, self.running_std = mean_std_update(
-            x=tensor,
-            mask=mask,
-            weight=weight,
-            dim=None,
-            run_sum=self.weight,
-            run_mean=self.running_mean,
-            run_std=self.running_std,
-        )
 
     def normalize(self, x):
         """Performs the normalization operation against the running

@@ -40,8 +40,8 @@ class TestInputNormalization:
         assert norm.mean_norm is True
         assert norm.std_norm is True
         assert norm.norm_type == "global"
-        assert norm.avg_factor is None
         assert norm.update_until_epoch == 2
+        assert norm.avoid_padding_norm is False
         assert norm.epsilon == 1e-10
 
     def test_invalid_norm_type(self):
@@ -52,7 +52,7 @@ class TestInputNormalization:
     def test_sentence_normalization(self, sample_data):
         """Test sentence-level normalization."""
         x, lengths, mask = sample_data
-        norm = InputNormalization(norm_type="sentence")
+        norm = InputNormalization(norm_type="sentence", avoid_padding_norm=True)
 
         # Manual calculation for comparison, using corrected variance
         expected_means = torch.tensor([2.5, 6.0, 9.5]).view(-1, 1)
@@ -77,14 +77,21 @@ class TestInputNormalization:
     def test_batch_normalization(self, sample_data):
         """Test batch-level normalization."""
         x, lengths, mask = sample_data
-        norm = InputNormalization(norm_type="batch")
+        norm = InputNormalization(norm_type="batch", avoid_padding_norm=True)
 
         # Apply normalization
         output = norm(x, lengths)
 
+        # Manual calculation for comparison. See code for note about
+        # how this algorithm is not correct, kept only for backwards compat.
+        mean_mean = torch.tensor([2.5, 6.0, 9.5]).mean()
+        expected_mean = (x - mean_mean)[mask].mean()
+        std_mean = torch.tensor([5.0 / 3.0, 1.0, 0.5]).sqrt().mean()
+        expected_std = ((x - mean_mean)[mask] / std_mean).std()
+
         # Check normalization was applied correctly to non-padding values
-        assert torch.allclose(output[mask].mean(), torch.zeros(1), atol=1e-5)
-        assert torch.allclose(output[mask].std(), torch.ones(1), atol=1e-5)
+        assert torch.allclose(output[mask].mean(), expected_mean, atol=1e-3)
+        assert torch.allclose(output[mask].std(), expected_std, atol=1e-2)
 
         # Check if padding values are preserved properly
         assert torch.allclose(output[~mask], x[~mask], atol=1e-5)
@@ -112,7 +119,14 @@ class TestInputNormalization:
 
         # Since we've seen the same pattern twice and the shifted pattern once,
         # the normalized output should be different for the same input
-        assert not torch.allclose(valid_values1, valid_values3, atol=1e-5)
+        assert not torch.allclose(valid_values1, valid_values3, atol=0.1)
+
+        # Check that after many trials, the overall stats match the tensor stats
+        for i in range(1000):
+            _ = norm(x, lengths)
+
+        assert torch.allclose(norm.glob_mean, x[mask].mean(), atol=1e-3)
+        assert torch.allclose(norm.glob_std, x[mask].std(), atol=1e-2)
 
     def test_global_normalization_stops_updates(self, sample_data):
         """Test that global normalization stops updates after specified epoch."""
@@ -149,39 +163,10 @@ class TestInputNormalization:
         assert torch.allclose(saved_std, norm.glob_std, atol=1e-5)
         assert saved_count == norm.count
 
-    def test_normalization_with_avg_factor(self, sample_data):
-        """Test normalization with custom avg_factor."""
-        x, lengths, mask = sample_data
-        avg_factor = 0.1  # Small weight to new samples
-        norm = InputNormalization(norm_type="global", avg_factor=avg_factor)
-
-        # First call - should initialize with this data
-        _ = norm(x, lengths)
-
-        # Save statistics after first batch
-        saved_mean = norm.glob_mean.clone()
-
-        # Second call with shifted data
-        shift = 10.0
-        x2 = x + shift
-        _ = norm(x2, lengths)
-
-        expected_mean = saved_mean + shift * avg_factor
-
-        # Check that mean has been updated with the expected weight
-        assert torch.allclose(norm.glob_mean, expected_mean, atol=1e-4)
-
-        # Check that after many trials, the overall stats match the tensor stats
-        for i in range(100):
-            _ = norm(x, lengths)
-
-        assert torch.allclose(norm.glob_mean, x[mask].mean(), atol=1e-4)
-        assert torch.allclose(norm.glob_std, x[mask].std(), atol=1e-3)
-
     def test_no_std_normalization(self, sample_data):
         """Test normalization with std_norm=False."""
         x, lengths, mask = sample_data
-        norm = InputNormalization(norm_type="batch", std_norm=False)
+        norm = InputNormalization(norm_type="global", std_norm=False)
 
         # Apply normalization
         output = norm(x, lengths)
@@ -284,8 +269,7 @@ def test_global_norm_update():
     tensor = torch.tensor([[1.0, 2.0, 3.0]])
     mask = torch.tensor([[True, True, True]])
     dims = (1,)
-    weight = 1.0
-    run_weight = 2.0
+    run_count = 2
     run_mean = torch.tensor([2.0])
     run_std = torch.tensor([1.0])
 
@@ -311,12 +295,11 @@ def test_global_norm_update():
     try:
         from speechbrain.processing.features import mean_std_update
 
-        updated_weight, updated_mean, updated_std = mean_std_update(
+        updated_count, updated_mean, updated_std = mean_std_update(
             tensor,
             mask=mask,
             dim=dims,
-            weight=weight,
-            run_sum=run_weight,
+            run_count=run_count,
             run_mean=run_mean,
             run_std=run_std,
         )
@@ -324,7 +307,7 @@ def test_global_norm_update():
         builtins.__import__ = real_import
 
     # Check results
-    assert updated_weight == 3.0  # weight + new_weight
+    assert updated_count == 5  # weight + n
 
     # Check mean update: old_mean + (new_mean - old_mean) * new_weight / (old_weight + new_weight)
     # new_mean = 2.0, old_mean = 2.0, so updated_mean should be 2.0
