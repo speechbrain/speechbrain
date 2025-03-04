@@ -18,6 +18,7 @@ import math
 import re
 import string
 import sys
+from functools import partial
 from pathlib import Path
 
 import torch
@@ -63,9 +64,7 @@ class TokotronBrain(sb.Brain):
         tokens, tokens_length = batch.tokens
         features = self.prepare_features(batch)
         audio_bos, audio_bos_length, _, _, spk_emb = features
-        emb = None
-        if self.hparams.use_spk_emb:
-            emb = {"spk": spk_emb}
+        emb = {"spk": spk_emb.squeeze(1)}
 
         predictions = self.modules.model(
             input_tokens=tokens,
@@ -76,6 +75,20 @@ class TokotronBrain(sb.Brain):
         )
 
         return predictions, features
+
+    def _get_selected_layer_idx(self):
+        selected_layers = None
+        if (
+            hasattr(self.hparams, "select_layers")
+            and self.hparams.select_layers
+        ):
+            layers = self.hparams.select_layers
+            model_layers_map = {
+                layer: idx
+                for idx, layer in enumerate(self.hparams.token_model_layers)
+            }
+            selected_layers = [model_layers_map[layer] for layer in layers]
+        return selected_layers
 
     def compute_objectives(self, predictions, batch, stage):
         """Computes the loss given the predicted and targeted outputs. We here
@@ -117,7 +130,6 @@ class TokotronBrain(sb.Brain):
         )
         return loss_details.loss
 
-    # TODO: Replace this with offline extraction
     def prepare_features(self, batch):
         """Prepares features for training
 
@@ -158,15 +170,18 @@ class TokotronBrain(sb.Brain):
         audio_bos_length = (
             audio_length_abs + self.hparams.bos_width
         ) / audio_bos.size(1)
-        if self.hparams.use_spk_emb:
-            mel_spec = self.modules.spk_emb_model.mel_spectogram(
-                audio=batch.sig.data
-            )
-            spk_emb = self.modules.spk_emb_model.encode_mel_spectrogram_batch(
-                mel_spec, batch.sig.lengths
-            )
-        else:
-            spk_emb = None
+        spk_emb_sig, spk_emb_sig_lengths = (
+            batch.spk_emb_random_match
+            if self.hparams.spk_emb_shuffle
+            else batch.sig
+        )
+
+        mel_spec = self.spk_emb_model.mel_spectogram(
+            audio=spk_emb_sig
+        )
+        spk_emb = self.spk_emb_model.encode_mel_spectrogram_batch(
+            mel_spec, spk_emb_sig_lengths
+        )
         return audio_bos, audio_bos_length, audio_pad, audio_pad_length, spk_emb
 
     def get_end_padding(self):
@@ -219,9 +234,9 @@ class TokotronBrain(sb.Brain):
         detached loss
         """
         loss = super().evaluate_batch(batch, stage)
+        loss = loss.detach().cpu()
         if self.is_evaluating:
             self.create_samples(batch)
-        loss = loss.detach().cpu()
         return loss
 
     def on_stage_start(self, stage, epoch):
@@ -235,15 +250,51 @@ class TokotronBrain(sb.Brain):
             The currently-starting epoch. This is passed
             `None` during the test stage.
         """
+        if hasattr(self.modules.vocoder, "model"):
+            self.modules.vocoder.model.device = self.device
+        self.layer_idx = self._get_selected_layer_idx()
         self.loss_metric = sb.utils.metric_stats.MultiMetricStats(
             metric=self.hparams.compute_cost,
             batch_eval=True,
         )
+        self.spk_emb_model = self.hparams.spk_emb_model(
+            run_opts={"device": self.device}
+        )
+        # If speaker embedding shuffling is enabled, re-initialize them for the
+        # epoch
+        if self.hparams.spk_emb_shuffle:
+            stage_key = stage.name.lower()
+            resample_fn[stage_key](epoch=epoch)
+
         self.audio_bos_prefix = self.get_bos_prefix()
         self.end_padding = self.get_end_padding()
         self.is_evaluating = (stage == sb.Stage.TEST) or (
             epoch % self.hparams.samples_interval == 0
         )
+
+    def on_fit_start(self):
+        """Gets called at the beginning of ``fit()``, on multiple processes
+        if ``distributed_count > 0`` and backend is ddp.
+
+        Default implementation compiles the jit modules, initializes
+        optimizers, and loads the latest checkpoint to resume training.
+        """
+        # Run this *after* starting all processes since jit/compiled modules
+        # cannot be pickled.
+        self._compile()
+
+        # Wrap modules with parallel backend after jit
+        self._wrap_distributed()
+
+        # Initialize optimizers after parameters are configured
+        self.init_optimizers()
+
+        # Load latest checkpoint to resume training if interrupted
+        if self.checkpointer is not None and not getattr(
+            self, "_ckpt_recovered", False
+        ):
+            self.checkpointer.recover_if_possible()
+            self._ckpt_recovered = True
 
     def on_stage_end(self, stage, stage_loss, epoch):
         """Gets called at the end of an epoch.
@@ -267,7 +318,6 @@ class TokotronBrain(sb.Brain):
 
         # Perform end-of-iteration things, like annealing, logging, etc.
         if stage == sb.Stage.VALID:
-
             if self.hparams.lr_annealing_mode == "epoch":
                 _, new_lr = self.hparams.lr_annealing(stage_loss)
                 sb.nnet.schedulers.update_learning_rate(self.optimizer, new_lr)
@@ -359,7 +409,7 @@ class TokotronBrain(sb.Brain):
         return loss
 
 
-INPUT_FEATURE_MAP = {"text": "label_norm", "phonemes": "phonemes"}
+INPUT_FEATURE_MAP = {"text": "label_norm", "phonemes": "phn"}
 
 
 def dataio_prepare(hparams):
@@ -383,7 +433,6 @@ def dataio_prepare(hparams):
     """
 
     # Define datasets from json data manifest file
-    # Define datasets sorted by ascending lengths for efficiency
     datasets = {}
     data_folder = hparams["data_folder"]
     data_info = {
@@ -393,17 +442,6 @@ def dataio_prepare(hparams):
     }
     label_encoder = hparams["label_encoder"]
     input_feature = INPUT_FEATURE_MAP[hparams["input"]]
-
-    @sb.utils.data_pipeline.takes("wav")
-    @sb.utils.data_pipeline.provides("sig")
-    def sig_pipeline(wav):
-        sig = sb.dataio.dataio.read_audio(wav)
-        sig = torchaudio.functional.resample(
-            sig,
-            orig_freq=hparams["sample_rate"],
-            new_freq=hparams["model_sample_rate"],
-        )
-        return sig
 
     @sb.utils.data_pipeline.takes("label")
     @sb.utils.data_pipeline.provides("label_norm", "label_norm_eval")
@@ -420,14 +458,39 @@ def dataio_prepare(hparams):
         """Processes the transcriptions to generate proper labels"""
         return label_encoder.encode_sequence_torch(label)
 
-    dynamic_items = [text_pipeline, tokens_pipeline, sig_pipeline]
+    @sb.utils.data_pipeline.takes("wav")
+    @sb.utils.data_pipeline.provides("sig")
+    def sig_pipeline(wav):
+        sig = sb.dataio.dataio.read_audio(wav)
+        sig = torchaudio.functional.resample(
+            sig,
+            orig_freq=hparams["sample_rate"],
+            new_freq=hparams["model_sample_rate"],
+        )
+        return sig
 
-    init_sequence_encoder(hparams)
+    def spk_emb_random_match(uttid, dataset, spk_sample):
+        # Sample a speaker-matched embedding
+        selected_idx = spk_sample[uttid]
+
+        # Retrieve the embedding value from the dataset
+        with dataset.output_keys_as(["sig"]):
+            spk_emb = dataset[selected_idx]["sig"]
+        return spk_emb
+
+    dynamic_items = [text_pipeline, tokens_pipeline, sig_pipeline]
     output_keys = ["uttid", "tokens", "sig"]
 
+    init_sequence_encoder(hparams)
+
+    resample_fn = {}
     for dataset in data_info:
         dataset_dynamic_items = list(dynamic_items)
         dataset_output_keys = list(output_keys)
+        if dataset != "train":
+            dataset_dynamic_items.append(sig_pipeline)
+            dataset_output_keys += ["sig", "label_norm_eval"]
+
         dynamic_dataset = sb.dataio.dataset.DynamicItemDataset.from_json(
             json_path=data_info[dataset],
             replacements={"data_root": data_folder},
@@ -436,6 +499,30 @@ def dataio_prepare(hparams):
         )
         datasets[dataset] = dynamic_dataset
         hparams[f"{dataset}_dataloader_opts"]["shuffle"] = False
+        if hparams["spk_emb_shuffle"]:
+            spk_idx, spk_samplers = group_by_speaker(dynamic_dataset, hparams)
+            spk_sample = {}
+            spk_emb_random_match_pipeline = partial(
+                spk_emb_random_match,
+                spk_sample=spk_sample,
+                dataset=dynamic_dataset.filtered_sorted(),
+            )
+            dynamic_dataset.add_dynamic_item(
+                func=spk_emb_random_match_pipeline,
+                takes=["uttid"],
+                provides=["spk_emb_random_match"],
+            )
+            resample_fn[dataset] = partial(
+                resample_spk,
+                spk_idx=spk_idx,
+                sample=spk_sample,
+                dataset=dynamic_dataset,
+                spk_samplers=spk_samplers,
+            )
+            dynamic_dataset.set_output_keys(
+                dataset_output_keys + ["spk_emb_random_match"]
+            )
+            resample_fn[dataset](epoch=0)
 
     # Sorting training data with ascending order makes the code  much
     # faster  because we minimize zero-padding. In most of the cases, this
@@ -458,8 +545,34 @@ def dataio_prepare(hparams):
         raise NotImplementedError(
             "sorting must be random, ascending or descending"
         )
+
+    # Exclude samples without phonemes
+    if hparams["input"] == "phonemes":
+        for key in datasets:
+            datasets[key] = datasets[key].filtered_sorted(
+                key_test={"phn": lambda value: value}
+            )
+
     datasets["sample"] = select_sample(hparams, datasets)
-    return datasets
+    filter_valid(hparams, datasets)
+    return datasets, resample_fn
+
+
+def filter_valid(hparams, datasets):
+    """Filters the validation set, if applicable
+
+    Arguments
+    ---------
+    hparams : dict
+        experiment hyperparameters
+    datasets : dict
+        a dictionary of datasets
+    """
+    valid_sample_count = hparams.get("valid_sample_count")
+    if valid_sample_count:
+        datasets["valid"] = datasets["valid"].filtered_sorted(
+            select_n=valid_sample_count
+        )
 
 
 def select_sample(hparams, datasets):
@@ -483,7 +596,7 @@ def select_sample(hparams, datasets):
     if sample_path is not None:
         sample_path = Path(sample_path)
         if sample_path.exists():
-            with open(sample_path, "r", encoding="utf-8") as sample_file:
+            with open(sample_path, "r") as sample_file:
                 data_ids = [line.strip() for line in sample_file]
                 dataset = FilteredSortedDynamicItemDataset(
                     datasets["valid"], data_ids
@@ -496,10 +609,84 @@ def select_sample(hparams, datasets):
             .filtered_sorted(select_n=hparams["num_audio_samples"])
         )
         if sample_path is not None:
-            with open(sample_path, "w", encoding="utf-8") as sample_file:
+            with open(sample_path, "w") as sample_file:
                 for data_id in dataset.data_ids:
                     print(data_id, file=sample_file)
     return dataset
+
+
+def group_by_speaker(dataset, hparams):
+    """Groups utterance IDs in a dataset by speaker, for selection. The selection
+    is stable based on the seed - calling this method multiple times will always
+    result in the same order
+
+    Arguments
+    ---------
+    dataset : torch.Tensor
+        the dataset from which to select items
+    hparams : dict
+        hyperparameters
+
+    Returns
+    -------
+    spk_idx : dict
+        a str -> int dictionary with a list of utterance indexes
+        for every speaker
+    spk_samplers : dict
+        a reproducible sampler for every speaker
+    spk_samplers_it : dict
+        an iterator for each sampler
+    """
+    spk_idx = {}
+    spk_samplers = {}
+    speakers = []
+    generator = torch.Generator()
+    generator.manual_seed(hparams["seed"])
+
+    # Group by speaker
+    with dataset.output_keys_as(["spk_id"]):
+        for idx, item in enumerate(dataset):
+            spk_id = item["spk_id"]
+            if spk_id not in spk_idx:
+                spk_idx[spk_id] = []
+            spk_idx[spk_id].append(idx)
+            speakers.append(spk_id)
+
+    # Create a reproducible sampler
+    for spk_id in speakers:
+        sampler = hparams["spk_sampler"](data_source=spk_idx[spk_id])
+        spk_samplers[spk_id] = sampler
+
+    return spk_idx, spk_samplers
+
+
+def resample_spk(sample, spk_idx, spk_samplers, dataset, epoch):
+    """Selects new samples and updates the sample dictionary
+    provided
+
+    Arguments
+    ---------
+    sample : dict
+        the sample dictionary
+    spk_idx : dict
+        Data item indexes grouped by speaker
+    spk_samplers : dict
+        A sampler for each speaker
+    dataset : speechbrain.dataio.dataset.DynamicItemDataset
+    epoch : int
+        The epoch number
+    """
+    if epoch is None:
+        epoch = 0
+    spk_samplers_it = {}
+    for spk_id, sampler in spk_samplers.items():
+        sampler.set_epoch(epoch)
+        spk_samplers_it[spk_id] = iter(sampler)
+    with dataset.output_keys_as(["uttid", "spk_id"]):
+        for item in dataset:
+            spk_item_idx = next(spk_samplers_it[item["spk_id"]])
+            dataset_item_idx = spk_idx[item["spk_id"]][spk_item_idx]
+            sample[item["uttid"]] = dataset_item_idx
 
 
 def init_sequence_encoder(hparams):
@@ -509,7 +696,6 @@ def init_sequence_encoder(hparams):
     ---------
     hparams: dict
         parsed hyperparameters
-
     Returns
     -------
     encoder: speechbrain.dataio.encoder.TextEncoder
@@ -542,7 +728,7 @@ def read_token_list(file_name):
         file_name = Path(__file__).parent / file_name
     if not file_name.exists():
         raise ValueError(f"Token file {file_name} not found")
-    with open(file_name, encoding="utf-8") as token_file:
+    with open(file_name) as token_file:
         return [line.strip("\r\n") for line in token_file if line]
 
 
@@ -623,16 +809,15 @@ if __name__ == "__main__":
     sb.utils.distributed.ddp_init_group(run_opts)
 
     # Load hyperparameters file with command-line overrides
-    with open(hparams_file, encoding="utf-8") as fin:
+    with open(hparams_file) as fin:
         yaml = fin.read()
 
-    # Load evaluation hyperparameters
     eval_hparams_file = Path(hparams_file).parent / "eval.yaml"
     if eval_hparams_file.exists():
         logger.info(
             "Using evaluation hyperparameters from %s", eval_hparams_file
         )
-        with open(eval_hparams_file, encoding="utf-8") as eval_hparams:
+        with open(eval_hparams_file) as eval_hparams:
             hparams_yaml = eval_hparams.read()
             yaml = "\n".join([yaml, hparams_yaml])
     else:
@@ -649,33 +834,48 @@ if __name__ == "__main__":
         overrides=overrides,
     )
 
-    from ljspeech_prepare import prepare_ljspeech
+    from libritts_prepare import prepare_libritts
 
     # Data preparation, to be run on only one process.
     representation_mode = RepresentationMode(
         hparams.get("representation_mode", RepresentationMode.DISCRETE)
     )
-
+    audio_features = (
+        "audio_tokens"
+        if representation_mode == RepresentationMode.DISCRETE
+        else "audio_ssl"
+    )
     if not hparams["skip_prep"]:
-        prepare_opts = {
-            "data_folder": hparams["data_folder"],
-            "save_folder": hparams["prepare_save_folder"],
-            "splits": hparams["splits"],
-            "split_ratio": hparams["split_ratio"],
-            "seed": hparams["seed"],
-            "extract_phonemes": hparams["input"] == "phonemes",
-            "model_name": "tokotron",
-            "g2p_src": hparams["g2p_src"],
-            "skip_ignore_folders": hparams["prepare_skip_ignore_folders"],
-            "device": run_opts.get("device", "cpu"),
-        }
-        run_on_main(prepare_ljspeech, kwargs=prepare_opts)
+        run_on_main(
+            prepare_libritts,
+            kwargs={
+                "data_folder": hparams["data_folder"],
+                "save_json_train": hparams["train_json"],
+                "save_json_valid": hparams["valid_json"],
+                "save_json_test": (
+                    hparams["test_json"]
+                    if "test" in hparams["splits"]
+                    else None
+                ),
+                "sample_rate": hparams["sample_rate"],
+                "train_split": hparams["train_split"],
+                "valid_split": hparams["valid_split"],
+                "test_split": (
+                    hparams["test_split"]
+                    if "test" in hparams["splits"]
+                    else None
+                ),
+                "seed": hparams["seed"],
+                "model_name": hparams["model"].__class__.__name__,
+            },
+        )
 
     # We can now directly create the datasets for training, valid, and test
-    datasets = dataio_prepare(hparams)
+    (datasets, resample_fn) = dataio_prepare(hparams)
 
     # Apply overfit test settings
     datasets = apply_overfit_test(hparams, datasets)
+    audio_keys = ["audio_pad", "audio_bos"]
 
     # Trainer initialization
     tts_brain = TokotronBrain(
@@ -686,6 +886,7 @@ if __name__ == "__main__":
         checkpointer=hparams["checkpointer"],
     )
     tts_brain.sample_data = datasets["sample"]
+    tts_brain.resample_fn = resample_fn
 
     # The `fit()` method iterates the training loop, calling the methods
     # necessary to update the parameters of the model. Since all objects
