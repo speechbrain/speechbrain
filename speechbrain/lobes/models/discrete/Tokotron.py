@@ -1337,6 +1337,7 @@ class TokotronTransformerModel(nn.Module):
                     for key, value in emb.items()
                     if key in self.vocoder_emb
                 }
+            vocoder_to_device(self.vocoder, audio.device)
             wav = self.vocoder(audio, **vocoder_emb)
             clean_padding_(wav, dec_out.length)
         return TokotronInfernceOutput(
@@ -2360,7 +2361,7 @@ def get_silence_token(
     return silence_tokens
 
 
-def get_silence_repr(model, sample_length=100000, device=None):
+def get_silence_repr(model, sample_length=100000, layers=None, device=None):
     """Gets continuous silence
 
     Arguments
@@ -2369,6 +2370,8 @@ def get_silence_repr(model, sample_length=100000, device=None):
         A discrete token model, taking (wav, lengths) as arguments
     sample_length : int
         The length of the sample
+    layers : list, optional
+        The layers to return - if omitted, all layers will be returned
     device : str | torch.Device
         The device to use
 
@@ -2380,5 +2383,27 @@ def get_silence_repr(model, sample_length=100000, device=None):
     audio = torch.zeros(1, sample_length, device=device)
     length = torch.ones(1, device=device)
     audio_repr = model(audio, length)
-    silence = audio_repr.mean(dim=1)[0]
+    silence = audio_repr.squeeze(1).permute(1, 0, 2).mean(dim=0)
+    if layers is not None:
+        silence = silence[layers]
     return silence
+
+
+def vocoder_to_device(vocoder, device):
+    """Forces a vocoder to be moved to the specified device.
+    Some vocoders do not respect the .to() command and need to be moved manually.
+
+    Arguments
+    ---------
+    vocoder : torch.nn.Module
+        the module
+
+    device : str
+        the device
+    """
+    vocoder.to(device)
+    if hasattr(vocoder, "device"):
+        vocoder.device = device
+    if hasattr(vocoder, "codec_vocoder"):
+        vocoder.codec_vocoder.to(device)
+        vocoder.codec_vocoder.device = device

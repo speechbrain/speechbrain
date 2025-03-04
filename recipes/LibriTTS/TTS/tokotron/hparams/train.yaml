@@ -44,7 +44,18 @@ token_model_src: !apply:speechbrain.utils.hparams.choice
 token_model_kmeans_dataset: LibriSpeech
 speech_model_layers: [1, 3, 7, 12, 18, 23]
 select_layers: null
-vocoder_repo_id: !ref speechbrain/hifigan-<ssl_model_type>-k1000-LibriTTS
+vocoder_repo_id_discrete: speechbrain/hifigan-<ssl_model_type>-k1000-LibriTTS
+vocoder_repo_id_continuous: !apply:speechbrain.utils.hparams.choice
+    value: !ref <ssl_model_type>
+    choices:
+        wavlm: chaanks/hifigan-wavlm-l1-3-7-12-18-23-LibriTTS
+        hubert: chaanks/hifigan-hubert-l1-3-7-12-18-23-LibriTTS
+        wav2vec: chaanks/hifigan-hubert-l1-3-7-12-18-23-LibriTTS
+vocoder_repo_id: !apply:speechbrain.utils.hparams.choice
+    value: !ref <representation_mode>
+    choices:
+        discrete: !ref <vocoder_repo_id_discrete>
+        continuous: !ref <vocoder_repo_id_continuous>
 spk_emb_src: speechbrain/spkrec-ecapa-voxceleb-mel-spec
 spk_emb_discrete_src: !apply:speechbrain.utils.hparams.choice
     value: !ref <ssl_model_type>
@@ -146,13 +157,16 @@ ssl_model: !apply:speechbrain.utils.hparams.choice
             output_all_hiddens: True
 
 
-token_model: !new:speechbrain.lobes.models.huggingface_transformers.discrete_ssl.DiscreteSSL
-    ssl_model: !ref <ssl_model>
-    vocoder_repo_id: !ref <vocoder_repo_id>
-    kmeans_dataset: !ref <token_model_kmeans_dataset>
-    num_clusters: !ref <audio_num_tokens>
-    save_path: !ref <pretrained_model_save_folder>
-    layers_num: !ref <speech_model_layers>
+token_model: !apply:speechbrain.utils.hparams.conditional
+    condition: !ref <representation_mode> == "discrete"
+    apply: True
+    value: !name:speechbrain.lobes.models.huggingface_transformers.discrete_ssl.DiscreteSSL
+        ssl_model: !ref <ssl_model>
+        vocoder_repo_id: !ref <vocoder_repo_id>
+        kmeans_dataset: !ref <token_model_kmeans_dataset>
+        num_clusters: !ref <audio_num_tokens>
+        save_path: !ref <pretrained_model_save_folder>
+        layers_num: !ref <speech_model_layers>
 
 audio_model: !apply:speechbrain.utils.hparams.choice
     value: !ref <representation_mode>
@@ -225,10 +239,21 @@ attention_type: regularMHA
 
 ############################## models ################################
 
-vocoder: !new:speechbrain.lobes.models.discrete.Tokotron.DiscreteSSLVocoder
+vocoder_continuous: !name:speechbrain.inference.vocoders.HIFIGAN.from_hparams
+    source: !ref <vocoder_repo_id>
+    savedir: !ref <pretrained_model_save_folder>/hifigan-continuous-<ssl_model_type>
+
+
+vocoder_discrete: !name:speechbrain.lobes.models.discrete.Tokotron.DiscreteSSLVocoder
     discrete_ssl: !ref <token_model>
     layers: !ref <speech_model_layers>
 
+vocoder: !apply:speechbrain.utils.hparams.choice
+    value: !ref <representation_mode>
+    apply: True
+    choices:
+        continuous: !ref <vocoder_continuous>
+        discrete: !ref <vocoder_discrete>
 
 emb:
     spk:

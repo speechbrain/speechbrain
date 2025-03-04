@@ -151,7 +151,11 @@ class TokotronBrain(sb.Brain):
         spk_emb : torch.Tensor
             The speaker embedding (if enabled)
         """
-        audio, *_ = self.modules.audio_model(batch.sig.data)
+        out = self.modules.audio_model(batch.sig.data)
+        if self.representation_mode == RepresentationMode.DISCRETE:
+            audio = out[0]
+        else:
+            audio = out[self.hparams.speech_model_layers].permute(1, 2, 0, 3)
         silence_padding_len = int(math.ceil(hparams["silence_padding"]))
         audio_pad, audio_pad_length = feature_pad(
             audio, batch.sig.lengths, silence_padding_len, self.end_padding
@@ -199,6 +203,7 @@ class TokotronBrain(sb.Brain):
             else:
                 end_padding = get_silence_repr(
                     self.hparams.audio_model,
+                    layers=self.hparams.speech_model_layers,
                 )
         else:
             end_padding = (
@@ -250,6 +255,9 @@ class TokotronBrain(sb.Brain):
         """
         if hasattr(self.modules.vocoder, "model"):
             self.modules.vocoder.model.device = self.device
+        self.representation_mode = RepresentationMode(
+            self.hparams.representation_mode
+        )
         self.layer_idx = self._get_selected_layer_idx()
         self.loss_metric = sb.utils.metric_stats.MultiMetricStats(
             metric=self.hparams.compute_cost,
@@ -343,7 +351,7 @@ class TokotronBrain(sb.Brain):
             )
             * hparams["bos_index"]
         )
-        if representation_mode == RepresentationMode.CONTINUOUS:
+        if self.representation_mode == RepresentationMode.CONTINUOUS:
             audio_bos_prefix = audio_bos_prefix.unsqueeze(-1).repeat(
                 1, 1, self.hparams.audio_dim
             )

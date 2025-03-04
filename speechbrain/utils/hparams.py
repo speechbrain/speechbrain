@@ -5,7 +5,7 @@ Authors
 """
 
 
-def choice(value, choices, default=None):
+def choice(value, choices, default=None, apply=False):
     """
     The equivalent of a "switch statement" for hparams files. The typical use case
     is where different options/modules are available, and a top-level flag decides
@@ -20,6 +20,8 @@ def choice(value, choices, default=None):
         to the corresponding return values
     default: any
         the default value
+    apply : bool
+        if set to true, the selected choice will be invoked as a callable
 
     Returns
     -------
@@ -34,4 +36,42 @@ def choice(value, choices, default=None):
                 regular: !ref <encoder_emb>
                 normalized: !ref <encoder_emb_norm>
     """
-    return choices.get(value, default)
+    result = choices.get(value, default)
+    if apply and callable(result):
+        result = result()
+    return result
+
+
+def conditional(
+    condition, value, condition_value=True, apply=False, fallback=None
+):
+    """A shorthand for choice for Boolean condittions
+
+    Arguments
+    ---------
+    condition : any
+        the condition to check (truthy if condition_value is not specified)
+    value : any
+        the value to return if the condition is True
+    condition_value : any
+        the value of the condition that evaluates to True
+    apply : bool
+        if set to true, the value is expected to
+        be a callable, and the result of the call
+        will be returned
+    fallback : any
+        the value to return if the condition is False
+
+    Returns
+    -------
+    result : any
+        value if the condition evaluates to true, fallback otherwise
+    """
+    return choice(
+        value=condition,
+        choices={
+            condition_value: value,
+        },
+        default=fallback,
+        apply=apply,
+    )
