@@ -51,7 +51,7 @@ class LLaMA(HFTransformersInterface):
     -------
     >>> model_hub = "meta-llama/Llama-3.2-3B"
     >>> save_path = "savedir"
-    >>> model = LlaMA(model_hub, save_path)
+    >>> model = LLaMA(model_hub, save_path)
     >>> tokens = torch.tensor([[1, 1]])
     >>> attention_mask = torch.tensor([[1, 1]])
     >>> outputs = model(tokens, attention_mask)
