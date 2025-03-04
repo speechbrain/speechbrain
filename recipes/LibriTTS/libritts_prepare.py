@@ -330,6 +330,7 @@ def create_json(
             json_dict[uttid].update({"label_phoneme": phonemes})
 
     # Writes the dictionary to the json file
+    Path(json_file).parent.mkdir(parents=True, exist_ok=True)
     with open(json_file, mode="w", encoding="utf-8") as json_f:
         json.dump(json_dict, json_f, indent=2)
 
@@ -459,11 +460,10 @@ def parse_alignments(file_name):
         the metadata details
     """
     try:
-        import textgrids
+        import tgt
     except ImportError:
         logger.error(
-            "Parsing LibriSpeech-alignments requires the"
-            "praat-textgrids package"
+            "Parsing LibriSpeech-alignments requires the" "tgt package"
         )
         raise
     if not file_name.exists():
@@ -481,13 +481,21 @@ def parse_alignments(file_name):
             "unk_count": None,
         }
 
-    text_grid = textgrids.TextGrid()
-    text_grid.read(file_name)
+    #    text_grid = textgrids.TextGrid()
+    #    text_grid.read(file_name)
+    textgrid = tgt.io.read_textgrid(file_name, include_empty_intervals=True)
     word_intervals = [
-        {**word, "label": word["label"].upper()}
-        for word in text_grid.interval_tier_to_array("words")
+        {
+            "begin": word.start_time,
+            "end": word.end_time,
+            "label": word.text.upper(),
+        }
+        for word in textgrid.get_tier_by_name("words")
     ]
-    phn_intervals = text_grid.interval_tier_to_array("phones")
+    phn_intervals = [
+        {"begin": phn.start_time, "end": phn.end_time, "label": phn.text}
+        for phn in textgrid.get_tier_by_name("phones")
+    ]
     details = {}
     details.update(intervals_to_dict(word_intervals, "wrd"))
     phn = intervals_to_dict(phn_intervals, "phn")

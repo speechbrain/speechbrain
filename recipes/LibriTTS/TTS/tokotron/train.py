@@ -176,9 +176,7 @@ class TokotronBrain(sb.Brain):
             else batch.sig
         )
 
-        mel_spec = self.spk_emb_model.mel_spectogram(
-            audio=spk_emb_sig
-        )
+        mel_spec = self.spk_emb_model.mel_spectogram(audio=spk_emb_sig)
         spk_emb = self.spk_emb_model.encode_mel_spectrogram_batch(
             mel_spec, spk_emb_sig_lengths
         )
@@ -408,6 +406,103 @@ class TokotronBrain(sb.Brain):
             self.hparams.lr_annealing(self.optimizer)
         return loss
 
+    def fit(
+        self,
+        epoch_counter,
+        train_set,
+        valid_set=None,
+        progressbar=None,
+        train_loader_kwargs={},
+        valid_loader_kwargs={},
+    ):
+        """Iterate epochs and datasets to improve objective.
+
+        Relies on the existence of multiple functions that can (or should) be
+        overridden. The following methods are used and expected to have a
+        certain behavior:
+
+        * ``fit_batch()``
+        * ``evaluate_batch()``
+        * ``update_average()``
+
+        If the initialization was done with distributed_count > 0 and the
+        distributed_backend is ddp, this will generally handle multiprocess
+        logic, like splitting the training data into subsets for each device and
+        only saving a checkpoint on the main process.
+
+        Arguments
+        ---------
+        epoch_counter : iterable
+            Each call should return an integer indicating the epoch count.
+        train_set : Dataset, DataLoader
+            A set of data to use for training. If a Dataset is given, a
+            DataLoader is automatically created. If a DataLoader is given, it is
+            used directly.
+        valid_set : Dataset, DataLoader
+            A set of data to use for validation. If a Dataset is given, a
+            DataLoader is automatically created. If a DataLoader is given, it is
+            used directly.
+        progressbar : bool
+            Whether to display the progress of each epoch in a progressbar.
+        train_loader_kwargs : dict
+            Kwargs passed to `make_dataloader()` for making the train_loader
+            (if train_set is a Dataset, not DataLoader).
+            E.G. batch_size, num_workers.
+            DataLoader kwargs are all valid.
+        valid_loader_kwargs : dict
+            Kwargs passed to `make_dataloader()` for making the valid_loader
+            (if valid_set is a Dataset, not DataLoader).
+            E.g., batch_size, num_workers.
+            DataLoader kwargs are all valid.
+
+        Returns
+        -------
+        None
+        """
+        if self.test_only:
+            logger.info(
+                "Test only mode, skipping training and validation stages."
+            )
+            return
+
+        self.on_fit_start()
+        train_set = self.make_dataloader(
+            train_set, stage=sb.Stage.TRAIN, **train_loader_kwargs
+        )
+        epoch = self.hparams.epoch_counter.current
+        if epoch < self.hparams.number_of_epochs:
+            valid_set = sample_dataset(
+                dataset=valid_set,
+                count=self.hparams.valid_inter_data_count,
+                seed=self.hparams.seed,
+            )
+
+        valid_set = self.make_dataloader(
+            valid_set,
+            stage=sb.Stage.VALID,
+            ckpt_prefix=None,
+            **valid_loader_kwargs,
+        )
+
+        if progressbar is None:
+            progressbar = not self.noprogressbar
+
+        # Only show progressbar if requested and main_process
+        enable = progressbar and sb.utils.distributed.if_main_process()
+
+        # Iterate epochs
+        for epoch in epoch_counter:
+            self._fit_train(train_set=train_set, epoch=epoch, enable=enable)
+            self._fit_valid(valid_set=valid_set, epoch=epoch, enable=enable)
+
+            # Debug mode only runs a few epochs
+            if (
+                self.debug
+                and epoch == self.debug_epochs
+                or self._optimizer_step_limit_exceeded
+            ):
+                break
+
 
 INPUT_FEATURE_MAP = {"text": "label_norm", "phonemes": "phn"}
 
@@ -553,66 +648,37 @@ def dataio_prepare(hparams):
                 key_test={"phn": lambda value: value}
             )
 
-    datasets["sample"] = select_sample(hparams, datasets)
-    filter_valid(hparams, datasets)
     return datasets, resample_fn
 
 
-def filter_valid(hparams, datasets):
-    """Filters the validation set, if applicable
+def sample_dataset(dataset, count, seed):
+    """Selects a sample of the specified dataset in a
+    stable manner, returning the same sample on each call
 
     Arguments
     ---------
-    hparams : dict
-        experiment hyperparameters
-    datasets : dict
-        a dictionary of datasets
-    """
-    valid_sample_count = hparams.get("valid_sample_count")
-    if valid_sample_count:
-        datasets["valid"] = datasets["valid"].filtered_sorted(
-            select_n=valid_sample_count
-        )
-
-
-def select_sample(hparams, datasets):
-    """Selects a sample of files for sample generation, freezing the sample if
-    requested to persist across multiple experiments
-
-    Arguments
-    ---------
-    hparams : dict
-        experiment hyperparameters
-    datasets : dict
-        a dictionary of datasets
+    dataset : speechbrain.dataio.dataset.DynamicItemDataset
+        A dataset
+    count : int
+        The number of items to select
+    seed : int
+        The seed to be used
 
     Returns
     -------
-    dataset : speechbrain.dataio.dataset.FilteredSortedDynamicItemDataset
-        the sample dataset
+    result : FilteredSortedDynamicItemDataset
+        The sample
     """
-    sample_path = hparams.get("sample_path")
-    dataset = None
-    if sample_path is not None:
-        sample_path = Path(sample_path)
-        if sample_path.exists():
-            with open(sample_path, "r") as sample_file:
-                data_ids = [line.strip() for line in sample_file]
-                dataset = FilteredSortedDynamicItemDataset(
-                    datasets["valid"], data_ids
-                )
-
-    if dataset is None:
-        dataset = (
-            datasets["valid"]
-            .batch_shuffle(1)
-            .filtered_sorted(select_n=hparams["num_audio_samples"])
-        )
-        if sample_path is not None:
-            with open(sample_path, "w") as sample_file:
-                for data_id in dataset.data_ids:
-                    print(data_id, file=sample_file)
-    return dataset
+    if len(dataset) < count:
+        return dataset
+    generator = torch.Generator()
+    generator.manual_seed(seed)
+    indexes = torch.randperm(len(dataset)).tolist()[:count]
+    data_ids = [dataset.data_ids[idx] for idx in indexes]
+    return FilteredSortedDynamicItemDataset(
+        dataset,
+        data_ids,
+    )
 
 
 def group_by_speaker(dataset, hparams):
@@ -715,12 +781,12 @@ def read_token_list(file_name):
 
     Arguments
     ---------
-    file_name: str
+    file_name : str
         the file name
 
     Returns
     -------
-    result: list
+    result : list
         a list of tokens
     """
     file_name = Path(file_name)
@@ -728,7 +794,7 @@ def read_token_list(file_name):
         file_name = Path(__file__).parent / file_name
     if not file_name.exists():
         raise ValueError(f"Token file {file_name} not found")
-    with open(file_name) as token_file:
+    with open(file_name, encoding="utf-8") as token_file:
         return [line.strip("\r\n") for line in token_file if line]
 
 
@@ -809,7 +875,7 @@ if __name__ == "__main__":
     sb.utils.distributed.ddp_init_group(run_opts)
 
     # Load hyperparameters file with command-line overrides
-    with open(hparams_file) as fin:
+    with open(hparams_file, encoding="utf-8") as fin:
         yaml = fin.read()
 
     eval_hparams_file = Path(hparams_file).parent / "eval.yaml"
@@ -817,7 +883,7 @@ if __name__ == "__main__":
         logger.info(
             "Using evaluation hyperparameters from %s", eval_hparams_file
         )
-        with open(eval_hparams_file) as eval_hparams:
+        with open(eval_hparams_file, encoding="utf-8") as eval_hparams:
             hparams_yaml = eval_hparams.read()
             yaml = "\n".join([yaml, hparams_yaml])
     else:
@@ -850,6 +916,7 @@ if __name__ == "__main__":
             prepare_libritts,
             kwargs={
                 "data_folder": hparams["data_folder"],
+                "alignments_folder": hparams["data_folder_alignments"],
                 "save_json_train": hparams["train_json"],
                 "save_json_valid": hparams["valid_json"],
                 "save_json_test": (
