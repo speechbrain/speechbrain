@@ -952,7 +952,6 @@ if __name__ == "__main__":
         run_opts=run_opts,
         checkpointer=hparams["checkpointer"],
     )
-    tts_brain.sample_data = datasets["sample"]
     tts_brain.resample_fn = resample_fn
 
     # The `fit()` method iterates the training loop, calling the methods
