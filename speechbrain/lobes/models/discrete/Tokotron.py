@@ -1337,7 +1337,6 @@ class TokotronTransformerModel(nn.Module):
                     for key, value in emb.items()
                     if key in self.vocoder_emb
                 }
-            vocoder_to_device(self.vocoder, audio.device)
             wav = self.vocoder(audio, **vocoder_emb)
             clean_padding_(wav, dec_out.length)
         return TokotronInfernceOutput(
@@ -2401,9 +2400,10 @@ def vocoder_to_device(vocoder, device):
     device : str
         the device
     """
-    vocoder.to(device)
-    if hasattr(vocoder, "device"):
-        vocoder.device = device
-    if hasattr(vocoder, "codec_vocoder"):
-        vocoder.codec_vocoder.to(device)
-        vocoder.codec_vocoder.device = device
+    if vocoder is not None:
+        vocoder.to(device)
+        if hasattr(vocoder, "device"):
+            vocoder.device = device
+        if hasattr(vocoder, "codec_vocoder"):
+            vocoder.codec_vocoder.to(device)
+            vocoder.codec_vocoder.device = device

@@ -552,7 +552,10 @@ def feature_pad(tensor, length, padding_length, padding=None):
         padding = torch.zeros(tensor.shape[1:], device=tensor.device)
     batch_size, max_len = tensor.shape[:2]
     length_abs = (length * max_len).unsqueeze(-1)
-    positions = torch.arange(max_len + padding_length)[None, :]
+    positions = torch.arange(
+        max_len + padding_length,
+        device=length.device,
+    )[None, :]
     while positions.dim() < tensor.dim():
         length_abs = length_abs.unsqueeze(-1)
         positions = positions.unsqueeze(-1)

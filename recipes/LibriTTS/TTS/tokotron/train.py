@@ -32,6 +32,7 @@ from speechbrain.lobes.models.discrete.Tokotron import (
     RepresentationMode,
     get_silence_repr,
     get_silence_token,
+    vocoder_to_device,
 )
 from speechbrain.utils.data_utils import feature_pad
 from speechbrain.utils.distributed import run_on_main
@@ -271,7 +272,8 @@ class TokotronBrain(sb.Brain):
         if self.hparams.spk_emb_shuffle:
             stage_key = stage.name.lower()
             resample_fn[stage_key](epoch=epoch)
-
+        if hasattr(self.hparams, "tokens_model"):
+            vocoder_to_device(self.tokens_model, self.device)
         self.audio_bos_prefix = self.get_bos_prefix()
         self.end_padding = self.get_end_padding()
         self.is_evaluating = (stage == sb.Stage.TEST) or (
@@ -347,7 +349,9 @@ class TokotronBrain(sb.Brain):
         """Computes the beginning-of-sequence prefix"""
         audio_bos_prefix = (
             torch.ones(
-                self.hparams.bos_width, self.hparams.audio_tokens_per_step
+                self.hparams.bos_width,
+                self.hparams.audio_tokens_per_step,
+                device=self.device,
             )
             * hparams["bos_index"]
         )
