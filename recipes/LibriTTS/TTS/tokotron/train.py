@@ -386,7 +386,7 @@ class TokotronBrain(sb.Brain):
             file_name = samples_folder / f"{uttid}.wav"
             write_audio(
                 file_name,
-                wav.squeeze(0),
+                wav.squeeze(0).detach().cpu(),
                 samplerate=self.hparams.model_sample_rate,
             )
 
