@@ -761,11 +761,11 @@ class Brain:
         self.scaler = torch.GradScaler(self.device, enabled=gradscaler_enabled)
         train_dtype = AMPConfig.from_name(self.precision).dtype
         self.training_ctx = TorchAutocast(
-            enabled=self.precision == "fp16" or self.precision == "bf16", device_type=self.device, dtype=train_dtype
+            device_type=self.device, dtype=train_dtype
         )
         eval_dtype = AMPConfig.from_name(self.eval_precision).dtype
         self.evaluation_ctx = TorchAutocast(
-            enabled=self.eval_precision == "fp16" or self.eval_precision == "bf16", device_type=self.device, dtype=eval_dtype
+            device_type=self.device, dtype=eval_dtype
         )
         if (
             gradscaler_enabled
