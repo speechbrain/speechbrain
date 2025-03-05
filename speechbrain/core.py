@@ -758,6 +758,7 @@ class Brain:
             f"Using training precision: {self.precision}."
             f"Using evaluation precision: {self.eval_precision}."
         )
+        # NOTE: `torch.cuda.amp.GradScaler` is deprecated and will be removed in the future (>torch 2.6.0).
         self.scaler = torch.cuda.amp.GradScaler(enabled=gradscaler_enabled)
         train_dtype = AMPConfig.from_name(self.precision).dtype
         self.training_ctx = TorchAutocast(
