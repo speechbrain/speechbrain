@@ -61,8 +61,6 @@ class TorchAutocast:
 
     Arguments
     ---------
-    enabled : bool
-        Whether to enable torch.autocast.
     *args
         Positional arguments to pass to torch.autocast.
     **kwargs
@@ -74,7 +72,8 @@ class TorchAutocast:
     ...     # Run model inference with autocasting enabled.
     """
 
-    def __init__(self, enabled: bool, *args, **kwargs):
+    def __init__(self, *args, **kwargs):
+        enabled = kwargs.get("dtype", torch.float32) != torch.float32
         if enabled:
             self.context = torch.autocast(*args, **kwargs)
         else:
@@ -104,7 +103,6 @@ class TorchAutocast:
                 dtype = self.context.fast_dtype
                 raise RuntimeError(
                     f"Error during autocasting with dtype={dtype} on device={device}.\n"
-                    "If you are on the FAIR Cluster, you might need to use autocast_dtype=float16."
                 ) from e
             else:
                 raise
