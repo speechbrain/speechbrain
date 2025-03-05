@@ -1335,10 +1335,11 @@ def mean_std_update(x, mask, dim, run_count, run_mean, run_std=None):
 
     # Only compute variance if needed (for efficiency)
     if run_std is not None:
-        var_sum = (delta * (x - run_mean) * mask).sum(dim)
-        new_var = ddp_all_reduce(var_sum, ReduceOp.SUM) / (n - 1)
-        run_var = (run_std.square() * run_count + new_var * n) / (run_count + n)
-        run_std = run_var.sqrt()
+        # Add up square-diff over current tensor, other processes, and previous tensors.
+        square_diff_sum = (delta * (x - run_mean) * mask).sum(dim)
+        ddp_all_reduce(square_diff_sum, ReduceOp.SUM)
+        square_diff_sum += run_std.square() * run_count
+        run_std = (square_diff_sum / (run_count + n - 1)).sqrt()
     else:
         run_std = torch.ones_like(run_mean)
 

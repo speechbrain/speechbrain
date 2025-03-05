@@ -1,3 +1,4 @@
+import numpy
 import pytest
 import torch
 
@@ -262,57 +263,53 @@ def test_get_mask():
     assert torch.equal(mask, expected_mask)
 
 
-def test_global_norm_update():
-    """Test the global_norm_update function."""
+def parallel_mean_var_update(rank, world_size, tmpdir):
+    """Test that the mean_var_norm works in ddp."""
 
-    # Setup
-    tensor = torch.tensor([[1.0, 2.0, 3.0]])
-    mask = torch.tensor([[True, True, True]])
+    import os
+
+    from speechbrain.processing.features import mean_std_update
+
+    # The masked tensors are [1., 2.] and [2., 3.] for ranks 0 and 1
+    tensor = torch.tensor([[1.0, 2.0, 3.0]]) + rank
+    mask = torch.tensor([[True, True, False]])
     dims = (1,)
+
+    # Running values should be the same between processes
     run_count = 2
     run_mean = torch.tensor([2.0])
     run_std = torch.tensor([1.0])
 
-    # Mock the distributed functions
-    def mock_ddp_all_reduce(tensor, op):
-        return tensor  # Just return the tensor, simulating no distribution
+    # initialize the process group
+    os.environ["RANK"] = str(rank)
+    os.environ["LOCAL_RANK"] = str(rank)
+    sync_file = f"file://{tmpdir}/sync"
+    torch.distributed.init_process_group(
+        "gloo", rank=rank, world_size=world_size, init_method=sync_file
+    )
 
-    # Patch the ddp_all_reduce function
-    import builtins
+    # Run mean_var_norm
+    new_count, new_mean, new_std = mean_std_update(
+        tensor, mask, dims, run_count, run_mean, run_std
+    )
 
-    real_import = builtins.__import__
+    # Expected values
+    expected_count = run_count + 2 + 2
+    expected_mean = run_mean + (1.0 - 1.0) / expected_count
+    expected_std = ((2.0 + 1.0 + 1.0) / (expected_count - 1)) ** 0.5
 
-    def mock_import(name, *args, **kwargs):
-        if name == "speechbrain.processing.features":
-            module = real_import(name, *args, **kwargs)
-            module.ddp_all_reduce = mock_ddp_all_reduce
-            return module
-        return real_import(name, *args, **kwargs)
+    # Same values on all processes
+    assert numpy.isclose(new_count, expected_count)
+    assert numpy.isclose(new_mean, expected_mean)
+    assert numpy.isclose(new_std, expected_std)
 
-    builtins.__import__ = mock_import
 
-    # Call the function
-    try:
-        from speechbrain.processing.features import mean_std_update
-
-        updated_count, updated_mean, updated_std = mean_std_update(
-            tensor,
-            mask=mask,
-            dim=dims,
-            run_count=run_count,
-            run_mean=run_mean,
-            run_std=run_std,
-        )
-    finally:
-        builtins.__import__ = real_import
-
-    # Check results
-    assert updated_count == 5  # weight + n
-
-    # Check mean update: old_mean + (new_mean - old_mean) * new_weight / (old_weight + new_weight)
-    # new_mean = 2.0, old_mean = 2.0, so updated_mean should be 2.0
-    assert torch.isclose(updated_mean, torch.tensor(2.0))
-
-    # Check variance update
-    # The formula is complex but can be verified
-    assert updated_std <= run_std  # In this case, should be smaller
+def test_mean_var_update_parallel(tmpdir):
+    """Test the mean_var_update function in parallel."""
+    world_size = 2
+    torch.multiprocessing.spawn(
+        parallel_mean_var_update,
+        args=(world_size, tmpdir),
+        nprocs=world_size,
+        join=True,
+    )
