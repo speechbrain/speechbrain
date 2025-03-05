@@ -7,11 +7,12 @@ Authors
 """
 
 import functools
-from typing import Callable, Optional
+from contextlib import nullcontext
 from dataclasses import dataclass
+from typing import Callable, Optional
 
 import torch
-from contextlib import nullcontext
+
 
 @dataclass
 class AMPConfig:
@@ -50,26 +51,26 @@ class AMPConfig:
             raise ValueError(
                 f"Specified autocast mode ({name}) incorrect, expected one of `fp32`, `fp16`, `bf16`."
             )
-        
+
+
 class TorchAutocast:
     """
-    Utility for conditionally enabling torch.autocast.
+    A context manager that conditionally enables ``torch.autocast`` for GPU operations.
 
-    This context manager activates autocasting (via ``torch.autocast``)
-    when the ``enabled`` flag is True. When disabled, it behaves as a no-op
-    context manager.
+    This manager wraps around ``torch.autocast`` to automatically enable autocasting when
+    running on a GPU and a data type other than float32 is specified. If the desired
+    data type is float32, autocasting is bypassed and the context manager behaves as a
+    no-op.
 
-    Arguments
-    ---------
-    *args
-        Positional arguments to pass to torch.autocast.
-    **kwargs
-        Keyword arguments to pass to torch.autocast.
-
-    Examples
-    --------
-    >>> with TorchAutocast(enabled=True, device="cpu", dtype=torch.bfloat16):
-    ...     # Run model inference with autocasting enabled.
+    Parameters
+    ----------
+    *args : tuple
+        Positional arguments forwarded to `torch.autocast`.
+        See the PyTorch documentation: https://pytorch.org/docs/stable/amp.html#torch.autocast
+    **kwargs : dict
+        Keyword arguments forwarded to `torch.autocast`.
+        Typically includes the `dtype` argument to specify the desired precision.
+        See the PyTorch documentation for more details.
     """
 
     def __init__(self, *args, **kwargs):
@@ -98,7 +99,9 @@ class TorchAutocast:
         try:
             return self.context.__enter__()
         except RuntimeError as e:
-            if hasattr(self.context, "device") and hasattr(self.context, "fast_dtype"):
+            if hasattr(self.context, "device") and hasattr(
+                self.context, "fast_dtype"
+            ):
                 device = self.context.device
                 dtype = self.context.fast_dtype
                 raise RuntimeError(
@@ -126,6 +129,7 @@ class TorchAutocast:
             The result of exiting the underlying autocast context manager.
         """
         return self.context.__exit__(exc_type, exc_val, exc_tb)
+
 
 def fwd_default_precision(
     fwd: Optional[Callable] = None,
