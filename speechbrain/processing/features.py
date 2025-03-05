@@ -996,9 +996,11 @@ class ContextWindow(torch.nn.Module):
 
 @register_checkpoint_hooks
 class InputNormalization(torch.nn.Module):
-    """Performs mean and variance normalization over the time dimension of the input.
+    """Performs mean and variance normalization over the time and possibly
+    the (global) batch dimension of the input.
 
-    Running mean and running variance calculation is done using Welford's Algorithm.
+    When the default norm_type of "global" is used, running mean and variance
+    statistics are computed and stored incorporating all the samples seen.
 
     WARNING: at first, the running statistics do not represent the "true" mean
     and variance, but are estimates based on the data seen so far. Once enough
@@ -1006,7 +1008,8 @@ class InputNormalization(torch.nn.Module):
 
     WARNING: Using global normalization, the first call of `forward()` will
     throw an error if no updates have been performed (including the current batch),
-    i.e. on first call the epoch >= update_until_epoch or in eval() mode.
+    i.e. on first call the `epoch >= update_until_epoch` or the module
+    is first called in `.eval()` mode.
 
     Arguments
     ---------
@@ -1028,7 +1031,8 @@ class InputNormalization(torch.nn.Module):
         The dimension for which to mask out the padding positions.
     update_until_epoch : int, default 2
         The epoch for which updates to the norm stats should stop.
-        By default, stops after one epoch of updates.
+        By default, stops after one epoch of updates, as when
+        epoch == update_until_epoch then the updates stop immediately.
     avoid_padding_norm : bool, default False
         Regardless of the value passed here, padding is ignored for statistics
         computation. However, if False is passed for `avoid_padding_norm`, padding
@@ -1291,7 +1295,11 @@ class InputNormalization(torch.nn.Module):
 
 
 def mean_std_update(x, mask, dim, run_count, run_mean, run_std=None):
-    """Welford's algorithm for running mean, variance (from Wikipedia)
+    """Update the mean and variance statistics run_mean and run_std that
+    have been computed on run_count samples to integrate the new samples x.
+
+    For more information about running variance statistic calculation, see
+    https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Welford's_online_algorithm
 
     WARNING: Must be called in sync across processes.
 
@@ -1313,12 +1321,12 @@ def mean_std_update(x, mask, dim, run_count, run_mean, run_std=None):
 
     Returns
     -------
-    run_count : torch.Tensor
-        Updated count all samples so far.
-    run_mean : torch.Tensor
-        Updated running mean of all samples so far.
-    run_std : torch.Tensor (if passed)
-        Updated running standard deviations of all samples so far.
+    new_run_count : torch.Tensor
+        Updated count all samples, now including x.
+    new_run_mean : torch.Tensor
+        Updated running mean of all samples, now including x.
+    new_run_std : torch.Tensor (if passed)
+        Updated running standard deviations of all samples, now including x.
     """
     delta = x - run_mean
     n = ddp_all_reduce(mask.sum(dim), ReduceOp.SUM)
