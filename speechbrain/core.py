@@ -753,12 +753,11 @@ class Brain:
             )
 
         logger.info(
-            f"Gradscaler enabled: {gradscaler_enabled}. Using training precision: {self.precision}."
+            f"Gradscaler enabled: {gradscaler_enabled}."
+            f"Using training precision: {self.precision}."
+            f"Using evaluation precision: {self.eval_precision}."
         )
-        logger.info(
-            f"Evaluation precision: {self.eval_precision}."
-        )
-        self.scaler = torch.GradScaler(self.device, enabled=gradscaler_enabled)
+        self.scaler = torch.cuda.amp.GradScaler(enabled=gradscaler_enabled)
         train_dtype = AMPConfig.from_name(self.precision).dtype
         self.training_ctx = TorchAutocast(
             device_type=self.device, dtype=train_dtype
