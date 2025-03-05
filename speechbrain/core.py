@@ -40,11 +40,11 @@ from speechbrain.dataio.sampler import (
     DistributedSamplerWrapper,
     ReproducibleRandomSampler,
 )
+from speechbrain.utils.autocast import AMPConfig, TorchAutocast
 from speechbrain.utils.distributed import is_distributed_initialized
 from speechbrain.utils.logger import get_logger
 from speechbrain.utils.optimizers import rm_vector_weight_decay
 from speechbrain.utils.profiling import prepare_profiler
-from speechbrain.utils.autocast import AMPConfig, TorchAutocast
 
 sb.utils.quirks.apply_quirks()
 
@@ -92,6 +92,7 @@ run_opt_defaults = {
     "profile_warmup": 5,
     "profile_steps": 5,
 }
+
 
 def create_experiment_directory(
     experiment_directory,
@@ -766,10 +767,7 @@ class Brain:
         self.evaluation_ctx = TorchAutocast(
             device_type=self.device, dtype=eval_dtype
         )
-        if (
-            gradscaler_enabled
-            and self.checkpointer is not None
-        ):
+        if gradscaler_enabled and self.checkpointer is not None:
             self.checkpointer.add_recoverable(
                 "scaler", self.scaler, optional_load=True
             )
@@ -1192,9 +1190,7 @@ class Brain:
         with self.no_sync(not should_step):
             with self.training_ctx:
                 outputs = self.compute_forward(batch, sb.Stage.TRAIN)
-                loss = self.compute_objectives(
-                    outputs, batch, sb.Stage.TRAIN
-                )
+                loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
             scaled_loss = self.scaler.scale(
                 loss / self.grad_accumulation_factor
             )
