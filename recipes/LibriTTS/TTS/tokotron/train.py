@@ -272,8 +272,8 @@ class TokotronBrain(sb.Brain):
         if self.hparams.spk_emb_shuffle:
             stage_key = stage.name.lower()
             resample_fn[stage_key](epoch=epoch)
-        if hasattr(self.hparams, "tokens_model"):
-            vocoder_to_device(self.hparams.tokens_model, self.device)
+        if hasattr(self.hparams, "token_model"):
+            vocoder_to_device(self.hparams.token_model, self.device)
         self.audio_bos_prefix = self.get_bos_prefix()
         self.end_padding = self.get_end_padding()
         self.is_evaluating = (stage == sb.Stage.TEST) or (

@@ -250,8 +250,8 @@ class TokotronBrain(sb.Brain):
             metric=self.hparams.compute_cost,
             batch_eval=True,
         )
-        if hasattr(self.hparams, "tokens_model"):
-            vocoder_to_device(self.hparams.tokens_model, self.device)
+        if hasattr(self.hparams, "token_model"):
+            vocoder_to_device(self.hparams.token_model, self.device)
         self.audio_bos_prefix = self.get_bos_prefix()
         self.end_padding = self.get_end_padding()
         self.is_evaluating = (stage == sb.Stage.TEST) or (
