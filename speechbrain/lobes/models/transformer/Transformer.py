@@ -239,7 +239,7 @@ class TransformerInterface(nn.Module):
                 activation=activation,
                 normalize_before=normalize_before,
                 causal=True,
-                attention_type="regularMHA",
+                attention_type="regularMHA",  # always use regular attention in decoder
                 kdim=self.decoder_kdim,
                 vdim=self.decoder_vdim,
             )
@@ -807,12 +807,10 @@ class TransformerDecoderLayer(nn.Module):
             query=tgt1,
             key=memory,
             value=memory,
-            attn_mask=memory_mask,  # none
-            key_padding_mask=memory_key_padding_mask,  # a mask for padding
+            attn_mask=memory_mask,
+            key_padding_mask=memory_key_padding_mask,
             pos_embs=pos_embs_src,
         )
-
-        # breakpoint()
 
         # add & norm
         tgt = tgt + self.dropout2(tgt2)
