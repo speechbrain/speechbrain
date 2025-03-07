@@ -1052,10 +1052,11 @@ class MemoiseAtLeastSize:
     Memoises a function which has as its first argument a value that indicates a
     minimum value to call the underlying function with.
 
-    Args:
-    function
+    Arguments
+    ---------
+    function: Callable
         The function to call.
-    round_up
+    round_up: Callable[[Any], Any]
         A function that rounds up.
         The fewer values this rounds up to, the less likely it is that the
         function will be called repeatedly.
@@ -1086,14 +1087,19 @@ def memoise_at_least(
     If the memo has stored the result from a matching previous function call,
     The stored result will be returned instead of calling the function again.
 
-    Args:
-    round_up
+    Arguments
+    ---------
+    round_up: Callable[[Any], Any]
         A function that rounds up.
         This will be called with the first argument passed in.
         The underlying function will receive, instead of this first argument,
         the rounded-up version.
         The fewer values this rounds up to, the less likely it is that the
         function will be called repeatedly.
+
+    Returns
+    -------
+    The passed function but with MemoiseAtLeastSize capability.
     """
 
     def with_function(function: Callable) -> MemoiseAtLeastSize:
@@ -1175,7 +1181,12 @@ def _rope_rotate(x):
 
 
 class RoPEMHA(nn.Module):
-    """
+    """This is an implementation of multihead self-attention with RoPE positional embeddings. As it relies on Torch for self-attention, it is
+    significantly faster than RelPosMHAXL while offering the same or better levels of accuracy.
+
+    Details about RoPE: https://arxiv.org/pdf/2104.09864.
+
+
     Arguments
     ---------
     embed_dim : int
