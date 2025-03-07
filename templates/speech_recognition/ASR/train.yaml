@@ -10,7 +10,7 @@
 # # ############################################################################
 
 # Seed needs to be set at top of yaml, before objects with parameters are instantiated
-seed: 2604
+seed: 2602
 __set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
 
 # If you plan to train a system on an HPC cluster with a big dataset,
@@ -61,7 +61,7 @@ train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
 # Training parameters
 number_of_epochs: 15
 number_of_ctc_epochs: 5
-batch_size: 2
+batch_size: 8
 lr: 1.0
 ctc_weight: 0.5
 sorting: ascending
@@ -138,7 +138,7 @@ freq_warp_mode: "bicubic"  # Frequency warping method
 
 # Enable Waveform Augmentation Flags (useful for hyperparameter tuning)
 enable_codec_augment: False
-enable_add_reverb: False
+enable_add_reverb: True
 enable_add_noise: True
 enable_speed_perturb: True
 enable_drop_freq: True
@@ -158,7 +158,7 @@ enable_freq_warp: True
 
 # Waveform Augmenter (combining augmentations)
 time_parallel_augment: False  # Apply augmentations in parallel if True, or sequentially if False
-time_concat_original: False # Concatenate original signals to the training batch if True
+time_concat_original: True  # Concatenate original signals to the training batch if True
 time_repeat_augment: 1  # Number of times to apply augmentation
 time_shuffle_augmentations: True  # Shuffle order of augmentations if True, else use specified order
 time_min_augmentations: 1  # Min number of augmentations to apply
@@ -199,7 +199,7 @@ eos_index: 0
 min_decode_ratio: 0.0
 max_decode_ratio: 1.0
 valid_beam_size: 8
-test_beam_size: 8
+test_beam_size: 80
 eos_threshold: 1.5
 using_max_attn_shift: True
 max_attn_shift: 240
@@ -384,30 +384,30 @@ freq_warp: !new:speechbrain.augment.freq_domain.Warping
     warp_mode: !ref <freq_warp_mode>
     dim: 2
 
-#fea_augment: !new:speechbrain.augment.augmenter.Augmenter
-#    parallel_augment: !ref <fea_parallel_augment>
-#    concat_original: !ref <fea_concat_original>
-#    repeat_augment: !ref <fea_repeat_augment>
-#    shuffle_augmentations: !ref <fea_shuffle_augmentations>
-#    min_augmentations: !ref <fea_min_augmentations>
-#    max_augmentations: !ref <fea_max_augmentations>
-#    augment_start_index: !ref <batch_size> # This leaves original inputs unchanged
-#    concat_end_index: !ref <batch_size> # This leaves original inputs unchanged
-#    augment_prob: !ref <fea_augment_prob>
-#    augmentations: [
-#        !ref <time_shift>,
-#        !ref <freq_shift>,
-#        !ref <time_drop>,
-#        !ref <freq_drop>,
-#        !ref <time_warp>,
-#        !ref <freq_warp>]
-#    enable_augmentations: [
-#        !ref <enable_time_shift>,
-#        !ref <enable_freq_shift>,
-#        !ref <enable_time_drop>,
-#        !ref <enable_freq_drop>,
-#        !ref <enable_time_warp>,
-#        !ref <enable_freq_warp>]
+fea_augment: !new:speechbrain.augment.augmenter.Augmenter
+    parallel_augment: !ref <fea_parallel_augment>
+    concat_original: !ref <fea_concat_original>
+    repeat_augment: !ref <fea_repeat_augment>
+    shuffle_augmentations: !ref <fea_shuffle_augmentations>
+    min_augmentations: !ref <fea_min_augmentations>
+    max_augmentations: !ref <fea_max_augmentations>
+    augment_start_index: !ref <batch_size> # This leaves original inputs unchanged
+    concat_end_index: !ref <batch_size> # This leaves original inputs unchanged
+    augment_prob: !ref <fea_augment_prob>
+    augmentations: [
+        !ref <time_shift>,
+        !ref <freq_shift>,
+        !ref <time_drop>,
+        !ref <freq_drop>,
+        !ref <time_warp>,
+        !ref <freq_warp>]
+    enable_augmentations: [
+        !ref <enable_time_shift>,
+        !ref <enable_freq_shift>,
+        !ref <enable_time_drop>,
+        !ref <enable_freq_drop>,
+        !ref <enable_time_warp>,
+        !ref <enable_freq_warp>]
 
 # The CRDNN model is an encoder that combines CNNs, RNNs, and DNNs.
 encoder: !new:speechbrain.lobes.models.CRDNN.CRDNN
@@ -585,8 +585,7 @@ test_search: !new:speechbrain.decoders.S2SRNNBeamSearcher
     using_max_attn_shift: !ref <using_max_attn_shift>
     max_attn_shift: !ref <max_attn_shift>
     temperature: !ref <temperature>
-    #scorer: !ref <test_scorer>
-    scorer: !ref <valid_scorer>
+    scorer: !ref <test_scorer>
 
 # This function manages learning rate annealing over the epochs.
 # We here use the NewBoB algorithm, that anneals the learning rate if

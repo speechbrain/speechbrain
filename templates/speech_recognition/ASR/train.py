@@ -501,3 +501,6 @@ if __name__ == "__main__":
         min_key="WER",
         test_loader_kwargs=hparams["test_dataloader_opts"],
     )
+
+    # Save final checkpoint (fixed name)
+    asr_brain.checkpointer.save_checkpoint(name="latest")
