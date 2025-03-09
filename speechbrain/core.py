@@ -45,7 +45,7 @@ from speechbrain.utils.distributed import is_distributed_initialized
 from speechbrain.utils.logger import get_logger
 from speechbrain.utils.optimizers import rm_vector_weight_decay
 from speechbrain.utils.profiling import prepare_profiler
-
+from speechbrain.utils.run_opts import RunOptDefaults
 sb.utils.quirks.apply_quirks()
 
 logger = get_logger(__name__)
@@ -56,44 +56,8 @@ PYTHON_VERSION_MAJOR = 3
 PYTHON_VERSION_MINOR = 8
 
 # Arguments passed via the run opts dictionary
-run_opt_defaults = {
-    "test_only": False,
-    "debug": False,
-    "debug_batches": 2,
-    "debug_epochs": 2,
-    "debug_persistently": False,
-    "device": "cpu",
-    "data_parallel_backend": False,
-    "distributed_backend": "nccl",
-    "find_unused_parameters": False,
-    "jit": False,
-    "jit_module_keys": None,
-    "compile": False,
-    "compile_module_keys": None,
-    "compile_mode": "default",
-    "compile_using_fullgraph": False,
-    "compile_using_dynamic_shape_tracing": True,
-    "precision": "fp32",
-    "eval_precision": "fp32",
-    "auto_mix_prec": False,
-    "bfloat16_mix_prec": False,
-    "max_grad_norm": 5.0,
-    "skip_nonfinite_grads": False,
-    "nonfinite_patience": 3,
-    "noprogressbar": False,
-    "ckpt_interval_minutes": 0,
-    "ckpt_interval_steps": 0,
-    "grad_accumulation_factor": 1,
-    "optimizer_step_limit": None,
-    "tqdm_colored_bar": False,
-    "tqdm_barcolor": {"train": "GREEN", "valid": "MAGENTA", "test": "CYAN"},
-    "remove_vector_weight_decay": False,
-    "profile_training": False,
-    "profile_warmup": 5,
-    "profile_steps": 5,
-}
 
-
+run_opt_defaults = RunOptDefaults().as_dict()
 @dataclass
 class AMPConfig:
     """Configuration for automatic mixed precision (AMP).

@@ -33,7 +33,7 @@ from speechbrain.utils.distributed import run_on_main
 from speechbrain.utils.fetching import LocalStrategy, fetch
 from speechbrain.utils.logger import get_logger
 from speechbrain.utils.superpowers import import_from_path
-
+from speechbrain.utils.run_opts import RunOptDefaults
 logger = get_logger(__name__)
 
 
@@ -214,20 +214,8 @@ class Pretrained(torch.nn.Module):
         super().__init__()
         # Arguments passed via the run opts dictionary. Set a limited
         # number of these, since some don't apply to inference.
-        run_opt_defaults = {
-            "device": "cpu",
-            "data_parallel_count": -1,
-            "data_parallel_backend": False,
-            "distributed_launch": False,
-            "distributed_backend": "nccl",
-            "jit": False,
-            "jit_module_keys": None,
-            "compile": False,
-            "compile_module_keys": None,
-            "compile_mode": "reduce-overhead",
-            "compile_using_fullgraph": False,
-            "compile_using_dynamic_shape_tracing": False,
-        }
+        run_opt_defaults = RunOptDefaults().as_dict()
+
         for arg, default in run_opt_defaults.items():
             if run_opts is not None and arg in run_opts:
                 setattr(self, arg, run_opts[arg])
