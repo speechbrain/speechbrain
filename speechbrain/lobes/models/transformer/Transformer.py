@@ -2,6 +2,7 @@
 Authors
 * Jianyuan Zhong 2020
 * Samuele Cornell 2021
+* Shucong Zhang 2024
 """
 
 import math
@@ -137,7 +138,12 @@ class TransformerInterface(nn.Module):
         self.output_hidden_states = output_hidden_states
         self.layerdrop_prob = layerdrop_prob
 
-        assert attention_type in ["regularMHA", "RelPosMHAXL", "hypermixing"]
+        assert attention_type in [
+            "regularMHA",
+            "RelPosMHAXL",
+            "hypermixing",
+            "RoPEMHA",
+        ]
         assert positional_encoding in ["fixed_abs_sine", None]
 
         assert (
@@ -153,6 +159,11 @@ class TransformerInterface(nn.Module):
         # overrides any other pos_embedding
         if attention_type == "RelPosMHAXL":
             self.positional_encoding = RelPosEncXL(d_model)
+            self.positional_encoding_decoder = PositionalEncoding(
+                d_model, max_length
+            )
+
+        if attention_type == "RoPEMHA":
             self.positional_encoding_decoder = PositionalEncoding(
                 d_model, max_length
             )
@@ -373,6 +384,12 @@ class TransformerEncoderLayer(nn.Module):
                 tied=False,
                 num_heads=nhead,
                 fix_tm_hidden_size=False,
+            )
+        elif attention_type == "RoPEMHA":
+            self.self_att = sb.nnet.attention.RoPEMHA(
+                d_model,
+                nhead,
+                dropout,
             )
 
         if ffn_type == "regularFFN":
@@ -704,7 +721,6 @@ class TransformerDecoderLayer(nn.Module):
                 vdim=vdim,
                 dropout=dropout,
             )
-
         elif attention_type == "RelPosMHAXL":
             self.self_attn = sb.nnet.attention.RelPosMHAXL(
                 d_model, nhead, dropout, mask_pos_future=causal
@@ -787,7 +803,6 @@ class TransformerDecoderLayer(nn.Module):
             tgt1 = tgt
 
         # multi-head attention over the target sequence and encoder states
-
         tgt2, multihead_attention = self.multihead_attn(
             query=tgt1,
             key=memory,
