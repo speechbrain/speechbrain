@@ -1071,13 +1071,13 @@ class InputNormalization(torch.nn.Module):
     tensor(True)
     >>> features = norm(inputs + 1, input_lens)
     >>> features.mean()
-    tensor(0.1906)
+    tensor(0.1848)
     >>> features = norm(inputs, input_lens)
     >>> features.mean()
-    tensor(-0.1272)
+    tensor(-0.1246)
     >>> features = norm(inputs - 1, input_lens)
     >>> features.mean()
-    tensor(-0.3738)
+    tensor(-0.3683)
     >>> features = norm(inputs, input_lens)
     >>> features.mean() < 1e-7
     tensor(True)
@@ -1338,7 +1338,7 @@ def mean_std_update(x, mask, dim, run_count, run_mean, run_std=None):
         # Add up square-diff over current tensor, other processes, and previous tensors.
         square_diff_sum = (delta * (x - run_mean) * mask).sum(dim)
         ddp_all_reduce(square_diff_sum, ReduceOp.SUM)
-        square_diff_sum += run_std.square() * (run_count - 1)
+        square_diff_sum += run_std.square() * max(run_count - 1, 0)
         run_std = (square_diff_sum / (run_count + n - 1)).sqrt()
     else:
         run_std = torch.ones_like(run_mean)
