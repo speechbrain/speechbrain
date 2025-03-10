@@ -1067,17 +1067,17 @@ class InputNormalization(torch.nn.Module):
             [ 2.,  3.,  4.]])
     >>> norm = InputNormalization(norm_type="global")
     >>> features = norm(inputs, input_lens)
-    >>> features.mean()
-    tensor(0.)
+    >>> features.mean() < 1e-7
+    tensor(True)
     >>> features = norm(inputs + 1, input_lens)
     >>> features.mean()
-    tensor(0.1794)
+    tensor(0.1906)
     >>> features = norm(inputs, input_lens)
     >>> features.mean()
-    tensor(-0.1198)
+    tensor(-0.1272)
     >>> features = norm(inputs - 1, input_lens)
     >>> features.mean()
-    tensor(-0.3529)
+    tensor(-0.3738)
     >>> features = norm(inputs, input_lens)
     >>> features.mean() < 1e-7
     tensor(True)
@@ -1329,7 +1329,7 @@ def mean_std_update(x, mask, dim, run_count, run_mean, run_std=None):
         Updated running standard deviations of all samples, now including x.
     """
     delta = x - run_mean
-    n = ddp_all_reduce(mask.sum(dim), ReduceOp.SUM)
+    n = ddp_all_reduce(mask.sum(), ReduceOp.SUM) // run_mean.numel()
     delta_sum = ddp_all_reduce((delta * mask).sum(dim), ReduceOp.SUM)
     run_mean += delta_sum / (run_count + n)
 
@@ -1338,12 +1338,12 @@ def mean_std_update(x, mask, dim, run_count, run_mean, run_std=None):
         # Add up square-diff over current tensor, other processes, and previous tensors.
         square_diff_sum = (delta * (x - run_mean) * mask).sum(dim)
         ddp_all_reduce(square_diff_sum, ReduceOp.SUM)
-        square_diff_sum += run_std.square() * run_count
+        square_diff_sum += run_std.square() * (run_count - 1)
         run_std = (square_diff_sum / (run_count + n - 1)).sqrt()
     else:
         run_std = torch.ones_like(run_mean)
 
-    return run_count + n.sum(), run_mean, run_std
+    return run_count + n, run_mean, run_std
 
 
 def get_mask(x, lengths=None, length_dim=1):
@@ -1421,19 +1421,19 @@ class GlobalNorm(torch.nn.Module):
     >>> x = torch.tensor([[5., 10., -4.]])
     >>> x_norm = global_norm(x)
     >>> x_norm
-    tensor([[0.5933, 0.8086, 0.2057]])
+    tensor([[0.5937, 0.8101, 0.2043]])
     >>> x_denorm = global_norm.denormalize(x_norm)
     >>> x_denorm
     tensor([[ 5.0000, 10.0000, -4.0000]])
     >>> x = torch.tensor([[100., -100., -50.]])
     >>> global_norm.freeze()
     >>> global_norm(x)
-    tensor([[ 4.6846, -3.9287, -1.7753]])
+    tensor([[ 4.7042, -3.9493, -1.7860]])
     >>> global_norm.denormalize(x_norm)
     tensor([[ 5.0000, 10.0000, -4.0000]])
     >>> global_norm.unfreeze()
     >>> global_norm(x)
-    tensor([[ 4.6846, -3.9287, -1.7753]])
+    tensor([[ 4.7042, -3.9493, -1.7860]])
     >>> global_norm.denormalize(x_norm)
     tensor([[ 5.0000, 10.0000, -4.0000]])
     """

@@ -127,7 +127,9 @@ class TestInputNormalization:
             _ = norm(x, lengths)
 
         assert torch.allclose(norm.glob_mean, x[mask].mean(), atol=1e-3)
-        assert torch.allclose(norm.glob_std, x[mask].std(), atol=1e-2)
+        assert torch.allclose(
+            norm.glob_std, x[mask].std(unbiased=False), atol=1e-2
+        )
 
     def test_global_normalization_stops_updates(self, sample_data):
         """Test that global normalization stops updates after specified epoch."""
@@ -296,12 +298,47 @@ def parallel_mean_var_update(rank, world_size, tmpdir):
     # Expected values
     expected_count = run_count + 2 + 2
     expected_mean = run_mean + (1.0 - 1.0) / expected_count
-    expected_std = ((2.0 + 1.0 + 1.0) / (expected_count - 1)) ** 0.5
+    expected_std = ((1.0 + 1.0 + 1.0) / (expected_count - 1)) ** 0.5
 
     # Same values on all processes
     assert numpy.isclose(new_count, expected_count)
     assert numpy.isclose(new_mean, expected_mean)
     assert numpy.isclose(new_std, expected_std)
+
+    # Try with more features and updates
+    batch, length, features = 2, 3, 2
+    x = (
+        torch.arange(batch * length * features)
+        .view(batch, length, features)
+        .float()
+    )
+    mask = torch.tensor([True, True, False]).view(1, length, 1).expand_as(x)
+    dims = (0, 1)
+    run_count = 0
+    run_mean = torch.tensor([0.0, 0.0])
+    run_std = torch.tensor([0.0, 0.0])
+
+    run_count, run_mean, run_std = mean_std_update(
+        x + rank, mask, dims, run_count, run_mean, run_std
+    )
+
+    run_count, run_mean, run_std = mean_std_update(
+        x + 1 + rank, mask, dims, run_count, run_mean, run_std
+    )
+
+    # Ranks 0 and 1 total
+    masked_x = x[:, 0:2]
+    all_items = torch.cat([masked_x, masked_x + 1, masked_x + 1, masked_x + 2])
+
+    # Count should only be over (global) batch and length, divide out feature dim
+    expected_count = all_items.numel() // 2
+    expected_mean = all_items.mean(dim=dims)
+    expected_std = all_items.std(unbiased=True, dim=dims)
+
+    assert run_count == expected_count
+    assert torch.allclose(run_mean, expected_mean)
+    print(run_std, expected_std)
+    assert torch.allclose(run_std, expected_std)
 
 
 def test_mean_var_update_parallel(tmpdir):
