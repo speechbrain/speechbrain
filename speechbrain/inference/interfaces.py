@@ -212,11 +212,12 @@ class Pretrained(torch.nn.Module):
         self, modules=None, hparams=None, run_opts=None, freeze_params=True
     ):
         super().__init__()
+        self.run_opt_defaults = RunOptDefaults().from_command_line_args()
         # Arguments passed via the run opts dictionary. Set a limited
         # number of these, since some don't apply to inference.
-        run_opt_defaults = RunOptDefaults().as_dict()
+        # run_opt_defaults = RunOptDefaults().as_dict()
 
-        for arg, default in run_opt_defaults.items():
+        for arg, default in self.run_opt_defaults.items():
             if run_opts is not None and arg in run_opts:
                 setattr(self, arg, run_opts[arg])
             else:

@@ -1,7 +1,8 @@
 def test_parse_arguments():
-    from speechbrain.core import parse_arguments
+    from speechbrain.utils.run_opts import RunOptDefaults
+    run_opts = RunOptDefaults()
 
-    filename, run_opts, overrides = parse_arguments(
+    filename, run_opts, overrides = run_opts.from_command_line_args(
         ["params.yaml", "--device=cpu", "--seed=3", "--data_folder", "TIMIT"]
     )
     assert filename == "params.yaml"
