@@ -760,14 +760,7 @@ class Brain:
             f"Using evaluation precision: `--eval_precision={self.eval_precision}`"
         )
         if version.parse(torch.__version__) < version.parse("2.4.0"):
-            if self.device == "cuda":
-                self.scaler = torch.cuda.amp.GradScaler(
-                    enabled=gradscaler_enabled
-                )
-            else:
-                self.scaler = torch.cpu.amp.GradScaler(
-                    enabled=gradscaler_enabled
-                )
+            self.scaler = torch.cuda.amp.GradScaler(enabled=gradscaler_enabled)
         else:
             self.scaler = torch.GradScaler(
                 self.device, enabled=gradscaler_enabled
