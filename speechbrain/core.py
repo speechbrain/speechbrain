@@ -28,6 +28,7 @@ from types import SimpleNamespace
 import torch
 import yaml
 from hyperpyyaml import resolve_references
+from packaging import version
 from torch.nn import DataParallel as DP
 from torch.nn import SyncBatchNorm
 from torch.nn.parallel import DistributedDataParallel as DDP
@@ -754,12 +755,24 @@ class Brain:
             )
 
         logger.info(
-            f"Gradscaler enabled: {gradscaler_enabled}."
-            f"Using training precision: {self.precision}."
-            f"Using evaluation precision: {self.eval_precision}."
+            f"Gradscaler enabled: `{gradscaler_enabled}`"
+            f"Using training precision: `--precision={self.precision}`"
+            f"Using evaluation precision: `--eval_precision={self.eval_precision}`"
         )
-        # NOTE: `torch.cuda.amp.GradScaler` is deprecated and will be removed in the future (>torch 2.6.0).
-        self.scaler = torch.cuda.amp.GradScaler(enabled=gradscaler_enabled)
+        if version.parse(torch.__version__) < version.parse("2.5.0"):
+            if self.device == "cuda":
+                self.scaler = torch.cuda.amp.GradScaler(
+                    enabled=gradscaler_enabled
+                )
+            else:
+                self.scaler = torch.cpu.amp.GradScaler(
+                    enabled=gradscaler_enabled
+                )
+        else:
+            self.scaler = torch.GradScaler(
+                self.device, enabled=gradscaler_enabled
+            )
+
         train_dtype = AMPConfig.from_name(self.precision).dtype
         self.training_ctx = TorchAutocast(
             device_type=self.device, dtype=train_dtype
