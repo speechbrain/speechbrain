@@ -313,7 +313,7 @@ class RunOptions:
         for k, v in args_dict.items():
             if v is not None:
                 setattr(cls, k, v)
-        overrides = cls._convert_to_yaml(overrides)
+        overrides = cls._convert_to_yaml(cls,overrides)
 
         # Checking that DataParallel use the right number of GPU
         if cls.data_parallel_backend and torch.cuda.device_count() == 0:
