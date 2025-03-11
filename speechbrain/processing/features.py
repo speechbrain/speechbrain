@@ -1142,6 +1142,10 @@ def combine_gaussian_statistics_distributed(
 
 
 def mean_std_update(x, mask, dim, run_count, run_mean, run_std=None):
+    """
+    Update the running count, running mean, and running standard deviation
+    by integrating new data x from multiple processes.
+    """
     assert torch.all(mask), "Not implemented yet"
 
     # TODO implement run_std is None
