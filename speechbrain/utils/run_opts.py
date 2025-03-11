@@ -46,6 +46,7 @@ class RunOptions:
     profile_training: bool = False
     profile_warmup: int = 5
     profile_steps: int = 5
+    log_config: Optional[str] = None
 
     def as_dict(self) -> Dict:
         return asdict(self)
