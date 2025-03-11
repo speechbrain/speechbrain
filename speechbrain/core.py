@@ -44,7 +44,7 @@ from speechbrain.utils.distributed import is_distributed_initialized
 from speechbrain.utils.logger import get_logger
 from speechbrain.utils.optimizers import rm_vector_weight_decay
 from speechbrain.utils.profiling import prepare_profiler
-from speechbrain.utils.run_opts import RunOptDefaults
+from speechbrain.utils.run_opts import RunOptions
 sb.utils.quirks.apply_quirks()
 
 logger = get_logger(__name__)
@@ -322,7 +322,7 @@ class Brain:
         self.optimizers_dict = None
         self.opt_class = opt_class
         self.checkpointer = checkpointer
-        self.run_opt_defaults = RunOptDefaults().from_command_line_args()
+        self.run_opt_defaults = RunOptions().from_command_line_args()
 
         for arg, default in self.run_opt_defaults.items():
             if run_opts is not None and arg in run_opts:

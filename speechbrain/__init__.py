@@ -5,13 +5,13 @@ import os
 
 from .core import Brain, Stage, create_experiment_directory
 from .utils.importutils import deprecated_redirect, lazy_export_all
-from .utils.run_opts import RunOptDefaults
+from .utils.run_opts import RunOptions
 
 with open(
     os.path.join(os.path.dirname(__file__), "version.txt"), encoding="utf-8"
 ) as f:
     version = f.read().strip()
-parse_arguments = RunOptDefaults().from_command_line_args()
+parse_arguments = RunOptions().from_command_line_args()
 __all__ = [
     "Stage",
     "Brain",

@@ -33,7 +33,7 @@ from speechbrain.utils.distributed import run_on_main
 from speechbrain.utils.fetching import LocalStrategy, fetch
 from speechbrain.utils.logger import get_logger
 from speechbrain.utils.superpowers import import_from_path
-from speechbrain.utils.run_opts import RunOptDefaults
+from speechbrain.utils.run_opts import RunOptions
 logger = get_logger(__name__)
 
 
@@ -212,10 +212,10 @@ class Pretrained(torch.nn.Module):
         self, modules=None, hparams=None, run_opts=None, freeze_params=True
     ):
         super().__init__()
-        self.run_opt_defaults = RunOptDefaults().from_command_line_args()
+        self.run_opt_defaults = RunOptions().from_command_line_args()
         # Arguments passed via the run opts dictionary. Set a limited
         # number of these, since some don't apply to inference.
-        # run_opt_defaults = RunOptDefaults().as_dict()
+        # run_opt_defaults = RunOptions().as_dict()
 
         for arg, default in self.run_opt_defaults.items():
             if run_opts is not None and arg in run_opts:
