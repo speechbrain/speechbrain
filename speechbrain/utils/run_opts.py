@@ -49,6 +49,7 @@ class RunOptions:
 
     def as_dict(self) -> Dict:
         return asdict(self)
+
     @classmethod
     def from_command_line_args(cls, arg_list=None):
         """Parse command-line arguments to the experiment.
@@ -303,7 +304,6 @@ class RunOptions:
             type=int,
             help="Number of steps of logging for the profiler",
         )
-        
 
         # Accept extra args to override yaml
         parsed_args, overrides = parser.parse_known_args(arg_list)
@@ -311,9 +311,6 @@ class RunOptions:
         param_file = args_dict.pop("param_file")
         run_opts = cls(**args_dict)
 
-        # for k, v in args_dict.items():
-        #     if v is not None:
-        #         setattr( k, v)
         overrides = cls._convert_to_yaml(overrides)
 
         # Checking that DataParallel use the right number of GPU
@@ -325,7 +322,7 @@ class RunOptions:
         if local_rank is not None and "cuda" in run_opts.device:
             run_opts.devide = run_opts.devide[:-1] + str(local_rank)
 
-        return param_file,run_opts.as_dict(),overrides
+        return param_file, run_opts.as_dict(), overrides
 
     def _convert_to_yaml(self, overrides):
         """Convert args to yaml for overrides"""
