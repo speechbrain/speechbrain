@@ -49,8 +49,7 @@ class RunOptions:
 
     def as_dict(self) -> Dict:
         return asdict(self)
-    @classmethod
-    def from_command_line_args(cls, arg_list=None):
+    def from_command_line_args(self, arg_list=None):
         """Parse command-line arguments to the experiment.
 
         Arguments
@@ -312,19 +311,19 @@ class RunOptions:
 
         for k, v in args_dict.items():
             if v is not None:
-                setattr(cls, k, v)
-        overrides = cls._convert_to_yaml(cls,overrides)
+                setattr( k, v)
+        overrides = self._convert_to_yaml(overrides)
 
         # Checking that DataParallel use the right number of GPU
-        if cls.data_parallel_backend and torch.cuda.device_count() == 0:
+        if self.data_parallel_backend and torch.cuda.device_count() == 0:
             raise ValueError("You must have at least 1 GPU.")
 
         # force device arg to be the same as local_rank from torchrun
         local_rank = os.environ.get("LOCAL_RANK")
-        if local_rank is not None and "cuda" in cls.device:
-            cls.devide = cls.devide[:-1] + str(local_rank)
+        if local_rank is not None and "cuda" in self.device:
+            self.devide = self.devide[:-1] + str(local_rank)
 
-        return param_file,cls.as_dict(cls),overrides
+        return param_file,self.as_dict(self),overrides
 
     def _convert_to_yaml(self, overrides):
         """Convert args to yaml for overrides"""
