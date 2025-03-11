@@ -22,7 +22,7 @@ train_log: !ref <output_folder>/train_log.txt
 # speechbrain HuggingFace repository. However, a local path pointing to a
 # directory containing the lm.ckpt and tokenizer.ckpt may also be specified
 # instead. E.g if you want to use your own LM / tokenizer.
-pretrained_lm_tokenizer_path: /scratch/adelmou/models/speechbrain/asr-transformer-transformerlm-librispeech
+pretrained_lm_tokenizer_path: speechbrain/asr-transformer-transformerlm-librispeech
 
 # Data files
 data_folder: !PLACEHOLDER # e.g., /path/to/LibriSpeech
@@ -30,9 +30,9 @@ data_folder: !PLACEHOLDER # e.g., /path/to/LibriSpeech
 # then data_folder_rirs should be /localscratch/xxx_corpus
 # otherwise the dataset will automatically be downloaded
 # data_folder_rirs: !ref <data_folder>
-train_splits: ["dev-clean"]
+train_splits: ["train-clean-100", "train-clean-360", "train-other-500"]
 dev_splits: ["dev-clean"]
-test_splits: ["dev-clean"]
+test_splits: ["test-clean", "test-other"]
 skip_prep: False
 train_csv: !ref <output_folder>/train.csv
 valid_csv: !ref <output_folder>/dev-clean.csv
