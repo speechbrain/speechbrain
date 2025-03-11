@@ -273,10 +273,10 @@ else:
     DEFAULT_SAVE_HOOKS[torch.optim.lr_scheduler.LRScheduler] = torch_save
 
 if version.parse(torch.__version__) < version.parse("2.4.0"):
-    DEFAULT_LOAD_HOOKS[torch.amp.cuda.grad_scaler.GradScaler] = torch_recovery
-    DEFAULT_LOAD_HOOKS[torch.amp.cpu.grad_scaler.GradScaler] = torch_recovery
-    DEFAULT_SAVE_HOOKS[torch.amp.cuda.grad_scaler.GradScaler] = torch_save
-    DEFAULT_SAVE_HOOKS[torch.amp.cpu.grad_scaler.GradScaler] = torch_save
+    DEFAULT_LOAD_HOOKS[torch.cuda.amp.grad_scaler.GradScaler] = torch_recovery
+    DEFAULT_LOAD_HOOKS[torch.cpu.amp.grad_scaler.GradScaler] = torch_recovery
+    DEFAULT_SAVE_HOOKS[torch.cuda.amp.grad_scaler.GradScaler] = torch_save
+    DEFAULT_SAVE_HOOKS[torch.cpu.amp.grad_scaler.GradScaler] = torch_save
 else:
     DEFAULT_LOAD_HOOKS[torch.amp.grad_scaler.GradScaler] = torch_recovery
     DEFAULT_SAVE_HOOKS[torch.amp.grad_scaler.GradScaler] = torch_save
