@@ -324,8 +324,8 @@ class RunOptions:
             run_opts.devide = run_opts.devide[:-1] + str(local_rank)
 
         return param_file, run_opts.as_dict(), overrides
-
-    def _convert_to_yaml(self, overrides):
+    @staticmethod
+    def _convert_to_yaml( overrides):
         """Convert args to yaml for overrides"""
         yaml_string = ""
 
