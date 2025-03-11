@@ -324,7 +324,7 @@ class RunOptions:
         if local_rank is not None and "cuda" in cls.device:
             cls.devide = cls.devide[:-1] + str(local_rank)
 
-        return param_file,cls.as_dict(),overrides
+        return param_file,cls.as_dict(cls),overrides
 
     def _convert_to_yaml(self, overrides):
         """Convert args to yaml for overrides"""
