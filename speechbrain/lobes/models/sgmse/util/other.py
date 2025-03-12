@@ -5,7 +5,7 @@ import scipy.stats
 from scipy.signal import butter, sosfilt
 
 from pesq import pesq
-from pystoi import stoi
+from pystoi import stoi # TODO: use speechbrain proprietary stoi
 
 
 def si_sdr_components(s_hat, s, n):
