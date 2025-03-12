@@ -15,7 +15,6 @@ CONFIG_PATH = "/export/home/1rochdi/speechbrain/recipes/Voicebank/enhance/SGMSE/
 NUM_FILES = 10  # Number of test files to process
 
 def get_stft_window(window_type, n_fft):
-    """Build a window tensor for STFT."""
     if window_type == 'sqrthann':
         return torch.sqrt(torch.hann_window(n_fft, periodic=True))
     elif window_type == 'hann':
@@ -24,7 +23,6 @@ def get_stft_window(window_type, n_fft):
         raise NotImplementedError(f"Window type {window_type} not implemented!")
 
 def do_stft(sig, window, n_fft, hop_length):
-    """Compute the short-time Fourier transform (STFT)."""
     return torch.stft(
         sig,
         n_fft=n_fft,
@@ -35,7 +33,6 @@ def do_stft(sig, window, n_fft, hop_length):
     )
 
 def do_istft(spec, window, n_fft, hop_length, length=None):
-    """Compute the inverse STFT."""
     return torch.istft(
         spec,
         n_fft=n_fft,
@@ -46,7 +43,6 @@ def do_istft(spec, window, n_fft, hop_length, length=None):
     )
 
 def spec_fwd(spec_cplx, transform_type, factor, exponent):
-    """Forward spectral transform (e.g. log, exponent) on the complex spectrogram."""
     if transform_type == "exponent":
         if exponent != 1.0:
             mag = spec_cplx.abs() ** exponent
@@ -66,7 +62,6 @@ def spec_fwd(spec_cplx, transform_type, factor, exponent):
     return spec_cplx
 
 def spec_back(spec_cplx, transform_type, factor, exponent):
-    """Inverse spectral transform to revert the forward transform."""
     if transform_type == "exponent":
         spec_cplx = spec_cplx / factor
         if exponent != 1.0:
