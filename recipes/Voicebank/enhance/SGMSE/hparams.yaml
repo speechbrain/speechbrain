@@ -1,0 +1,78 @@
+output_folder: results/SGMSE    # Main directory to store experiment results
+save_folder: !ref <output_folder>/save    # Directory to save checkpoints
+train_log: !ref <output_folder>/train_log.txt    # Path to the file where training logs are written
+enhanced_folder: !ref <output_folder>/enhanced   # Directory to store enhanced/tested waveforms
+
+use_tensorboard: True    # Whether to use TensorBoard for visualization
+tensorboard_logs: !ref <output_folder>/logs/    # Directory for TensorBoard logs
+
+data_folder: /data/datasets/noisy-vctk-16k    # Root folder for the dataset
+train_annotation: !ref <data_folder>/train.json    # JSON file listing training samples
+valid_annotation: !ref <data_folder>/valid.json    # JSON file listing validation samples
+test_annotation:  !ref <data_folder>/test.json     # JSON file listing test samples
+
+skip_prep: False     # If True, skip data preparation steps
+num_samples: 32700   # Number of samples (waveform length) before STFT, producing a 256x256 spec, TODO: compute from stft params
+random_crop: True    # Whether to crop segments randomly from longer waveforms
+
+normalize: noisy    # Indicates how waveforms are normalized (noisy, clean)
+sample_rate: 16000  # Sampling rate (in Hz) for audio data
+batch_size: 1       # Batch size for the training set
+number_of_epochs: 50    # Total epochs to train
+lr: 0.0001          # Learning rate
+sorting: ascending  # Sorting strategy for data loading (e.g., ascending, descending)
+
+n_fft: 510          # FFT size for STFT
+hop_length: 128     # Hop length (stride) for STFT
+window_type: hann   # Type of window function for STFT
+
+transform_type: log         # Type of spectral transform (log, exponent, none)
+spec_factor: 0.15           # Factor to scale the transformed spectrogram
+spec_abs_exponent: 0.5      # Exponent to apply to spectrogram magnitude if needed
+
+train_dataloader_opts:
+    batch_size: !ref <batch_size>
+    shuffle: True           # Shuffle training data each epoch
+
+valid_dataloader_opts:
+    batch_size: 1           # Validation batch size
+
+test_dataloader_opts:
+    batch_size: 1           # Test batch size
+
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+    limit: !ref <number_of_epochs>     # Sets the upper bound on training epochs
+
+modules:
+  score_model: !new:speechbrain.lobes.models.sgmse.model.ScoreModel
+    backbone: ncsnpp_v2                # Name of the backbone neural network architecture
+    sde: ouve                          # Which SDE to use (Ornstein-Uhlenbeck VE SDE)
+    theta: 1.5                         # Stiffness parameter for the OU SDE
+    sigma_min: 0.05                    # Minimum sigma value for OU SDE
+    sigma_max: 0.5                     # Maximum sigma value for OU SDE
+    lr: !ref <lr>                      # Learning rate for the model
+    ema_decay: 0.999                   # Decay factor for EMA of model parameters
+    t_eps: 0.03                        # Min time-step to avoid zero in continuous diffusion
+    num_eval_files: 20                 # Number of files to process for evaluation
+    loss_type: score_matching          # Which loss approach to use (score matching, etc.)
+    loss_weighting: sigma^2            # Weighting in the loss function
+    network_scaling: null              # Scaling strategy (if any) for network outputs
+    c_in: "1"                          # Input scaling scheme
+    c_out: "1"                         # Output scaling scheme
+    c_skip: "0"                        # Skip connection scaling scheme
+    sigma_data: 0.1                    # Data STD for EDM-based parameterizations
+    l1_weight: 0.001                   # Weight factor for L1 (time-domain) loss
+    pesq_weight: 0.0                   # Weight factor for PESQ-based loss (0 = disabled)
+    sr: !ref <sample_rate>             # Sample rate for model references
+
+opt_class: !name:torch.optim.Adam
+  lr: !ref <lr>                        # LR used in the Adam optimizer
+
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+  checkpoints_dir: !ref <save_folder>  # Directory to store checkpoint files
+  recoverables:
+    score_model: !ref <modules[score_model]>  # Model parameters to be saved
+    counter: !ref <epoch_counter>             # Epoch counter to be saved
+
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+  save_file: !ref <train_log>           # Output file for logging training progress

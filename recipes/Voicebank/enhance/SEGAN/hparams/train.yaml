@@ -9,13 +9,13 @@
 # Authors
 #  * Francis Carter 2021
 # #######################################
-
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 1986
 __set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
 
-data_folder: !PLACEHOLDER #e.g., /localscratch/noisy-vctk-16k
+data_folder: /data/datasets/noisy-vctk-16k #e.g., /localscratch/noisy-vctk-16k
 # test_clean_folder: !ref <data_folder>/clean_testset_wav_16k/
+# train_clean_folder: !ref <data_folder>/test/clean
 
 output_folder: !ref results/SEGAN/<seed>
 save_folder: !ref <output_folder>/save
