@@ -322,7 +322,7 @@ class Brain:
         self.optimizers_dict = None
         self.opt_class = opt_class
         self.checkpointer = checkpointer
-        self.run_opt_defaults = RunOptions().from_command_line_args()
+        _,self.run_opt_defaults,_ = RunOptions.from_command_line_args()
 
         for arg, default in self.run_opt_defaults.items():
             if run_opts is not None and arg in run_opts:

@@ -49,6 +49,12 @@ class RunOptions:
     log_config: Optional[str] = None
 
     def as_dict(self) -> Dict:
+        """
+        Converts the instance into a dictionary.
+
+        Returns:
+            Dict: A dictionary representation of the instance.
+        """
         return asdict(self)
 
     @classmethod
@@ -326,6 +332,13 @@ class RunOptions:
         return param_file, run_opts.as_dict(), overrides
     @staticmethod
     def _convert_to_yaml( overrides):
+        """
+        Convert a list of override arguments to a YAML formatted string.
+        Args:
+            overrides (list): A list of strings representing override arguments in the form '--arg=val'.
+        Returns:
+            str: A YAML formatted string representing the overrides.
+        """
         """Convert args to yaml for overrides"""
         yaml_string = ""
 
