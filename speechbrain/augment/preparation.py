@@ -12,12 +12,14 @@ import os
 import torchaudio
 
 from speechbrain.utils.data_utils import download_file, get_all_files
+from speechbrain.utils.distributed import main_process_only
 from speechbrain.utils.logger import get_logger
 
 # Logger init
 logger = get_logger(__name__)
 
 
+@main_process_only
 def prepare_dataset_from_URL(URL, dest_folder, ext, csv_file, max_length=None):
     """Downloads a dataset containing recordings (e.g., noise sequences)
     from the provided URL and prepares the necessary CSV files for use by the noise augmenter.
@@ -51,6 +53,7 @@ def prepare_dataset_from_URL(URL, dest_folder, ext, csv_file, max_length=None):
         prepare_csv(filelist, csv_file, max_length)
 
 
+@main_process_only
 def prepare_csv(filelist, csv_file, max_length=None):
     """Iterate a set of wavs and write the corresponding csv file.
 
@@ -75,6 +78,7 @@ def prepare_csv(filelist, csv_file, max_length=None):
             os.remove(csv_file)
 
 
+@main_process_only
 def write_csv(filelist, csv_file, max_length=None):
     """
     Iterate through a list of audio files and write the corresponding CSV file.

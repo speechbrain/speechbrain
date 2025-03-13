@@ -57,7 +57,7 @@ ctc_weight: 0.3 # Multitask with CTC for the encoder (0.0 = disabled)
 ce_weight: 0.0 # Multitask with CE for the decoder (0.0 = disabled)
 max_grad_norm: 5.0
 loss_reduction: 'batchmean'
-precision: fp32 # bf16, fp16 or fp32
+precision: fp16 # bf16, fp16 or fp32
 
 # The batch size is used if and only if dynamic batching is set to False
 # Validation and testing are done with fixed batches and not dynamic batching.
@@ -136,6 +136,7 @@ output_neurons: 1000
 dec_dim: 512
 dec_emb_dropout: 0.2
 dec_dropout: 0.1
+attention_type: RoPEMHA
 
 # Decoding parameters
 blank_index: 0
@@ -236,7 +237,7 @@ Transformer: !new:speechbrain.lobes.models.transformer.TransformerASR.Transforme
    dropout: !ref <transformer_dropout>
    activation: !ref <activation>
    encoder_module: conformer
-   attention_type: RelPosMHAXL
+   attention_type: !ref <attention_type>
    normalize_before: True
    causal: False
 
