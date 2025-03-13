@@ -13,6 +13,7 @@ Speech Preprocessing
    preprocessing/speech-features.ipynb
    preprocessing/environmental-corruption.ipynb
    preprocessing/multi-microphone-beamforming.ipynb
+   preprocessing/voice-analysis.ipynb
 
 
 .. rubric:: `🔗 Speech Augmentation <preprocessing/speech-augmentation.html>`_
@@ -112,3 +113,21 @@ Using a microphone array can be very handy to improve the signal quality
 (e.g. reduce reverberation and noise) prior to performing speech recognition tasks.
 Microphone arrays can also estimate the direction of arrival of a sound source, and this information can later
 be used to "listen" in the direction of the source of interest.
+
+
+.. rubric:: `🔗 Analyzing Vocal Features for Pathology  <preprocessing/voice-analysis.html>`_
+   :heading-level: 2
+
+.. list-table::
+   :widths: 20 20 20 20 20
+   :header-rows: 0
+
+   * - Plantinga P.
+     - Nov. 2024
+     - Difficulty: easy
+     - Time: 20min
+     - `🔗 Google Colab <https://colab.research.google.com/github/speechbrain/speechbrain/blob/develop/docs/tutorials/preprocessing/voice-analysis.ipynb>`__
+
+
+This notebook goes through a simple voice analysis using 4-5 interpretable features to demonstrate traditional techniques for pathology detection. This includes
+features such as jitter, shimmer, harmonicity, and glottal-to-noise excitation.

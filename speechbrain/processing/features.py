@@ -45,6 +45,7 @@ from speechbrain.utils.checkpoints import (
     mark_as_transfer,
     register_checkpoint_hooks,
 )
+from speechbrain.utils.distributed import ddp_all_reduce
 from speechbrain.utils.filter_analysis import FilterProperties
 from speechbrain.utils.logger import get_logger
 
@@ -1152,6 +1153,14 @@ class InputNormalization(torch.nn.Module):
         if self.norm_type == "batch" or self.norm_type == "global":
             current_mean = torch.mean(torch.stack(current_means), dim=0)
             current_std = torch.mean(torch.stack(current_stds), dim=0)
+
+            # For multi GPU, we need to sync the statistics across processes.
+            current_mean = ddp_all_reduce(
+                current_mean, torch.distributed.ReduceOp.AVG
+            )
+            current_std = ddp_all_reduce(
+                current_std, torch.distributed.ReduceOp.AVG
+            )
 
             if self.norm_type == "batch":
                 out = (x - current_mean.data) / (current_std.data)

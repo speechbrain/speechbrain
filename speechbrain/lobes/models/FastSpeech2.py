@@ -694,7 +694,7 @@ class FastSpeech2(nn.Module):
             predict_durations = predict_durations.unsqueeze(0)
         if durations is None:
             dur_pred_reverse_log = torch.clamp(
-                torch.exp(predict_durations) - 1, 0
+                torch.special.expm1(predict_durations), 0
             )
 
         # pitch predictor
@@ -1062,7 +1062,7 @@ class Loss(nn.Module):
 
         log_durations = log_durations.squeeze(-1)
         if self.log_scale_durations:
-            log_target_durations = torch.log(target_durations.float() + 1)
+            log_target_durations = torch.log1p(target_durations.float())
         # change this to perform batch level using padding mask
 
         for i in range(mel_target.shape[0]):
@@ -2491,7 +2491,7 @@ class FastSpeech2WithAlignment(nn.Module):
         if predict_durations.dim() == 1:
             predict_durations = predict_durations.unsqueeze(0)
         predict_durations_reverse_log = torch.clamp(
-            torch.exp(predict_durations) - 1, 0
+            torch.special.expm1(predict_durations), 0
         )
 
         # pitch predictor
@@ -2689,7 +2689,7 @@ class LossWithAlignment(nn.Module):
 
         log_durations = log_durations.squeeze(-1)
         if self.log_scale_durations:
-            log_target_durations = torch.log(alignment_durations.float() + 1)
+            log_target_durations = torch.log1p(alignment_durations.float())
         # change this to perform batch level using padding mask
 
         for i in range(mel_target.shape[0]):
