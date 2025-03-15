@@ -99,9 +99,7 @@ def prepare_peoples_speech(
 
     if not os.path.isdir(hf_download_folder):
         msg = "You must download the dataset with HuggingFace before starting "
-        msg += (
-            "this recipe. Please check the HuggingFace hub of people's speech."
-        )
+        msg += "this recipe. Please check the HuggingFace hub of people's speech."
         raise ValueError(msg)
 
     if skip_prep:
@@ -109,9 +107,7 @@ def prepare_peoples_speech(
         return
 
     if len(subsets) == 0:
-        raise ImportError(
-            "At least one People's speech subset must be specified."
-        )
+        raise ImportError("At least one People's speech subset must be specified.")
 
     # Setting output paths
     save_output = {}
@@ -128,9 +124,7 @@ def prepare_peoples_speech(
 
     hf_dataset = load_and_concatenate_datasets(subsets, hf_download_folder)
 
-    logger.info(
-        f"Preparing CSV of the Peoples Speech dataset in {save_folder}..."
-    )
+    logger.info(f"Preparing CSV of the Peoples Speech dataset in {save_folder}...")
 
     os.makedirs(save_folder, exist_ok=True)
 
@@ -167,9 +161,7 @@ def load_and_concatenate_datasets(subsets, hf_download_folder):
         import datasets
         from datasets import concatenate_datasets, load_dataset
     except ImportError as error:
-        raise ImportError(
-            f"{str(error)}\n" f"HuggingFace datasets must be installed."
-        )
+        raise ImportError(f"{str(error)}\nHuggingFace datasets must be installed.")
 
     # Managing the download dir as HF can be capricious with this.
     if "HF_HUB_CACHE" in os.environ:
@@ -188,9 +180,7 @@ def load_and_concatenate_datasets(subsets, hf_download_folder):
 
     import multiprocessing
 
-    nproc = (
-        multiprocessing.cpu_count() // 2 + 1
-    )  # we don't want to use all cores
+    nproc = multiprocessing.cpu_count() // 2 + 1  # we don't want to use all cores
 
     # Setting no download mode for HuggingFace. Only cache.
     # We remove progress bars as they repeat for each DDP process.

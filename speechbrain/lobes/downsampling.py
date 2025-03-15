@@ -112,9 +112,7 @@ class PoolingDownsampler(Downsampler):
     torch.Size([8, 10987])
     """
 
-    def __init__(
-        self, downsampling_factor, kernel_size, padding=0, pool_type="avg"
-    ):
+    def __init__(self, downsampling_factor, kernel_size, padding=0, pool_type="avg"):
         super().__init__()
         self.kernel_size = kernel_size
         self.padding = padding

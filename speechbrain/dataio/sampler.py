@@ -243,7 +243,6 @@ class ConcatDatasetBatchSampler(Sampler):
     """
 
     def __init__(self, samplers, batch_sizes: (tuple, list), epoch=0) -> None:
-
         if not isinstance(samplers, (list, tuple)):
             raise ValueError(
                 "samplers should be a list or tuple of Pytorch Samplers, "
@@ -257,15 +256,11 @@ class ConcatDatasetBatchSampler(Sampler):
             )
 
         if not len(batch_sizes) == len(samplers):
-            raise ValueError(
-                "batch_sizes and samplers should be have same length"
-            )
+            raise ValueError("batch_sizes and samplers should be have same length")
 
         self.batch_sizes = batch_sizes
         self.samplers = samplers
-        self.offsets = [0] + np.cumsum(
-            [len(x) for x in self.samplers]
-        ).tolist()[:-1]
+        self.offsets = [0] + np.cumsum([len(x) for x in self.samplers]).tolist()[:-1]
 
         self.epoch = epoch
         self.set_epoch(self.epoch)
@@ -286,7 +281,6 @@ class ConcatDatasetBatchSampler(Sampler):
                 s.set_epoch(epoch)
 
     def __iter__(self):
-
         iterators = [iter(i) for i in self.samplers]
         tot_batch = []
 
@@ -294,15 +288,12 @@ class ConcatDatasetBatchSampler(Sampler):
             for samp_idx in range(len(self.samplers)):
                 c_batch = []
                 while len(c_batch) < self.batch_sizes[samp_idx]:
-                    c_batch.append(
-                        self.offsets[samp_idx] + next(iterators[samp_idx])
-                    )
+                    c_batch.append(self.offsets[samp_idx] + next(iterators[samp_idx]))
                 tot_batch.extend(c_batch)
             yield tot_batch
             tot_batch = []
 
     def __len__(self):
-
         min_len = float("inf")
         for idx, sampler in enumerate(self.samplers):
             c_len = len(sampler) // self.batch_sizes[idx]
@@ -467,9 +458,7 @@ class DynamicBatchSampler(Sampler):
                     "All elements in bucket boundaries should be non-negative (>= 0)."
                 )
             if not len(set(bucket_boundaries)) == len(bucket_boundaries):
-                raise ValueError(
-                    "Bucket_boundaries should not contain duplicates."
-                )
+                raise ValueError("Bucket_boundaries should not contain duplicates.")
             np.testing.assert_array_equal(
                 np.array(bucket_boundaries),
                 np.array(sorted(bucket_boundaries)),
@@ -516,7 +505,6 @@ class DynamicBatchSampler(Sampler):
         max_batch_length: int,
         num_quantiles: int,
     ) -> List[int]:
-
         # NOTE: the following lines do not cover that there is only one example in the dataset
         # warp frames (duration) distribution of train data
         logger.info("Batch quantisation in latent space")
@@ -547,14 +535,11 @@ class DynamicBatchSampler(Sampler):
         return list(sorted(bucket_boundaries))
 
     def _permute_batches(self):
-
         if self._batch_ordering == "random":
             # deterministically shuffle based on epoch and seed
             g = torch.Generator()
             g.manual_seed(self._seed + self._epoch)
-            sampler = torch.randperm(
-                len(self._batches), generator=g
-            ).tolist()  # type: ignore
+            sampler = torch.randperm(len(self._batches), generator=g).tolist()  # type: ignore
             tmp = []
             for idx in sampler:
                 tmp.append(self._batches[idx])
@@ -670,18 +655,11 @@ class DynamicBatchSampler(Sampler):
                     "pad_%": [],
                 }
                 for batch in self._batches:
-                    tot_frames = sum(
-                        [self._ex_lengths[str(idx)] for idx in batch]
-                    )
+                    tot_frames = sum([self._ex_lengths[str(idx)] for idx in batch])
                     batch_stats["tot_frames"].append(tot_frames)
-                    max_frames = max(
-                        [self._ex_lengths[str(idx)] for idx in batch]
-                    )
+                    max_frames = max([self._ex_lengths[str(idx)] for idx in batch])
                     tot_pad = sum(
-                        [
-                            max_frames - self._ex_lengths[str(idx)]
-                            for idx in batch
-                        ]
+                        [max_frames - self._ex_lengths[str(idx)] for idx in batch]
                     )
                     batch_stats["tot_pad_frames"].append(tot_pad)
                     batch_stats["pad_%"].append(tot_pad / tot_frames * 100)
@@ -822,15 +800,11 @@ class BalancingDataSampler(ReproducibleWeightedRandomSampler):
         if not num_samples:
             num_samples = len(dataset)
         weights = self._compute_weights()
-        super().__init__(
-            weights, num_samples, replacement, seed, epoch, **kwargs
-        )
+        super().__init__(weights, num_samples, replacement, seed, epoch, **kwargs)
 
     def _compute_weights(self):
         with self.dataset.output_keys_as([self.key]):
             class_ids = [item[self.key] for item in self.dataset]
             class_counter = Counter(class_ids)
-        weights = 1 / torch.tensor(
-            [class_counter[class_id] for class_id in class_ids]
-        )
+        weights = 1 / torch.tensor([class_counter[class_id] for class_id in class_ids])
         return weights

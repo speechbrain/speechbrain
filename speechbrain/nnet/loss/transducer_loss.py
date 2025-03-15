@@ -93,9 +93,7 @@ def cu_kernel_forward(log_probs, labels, alpha, log_p, T, U, blank, lock):
         while t < T[b]:
             if u == 0:
                 if t > 0:
-                    alpha[b, t, 0] = (
-                        alpha[b, t - 1, 0] + log_probs[b, t - 1, 0, blank]
-                    )
+                    alpha[b, t, 0] = alpha[b, t - 1, 0] + log_probs[b, t - 1, 0, blank]
                 cuda.atomic.add(lock, (b, u + 1), -1)
                 t += 1
             else:
@@ -112,9 +110,7 @@ def cu_kernel_forward(log_probs, labels, alpha, log_p, T, U, blank, lock):
                             + log_probs[b, t, u - 1, labels[b, u - 1]]
                         )
                         # compute no_emission prob
-                        no_emit = (
-                            alpha[b, t - 1, u] + log_probs[b, t - 1, u, blank]
-                        )
+                        no_emit = alpha[b, t - 1, u] + log_probs[b, t - 1, u, blank]
                         # do logsumexp between log_emit and log_no_emit
                         alpha[b, t, u] = max(no_emit, emit) + math.log1p(
                             math.exp(-abs(no_emit - emit))
@@ -170,9 +166,7 @@ def cu_kernel_backward(log_probs, labels, beta, log_p, T, U, blank, lock):
                 if t == T[b] - 1:
                     beta[b, t, u] = log_probs[b, t, u, blank]
                 else:
-                    beta[b, t, u] = (
-                        beta[b, t + 1, u] + log_probs[b, t, u, blank]
-                    )
+                    beta[b, t, u] = beta[b, t + 1, u] + log_probs[b, t, u, blank]
                 cuda.atomic.add(lock, (b, u - 1), -1)
                 t -= 1
             else:
@@ -184,9 +178,7 @@ def cu_kernel_backward(log_probs, labels, beta, log_p, T, U, blank, lock):
                         )
                     else:
                         # compute emission prob
-                        emit = (
-                            beta[b, t, u + 1] + log_probs[b, t, u, labels[b, u]]
-                        )
+                        emit = beta[b, t, u + 1] + log_probs[b, t, u, labels[b, u]]
                         # compute no_emission prob
                         no_emit = beta[b, t + 1, u] + log_probs[b, t, u, blank]
                         # do logsumexp between log_emit and log_no_emit
@@ -244,9 +236,7 @@ def cu_kernel_compute_grad(log_probs, labels, alpha, beta, grads, T, U, blank):
             for u in range(U[b] + 1):
                 grads[b, t, u, blank] = alpha[b, t, u] + beta[b, t + 1, u]
                 grads[b, t, u, blank] = -math.exp(
-                    grads[b, t, u, blank]
-                    + log_probs[b, t, u, blank]
-                    - beta[b, 0, 0]
+                    grads[b, t, u, blank] + log_probs[b, t, u, blank] - beta[b, 0, 0]
                 )
         # compute the gradient for emit prob
         for u, l in enumerate(labels[b]):
@@ -284,15 +274,9 @@ class Transducer(Function):
         beta = torch.zeros(
             (B, maxT, maxU), device=log_probs.device, dtype=log_probs.dtype
         )
-        lock = torch.zeros(
-            (B, maxU), dtype=torch.int32, device=log_probs.device
-        )
-        log_p_alpha = torch.zeros(
-            (B,), device=log_probs.device, dtype=log_probs.dtype
-        )
-        log_p_beta = torch.zeros(
-            (B,), device=log_probs.device, dtype=log_probs.dtype
-        )
+        lock = torch.zeros((B, maxU), dtype=torch.int32, device=log_probs.device)
+        log_p_alpha = torch.zeros((B,), device=log_probs.device, dtype=log_probs.dtype)
+        log_p_beta = torch.zeros((B,), device=log_probs.device, dtype=log_probs.dtype)
         cu_kernel_forward[B, maxU](
             log_probs, labels, alpha, log_p_alpha, T, U, blank, lock
         )
@@ -364,13 +348,13 @@ class TransducerLoss(Module):
             err_msg += "=============================\n"
             err_msg += "If you use your localhost:\n"
             err_msg += "pip install numba\n"
-            err_msg += (
-                "export NUMBAPRO_LIBDEVICE='/usr/local/cuda/nvvm/libdevice/' \n"
-            )
+            err_msg += "export NUMBAPRO_LIBDEVICE='/usr/local/cuda/nvvm/libdevice/' \n"
             err_msg += "export NUMBAPRO_NVVM='/usr/local/cuda/nvvm/lib64/libnvvm.so' \n"
             err_msg += "================================ \n"
             err_msg += "If you use conda:\n"
-            err_msg += "conda install numba cudatoolkit=XX (XX is your cuda toolkit version)"
+            err_msg += (
+                "conda install numba cudatoolkit=XX (XX is your cuda toolkit version)"
+            )
             raise ImportError(err_msg)
 
     def forward(self, logits, labels, T, U):
@@ -378,9 +362,7 @@ class TransducerLoss(Module):
         # Transducer.apply function take log_probs tensor.
         if all(t.is_cuda for t in (logits, labels, T, U)):
             log_probs = logits.log_softmax(-1)
-            return self.loss(
-                log_probs, labels, T, U, self.blank, self.reduction
-            )
+            return self.loss(log_probs, labels, T, U, self.blank, self.reduction)
         else:
             raise ValueError(
                 f"Found inputs tensors to be on {[logits.device, labels.device, T.device, U.device]} while needed to be on a 'cuda' device to use the transducer loss."

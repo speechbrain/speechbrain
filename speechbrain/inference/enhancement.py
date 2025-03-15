@@ -1,4 +1,4 @@
-""" Specifies the inference interfaces for speech enhancement modules.
+"""Specifies the inference interfaces for speech enhancement modules.
 
 Authors:
  * Aku Rouhe 2021

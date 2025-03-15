@@ -366,9 +366,9 @@ class BranchformerEncoder(nn.Module):
             The output of the hidden layers of the encoder.
             Only works if output_hidden_states is set to true.
         """
-        assert (
-            dynchunktrain_config is None
-        ), "Dynamic Chunk Training unsupported for this encoder"
+        assert dynchunktrain_config is None, (
+            "Dynamic Chunk Training unsupported for this encoder"
+        )
 
         if self.attention_type == "RelPosMHAXL":
             if pos_embs is None:

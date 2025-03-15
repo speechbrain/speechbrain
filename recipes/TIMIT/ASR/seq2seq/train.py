@@ -84,9 +84,7 @@ class ASR(sb.Brain):
             phns = self.hparams.wav_augment.replicate_labels(phns)
             phn_lens = self.hparams.wav_augment.replicate_labels(phn_lens)
             phns_eos = self.hparams.wav_augment.replicate_labels(phns_eos)
-            phn_lens_eos = self.hparams.wav_augment.replicate_labels(
-                phn_lens_eos
-            )
+            phn_lens_eos = self.hparams.wav_augment.replicate_labels(phn_lens_eos)
 
         loss_ctc = self.hparams.ctc_cost(p_ctc, phns, wav_lens, phn_lens)
         loss_seq = self.hparams.seq_cost(p_seq, phns_eos, phn_lens_eos)
@@ -132,9 +130,7 @@ class ASR(sb.Brain):
                     "PER": per,
                 },
             )
-            self.checkpointer.save_and_keep_only(
-                meta={"PER": per}, min_keys=["PER"]
-            )
+            self.checkpointer.save_and_keep_only(meta={"PER": per}, min_keys=["PER"])
 
         if stage == sb.Stage.TEST:
             self.hparams.train_logger.log_stats(
@@ -142,9 +138,7 @@ class ASR(sb.Brain):
                 test_stats={"loss": stage_loss, "PER": per},
             )
             if if_main_process():
-                with open(
-                    self.hparams.test_wer_file, "w", encoding="utf-8"
-                ) as w:
+                with open(self.hparams.test_wer_file, "w", encoding="utf-8") as w:
                     w.write("CTC loss stats:\n")
                     self.ctc_metrics.write_stats(w)
                     w.write("\nseq2seq loss stats:\n")
@@ -174,9 +168,7 @@ def dataio_prep(hparams):
         hparams["train_dataloader_opts"]["shuffle"] = False
 
     elif hparams["sorting"] == "descending":
-        train_data = train_data.filtered_sorted(
-            sort_key="duration", reverse=True
-        )
+        train_data = train_data.filtered_sorted(sort_key="duration", reverse=True)
         # when sorting do not shuffle in dataloader ! otherwise is pointless
         hparams["train_dataloader_opts"]["shuffle"] = False
 
@@ -184,9 +176,7 @@ def dataio_prep(hparams):
         pass
 
     else:
-        raise NotImplementedError(
-            "sorting must be random, ascending or descending"
-        )
+        raise NotImplementedError("sorting must be random, ascending or descending")
 
     valid_data = sb.dataio.dataset.DynamicItemDataset.from_json(
         json_path=hparams["valid_annotation"],

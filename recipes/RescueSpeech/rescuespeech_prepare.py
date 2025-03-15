@@ -169,9 +169,7 @@ def skip(save_csv_train, save_csv_dev, save_csv_test):
     return skip
 
 
-def create_asr_csv(
-    orig_tsv_file, csv_file, data_folder, accented_letters=False
-):
+def create_asr_csv(orig_tsv_file, csv_file, data_folder, accented_letters=False):
     """
     Creates the csv file given a list of wav files.
 
@@ -388,15 +386,9 @@ def create_enhance_csv(data_folder, csv_file, split, fs=16000):
     language = []
     lang = "de"
 
-    clean_f1_path = extract_files(
-        os.path.join(data_folder, split), type="clean"
-    )
-    noise_f1_path = extract_files(
-        os.path.join(data_folder, split), type="noise"
-    )
-    noisy_f1_path = extract_files(
-        os.path.join(data_folder, split), type="noisy"
-    )
+    clean_f1_path = extract_files(os.path.join(data_folder, split), type="clean")
+    noise_f1_path = extract_files(os.path.join(data_folder, split), type="noise")
+    noisy_f1_path = extract_files(os.path.join(data_folder, split), type="noisy")
 
     language.extend([lang] * len(clean_f1_path))
     clean_fullpaths.extend(clean_f1_path)
@@ -466,9 +458,7 @@ def write2csv(
         writer.writeheader()
 
         for i, (lang, clean_fp, noise_fp, noisy_fp) in enumerate(
-            tqdm(
-                zip(language, clean_fullpaths, noise_fullpaths, noisy_fullpaths)
-            )
+            tqdm(zip(language, clean_fullpaths, noise_fullpaths, noisy_fullpaths))
         ):
             signal = read_audio(clean_fp)
             duration = signal.shape[0] / fs
@@ -590,11 +580,7 @@ def strip_accents(text):
         The text with accents stripped.
     """
 
-    text = (
-        unicodedata.normalize("NFD", text)
-        .encode("ascii", "ignore")
-        .decode("utf-8")
-    )
+    text = unicodedata.normalize("NFD", text).encode("ascii", "ignore").decode("utf-8")
 
     return str(text)
 

@@ -71,9 +71,7 @@ class ASR(sb.core.Brain):
 
         hyps = None
         if stage == sb.Stage.VALID:
-            hyps, _, _, _ = self.hparams.valid_greedy_searcher(
-                enc_out, wav_lens
-            )
+            hyps, _, _, _ = self.hparams.valid_greedy_searcher(enc_out, wav_lens)
         elif stage == sb.Stage.TEST:
             hyps, _, _, _ = self.hparams.test_beam_searcher(enc_out, wav_lens)
 
@@ -151,17 +149,14 @@ class ASR(sb.core.Brain):
         ids = batch.id
         tokens_eos, tokens_eos_lens = batch.tokens_eos
 
-        loss = self.hparams.nll_loss(
-            log_probs, tokens_eos, length=tokens_eos_lens
-        )
+        loss = self.hparams.nll_loss(log_probs, tokens_eos, length=tokens_eos_lens)
 
         if stage != sb.Stage.TRAIN:
             tokens, tokens_lens = batch.tokens
 
             # Decode token terms to words
             predicted_words = [
-                self.tokenizer.decode(t, skip_special_tokens=True).strip()
-                for t in hyps
+                self.tokenizer.decode(t, skip_special_tokens=True).strip() for t in hyps
             ]
 
             # Convert indices to words
@@ -177,8 +172,7 @@ class ASR(sb.core.Brain):
                 ]
 
                 target_words = [
-                    self.tokenizer.normalize(text).split(" ")
-                    for text in target_words
+                    self.tokenizer.normalize(text).split(" ") for text in target_words
                 ]
             else:
                 predicted_words = [text.split(" ") for text in predicted_words]
@@ -205,9 +199,7 @@ class ASR(sb.core.Brain):
     def fit_batch(self, batch):
         """Train the parameters given a single batch in input"""
 
-        predictions, clean, outputs = self.compute_forward(
-            batch, sb.Stage.TRAIN
-        )
+        predictions, clean, outputs = self.compute_forward(batch, sb.Stage.TRAIN)
         enhance_loss = (
             self.compute_objectives_enhance(predictions, clean)
             * self.hparams.sepformer_weight
@@ -221,9 +213,7 @@ class ASR(sb.core.Brain):
         if loss.requires_grad:
             loss.backward()
 
-        torch.nn.utils.clip_grad_norm_(
-            self.modules.parameters(), self.max_grad_norm
-        )
+        torch.nn.utils.clip_grad_norm_(self.modules.parameters(), self.max_grad_norm)
         self.optimizer.step()
         self.optimizer.zero_grad()
 
@@ -256,9 +246,7 @@ class ASR(sb.core.Brain):
             # Define function taking (prediction, target) for parallel eval
             def pesq_eval(pred_wav, target_wav):
                 """Computes the PESQ evaluation metric"""
-                psq_mode = (
-                    "wb" if self.hparams.enhance_sample_rate == 16000 else "nb"
-                )
+                psq_mode = "wb" if self.hparams.enhance_sample_rate == 16000 else "nb"
                 try:
                     return pesq(
                         fs=self.hparams.enhance_sample_rate,
@@ -270,9 +258,7 @@ class ASR(sb.core.Brain):
                     print("pesq encountered an error for this data item")
                     return 0
 
-            self.pesq_metric = MetricStats(
-                metric=pesq_eval, n_jobs=1, batch_eval=False
-            )
+            self.pesq_metric = MetricStats(metric=pesq_eval, n_jobs=1, batch_eval=False)
             self.cer_metric = self.hparams.cer_computer()
             self.wer_metric = self.hparams.error_rate_computer()
 
@@ -330,9 +316,7 @@ class ASR(sb.core.Brain):
             old_lr_whisper, new_lr_whisper = self.hparams.lr_annealing_whisper(
                 stage_stats["loss"]
             )
-            sb.nnet.schedulers.update_learning_rate(
-                self.optimizer, new_lr_whisper
-            )
+            sb.nnet.schedulers.update_learning_rate(self.optimizer, new_lr_whisper)
 
             self.hparams.train_logger.log_stats(
                 stats_meta={"epoch": epoch, "lr_whisper": old_lr_whisper},
@@ -413,12 +397,8 @@ class ASR(sb.core.Brain):
             1 + max(0, noisy.shape[1] - self.hparams.training_signal_len),
             (1,),
         ).item()
-        clean = clean[
-            :, randstart : randstart + self.hparams.training_signal_len, :
-        ]
-        noisy = noisy[
-            :, randstart : randstart + self.hparams.training_signal_len
-        ]
+        clean = clean[:, randstart : randstart + self.hparams.training_signal_len, :]
+        noisy = noisy[:, randstart : randstart + self.hparams.training_signal_len]
         return noisy, clean
 
     def fix_sample_rate(self, wavs):
@@ -443,9 +423,7 @@ class ASR(sb.core.Brain):
         """
         # Create output folder
         f_name = batch.noisy_wav[0].split("/")[-1].replace(".wav", "")
-        save_path = os.path.join(
-            self.hparams.output_folder, "enhanced_wavs", f_name
-        )
+        save_path = os.path.join(self.hparams.output_folder, "enhanced_wavs", f_name)
         os.makedirs(save_path, exist_ok=True)
 
         # Estimated source
@@ -522,9 +500,7 @@ class ASR(sb.core.Brain):
                     noisy, noisy_len = batch.noisy_sig
                     snt_id = batch.id
                     clean = batch.clean_sig
-                    noisy_wav = (
-                        batch.noisy_wav[0].split("/")[-1].replace(".wav", "")
-                    )
+                    noisy_wav = batch.noisy_wav[0].split("/")[-1].replace(".wav", "")
 
                     with torch.no_grad():
                         predictions, clean = self.compute_forward_enhance(
@@ -542,16 +518,12 @@ class ASR(sb.core.Brain):
                         )
 
                     psq_mode = (
-                        "wb"
-                        if self.hparams.enhance_sample_rate == 16000
-                        else "nb"
+                        "wb" if self.hparams.enhance_sample_rate == 16000 else "nb"
                     )
 
                     try:
                         # Compute SI-SNR
-                        sisnr = self.compute_objectives_enhance(
-                            predictions, clean
-                        )
+                        sisnr = self.compute_objectives_enhance(predictions, clean)
 
                         # Compute SI-SNR improvement
                         noisy_signal = noisy
@@ -674,9 +646,7 @@ def dataio_prepare(hparams, tokenizer):
         pass
 
     else:
-        raise NotImplementedError(
-            "sorting must be random, ascending or descending"
-        )
+        raise NotImplementedError("sorting must be random, ascending or descending")
 
     valid_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
         csv_path=hparams["valid_csv"],

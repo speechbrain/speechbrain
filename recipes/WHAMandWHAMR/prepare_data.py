@@ -37,9 +37,7 @@ def prepare_wham_whamr_csv(
         )
     elif "whamr" in datapath:
         # if we want to train a model on the whamr dataset
-        create_wham_whamr_csv(
-            datapath, savepath, fs, add_reverb=True, task=task
-        )
+        create_wham_whamr_csv(datapath, savepath, fs, add_reverb=True, task=task)
     else:
         raise ValueError("Unsupported Dataset")
 
@@ -76,9 +74,7 @@ def create_wham_whamr_csv(
     for set_type in set_types:
         if add_reverb:
             mix_both = (
-                "mix_both_reverb/"
-                if task == "separation"
-                else "mix_single_reverb/"
+                "mix_both_reverb/" if task == "separation" else "mix_single_reverb/"
             )
             if dereverberate and (set_type != "tr"):
                 s1 = "s1_reverb/"

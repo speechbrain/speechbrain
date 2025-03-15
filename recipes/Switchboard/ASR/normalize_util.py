@@ -21,9 +21,7 @@ def read_glm_csv(save_folder):
     """Load the ARPA Hub4-E and Hub5-E alternate spellings and contractions map"""
 
     alternatives_dict = defaultdict(list)
-    with open(
-        os.path.join(save_folder, "glm.csv"), encoding="utf-8"
-    ) as csv_file:
+    with open(os.path.join(save_folder, "glm.csv"), encoding="utf-8") as csv_file:
         csv_reader = csv.reader(csv_file, delimiter=",")
         for row in csv_reader:
             alternatives = row[1].split("|")
@@ -112,9 +110,7 @@ def expand_contractions_batch(text_batch):
     return parsed_batch
 
 
-def normalize_words(
-    target_words_batch, predicted_words_batch, glm_alternatives=None
-):
+def normalize_words(target_words_batch, predicted_words_batch, glm_alternatives=None):
     """
     Remove some references and hypotheses we don't want to score.
     We remove incomplete words (i.e. words that start with "-"),
@@ -189,9 +185,7 @@ def normalize_words(
             # Remove stuff like [LAUGHTER]
             pred_wrd = re.sub(r"\[.*?\]", "", pred_wrd)
             # Remove any remaining punctuation
-            pred_wrd = pred_wrd.translate(
-                str.maketrans("", "", string.punctuation)
-            )
+            pred_wrd = pred_wrd.translate(str.maketrans("", "", string.punctuation))
             # Sometimes things like LAUGHTER get appended to existing words e.g. THOUGHLAUGHTER
             if pred_wrd != "LAUGHTER" and pred_wrd.endswith("LAUGHTER"):
                 pred_wrd = pred_wrd.replace("LAUGHTER", "")

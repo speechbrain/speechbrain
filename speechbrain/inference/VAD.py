@@ -1,4 +1,4 @@
-""" Specifies the inference interfaces for Voice Activity Detection (VAD) modules.
+"""Specifies the inference interfaces for Voice Activity Detection (VAD) modules.
 
 Authors:
  * Aku Rouhe 2021
@@ -131,9 +131,7 @@ class VAD(Pretrained):
 
             # Manage padding of the last small chunk
             if last_chunk or large_chunk.shape[-1] < small_chunk_len:
-                padding = torch.zeros(
-                    1, small_chunk_len, device=large_chunk.device
-                )
+                padding = torch.zeros(1, small_chunk_len, device=large_chunk.device)
                 large_chunk = torch.cat([large_chunk, padding], dim=1)
 
             # Splitting the big chunk into smaller (overlapped) ones
@@ -150,17 +148,13 @@ class VAD(Pretrained):
 
             # Manage overlapping chunks
             if overlap_small_chunk:
-                small_chunks_prob = self._manage_overlapped_chunks(
-                    small_chunks_prob
-                )
+                small_chunks_prob = self._manage_overlapped_chunks(small_chunks_prob)
 
             # Prepare for folding
             small_chunks_prob = small_chunks_prob.permute(2, 1, 0)
 
             # Computing lengths in samples
-            out_len = int(
-                large_chunk.shape[-1] / (sample_rate * self.time_resolution)
-            )
+            out_len = int(large_chunk.shape[-1] / (sample_rate * self.time_resolution))
             kernel_len = int(small_chunk_size / self.time_resolution)
             step_len = int(small_chunk_step / self.time_resolution)
 
@@ -210,9 +204,9 @@ class VAD(Pretrained):
         ] * hamming_window[0:half_point].unsqueeze(1)
 
         # Applying the window to all the other probabilities
-        small_chunks_prob[1:-1] = small_chunks_prob[
-            1:-1
-        ] * hamming_window.unsqueeze(0).unsqueeze(2)
+        small_chunks_prob[1:-1] = small_chunks_prob[1:-1] * hamming_window.unsqueeze(
+            0
+        ).unsqueeze(2)
 
         return small_chunks_prob
 
@@ -266,9 +260,7 @@ class VAD(Pretrained):
 
         return output_prob
 
-    def apply_threshold(
-        self, vad_prob, activation_th=0.5, deactivation_th=0.25
-    ):
+    def apply_threshold(self, vad_prob, activation_th=0.5, deactivation_th=0.25):
         """Scans the frame-level speech probabilities and applies a threshold
         on them. Speech starts when a value larger than activation_th is
         detected, while it ends when observing a value lower than
@@ -341,10 +333,7 @@ class VAD(Pretrained):
             prob_th = torch.cat(
                 (
                     prob_th,
-                    torch.Tensor([1.0])
-                    .unsqueeze(0)
-                    .unsqueeze(2)
-                    .to(self.device),
+                    torch.Tensor([1.0]).unsqueeze(0).unsqueeze(2).to(self.device),
                 ),
                 dim=1,
             )
@@ -486,9 +475,7 @@ class VAD(Pretrained):
 
             if last_end != begin_value:
                 cnt_seg = cnt_seg + 1
-                print_str = (
-                    "segment_%03d " + value_format + value_format + "NON_SPEECH"
-                )
+                print_str = "segment_%03d " + value_format + value_format + "NON_SPEECH"
                 if print_boundaries:
                     print(print_str % (cnt_seg, last_end, begin_value))
                 if save_path is not None:
@@ -507,9 +494,7 @@ class VAD(Pretrained):
         if audio_file is not None:
             if last_end < audio_len:
                 cnt_seg = cnt_seg + 1
-                print_str = (
-                    "segment_%03d " + value_format + value_format + "NON_SPEECH"
-                )
+                print_str = "segment_%03d " + value_format + value_format + "NON_SPEECH"
                 if print_boundaries:
                     print(print_str % (cnt_seg, end_value, audio_len))
                 if save_path is not None:
@@ -592,8 +577,7 @@ class VAD(Pretrained):
 
             # Energy normalization
             energy_chunks = (
-                (energy_chunks - energy_chunks.mean())
-                / (2 * energy_chunks.std())
+                (energy_chunks - energy_chunks.mean()) / (2 * energy_chunks.std())
             ) + 0.5
             energy_chunks = energy_chunks.unsqueeze(0).unsqueeze(2)
 
@@ -605,9 +589,7 @@ class VAD(Pretrained):
             )
 
             # Get the boundaries
-            energy_boundaries = self.get_boundaries(
-                energy_vad, output_value="seconds"
-            )
+            energy_boundaries = self.get_boundaries(energy_vad, output_value="seconds")
 
             # Get the final boundaries in the original signal
             for j in range(energy_boundaries.shape[0]):
@@ -734,9 +716,7 @@ class VAD(Pretrained):
             vad_signal[0, beg_sample:end_sample] = 1.0
         return vad_signal
 
-    def double_check_speech_segments(
-        self, boundaries, audio_file, speech_th=0.5
-    ):
+    def double_check_speech_segments(self, boundaries, audio_file, speech_th=0.5):
         """Takes in input the boundaries of the detected speech segments and
         double checks (using the neural VAD) that they actually contain speech.
 
@@ -780,9 +760,7 @@ class VAD(Pretrained):
         new_boundaries = torch.FloatTensor(new_boundaries).to(boundaries.device)
         return new_boundaries
 
-    def get_segments(
-        self, boundaries, audio_file, before_margin=0.1, after_margin=0.1
-    ):
+    def get_segments(self, boundaries, audio_file, before_margin=0.1, after_margin=0.1):
         """Returns a list containing all the detected speech segments.
 
         Arguments
@@ -814,9 +792,7 @@ class VAD(Pretrained):
             end_sample = boundaries[i, 1] * sample_rate
 
             beg_sample = int(max(0, beg_sample - before_margin * sample_rate))
-            end_sample = int(
-                min(sig_len, end_sample + after_margin * sample_rate)
-            )
+            end_sample = int(min(sig_len, end_sample + after_margin * sample_rate))
 
             len_seg = end_sample - beg_sample
             vad_segment, fs = torchaudio.load(

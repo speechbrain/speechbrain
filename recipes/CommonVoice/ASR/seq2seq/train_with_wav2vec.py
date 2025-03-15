@@ -92,13 +92,9 @@ class ASR(sb.core.Brain):
             tokens = self.hparams.wav_augment.replicate_labels(tokens)
             tokens_lens = self.hparams.wav_augment.replicate_labels(tokens_lens)
             tokens_eos = self.hparams.wav_augment.replicate_labels(tokens_eos)
-            tokens_eos_lens = self.hparams.wav_augment.replicate_labels(
-                tokens_eos_lens
-            )
+            tokens_eos_lens = self.hparams.wav_augment.replicate_labels(tokens_eos_lens)
 
-        loss_seq = self.hparams.seq_cost(
-            p_seq, tokens_eos, length=tokens_eos_lens
-        )
+        loss_seq = self.hparams.seq_cost(p_seq, tokens_eos, length=tokens_eos_lens)
 
         # Add ctc loss if necessary
         current_epoch = self.hparams.epoch_counter.current
@@ -106,9 +102,7 @@ class ASR(sb.core.Brain):
             stage == sb.Stage.TRAIN
             and current_epoch <= self.hparams.number_of_ctc_epochs
         ):
-            loss_ctc = self.hparams.ctc_cost(
-                p_ctc, tokens, wav_lens, tokens_lens
-            )
+            loss_ctc = self.hparams.ctc_cost(p_ctc, tokens, wav_lens, tokens_lens)
             loss = self.hparams.ctc_weight * loss_ctc
             loss += (1 - self.hparams.ctc_weight) * loss_seq
         else:
@@ -116,9 +110,7 @@ class ASR(sb.core.Brain):
 
         if stage != sb.Stage.TRAIN:
             # Decode token terms to words
-            predicted_words = self.tokenizer(
-                predicted_tokens, task="decode_from_list"
-            )
+            predicted_words = self.tokenizer(predicted_tokens, task="decode_from_list")
 
             # Convert indices to words
             target_words = undo_padding(tokens, tokens_lens)
@@ -153,9 +145,7 @@ class ASR(sb.core.Brain):
             old_lr_wav2vec, new_lr_wav2vec = self.hparams.lr_annealing_wav2vec(
                 stage_stats["loss"]
             )
-            sb.nnet.schedulers.update_learning_rate(
-                self.model_optimizer, new_lr_model
-            )
+            sb.nnet.schedulers.update_learning_rate(self.model_optimizer, new_lr_model)
             if not self.hparams.wav2vec2.freeze:
                 sb.nnet.schedulers.update_learning_rate(
                     self.wav2vec_optimizer, new_lr_wav2vec
@@ -179,9 +169,7 @@ class ASR(sb.core.Brain):
                 test_stats=stage_stats,
             )
             if if_main_process():
-                with open(
-                    self.hparams.test_wer_file, "w", encoding="utf-8"
-                ) as w:
+                with open(self.hparams.test_wer_file, "w", encoding="utf-8") as w:
                     self.wer_metric.write_stats(w)
 
     def init_optimizers(self):
@@ -191,9 +179,7 @@ class ASR(sb.core.Brain):
                 self.modules.wav2vec2.parameters()
             )
             if self.checkpointer is not None:
-                self.checkpointer.add_recoverable(
-                    "wav2vec_opt", self.wav2vec_optimizer
-                )
+                self.checkpointer.add_recoverable("wav2vec_opt", self.wav2vec_optimizer)
         self.model_optimizer = self.hparams.model_opt_class(
             self.hparams.model.parameters()
         )
@@ -213,9 +199,7 @@ class ASR(sb.core.Brain):
         """Freezes the wav2vec2 optimizer according to the warmup steps"""
         valid_optimizers = {}
         if not self.hparams.wav2vec2.freeze:
-            valid_optimizers["wav2vec_optimizer"] = optimizers[
-                "wav2vec_optimizer"
-            ]
+            valid_optimizers["wav2vec_optimizer"] = optimizers["wav2vec_optimizer"]
         valid_optimizers["model_optimizer"] = optimizers["model_optimizer"]
         return valid_optimizers
 
@@ -256,9 +240,7 @@ def dataio_prepare(hparams, tokenizer):
         pass
 
     else:
-        raise NotImplementedError(
-            "sorting must be random, ascending or descending"
-        )
+        raise NotImplementedError("sorting must be random, ascending or descending")
 
     valid_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
         csv_path=hparams["valid_csv"],

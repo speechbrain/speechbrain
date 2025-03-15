@@ -68,18 +68,14 @@ class ASR(sb.Brain):
         # Add feature augmentation if specified.
         if stage == sb.Stage.TRAIN and hasattr(self.hparams, "fea_augment"):
             feats, fea_lens = self.hparams.fea_augment(feats, wav_lens)
-            tokens_with_bos = self.hparams.fea_augment.replicate_labels(
-                tokens_with_bos
-            )
+            tokens_with_bos = self.hparams.fea_augment.replicate_labels(tokens_with_bos)
 
         current_epoch = self.hparams.epoch_counter.current
 
         # Old models may not have the streaming hparam, we don't break them in
         # any other way so just check for its presence
         if hasattr(self.hparams, "streaming") and self.hparams.streaming:
-            dynchunktrain_config = self.hparams.dynchunktrain_config_sampler(
-                stage
-            )
+            dynchunktrain_config = self.hparams.dynchunktrain_config_sampler(stage)
         else:
             dynchunktrain_config = None
 
@@ -176,13 +172,9 @@ class ASR(sb.Brain):
             CTC_loss = 0.0
             CE_loss = 0.0
             if p_ctc is not None:
-                CTC_loss = self.hparams.ctc_cost(
-                    p_ctc, tokens, wav_lens, token_lens
-                )
+                CTC_loss = self.hparams.ctc_cost(p_ctc, tokens, wav_lens, token_lens)
             if p_ce is not None:
-                CE_loss = self.hparams.ce_cost(
-                    p_ce, tokens_eos, length=token_eos_lens
-                )
+                CE_loss = self.hparams.ce_cost(p_ce, tokens_eos, length=token_eos_lens)
             loss_transducer = self.hparams.transducer_cost(
                 logits_transducer, tokens, wav_lens, token_lens
             )
@@ -260,9 +252,7 @@ class ASR(sb.Brain):
                 test_stats=stage_stats,
             )
             if if_main_process():
-                with open(
-                    self.hparams.test_wer_file, "w", encoding="utf-8"
-                ) as w:
+                with open(self.hparams.test_wer_file, "w", encoding="utf-8") as w:
                     self.wer_metric.write_stats(w)
 
             # save the averaged checkpoint at the end of the evaluation stage
@@ -282,9 +272,7 @@ class ASR(sb.Brain):
             max_key=max_key,
             min_key=min_key,
         )
-        ckpt = sb.utils.checkpoints.average_checkpoints(
-            ckpts, recoverable_name="model"
-        )
+        ckpt = sb.utils.checkpoints.average_checkpoints(ckpts, recoverable_name="model")
 
         self.hparams.model.load_state_dict(ckpt, strict=True)
         self.hparams.model.eval()
@@ -308,9 +296,7 @@ def dataio_prepare(hparams):
         hparams["train_dataloader_opts"]["shuffle"] = False
 
     elif hparams["sorting"] == "descending":
-        train_data = train_data.filtered_sorted(
-            sort_key="duration", reverse=True
-        )
+        train_data = train_data.filtered_sorted(sort_key="duration", reverse=True)
         # when sorting do not shuffle in dataloader ! otherwise is pointless
         hparams["train_dataloader_opts"]["shuffle"] = False
 
@@ -318,9 +304,7 @@ def dataio_prepare(hparams):
         pass
 
     else:
-        raise NotImplementedError(
-            "sorting must be random, ascending or descending"
-        )
+        raise NotImplementedError("sorting must be random, ascending or descending")
 
     valid_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
         csv_path=hparams["valid_csv"],
@@ -335,9 +319,7 @@ def dataio_prepare(hparams):
         test_datasets[name] = sb.dataio.dataset.DynamicItemDataset.from_csv(
             csv_path=csv_file, replacements={"data_root": data_folder}
         )
-        test_datasets[name] = test_datasets[name].filtered_sorted(
-            sort_key="duration"
-        )
+        test_datasets[name] = test_datasets[name].filtered_sorted(sort_key="duration")
 
     datasets = [train_data, valid_data] + [i for k, i in test_datasets.items()]
 

@@ -103,9 +103,9 @@ def create_aishell1mix_metadata(
             continue
         # Get the name of the corresponding noise md file
         try:
-            wham_md_file = [
-                f for f in wham_md_files if f.startswith(aishell1_md_file)
-            ][0]
+            wham_md_file = [f for f in wham_md_files if f.startswith(aishell1_md_file)][
+                0
+            ]
         except IndexError:
             print(
                 "Wham metadata are missing you can either generate the "
@@ -119,14 +119,10 @@ def create_aishell1mix_metadata(
             os.path.join(aishell1_md_dir, aishell1_md_file), engine="python"
         )
         # Open .csv files from wham_noise
-        wham_md = pd.read_csv(
-            os.path.join(wham_md_dir, wham_md_file), engine="python"
-        )
+        wham_md = pd.read_csv(os.path.join(wham_md_dir, wham_md_file), engine="python")
         # Filenames
         save_path = os.path.join(md_dir, "_".join([dataset, aishell1_md_file]))
-        info_name = (
-            "_".join([dataset, aishell1_md_file.split(".")[0], "info"]) + ".csv"
-        )
+        info_name = "_".join([dataset, aishell1_md_file.split(".")[0], "info"]) + ".csv"
         info_save_path = os.path.join(md_dir, info_name)
         print(f"Creating {os.path.basename(save_path)} file in {md_dir}")
         # Create dataframe
@@ -153,10 +149,7 @@ def check_already_generated(md_dir, dataset, to_be_ignored, aishell1_md_files):
                 to_be_ignored.append("dev.csv")
             elif "test" in generated:
                 to_be_ignored.append("test.csv")
-            print(
-                f"{generated} already exists in "
-                f"{md_dir} it won't be overwritten"
-            )
+            print(f"{generated} already exists in {md_dir} it won't be overwritten")
     for element in to_be_ignored:
         aishell1_md_files.remove(element)
 
@@ -250,10 +243,7 @@ def set_utt_pairs(aishell1_md_file, pair_list, n_src):
         couple = random.sample(index, n_src)
         # Check that speakers are different
         speaker_list = set(
-            [
-                aishell1_md_file.iloc[couple[i]]["speaker_ID"]
-                for i in range(n_src)
-            ]
+            [aishell1_md_file.iloc[couple[i]]["speaker_ID"] for i in range(n_src)]
         )
         # If there are duplicates then increment the counter
         if len(speaker_list) != n_src:
@@ -308,9 +298,7 @@ def remove_duplicates(utt_pairs, noise_pairs):
     print("Removing duplicates")
     # look for identical mixtures O(n²)
     for i, (pair, pair_noise) in enumerate(zip(utt_pairs, noise_pairs)):
-        for j, (du_pair, du_pair_noise) in enumerate(
-            zip(utt_pairs, noise_pairs)
-        ):
+        for j, (du_pair, du_pair_noise) in enumerate(zip(utt_pairs, noise_pairs)):
             # sort because [s1,s2] = [s2,s1]
             if sorted(pair) == sorted(du_pair) and i != j:
                 utt_pairs.remove(du_pair)
@@ -327,10 +315,7 @@ def read_sources(metadata_file, pair, n_src, aishell1_dir):
     length_list = [source["length"] for source in sources]
     path_list = [source["origin_path"] for source in sources]
     transcript_list = [source["transcript"] for source in sources]
-    id_l = [
-        os.path.split(source["origin_path"])[1].split(".")[0]
-        for source in sources
-    ]
+    id_l = [os.path.split(source["origin_path"])[1].split(".")[0] for source in sources]
     mixtures_id = "_".join(id_l)
 
     # Get the longest and shortest source len
@@ -342,9 +327,7 @@ def read_sources(metadata_file, pair, n_src, aishell1_dir):
         source = metadata_file.iloc[pair[i]]
         absolute_path = os.path.join(aishell1_dir, source["origin_path"])
         s, _ = sf.read(absolute_path, dtype="float32")
-        sources_list.append(
-            np.pad(s, (0, max_length - len(s)), mode="constant")
-        )
+        sources_list.append(np.pad(s, (0, max_length - len(s)), mode="constant"))
 
     sources_info = {
         "mixtures_id": mixtures_id,

@@ -33,9 +33,7 @@ def test_hpopt_orion():
 
     mock_orion = MockOrion()
 
-    reporter = hp.OrionHyperparameterOptimizationReporter(
-        objective_key="valid_loss"
-    )
+    reporter = hp.OrionHyperparameterOptimizationReporter(objective_key="valid_loss")
     reporter.orion_client = mock_orion
 
     result = {"train_loss": 0.9, "valid_loss": 1.2, "per": 0.10}

@@ -317,9 +317,7 @@ class Attention(nn.Module):
         )
         self.score_mask_value = -float("inf")
 
-    def get_alignment_energies(
-        self, query, processed_memory, attention_weights_cat
-    ):
+    def get_alignment_energies(self, query, processed_memory, attention_weights_cat):
         """Computes the alignment energies
 
         Arguments
@@ -340,9 +338,7 @@ class Attention(nn.Module):
         processed_query = self.query_layer(query.unsqueeze(1))
         processed_attention_weights = self.location_layer(attention_weights_cat)
         energies = self.v(
-            torch.tanh(
-                processed_query + processed_attention_weights + processed_memory
-            )
+            torch.tanh(processed_query + processed_attention_weights + processed_memory)
         )
 
         energies = energies.squeeze(2)
@@ -637,9 +633,7 @@ class Encoder(nn.Module):
 
         # pytorch tensor are not reversible, hence the conversion
         input_lengths = input_lengths.cpu().numpy()
-        x = nn.utils.rnn.pack_padded_sequence(
-            x, input_lengths, batch_first=True
-        )
+        x = nn.utils.rnn.pack_padded_sequence(x, input_lengths, batch_first=True)
 
         self.lstm.flatten_parameters()
         outputs, _ = self.lstm(x)
@@ -672,9 +666,7 @@ class Encoder(nn.Module):
         x = x.transpose(1, 2)
 
         input_lengths = input_lengths.cpu()
-        x = nn.utils.rnn.pack_padded_sequence(
-            x, input_lengths, batch_first=True
-        )
+        x = nn.utils.rnn.pack_padded_sequence(x, input_lengths, batch_first=True)
         outputs, _ = self.lstm(x)
 
         outputs, _ = nn.utils.rnn.pad_packed_sequence(outputs, batch_first=True)
@@ -854,14 +846,10 @@ class Decoder(nn.Module):
         decoder_hidden = torch.zeros(
             B, self.decoder_rnn_dim, dtype=dtype, device=device
         )
-        decoder_cell = torch.zeros(
-            B, self.decoder_rnn_dim, dtype=dtype, device=device
-        )
+        decoder_cell = torch.zeros(B, self.decoder_rnn_dim, dtype=dtype, device=device)
 
         attention_weights = torch.zeros(B, MAX_TIME, dtype=dtype, device=device)
-        attention_weights_cum = torch.zeros(
-            B, MAX_TIME, dtype=dtype, device=device
-        )
+        attention_weights_cum = torch.zeros(B, MAX_TIME, dtype=dtype, device=device)
         attention_context = torch.zeros(
             B, self.encoder_embedding_dim, dtype=dtype, device=device
         )
@@ -1029,9 +1017,7 @@ class Decoder(nn.Module):
         decoder_hidden_attention_context = torch.cat(
             (decoder_hidden, attention_context), dim=1
         )
-        decoder_output = self.linear_projection(
-            decoder_hidden_attention_context
-        )
+        decoder_output = self.linear_projection(decoder_hidden_attention_context)
 
         gate_prediction = self.gate_layer(decoder_hidden_attention_context)
 
@@ -1207,9 +1193,7 @@ class Decoder(nn.Module):
                 alignments = attention_weights
                 first_iter = False
             else:
-                mel_outputs = torch.cat(
-                    (mel_outputs, mel_output.unsqueeze(0)), dim=0
-                )
+                mel_outputs = torch.cat((mel_outputs, mel_output.unsqueeze(0)), dim=0)
                 gate_outputs = torch.cat((gate_outputs, gate_output), dim=0)
                 alignments = torch.cat((alignments, attention_weights), dim=0)
 
@@ -1429,9 +1413,7 @@ class Tacotron2(nn.Module):
         """
         mel_outputs, mel_outputs_postnet, gate_outputs, alignments = outputs
         if self.mask_padding and output_lengths is not None:
-            mask = get_mask_from_lengths(
-                output_lengths, max_len=mel_outputs.size(-1)
-            )
+            mask = get_mask_from_lengths(output_lengths, max_len=mel_outputs.size(-1))
             mask = mask.expand(self.n_mel_channels, mask.size(0), mask.size(1))
             mask = mask.permute(1, 0, 2)
 
@@ -1439,9 +1421,7 @@ class Tacotron2(nn.Module):
             mel_outputs_postnet.masked_fill_(mask, 0.0)
             gate_outputs.masked_fill_(mask[:, 0, :], 1e3)  # gate energies
         if alignments_dim is not None:
-            alignments = F.pad(
-                alignments, (0, alignments_dim - alignments.size(-1))
-            )
+            alignments = F.pad(alignments, (0, alignments_dim - alignments.size(-1)))
 
         return mel_outputs, mel_outputs_postnet, gate_outputs, alignments
 
@@ -1549,9 +1529,7 @@ def infer(model, text_sequences, input_lengths):
     return model.infer(text_sequences, input_lengths)
 
 
-LossStats = namedtuple(
-    "TacotronLoss", "loss mel_loss gate_loss attn_loss attn_weight"
-)
+LossStats = namedtuple("TacotronLoss", "loss mel_loss gate_loss attn_loss attn_weight")
 
 
 class Loss(nn.Module):
@@ -1613,17 +1591,13 @@ class Loss(nn.Module):
         self.guided_attention_weight = guided_attention_weight
         self.mse_loss = nn.MSELoss()
         self.bce_loss = nn.BCEWithLogitsLoss()
-        self.guided_attention_loss = GuidedAttentionLoss(
-            sigma=guided_attention_sigma
-        )
+        self.guided_attention_loss = GuidedAttentionLoss(sigma=guided_attention_sigma)
         self.gate_loss_weight = gate_loss_weight
         self.guided_attention_weight = guided_attention_weight
         self.guided_attention_scheduler = guided_attention_scheduler
         self.guided_attention_hard_stop = guided_attention_hard_stop
 
-    def forward(
-        self, model_output, targets, input_lengths, target_lengths, epoch
-    ):
+    def forward(self, model_output, targets, input_lengths, target_lengths, epoch):
         """Computes the loss
 
         Arguments
@@ -1663,13 +1637,9 @@ class Loss(nn.Module):
             alignments, input_lengths, target_lengths, epoch
         )
         total_loss = mel_loss + gate_loss + attn_loss
-        return LossStats(
-            total_loss, mel_loss, gate_loss, attn_loss, attn_weight
-        )
+        return LossStats(total_loss, mel_loss, gate_loss, attn_loss, attn_weight)
 
-    def get_attention_loss(
-        self, alignments, input_lengths, target_lengths, epoch
-    ):
+    def get_attention_loss(self, alignments, input_lengths, target_lengths, epoch):
         """Computes the attention loss
 
         Arguments
@@ -1690,10 +1660,7 @@ class Loss(nn.Module):
             the attention loss value
         """
         zero_tensor = torch.tensor(0.0, device=alignments.device)
-        if (
-            self.guided_attention_weight is None
-            or self.guided_attention_weight == 0
-        ):
+        if self.guided_attention_weight is None or self.guided_attention_weight == 0:
             attn_weight, attn_loss = zero_tensor, zero_tensor
         else:
             hard_stop_reached = (
@@ -1748,9 +1715,7 @@ class TextMelCollate:
 
         # TODO: Remove for loops and this dirty hack
         raw_batch = list(batch)
-        for i in range(
-            len(batch)
-        ):  # the pipeline return a dictionary with one element
+        for i in range(len(batch)):  # the pipeline return a dictionary with one element
             batch[i] = batch[i]["mel_text_pair"]
 
         # Right zero-pad all one-hot text sequences to max input length

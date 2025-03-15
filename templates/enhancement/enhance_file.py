@@ -10,6 +10,7 @@ the enhancement model, make sure the hparams in inference.yaml are the same.
 Authors
  * Peter Plantinga 2024
 """
+
 import argparse
 
 from speechbrain.inference.enhancement import SpectralMaskEnhancement

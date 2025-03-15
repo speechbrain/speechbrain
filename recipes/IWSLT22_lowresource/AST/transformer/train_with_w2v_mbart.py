@@ -33,9 +33,7 @@ class ST(sb.core.Brain):
         # dimensionality reduction
         src = self.modules.enc(src)
 
-        dec_out = self.modules.mBART(
-            src, tokens_bos, pad_idx=self.hparams.pad_index
-        )
+        dec_out = self.modules.mBART(src, tokens_bos, pad_idx=self.hparams.pad_index)
 
         # logits and softmax
         p_seq = self.hparams.log_softmax(dec_out)
@@ -50,9 +48,7 @@ class ST(sb.core.Brain):
             if current_epoch % self.hparams.valid_search_interval == 0:
                 if isinstance(self.modules.mBART, DistributedDataParallel):
                     self.modules.mBART = self.modules.mBART.module
-                hyps, _, _, _ = self.hparams.valid_search(
-                    src.detach(), wav_lens
-                )
+                hyps, _, _, _ = self.hparams.valid_search(src.detach(), wav_lens)
 
         elif stage == sb.Stage.TEST:
             if isinstance(self.modules.mBART, DistributedDataParallel):
@@ -173,9 +169,7 @@ class ST(sb.core.Brain):
             old_lr_adam, new_lr_adam = self.hparams.lr_annealing_adam(
                 self.anneal_bleu  # stage_stats["BLEU"]
             )
-            sb.nnet.schedulers.update_learning_rate(
-                self.adam_optimizer, new_lr_adam
-            )
+            sb.nnet.schedulers.update_learning_rate(self.adam_optimizer, new_lr_adam)
 
             stats_meta = {
                 "epoch": current_epoch,
@@ -187,16 +181,12 @@ class ST(sb.core.Brain):
                 self.hparams.lr_annealing_wav2vec(
                     self.wav2vec_optimizer, self.optimizer_step
                 )
-                stats_meta["lr_wav2vec"] = self.wav2vec_optimizer.param_groups[
-                    0
-                ]["lr"]
+                stats_meta["lr_wav2vec"] = self.wav2vec_optimizer.param_groups[0]["lr"]
             if not self.hparams.mbart_frozen:
                 self.hparams.lr_annealing_mbart(
                     self.mbart_optimizer, self.optimizer_step
                 )
-                stats_meta["lr_mbart"] = self.mbart_optimizer.param_groups[0][
-                    "lr"
-                ]
+                stats_meta["lr_mbart"] = self.mbart_optimizer.param_groups[0]["lr"]
             self.hparams.train_logger.log_stats(
                 stats_meta=stats_meta,
                 train_stats={"loss": self.train_stats},
@@ -255,9 +245,7 @@ def dataio_prepare(hparams, tokenizer):
     # encode it using the tokenizer. The tokens with BOS are used for feeding
     # decoder during training, the tokens with EOS for computing the cost function.
     @sb.utils.data_pipeline.takes("trans")
-    @sb.utils.data_pipeline.provides(
-        "trans", "tokens_list", "tokens_bos", "tokens_eos"
-    )
+    @sb.utils.data_pipeline.provides("trans", "tokens_list", "tokens_bos", "tokens_eos")
     def reference_text_pipeline(translation):
         """Processes the transcriptions to generate proper labels"""
         yield translation
@@ -330,12 +318,8 @@ def dataio_prepare(hparams, tokenizer):
                 reverse=True,
             )
         else:
-            datasets["train"] = datasets["train"].filtered_sorted(
-                sort_key="duration"
-            )
-            datasets["valid"] = datasets["valid"].filtered_sorted(
-                sort_key="duration"
-            )
+            datasets["train"] = datasets["train"].filtered_sorted(sort_key="duration")
+            datasets["valid"] = datasets["valid"].filtered_sorted(sort_key="duration")
 
         hparams["dataloader_options"]["shuffle"] = False
         hparams["dataloader_options"]["shuffle"] = False
@@ -379,9 +363,7 @@ def dataio_prepare(hparams, tokenizer):
 
         hparams["dataloader_options"]["shuffle"] = True
     else:
-        raise NotImplementedError(
-            "sorting must be random, ascending or descending"
-        )
+        raise NotImplementedError("sorting must be random, ascending or descending")
 
     return datasets
 
@@ -438,9 +420,7 @@ if __name__ == "__main__":
 
     # Test
     for dataset in ["valid", "test"]:
-        st_brain.hparams.wer_file = (
-            hparams["output_folder"] + "/wer_test" + ".txt"
-        )
+        st_brain.hparams.wer_file = hparams["output_folder"] + "/wer_test" + ".txt"
         st_brain.evaluate(
             datasets[dataset],
             test_loader_kwargs=hparams["test_dataloader_options"],

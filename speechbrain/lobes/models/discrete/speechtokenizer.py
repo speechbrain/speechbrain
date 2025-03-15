@@ -61,7 +61,6 @@ class SpeechTokenizer(nn.Module):
         save_path,
         sample_rate=16000,
     ):
-
         # Lazy import to avoid circular dependency issues
         try:
             from speechtokenizer import SpeechTokenizer
@@ -83,9 +82,7 @@ class SpeechTokenizer(nn.Module):
 
         config_path = f"{saved_dir}/speechtokenizer_hubert_avg/config.json"
         ckpt_path = f"{saved_dir}/speechtokenizer_hubert_avg/SpeechTokenizer.pt"
-        self.model = self.SpeechTokenizer.load_from_checkpoint(
-            config_path, ckpt_path
-        )
+        self.model = self.SpeechTokenizer.load_from_checkpoint(config_path, ckpt_path)
         self.model.eval()
         self.sample_rate = sample_rate
 

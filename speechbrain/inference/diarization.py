@@ -1,4 +1,4 @@
-""" Specifies the inference interfaces for diarization modules.
+"""Specifies the inference interfaces for diarization modules.
 
 Authors:
  * Aku Rouhe 2021
@@ -216,10 +216,7 @@ class Speech_Emotion_Diarization(Pretrained):
         for i in range(1, len(lol)):
             next_sseg = lol[i]
             # IF sub-segments overlap AND has same emotion THEN merge
-            if (
-                self.is_overlapped(sseg[2], next_sseg[1])
-                and sseg[3] == next_sseg[3]
-            ):
+            if self.is_overlapped(sseg[2], next_sseg[1]) and sseg[3] == next_sseg[3]:
                 sseg[2] = next_sseg[2]  # just update the end time
                 # This is important. For the last sseg, if it is the same emotion then merge
                 # Make sure we don't append the last segment once more. Hence, set FLAG=True

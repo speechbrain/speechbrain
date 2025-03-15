@@ -30,9 +30,7 @@ class AlignBrain(sb.Brain):
         """Given the network predictions and targets computed the forward loss."""
         predictions, lens = predictions
         phns, phn_lens = batch.phn_encoded
-        sum_alpha_T = self.hparams.aligner(
-            predictions, lens, phns, phn_lens, "forward"
-        )
+        sum_alpha_T = self.hparams.aligner(predictions, lens, phns, phn_lens, "forward")
         loss = -sum_alpha_T.sum()
 
         if stage != sb.Stage.TRAIN:

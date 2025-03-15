@@ -186,8 +186,7 @@ class SpectrogramDrop(torch.nn.Module):
             min_spectrogram = spectrogram.min().detach()
             rand_spectrogram = torch.rand_like(spectrogram)
             rand_spectrogram = (
-                rand_spectrogram * (max_spectrogram - min_spectrogram)
-                + min_spectrogram
+                rand_spectrogram * (max_spectrogram - min_spectrogram) + min_spectrogram
             )
             mask = mask.float()
             spectrogram = (1 - mask) * spectrogram + mask * rand_spectrogram
@@ -202,9 +201,7 @@ class SpectrogramDrop(torch.nn.Module):
                 size=(1,),
                 device=spectrogram.device,
             )
-            rolled_spectrogram = torch.roll(
-                spectrogram, shifts=shift.item(), dims=1
-            )
+            rolled_spectrogram = torch.roll(spectrogram, shifts=shift.item(), dims=1)
             mask = mask.float()
             spectrogram = (1 - mask) * spectrogram + mask * rolled_spectrogram
 

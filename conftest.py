@@ -48,9 +48,7 @@ except ModuleNotFoundError:
 try:
     import peft  # noqa: F401
 except ModuleNotFoundError:
-    collect_ignore.append(
-        "speechbrain/lobes/models/huggingface_transformers/llama2.py"
-    )
+    collect_ignore.append("speechbrain/lobes/models/huggingface_transformers/llama2.py")
 try:
     import sacrebleu  # noqa: F401
 except ModuleNotFoundError:
@@ -58,15 +56,11 @@ except ModuleNotFoundError:
 try:
     import vocos  # noqa: F401
 except ModuleNotFoundError:
-    collect_ignore.append(
-        "speechbrain/lobes/models/huggingface_transformers/vocos.py"
-    )
+    collect_ignore.append("speechbrain/lobes/models/huggingface_transformers/vocos.py")
 try:
     from speechtokenizer import SpeechTokenizer  # noqa: F401
 except ModuleNotFoundError:
-    collect_ignore.append(
-        "speechbrain/lobes/models/discrete/speechtokenizer.py"
-    )
+    collect_ignore.append("speechbrain/lobes/models/discrete/speechtokenizer.py")
 try:
     import wavtokenizer  # noqa: F401
 except ModuleNotFoundError:

@@ -233,7 +233,5 @@ def prepare_tedlium2(
 
         msg = f"Number of samples: {total_line} "
         logger.info(msg)
-        msg = "Total duration: %s Hours" % (
-            str(round(total_duration / 3600, 2))
-        )
+        msg = "Total duration: %s Hours" % (str(round(total_duration / 3600, 2)))
         logger.info(msg)

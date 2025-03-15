@@ -118,9 +118,7 @@ class HyperparameterOptimizationReporter:
 
 
 @hpopt_mode("generic")
-class GenericHyperparameterOptimizationReporter(
-    HyperparameterOptimizationReporter
-):
+class GenericHyperparameterOptimizationReporter(HyperparameterOptimizationReporter):
     """
     A generic hyperparameter fit reporter that outputs the result as
     JSON to an arbitrary data stream, which may be read as a third-party
@@ -161,9 +159,7 @@ class GenericHyperparameterOptimizationReporter(
         >>> reporter.report_objective(result)
         {"error": 1.2, "train_loss": 7.2, "objective": 1.2}
         """
-        json.dump(
-            dict(result, objective=result[self.objective_key]), self.output
-        )
+        json.dump(dict(result, objective=result[self.objective_key]), self.output)
 
     @property
     def trial_id(self):
@@ -186,9 +182,7 @@ class GenericHyperparameterOptimizationReporter(
 
 
 @hpopt_mode("orion")
-class OrionHyperparameterOptimizationReporter(
-    HyperparameterOptimizationReporter
-):
+class OrionHyperparameterOptimizationReporter(HyperparameterOptimizationReporter):
     """A result reporter implementation based on Orion
 
     Arguments
@@ -289,9 +283,7 @@ def get_reporter(mode, *args, **kwargs):
     """
     reporter_cls = _hpopt_modes.get(mode)
     if reporter_cls is None:
-        logger.warning(
-            f"hpopt_mode {mode} is not supported, reverting to generic"
-        )
+        logger.warning(f"hpopt_mode {mode} is not supported, reverting to generic")
         reporter_cls = _hpopt_modes[DEFAULT_REPORTER]
     reporter = reporter_cls(*args, **kwargs)
     if not reporter.is_available:
@@ -331,9 +323,7 @@ class HyperparameterOptimizationContext:
         self.enabled = False
         self.result = {"objective": 0.0}
 
-    def parse_arguments(
-        self, arg_list, pass_hpopt_args=None, pass_trial_id=True
-    ):
+    def parse_arguments(self, arg_list, pass_hpopt_args=None, pass_trial_id=True):
         """A version of speechbrain.parse_arguments enhanced for hyperparameter optimization.
 
         If a parameter named 'hpopt' is provided, hyperparameter

@@ -45,6 +45,7 @@ from speechbrain.utils.logger import get_logger
 from speechbrain.utils.optimizers import rm_vector_weight_decay
 from speechbrain.utils.profiling import prepare_profiler
 from speechbrain.utils.run_opts import RunOptions
+
 sb.utils.quirks.apply_quirks()
 
 logger = get_logger(__name__)
@@ -53,6 +54,7 @@ DEFAULT_LOG_CONFIG = os.path.join(DEFAULT_LOG_CONFIG, "log-config.yaml")
 INTRA_EPOCH_CKPT_FLAG = "brain_intra_epoch_ckpt"
 PYTHON_VERSION_MAJOR = 3
 PYTHON_VERSION_MINOR = 8
+
 
 @dataclass
 class AMPConfig:
@@ -145,9 +147,7 @@ def create_experiment_directory(
 
             # Log exceptions to output automatically
             log_file = os.path.join(experiment_directory, "log.txt")
-            logger_overrides = {
-                "handlers": {"file_handler": {"filename": log_file}}
-            }
+            logger_overrides = {"handlers": {"file_handler": {"filename": log_file}}}
             sb.utils.logger.setup_logging(log_config, logger_overrides)
             sys.excepthook = _logging_excepthook
 
@@ -177,6 +177,7 @@ def create_experiment_directory(
 def _logging_excepthook(exc_type, exc_value, exc_traceback):
     """Interrupt exception raising to log the error."""
     logger.error("Exception:", exc_info=(exc_type, exc_value, exc_traceback))
+
 
 class Stage(Enum):
     """Simple enum to track stage of experiments."""
@@ -322,9 +323,9 @@ class Brain:
         self.optimizers_dict = None
         self.opt_class = opt_class
         self.checkpointer = checkpointer
-        _,self.run_opt_defaults,_ = RunOptions.from_command_line_args()
+        self.run_opts = run_opts
 
-        for arg, default in self.run_opt_defaults.items():
+        for arg, default in self.run_opts.as_dict():
             if run_opts is not None and arg in run_opts:
                 if hparams is not None and arg in hparams:
                     logger.info(
@@ -338,9 +339,7 @@ class Brain:
                 # If any arg from run_opt_defaults exist in hparams and
                 # not in command line args "run_opts"
                 if hparams is not None and arg in hparams:
-                    logger.info(
-                        "Info: " + arg + " arg from hparam file is used"
-                    )
+                    logger.info("Info: " + arg + " arg from hparam file is used")
                     setattr(self, arg, hparams[arg])
                 else:
                     setattr(self, arg, default)
@@ -469,9 +468,7 @@ class Brain:
             self.use_amp = True
 
         if self.use_amp and self.checkpointer is not None:
-            self.checkpointer.add_recoverable(
-                "scaler", self.scaler, optional_load=True
-            )
+            self.checkpointer.add_recoverable("scaler", self.scaler, optional_load=True)
 
         # List parameter count for the user
         self.print_trainable_parameters()
@@ -549,13 +546,9 @@ class Brain:
                 f"* Trainable Parameters represent {0:.4f}% of the total size."
             )
         else:
-            percentage_trainable = (
-                100 * total_trainable_params / total_parameters
-            )
-            formatted_trainable_params = (
-                sb.utils.logger.format_order_of_magnitude(
-                    total_trainable_params
-                )
+            percentage_trainable = 100 * total_trainable_params / total_parameters
+            formatted_trainable_params = sb.utils.logger.format_order_of_magnitude(
+                total_trainable_params
             )
             formatted_total_params = sb.utils.logger.format_order_of_magnitude(
                 total_parameters
@@ -695,9 +688,7 @@ class Brain:
         #     loader_kwargs = sb.dataio.dataloader.distributed_loader_specifics(
         #         self.distributed_launch, self.rank, dataset, loader_kwargs
         #     )
-        dataloader = sb.dataio.dataloader.make_dataloader(
-            dataset, **loader_kwargs
-        )
+        dataloader = sb.dataio.dataloader.make_dataloader(dataset, **loader_kwargs)
 
         if (
             self.checkpointer is not None
@@ -720,8 +711,7 @@ class Brain:
         if shuffle and not self.distributed_launch:
             if sampler is not None:
                 raise ValueError(
-                    "Cannot specify both shuffle=True"
-                    "and a sampler in loader_kwargs"
+                    "Cannot specify both shuffle=Trueand a sampler in loader_kwargs"
                 )
             seed = os.environ.get("SB_GLOBAL_SEED", 563375142)
             sampler = ReproducibleRandomSampler(dataset, seed=seed)
@@ -777,8 +767,7 @@ class Brain:
                 loader_kwargs["batch_sampler"] = self.train_sampler
         elif self.distributed_launch and isinstance(dataset, IterableDataset):
             logger.warning(
-                "Cannot automatically solve distributed sampling "
-                "for IterableDataset."
+                "Cannot automatically solve distributed sampling for IterableDataset."
             )
         return loader_kwargs
 
@@ -859,9 +848,7 @@ class Brain:
 
         # Recover best checkpoint for evaluation
         if self.checkpointer is not None:
-            self.checkpointer.recover_if_possible(
-                max_key=max_key, min_key=min_key
-            )
+            self.checkpointer.recover_if_possible(max_key=max_key, min_key=min_key)
 
     def fit_batch(self, batch):
         """Fit one batch, override to do multiple updates.
@@ -895,16 +882,12 @@ class Brain:
                     dtype=amp.dtype, device_type=torch.device(self.device).type
                 ):
                     outputs = self.compute_forward(batch, sb.Stage.TRAIN)
-                    loss = self.compute_objectives(
-                        outputs, batch, sb.Stage.TRAIN
-                    )
+                    loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
             else:
                 outputs = self.compute_forward(batch, sb.Stage.TRAIN)
                 loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
 
-            scaled_loss = self.scaler.scale(
-                loss / self.grad_accumulation_factor
-            )
+            scaled_loss = self.scaler.scale(loss / self.grad_accumulation_factor)
             self.check_loss_isfinite(scaled_loss)
             scaled_loss.backward()
 
@@ -1085,9 +1068,7 @@ class Brain:
         # Reset nonfinite count to 0 each epoch
         self.nonfinite_count = 0
 
-        if self.train_sampler is not None and hasattr(
-            self.train_sampler, "set_epoch"
-        ):
+        if self.train_sampler is not None and hasattr(self.train_sampler, "set_epoch"):
             self.train_sampler.set_epoch(epoch)
 
         # Time since last intra-epoch checkpoint
@@ -1109,17 +1090,13 @@ class Brain:
                 self.step += 1
                 steps_since_ckpt += 1
                 loss = self.fit_batch(batch)
-                self.avg_train_loss = self.update_average(
-                    loss, self.avg_train_loss
-                )
+                self.avg_train_loss = self.update_average(loss, self.avg_train_loss)
                 t.set_postfix(train_loss=self.avg_train_loss)
 
                 if self.profiler is not None:
                     self.profiler.step()
                     if self.profiler.step_num > self.tot_prof_steps:
-                        logger.info(
-                            "The profiler finished, training is stopped."
-                        )
+                        logger.info("The profiler finished, training is stopped.")
                         self.profiler.stop()
                         quit()
 
@@ -1127,9 +1104,7 @@ class Brain:
                 if self.debug and self.step == self.debug_batches:
                     break
 
-                if self._should_save_intra_epoch_ckpt(
-                    last_ckpt_time, steps_since_ckpt
-                ):
+                if self._should_save_intra_epoch_ckpt(last_ckpt_time, steps_since_ckpt):
                     # Checkpointer class will handle running this on main only
                     self._save_intra_epoch_ckpt()
                     last_ckpt_time = time.time()
@@ -1250,21 +1225,17 @@ class Brain:
         None
         """
         if self.test_only:
-            logger.info(
-                "Test only mode, skipping training and validation stages."
-            )
+            logger.info("Test only mode, skipping training and validation stages.")
             return
 
         if not (
-            isinstance(train_set, DataLoader)
-            or isinstance(train_set, LoopedLoader)
+            isinstance(train_set, DataLoader) or isinstance(train_set, LoopedLoader)
         ):
             train_set = self.make_dataloader(
                 train_set, stage=sb.Stage.TRAIN, **train_loader_kwargs
             )
         if valid_set is not None and not (
-            isinstance(valid_set, DataLoader)
-            or isinstance(valid_set, LoopedLoader)
+            isinstance(valid_set, DataLoader) or isinstance(valid_set, LoopedLoader)
         ):
             valid_set = self.make_dataloader(
                 valid_set,
@@ -1347,9 +1318,7 @@ class Brain:
         # find missing keys
         for name in compile_module_keys | jit_module_keys:
             if name not in self.modules:
-                raise ValueError(
-                    f"module {name} is not defined in your hparams file."
-                )
+                raise ValueError(f"module {name} is not defined in your hparams file.")
 
         # try 'torch.compile', remove successful compiles from JIT list
         for name in compile_module_keys:
@@ -1443,14 +1412,9 @@ class Brain:
         # Only show progressbar if requested and main_process
         enable = progressbar and sb.utils.distributed.if_main_process()
 
-        if not (
-            isinstance(test_set, DataLoader)
-            or isinstance(test_set, LoopedLoader)
-        ):
+        if not (isinstance(test_set, DataLoader) or isinstance(test_set, LoopedLoader)):
             test_loader_kwargs["ckpt_prefix"] = None
-            test_set = self.make_dataloader(
-                test_set, Stage.TEST, **test_loader_kwargs
-            )
+            test_set = self.make_dataloader(test_set, Stage.TEST, **test_loader_kwargs)
         self.on_evaluate_start(max_key=max_key, min_key=min_key)
         self.on_stage_start(Stage.TEST, epoch=None)
         self.modules.eval()
@@ -1556,4 +1520,3 @@ class Brain:
             self.optimizer_step = self.step
         else:
             self.optimizer_step = save_dict["optimizer_step"]
-

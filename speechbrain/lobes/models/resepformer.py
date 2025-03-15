@@ -133,22 +133,14 @@ class MemLSTM(nn.Module):
             h = h.transpose(1, 0).contiguous().view(B, S, d * H)  # B, S, dH
             c = c.transpose(1, 0).contiguous().view(B, S, d * H)  # B, S, dH
             if self.mem_type == "hc":
-                h = h + self.h_norm(self.h_net(h).permute(0, 2, 1)).permute(
-                    0, 2, 1
-                )
-                c = c + self.c_norm(self.c_net(c).permute(0, 2, 1)).permute(
-                    0, 2, 1
-                )
+                h = h + self.h_norm(self.h_net(h).permute(0, 2, 1)).permute(0, 2, 1)
+                c = c + self.c_norm(self.c_net(c).permute(0, 2, 1)).permute(0, 2, 1)
             elif self.mem_type == "h":
-                h = h + self.h_norm(self.h_net(h).permute(0, 2, 1)).permute(
-                    0, 2, 1
-                )
+                h = h + self.h_norm(self.h_net(h).permute(0, 2, 1)).permute(0, 2, 1)
                 c = torch.zeros_like(c)
             elif self.mem_type == "c":
                 h = torch.zeros_like(h)
-                c = c + self.c_norm(self.c_net(c).permute(0, 2, 1)).permute(
-                    0, 2, 1
-                )
+                c = c + self.c_norm(self.c_net(c).permute(0, 2, 1)).permute(0, 2, 1)
 
             h = h.view(B * S, d, H).transpose(1, 0).contiguous()
             c = c.view(B * S, d, H).transpose(1, 0).contiguous()
@@ -221,9 +213,7 @@ class SegLSTM(nn.Module):
         )
         self.dropout = nn.Dropout(p=dropout)
         self.proj = nn.Linear(hidden_size * self.num_direction, input_size)
-        self.norm = select_norm(
-            norm=norm_type, dim=input_size, shape=3, eps=EPS
-        )
+        self.norm = select_norm(norm=norm_type, dim=input_size, shape=3, eps=EPS)
 
     def forward(self, input, hc):
         """The forward function of the Segment LSTM
@@ -441,14 +431,10 @@ class SBTransformerBlock_wnormandskip(nn.Module):
         self.use_skip = use_skip
 
         if use_norm:
-            self.norm = select_norm(
-                norm=norm_type, dim=d_model, shape=3, eps=EPS
-            )
+            self.norm = select_norm(norm=norm_type, dim=d_model, shape=3, eps=EPS)
 
         if use_positional_encoding:
-            self.pos_enc = PositionalEncoding(
-                input_size=d_model, max_len=100000
-            )
+            self.pos_enc = PositionalEncoding(input_size=d_model, max_len=100000)
 
     def forward(self, x):
         """Returns the transformed output.
@@ -606,9 +592,7 @@ class ResourceEfficientSeparationPipeline(nn.Module):
         output = input.reshape(B * S, K, D)  # BS, K, D
 
         if self.mem_type == "av":
-            hc = torch.zeros(
-                output.shape[0], 1, output.shape[-1], device=output.device
-            )
+            hc = torch.zeros(output.shape[0], 1, output.shape[-1], device=output.device)
         else:
             hc = None
 

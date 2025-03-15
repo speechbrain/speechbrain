@@ -161,9 +161,9 @@ def prepare_gigaspeech(
 
     # check that `splits` input is valid
     for split in splits:
-        assert (
-            split in SPLITS + TRAIN_SUBSET
-        ), f"Split {split} not recognized. Valid splits are {SPLITS + TRAIN_SUBSET}."
+        assert split in SPLITS + TRAIN_SUBSET, (
+            f"Split {split} not recognized. Valid splits are {SPLITS + TRAIN_SUBSET}."
+        )
 
     # check that we are not using multiple train subsets
     if len(set(splits).intersection(TRAIN_SUBSET)) > 1:
@@ -214,12 +214,8 @@ def prepare_gigaspeech(
         else:
             hf_caching_dir = os.environ["XDG_CACHE_HOME"]
 
-        logger.info(
-            "Downloading dataset from HuggingFace to: " + str(hf_caching_dir)
-        )
-        logger.info(
-            "To change this directory modify the HF_HUB_CACHE env. variable."
-        )
+        logger.info("Downloading dataset from HuggingFace to: " + str(hf_caching_dir))
+        logger.info("To change this directory modify the HF_HUB_CACHE env. variable.")
 
         nproc = 1
         if hf_multiprocess_load:
@@ -293,7 +289,6 @@ def process_line(
         The list of utterances for the given split.
     """
     if ("{" + split + "}") in audio["subsets"]:
-
         audio_path = os.path.join(data_folder, audio["path"])
         assert os.path.isfile(audio_path), f"File not found: {audio_path}"
 
@@ -626,9 +621,7 @@ def preprocess_text(text: str, punctuation: bool, stopwords) -> str:
     text = text.upper()
     text = text.replace("-", " ")
 
-    sentence = " ".join(
-        [word for word in text.split() if word not in stopwords]
-    )
+    sentence = " ".join([word for word in text.split() if word not in stopwords])
 
     if punctuation:
         for tag, punctuation in PUNCTUATION_TAGS.items():

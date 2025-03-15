@@ -49,9 +49,7 @@ def test_bce_loss(device):
     assert torch.allclose(
         torch.exp(out_cost_singleton), torch.tensor(2.0, device=device)
     )
-    assert torch.allclose(
-        torch.exp(out_cost_match), torch.tensor(2.0, device=device)
-    )
+    assert torch.allclose(torch.exp(out_cost_match), torch.tensor(2.0, device=device))
 
     # How about one dimensional inputs
     predictions = torch.zeros(5, 1, device=device)
@@ -66,15 +64,11 @@ def test_bce_loss(device):
     # Try with weight
     weight = torch.full((5,), 0.5)
     out_cost = bce_loss(predictions, targets, weight=weight)
-    assert torch.allclose(
-        torch.exp(out_cost), torch.tensor(2.0, device=device).sqrt()
-    )
+    assert torch.allclose(torch.exp(out_cost), torch.tensor(2.0, device=device).sqrt())
 
     # Try with smoothing
     out_cost = bce_loss(predictions, targets, label_smoothing=0.5)
-    assert torch.allclose(
-        torch.exp(out_cost), torch.tensor(2.0, device=device).sqrt()
-    )
+    assert torch.allclose(torch.exp(out_cost), torch.tensor(2.0, device=device).sqrt())
 
 
 def test_classification_error(device):
@@ -96,9 +90,7 @@ def test_pitwrapper(device):
 
     base_loss = nn.MSELoss(reduction="none")
     pit = PitWrapper(base_loss)
-    predictions = torch.rand(
-        (2, 32, 4), device=device
-    )  # batch, frames, sources
+    predictions = torch.rand((2, 32, 4), device=device)  # batch, frames, sources
     p = (3, 0, 2, 1)
     # same but we invert the ordering to check if permutation invariant
     targets = predictions[..., p]
@@ -107,9 +99,7 @@ def test_pitwrapper(device):
     predictions = pit.reorder_tensor(predictions, opt_p)
     assert torch.all(torch.eq(base_loss(predictions, targets), 0))
 
-    predictions = torch.rand(
-        (3, 32, 32, 32, 5), device=device
-    )  # batch, ..., sources
+    predictions = torch.rand((3, 32, 32, 32, 5), device=device)  # batch, ..., sources
     p = (3, 0, 2, 1, 4)
     targets = predictions[
         ..., p
@@ -241,13 +231,9 @@ def test_guided_attention_loss_shapes(device):
     output_lengths = torch.tensor([4, 3, 5], device=device)
     soft_mask = loss.guided_attentions(input_lengths, output_lengths)
     assert soft_mask.shape == (3, 6, 5)
-    soft_mask = loss.guided_attentions(
-        input_lengths, output_lengths, max_input_len=10
-    )
+    soft_mask = loss.guided_attentions(input_lengths, output_lengths, max_input_len=10)
     assert soft_mask.shape == (3, 10, 5)
-    soft_mask = loss.guided_attentions(
-        input_lengths, output_lengths, max_target_len=12
-    )
+    soft_mask = loss.guided_attentions(input_lengths, output_lengths, max_target_len=12)
     assert soft_mask.shape == (3, 6, 12)
     soft_mask = loss.guided_attentions(
         input_lengths, output_lengths, max_input_len=10, max_target_len=12

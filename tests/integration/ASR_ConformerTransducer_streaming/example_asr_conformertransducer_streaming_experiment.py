@@ -6,6 +6,7 @@ phonemes. A greedy search is used on top of the output probabilities.
 Given the tiny dataset, the expected behavior is to overfit the training dataset
 (with a validation performance that stays high).
 """
+
 import pathlib
 
 import torch
@@ -25,27 +26,21 @@ class ConformerTransducerBrain(sb.Brain):
         if stage == sb.Stage.TRAIN:
             if hasattr(self.hparams, "wav_augment"):
                 wavs, wav_lens = self.hparams.wav_augment(wavs, wav_lens)
-                phn_with_bos = self.hparams.wav_augment.replicate_labels(
-                    phn_with_bos
-                )
+                phn_with_bos = self.hparams.wav_augment.replicate_labels(phn_with_bos)
 
         feats = self.hparams.compute_features(wavs)
 
         # Add feature augmentation if specified.
         if stage == sb.Stage.TRAIN and hasattr(self.hparams, "fea_augment"):
             feats, fea_lens = self.hparams.fea_augment(feats, wav_lens)
-            phn_with_bos = self.hparams.fea_augment.replicate_labels(
-                phn_with_bos
-            )
+            phn_with_bos = self.hparams.fea_augment.replicate_labels(phn_with_bos)
 
         current_epoch = self.hparams.epoch_counter.current
 
         # Old models may not have the streaming hparam, we don't break them in
         # any other way so just check for its presence
         if hasattr(self.hparams, "streaming") and self.hparams.streaming:
-            dynchunktrain_config = self.hparams.dynchunktrain_config_sampler(
-                stage
-            )
+            dynchunktrain_config = self.hparams.dynchunktrain_config_sampler(stage)
         else:
             dynchunktrain_config = None
 
@@ -116,18 +111,14 @@ class ConformerTransducerBrain(sb.Brain):
             if hasattr(self.hparams, "wav_augment"):
                 phn = self.hparams.wav_augment.replicate_labels(phn)
                 phn_lens = self.hparams.wav_augment.replicate_labels(phn_lens)
-                phn_with_eos = self.hparams.wav_augment.replicate_labels(
-                    phn_with_eos
-                )
+                phn_with_eos = self.hparams.wav_augment.replicate_labels(phn_with_eos)
                 phn_with_eos_lens = self.hparams.wav_augment.replicate_labels(
                     phn_with_eos_lens
                 )
             if hasattr(self.hparams, "fea_augment"):
                 phn = self.hparams.fea_augment.replicate_labels(phn)
                 phn_lens = self.hparams.fea_augment.replicate_labels(phn_lens)
-                phn_with_eos = self.hparams.fea_augment.replicate_labels(
-                    phn_with_eos
-                )
+                phn_with_eos = self.hparams.fea_augment.replicate_labels(phn_with_eos)
                 phn_with_eos_lens = self.hparams.fea_augment.replicate_labels(
                     phn_with_eos_lens
                 )
@@ -156,9 +147,7 @@ class ConformerTransducerBrain(sb.Brain):
             )
 
         if stage != sb.Stage.TRAIN:
-            self.per_metrics.append(
-                ids, predicted_phn, phn, target_len=phn_lens
-            )
+            self.per_metrics.append(ids, predicted_phn, phn, target_len=phn_lens)
 
         return loss
 
@@ -223,9 +212,7 @@ def data_prep(data_folder, hparams):
     # 3. Fit encoder:
     # NOTE: In this minimal example, also update from valid data
     label_encoder.insert_blank(index=hparams["blank_index"])
-    label_encoder.insert_bos_eos(
-        bos_index=hparams["bos_index"], eos_label="<bos>"
-    )
+    label_encoder.insert_bos_eos(bos_index=hparams["bos_index"], eos_label="<bos>")
     label_encoder.update_from_didataset(train_data, output_key="phn_list")
     label_encoder.update_from_didataset(valid_data, output_key="phn_list")
 

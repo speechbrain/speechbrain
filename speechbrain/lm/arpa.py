@@ -329,8 +329,7 @@ def arpa_to_fst(
         return
     if not in_arpa.exists():
         raise FileNotFoundError(
-            f"{in_arpa} not found while trying to create"
-            f" the {ngram_order} FST."
+            f"{in_arpa} not found while trying to create the {ngram_order} FST."
         )
     try:
         logger.info(f"Converting arpa LM '{in_arpa}' to FST")

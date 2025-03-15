@@ -111,9 +111,7 @@ def split_wav_lens(chunk_lens, wav_lens):
     return chunk_wav_lens
 
 
-def infer_dependency_matrix(
-    model: Callable, seq_shape: tuple, in_stride: int = 1
-):
+def infer_dependency_matrix(model: Callable, seq_shape: tuple, in_stride: int = 1):
     """
     Randomizes parts of the input sequence several times in order to detect
     dependencies between input frames and output frames, aka whether a given

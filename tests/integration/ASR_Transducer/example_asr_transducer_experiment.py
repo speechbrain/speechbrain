@@ -6,6 +6,7 @@ top of the output probabilities.
 Given the tiny dataset, the expected behavior is to overfit the training dataset
 (with a validation performance that stays high).
 """
+
 import pathlib
 
 from hyperpyyaml import load_hyperpyyaml
@@ -105,9 +106,7 @@ def data_prep(data_folder, hparams):
 
     # 3. Define text pipeline:
     @sb.utils.data_pipeline.takes("phn")
-    @sb.utils.data_pipeline.provides(
-        "phn_list", "phn_encoded", "phn_encoded_bos"
-    )
+    @sb.utils.data_pipeline.provides("phn_list", "phn_encoded", "phn_encoded_bos")
     def text_pipeline(phn):
         phn_list = phn.strip().split()
         yield phn_list
@@ -121,9 +120,7 @@ def data_prep(data_folder, hparams):
     # 3. Fit encoder:
     # NOTE: In this minimal example, also update from valid data
     label_encoder.insert_blank(index=hparams["blank_index"])
-    label_encoder.insert_bos_eos(
-        bos_index=hparams["bos_index"], eos_label="<bos>"
-    )
+    label_encoder.insert_bos_eos(bos_index=hparams["bos_index"], eos_label="<bos>")
     label_encoder.update_from_didataset(train_data, output_key="phn_list")
     label_encoder.update_from_didataset(valid_data, output_key="phn_list")
 

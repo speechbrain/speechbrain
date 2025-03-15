@@ -147,9 +147,7 @@ def prepare_train(
         return
 
     all_dict = {}
-    check_and_prepare_dataset(
-        emovdb_folder, "EMOV-DB", prepare_emovdb, all_dict, seed
-    )
+    check_and_prepare_dataset(emovdb_folder, "EMOV-DB", prepare_emovdb, all_dict, seed)
 
     check_and_prepare_dataset(esd_folder, "ESD", prepare_esd, all_dict, seed)
 
@@ -322,9 +320,7 @@ def check_and_prepare_dataset(
             )
         else:
             json_path = os.path.join(data_folder, data_name + ".json")
-            logger.info(
-                f"{json_path} exists, skipping f{data_name} preparation."
-            )
+            logger.info(f"{json_path} exists, skipping f{data_name} preparation.")
             with open(json_path, "r", encoding="utf-8") as f:
                 data = json.load(f)
         dictionary.update(data.items())

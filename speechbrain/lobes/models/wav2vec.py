@@ -140,9 +140,7 @@ class W2VTargetQuantiser(nn.Module):
         temperature_decay=(2.0, 0.25, 0.999995),
     ):
         super().__init__()
-        self.quantiser = quantiser(
-            in_dim, num_vars, temperature_decay, 2, out_dim
-        )
+        self.quantiser = quantiser(in_dim, num_vars, temperature_decay, 2, out_dim)
         self.proj = nn.Linear(out_dim, out_dim)
 
     def forward(self, x):
@@ -246,9 +244,7 @@ class EncoderWrapper(nn.Module):
             padding_mask = ~length_to_mask(wav_lens, dtype=bool)
 
         latents = latents + self.positional_encoding(latents)
-        feats, _ = self.latent_encoder(
-            latents, src_key_padding_mask=padding_mask
-        )
+        feats, _ = self.latent_encoder(latents, src_key_padding_mask=padding_mask)
 
         results["embeddings"] = feats
         return results
@@ -313,9 +309,7 @@ def compute_mask(shape, sample_lens, mask_prob, mask_length):
             num_mask_missing = num_mask_total - len(mask_idc)
             arange = np.arange(sample_lens[i])
             arange = np.delete(arange, mask_idc)
-            extra_indcs = np.random.choice(
-                arange, num_mask_missing, replace=False
-            )
+            extra_indcs = np.random.choice(arange, num_mask_missing, replace=False)
             mask[i, extra_indcs] = True
         mask[i, mask_idc] = True
     return mask

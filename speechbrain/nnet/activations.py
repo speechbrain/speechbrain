@@ -36,9 +36,7 @@ class Softmax(torch.nn.Module):
     torch.Size([10, 50, 40])
     """
 
-    def __init__(
-        self, apply_log=False, dim=-1, reshape=True, dtype=torch.float32
-    ):
+    def __init__(self, apply_log=False, dim=-1, reshape=True, dtype=torch.float32):
         super().__init__()
 
         if apply_log:

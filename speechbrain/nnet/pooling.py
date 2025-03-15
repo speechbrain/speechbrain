@@ -315,9 +315,7 @@ class StatisticsPooling(nn.Module):
 
                 # computing statistics
                 if self.return_mean:
-                    mean.append(
-                        torch.mean(x[snt_id, 0:actual_size, ...], dim=0)
-                    )
+                    mean.append(torch.mean(x[snt_id, 0:actual_size, ...], dim=0))
                 if self.return_std:
                     std.append(torch.std(x[snt_id, 0:actual_size, ...], dim=0))
             if self.return_mean:
@@ -394,9 +392,9 @@ class AdaptivePool(nn.Module):
         assert condition, "output size must be int, list or tuple"
 
         if isinstance(output_size, tuple) or isinstance(output_size, list):
-            assert (
-                len(output_size) == 2
-            ), "len of output size must not be greater than 2"
+            assert len(output_size) == 2, (
+                "len of output size must not be greater than 2"
+            )
 
         if isinstance(output_size, int):
             self.pool = nn.AdaptiveAvgPool1d(output_size)
@@ -526,9 +524,7 @@ class GaussianLowpassPooling(nn.Module):
         elif self.padding == "valid":
             pass
         else:
-            raise ValueError(
-                "Padding must be 'same' or 'valid'. Got " + self.padding
-            )
+            raise ValueError("Padding must be 'same' or 'valid'. Got " + self.padding)
         outputs = F.conv1d(
             x,
             kernel,
@@ -553,10 +549,7 @@ class GaussianLowpassPooling(nn.Module):
 
             conv_padding = reduce(
                 __add__,
-                [
-                    (k // 2 + (k - 2 * (k // 2)) - 1, k // 2)
-                    for k in kernel_sizes[::-1]
-                ],
+                [(k // 2 + (k - 2 * (k // 2)) - 1, k // 2) for k in kernel_sizes[::-1]],
             )
             return conv_padding
 

@@ -113,9 +113,7 @@ class FlairEmbeddings:
         ]
         longest_emb = max(emb.size(0) for emb in sentence_embs)
         sentence_embs = [
-            torch.cat(
-                [emb, pad_tensor.repeat(longest_emb - emb.size(0), 1)], dim=0
-            )
+            torch.cat([emb, pad_tensor.repeat(longest_emb - emb.size(0), 1)], dim=0)
             for emb in sentence_embs
         ]
         return torch.stack(sentence_embs)

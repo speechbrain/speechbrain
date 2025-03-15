@@ -146,9 +146,7 @@ class CConv1d(torch.nn.Module):
         # (batch, channel, time)
         x = x.transpose(1, -1)
         if self.padding == "same":
-            x = self._manage_padding(
-                x, self.kernel_size, self.dilation, self.stride
-            )
+            x = self._manage_padding(x, self.kernel_size, self.dilation, self.stride)
 
         elif self.padding == "causal":
             num_pad = (self.kernel_size - 1) * self.dilation
@@ -159,8 +157,7 @@ class CConv1d(torch.nn.Module):
 
         else:
             raise ValueError(
-                "Padding must be 'same', 'valid' or 'causal'. Got %s."
-                % (self.padding)
+                "Padding must be 'same', 'valid' or 'causal'. Got %s." % (self.padding)
             )
 
         wx = complex_conv_op(
@@ -215,9 +212,7 @@ class CConv1d(torch.nn.Module):
         if len(input_shape) == 3:
             in_channels = input_shape[2]
         else:
-            raise ValueError(
-                "ComplexConv1d expects 3d inputs. Got " + input_shape
-            )
+            raise ValueError("ComplexConv1d expects 3d inputs. Got " + input_shape)
 
         # Kernel size must be odd
         if self.kernel_size % 2 == 0:
@@ -389,9 +384,7 @@ class CConv2d(nn.Module):
         x = x.transpose(1, -1)
 
         if self.padding == "same":
-            x = self._manage_padding(
-                x, self.kernel_size, self.dilation, self.stride
-            )
+            x = self._manage_padding(x, self.kernel_size, self.dilation, self.stride)
 
         elif self.padding == "causal":
             num_pad = (self.kernel_size - 1) * self.dilation
@@ -402,8 +395,7 @@ class CConv2d(nn.Module):
 
         else:
             raise ValueError(
-                "Padding must be 'same', 'valid' or 'causal'. Got %s."
-                % (self.padding)
+                "Padding must be 'same', 'valid' or 'causal'. Got %s." % (self.padding)
             )
 
         wx = complex_conv_op(
@@ -452,13 +444,9 @@ class CConv2d(nn.Module):
         L_in = x.shape[-1]
 
         # Time padding
-        padding_time = get_padding_elem(
-            L_in, stride[-1], kernel_size[-1], dilation[-1]
-        )
+        padding_time = get_padding_elem(L_in, stride[-1], kernel_size[-1], dilation[-1])
 
-        padding_freq = get_padding_elem(
-            L_in, stride[-2], kernel_size[-2], dilation[-2]
-        )
+        padding_freq = get_padding_elem(L_in, stride[-2], kernel_size[-2], dilation[-2])
         padding = padding_time + padding_freq
 
         # Applying padding

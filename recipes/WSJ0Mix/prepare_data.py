@@ -4,7 +4,7 @@ The .csv preparation functions for WSJ0-Mix.
 Author
  * Cem Subakan 2020
 
- """
+"""
 
 import csv
 import os
@@ -35,14 +35,14 @@ def prepare_wsjmix(
 
     if "wsj" in datapath:
         if n_spks == 2:
-            assert (
-                "2speakers" in datapath
-            ), "Inconsistent number of speakers and datapath"
+            assert "2speakers" in datapath, (
+                "Inconsistent number of speakers and datapath"
+            )
             create_wsj_csv(datapath, savepath)
         elif n_spks == 3:
-            assert (
-                "3speakers" in datapath
-            ), "Inconsistent number of speakers and datapath"
+            assert "3speakers" in datapath, (
+                "Inconsistent number of speakers and datapath"
+            )
             create_wsj_csv_3spks(datapath, savepath)
         else:
             raise ValueError("Unsupported Number of Speakers")

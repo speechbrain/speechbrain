@@ -432,8 +432,7 @@ class DataPipeline:
         """
         if not obj.provides:
             raise ValueError(
-                "Won't add redundant dynamic item which doesn't "
-                "provide anything."
+                "Won't add redundant dynamic item which doesn't provide anything."
             )
         depended = []
         for key in obj.takes:

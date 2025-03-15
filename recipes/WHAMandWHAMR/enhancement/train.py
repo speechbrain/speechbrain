@@ -69,8 +69,7 @@ class Separation(sb.Brain):
                         except Exception:
                             print("reverb error, not adding reverb")
                             targets_rev = [
-                                targets[:, :, i]
-                                for i in range(self.hparams.num_spks)
+                                targets[:, :, i] for i in range(self.hparams.num_spks)
                             ]
 
                         targets_rev = torch.stack(targets_rev, dim=-1)
@@ -280,9 +279,7 @@ class Separation(sb.Brain):
                     print("pesq encountered an error for this data item")
                     return 0
 
-            self.pesq_metric = MetricStats(
-                metric=pesq_eval, n_jobs=1, batch_eval=False
-            )
+            self.pesq_metric = MetricStats(metric=pesq_eval, n_jobs=1, batch_eval=False)
 
     def on_stage_end(self, stage, stage_loss, epoch):
         """Gets called at the end of a epoch."""
@@ -299,9 +296,7 @@ class Separation(sb.Brain):
         # Perform end-of-iteration things, like annealing, logging, etc.
         if stage == sb.Stage.VALID:
             # Learning rate annealing
-            if isinstance(
-                self.hparams.lr_scheduler, schedulers.ReduceLROnPlateau
-            ):
+            if isinstance(self.hparams.lr_scheduler, schedulers.ReduceLROnPlateau):
                 current_lr, next_lr = self.hparams.lr_scheduler(
                     [self.optimizer], epoch, stage_loss
                 )
@@ -389,9 +384,7 @@ class Separation(sb.Brain):
         targets = targets[
             :, randstart : randstart + self.hparams.training_signal_len, :
         ]
-        mixture = mixture[
-            :, randstart : randstart + self.hparams.training_signal_len
-        ]
+        mixture = mixture[:, randstart : randstart + self.hparams.training_signal_len]
         return mixture, targets
 
     def reset_layer_recursively(self, layer):
@@ -471,9 +464,7 @@ class Separation(sb.Brain):
                     sdr_i = sdr.mean() - sdr_baseline.mean()
 
                     # Compute PESQ
-                    psq_mode = (
-                        "wb" if self.hparams.sample_rate == 16000 else "nb"
-                    )
+                    psq_mode = "wb" if self.hparams.sample_rate == 16000 else "nb"
                     psq = pesq(
                         self.hparams.sample_rate,
                         targets.squeeze().cpu().numpy(),
@@ -526,28 +517,20 @@ class Separation(sb.Brain):
         # Estimated source
         signal = predictions[0, :]
         signal = signal / signal.abs().max()
-        save_file = os.path.join(
-            save_path, "item{}_sourcehat.wav".format(snt_id)
-        )
-        torchaudio.save(
-            save_file, signal.unsqueeze(0).cpu(), self.hparams.sample_rate
-        )
+        save_file = os.path.join(save_path, "item{}_sourcehat.wav".format(snt_id))
+        torchaudio.save(save_file, signal.unsqueeze(0).cpu(), self.hparams.sample_rate)
 
         # Original source
         signal = targets[0, :]
         signal = signal / signal.abs().max()
         save_file = os.path.join(save_path, "item{}_source.wav".format(snt_id))
-        torchaudio.save(
-            save_file, signal.unsqueeze(0).cpu(), self.hparams.sample_rate
-        )
+        torchaudio.save(save_file, signal.unsqueeze(0).cpu(), self.hparams.sample_rate)
 
         # Mixture
         signal = mixture[0][0, :]
         signal = signal / signal.abs().max()
         save_file = os.path.join(save_path, "item{}_mix.wav".format(snt_id))
-        torchaudio.save(
-            save_file, signal.unsqueeze(0).cpu(), self.hparams.sample_rate
-        )
+        torchaudio.save(save_file, signal.unsqueeze(0).cpu(), self.hparams.sample_rate)
 
 
 def dataio_prep(hparams):
@@ -635,9 +618,7 @@ if __name__ == "__main__":
         hparams["precision"] = "bf16"
 
     # Check if wsj0_tr is set with dynamic mixing
-    if hparams["dynamic_mixing"] and not os.path.exists(
-        hparams["base_folder_dm"]
-    ):
+    if hparams["dynamic_mixing"] and not os.path.exists(hparams["base_folder_dm"]):
         raise ValueError(
             "Please, specify a valid base_folder_dm folder when using dynamic mixing"
         )
@@ -689,9 +670,7 @@ if __name__ == "__main__":
         from dynamic_mixing import dynamic_mix_data_prep  # noqa
 
         # if the base_folder for dm is not processed, preprocess them
-        dm_suffix = (
-            "processed" if hparams["sample_rate"] == 8000 else "processed_16k"
-        )
+        dm_suffix = "processed" if hparams["sample_rate"] == 8000 else "processed_16k"
 
         # if base_folder_dm includes the dm_suffix, just use that path
         if dm_suffix not in hparams["base_folder_dm"]:
@@ -726,9 +705,7 @@ if __name__ == "__main__":
                     "Using the existing processed folder on the same directory as base_folder_dm"
                 )
                 hparams["base_folder_dm"] = (
-                    os.path.normpath(hparams["base_folder_dm"])
-                    + "_"
-                    + dm_suffix
+                    os.path.normpath(hparams["base_folder_dm"]) + "_" + dm_suffix
                 )
 
         train_data = dynamic_mix_data_prep(

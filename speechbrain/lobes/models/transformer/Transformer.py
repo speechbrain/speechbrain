@@ -146,9 +146,9 @@ class TransformerInterface(nn.Module):
         ]
         assert positional_encoding in ["fixed_abs_sine", None]
 
-        assert (
-            num_encoder_layers + num_decoder_layers > 0
-        ), "number of encoder layers and number of decoder layers cannot both be 0!"
+        assert num_encoder_layers + num_decoder_layers > 0, (
+            "number of encoder layers and number of decoder layers cannot both be 0!"
+        )
 
         if positional_encoding == "fixed_abs_sine":
             self.positional_encoding = PositionalEncoding(d_model, max_length)
@@ -159,14 +159,10 @@ class TransformerInterface(nn.Module):
         # overrides any other pos_embedding
         if attention_type == "RelPosMHAXL":
             self.positional_encoding = RelPosEncXL(d_model)
-            self.positional_encoding_decoder = PositionalEncoding(
-                d_model, max_length
-            )
+            self.positional_encoding_decoder = PositionalEncoding(d_model, max_length)
 
         if attention_type == "RoPEMHA":
-            self.positional_encoding_decoder = PositionalEncoding(
-                d_model, max_length
-            )
+            self.positional_encoding_decoder = PositionalEncoding(d_model, max_length)
 
         # initialize the encoder
         if num_encoder_layers > 0:
@@ -203,13 +199,11 @@ class TransformerInterface(nn.Module):
                     output_hidden_states=self.output_hidden_states,
                     layerdrop_prob=self.layerdrop_prob,
                 )
-                assert (
-                    normalize_before
-                ), "normalize_before must be True for Conformer"
+                assert normalize_before, "normalize_before must be True for Conformer"
 
-                assert (
-                    conformer_activation is not None
-                ), "conformer_activation must not be None"
+                assert conformer_activation is not None, (
+                    "conformer_activation must not be None"
+                )
             elif encoder_module == "branchformer":
                 self.encoder = BranchformerEncoder(
                     nhead=nhead,
@@ -280,8 +274,7 @@ class PositionalEncoding(nn.Module):
         pe = torch.zeros(self.max_len, input_size, requires_grad=False)
         positions = torch.arange(0, self.max_len).unsqueeze(1).float()
         denominator = torch.exp(
-            torch.arange(0, input_size, 2).float()
-            * -(math.log(10000.0) / input_size)
+            torch.arange(0, input_size, 2).float() * -(math.log(10000.0) / input_size)
         )
 
         pe[:, 0::2] = torch.sin(positions * denominator)
@@ -618,9 +611,9 @@ class TransformerEncoder(nn.Module):
             The output of the hidden layers of the encoder.
             Only works if output_hidden_states is set to true.
         """
-        assert (
-            dynchunktrain_config is None
-        ), "Dynamic Chunk Training unsupported for this encoder"
+        assert dynchunktrain_config is None, (
+            "Dynamic Chunk Training unsupported for this encoder"
+        )
 
         output = src
 
@@ -1055,8 +1048,7 @@ def get_lookahead_mask(padded_input):
     """
     seq_len = padded_input.shape[1]
     mask = (
-        torch.triu(torch.ones((seq_len, seq_len), device=padded_input.device))
-        == 1
+        torch.triu(torch.ones((seq_len, seq_len), device=padded_input.device)) == 1
     ).transpose(0, 1)
     mask = (
         mask.float()
@@ -1092,7 +1084,5 @@ def get_mask_from_lengths(lengths, max_len=None):
     """
     if max_len is None:
         max_len = torch.max(lengths).item()
-    seq_range = torch.arange(
-        max_len, device=lengths.device, dtype=lengths.dtype
-    )
+    seq_range = torch.arange(max_len, device=lengths.device, dtype=lengths.dtype)
     return ~(seq_range.unsqueeze(0) < lengths.unsqueeze(1))

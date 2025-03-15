@@ -29,6 +29,7 @@ Authors
  * Andreas Nautsch 2021
  * Dominik Wagner 2022
 """
+
 import functools
 import os
 import sys
@@ -135,18 +136,14 @@ class ASR(sb.Brain):
                 tokens, tokens_lens, tokens_eos, tokens_eos_lens
             )
 
-        loss_seq = self.hparams.seq_cost(
-            p_seq, tokens_eos, length=tokens_eos_lens
-        )
+        loss_seq = self.hparams.seq_cost(p_seq, tokens_eos, length=tokens_eos_lens)
 
         # Add ctc loss if necessary
         if (
             stage == sb.Stage.TRAIN
             and current_epoch <= self.hparams.number_of_ctc_epochs
         ):
-            loss_ctc = self.hparams.ctc_cost(
-                p_ctc, tokens, wav_lens, tokens_lens
-            )
+            loss_ctc = self.hparams.ctc_cost(p_ctc, tokens, wav_lens, tokens_lens)
             loss = self.hparams.ctc_weight * loss_ctc
             loss += (1 - self.hparams.ctc_weight) * loss_seq
         else:
@@ -206,9 +203,7 @@ class ASR(sb.Brain):
                 test_stats=stage_stats,
             )
             if if_main_process():
-                with open(
-                    self.hparams.test_wer_file, "w", encoding="utf-8"
-                ) as w:
+                with open(self.hparams.test_wer_file, "w", encoding="utf-8") as w:
                     self.wer_metric.write_stats(w)
 
 
@@ -230,9 +225,7 @@ def dataio_prepare(hparams):
         hparams["train_dataloader_opts"]["shuffle"] = False
 
     elif hparams["sorting"] == "descending":
-        train_data = train_data.filtered_sorted(
-            sort_key="duration", reverse=True
-        )
+        train_data = train_data.filtered_sorted(sort_key="duration", reverse=True)
         # when sorting do not shuffle in dataloader ! otherwise is pointless
         hparams["train_dataloader_opts"]["shuffle"] = False
 
@@ -240,9 +233,7 @@ def dataio_prepare(hparams):
         pass
 
     else:
-        raise NotImplementedError(
-            "sorting must be random, ascending or descending"
-        )
+        raise NotImplementedError("sorting must be random, ascending or descending")
 
     valid_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
         csv_path=hparams["valid_csv"],
@@ -257,9 +248,7 @@ def dataio_prepare(hparams):
         test_datasets[name] = sb.dataio.dataset.DynamicItemDataset.from_csv(
             csv_path=csv_file, replacements={"data_root": data_folder}
         )
-        test_datasets[name] = test_datasets[name].filtered_sorted(
-            sort_key="duration"
-        )
+        test_datasets[name] = test_datasets[name].filtered_sorted(sort_key="duration")
 
     datasets = [train_data, valid_data] + [i for _, i in test_datasets.items()]
 
@@ -277,9 +266,7 @@ def dataio_prepare(hparams):
         start = int(start)
         stop = int(stop)
         num_frames = stop - start
-        sig, fs = torchaudio.load(
-            wav, num_frames=num_frames, frame_offset=start
-        )
+        sig, fs = torchaudio.load(wav, num_frames=num_frames, frame_offset=start)
         info = torchaudio.info(wav)
 
         resampled = sig

@@ -8,9 +8,7 @@ from speechbrain.utils.logger import get_logger
 try:
     import pandas as pd
 except ImportError:
-    err_msg = (
-        "The optional dependency pandas must be installed to run this recipe.\n"
-    )
+    err_msg = "The optional dependency pandas must be installed to run this recipe.\n"
     err_msg += "Install using `pip install pandas`.\n"
     raise ImportError(err_msg)
 
@@ -137,9 +135,7 @@ def prepare_TAS(data_folder, save_folder, type, train_splits, skip_prep=False):
                                     else words[w].split("PM")[0]
                                 )
                                 words[w] = (
-                                    p.number_to_words(hour).upper()
-                                    + " "
-                                    + AM_or_PM
+                                    p.number_to_words(hour).upper() + " " + AM_or_PM
                                 )
                         else:
                             words[w] = p.number_to_words(words[w]).upper()

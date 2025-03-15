@@ -157,9 +157,7 @@ def compute_periodic_features(frames, best_lags, neighbors=PERIODIC_NEIGHBORS):
     peaks, lags = [], []
     for i in range(neighbors):
         peak, lag = torch.max(masked_frames, dim=-1, keepdim=True)
-        mask = (mask_indices > lag - periods // 2) & (
-            mask_indices < lag + periods // 2
-        )
+        mask = (mask_indices > lag - periods // 2) & (mask_indices < lag + periods // 2)
         masked_frames[mask] = 0
         peaks.append(peak.squeeze(-1))
         lags.append(lag.squeeze(-1))
@@ -314,9 +312,7 @@ def compute_gne(
     torch.Size([1, 98])
     """
 
-    assert (
-        audio.dim() == 2
-    ), "Expected audio to be 2-dimensional, [batch, sample]"
+    assert audio.dim() == 2, "Expected audio to be 2-dimensional, [batch, sample]"
 
     # Step 1. Downsample to 10 kHz since voice energy is low above 5 kHz
     old_sample_rate, sample_rate = sample_rate, 10000
@@ -416,9 +412,7 @@ def inverse_filter(frames, lpc_order=13):
     return inverse_filtered.view(batch, frame_count, -1)
 
 
-def compute_hilbert_envelopes(
-    frames, center_freq, bandwidth=1000, sample_rate=10000
-):
+def compute_hilbert_envelopes(frames, center_freq, bandwidth=1000, sample_rate=10000):
     """Compute the hilbert envelope of the signal in a specific frequency band using FFT.
 
     Arguments

@@ -46,12 +46,8 @@ def test_subsequence_loss():
     start = torch.tensor([0, 5, 7])
     end = torch.tensor([3, 8, 12])
 
-    word_phns_pred = torch.tensor(
-        [[1, 3, 3, 0, 0], [3, 2, 1, 0, 0], [1, 3, 2, 3, 3]]
-    )
-    word_phns_ref = torch.tensor(
-        [[1, 2, 3, 0, 0], [3, 2, 1, 0, 0], [1, 3, 1, 3, 2]]
-    )
+    word_phns_pred = torch.tensor([[1, 3, 3, 0, 0], [3, 2, 1, 0, 0], [1, 3, 2, 3, 3]])
+    word_phns_ref = torch.tensor([[1, 2, 3, 0, 0], [3, 2, 1, 0, 0], [1, 3, 1, 3, 2]])
     word_p_seq = _batch_fake_probs(word_phns_pred, phn_dim)
     word_lengths = torch.tensor([3, 3, 5]) / 5
 

@@ -106,9 +106,7 @@ def add_chunk(
     )
 
     # Fetch the signal to append
-    wav_to_paste = wav[
-        :, begin_sample : begin_sample + (end_chunk - chunk_shift)
-    ]
+    wav_to_paste = wav[:, begin_sample : begin_sample + (end_chunk - chunk_shift)]
 
     # Random amplitude
     max_v, p = wav_to_paste.abs().max(1)
@@ -137,9 +135,7 @@ def add_chunk(
         target[:, beg_speech_target:end_speech_target] = 1
 
     # Length computation
-    lengths = torch.ones(
-        wav_chunk.shape[0], wav_chunk.shape[-1], device=wav.device
-    )
+    lengths = torch.ones(wav_chunk.shape[0], wav_chunk.shape[-1], device=wav.device)
     return wav_chunk, target, lengths, end_chunk
 
 
@@ -147,9 +143,7 @@ def initialize_targets(wav, sample_rate, time_resolution):
     "Initializes the targets."
     target_downsampling = sample_rate * time_resolution
     target_len = int(wav.shape[1] / (target_downsampling))
-    targets = torch.zeros(
-        (wav.shape[0], target_len, wav.shape[2]), device=wav.device
-    )
+    targets = torch.zeros((wav.shape[0], target_len, wav.shape[2]), device=wav.device)
     return targets
 
 
@@ -172,9 +166,7 @@ def get_samples_from_datasets(datasets, wav):
         A batch of new samples drawn from the input list of datasets.
     """
     # We want a sample of the same size of the original signal
-    samples = torch.zeros(
-        wav.shape[0], wav.shape[1], len(datasets), device=wav.device
-    )
+    samples = torch.zeros(wav.shape[0], wav.shape[1], len(datasets), device=wav.device)
 
     # Let's sample a sequence from each dataset
     for i, dataset in enumerate(datasets):

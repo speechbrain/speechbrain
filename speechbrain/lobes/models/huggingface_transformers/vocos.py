@@ -91,9 +91,7 @@ class Vocos(nn.Module):
         self.model = self._load_model()
         self.freeze = freeze
         self.bandwidth = bandwidth
-        self.bandwidth_id = (
-            (torch.tensor(BANDWIDTHS) - bandwidth).abs().argmin().item()
-        )
+        self.bandwidth_id = (torch.tensor(BANDWIDTHS) - bandwidth).abs().argmin().item()
         if self.freeze:
             logger.warning("huggingface_Vocos - Vocos is frozen.")
             for param in self.model.parameters():
@@ -148,9 +146,7 @@ class Vocos(nn.Module):
             features = self.model.codes_to_features(inputs.permute(2, 0, 1))
             wavs = self.model.decode(
                 features,
-                bandwidth_id=torch.tensor(
-                    [self.bandwidth_id], device=inputs.device
-                ),
+                bandwidth_id=torch.tensor([self.bandwidth_id], device=inputs.device),
             )
             mask = length_to_mask(
                 length * wavs.size(1), max_len=wavs.size(1), device=wavs.device

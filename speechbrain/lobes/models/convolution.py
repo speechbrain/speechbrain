@@ -288,9 +288,7 @@ class ConvBlock(torch.nn.Module):
             if norm is not None:
                 self.convs.append(norm, layer_name=f"norm_{i}")
             self.convs.append(activation(), layer_name=f"act_{i}")
-            self.convs.append(
-                torch.nn.Dropout(dropout), layer_name=f"dropout_{i}"
-            )
+            self.convs.append(torch.nn.Dropout(dropout), layer_name=f"dropout_{i}")
 
         self.reduce_conv = None
         self.drop = None

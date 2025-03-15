@@ -129,7 +129,7 @@ def map_old_state_dict_weights(
 
 
 def hook_on_loading_state_dict_checkpoint(
-    state_dict: Dict[str, torch.Tensor]
+    state_dict: Dict[str, torch.Tensor],
 ) -> Dict[str, torch.Tensor]:
     """Hook to be called when loading a state_dict checkpoint.
 
@@ -486,9 +486,7 @@ def get_default_hook(obj, default_hooks):
     return None
 
 
-Checkpoint = collections.namedtuple(
-    "Checkpoint", ["path", "meta", "paramfiles"]
-)
+Checkpoint = collections.namedtuple("Checkpoint", ["path", "meta", "paramfiles"])
 Checkpoint.__doc__ = """NamedTuple describing one saved checkpoint
 
 To select a checkpoint to load from many checkpoint,
@@ -735,9 +733,7 @@ class Checkpointer:
 
         if if_main_process():
             ckpt_type = "end-of-epoch" if end_of_epoch else "intra-epoch"
-            logger.log(
-                verbosity, f"Saved an {ckpt_type} checkpoint in {ckpt_dir}"
-            )
+            logger.log(verbosity, f"Saved an {ckpt_type} checkpoint in {ckpt_dir}")
             return Checkpoint(ckpt_dir, saved_meta, saved_paramfiles)
 
         # Explicitly return None if this is not the main process
@@ -943,8 +939,7 @@ class Checkpointer:
 
         elif min_key or max_key:
             raise ValueError(
-                "Must specify only one of 'importance_key', 'max_key', "
-                "and 'min_key'."
+                "Must specify only one of 'importance_key', 'max_key', and 'min_key'."
             )
 
         ckpts = self.list_checkpoints()
@@ -1107,9 +1102,7 @@ class Checkpointer:
             key_kwargs["ckpt_predicate"] = ckpt_predicate
             potential_deletions.update(self.find_checkpoints(**key_kwargs))
             protected_checkpoints.update(
-                self.find_checkpoints(
-                    max_num_checkpoints=num_to_keep, **key_kwargs
-                )
+                self.find_checkpoints(max_num_checkpoints=num_to_keep, **key_kwargs)
             )
 
         # Sync before deleting to avoid another process saving at the same time.
@@ -1232,9 +1225,7 @@ class Checkpointer:
         # create the directory!)
         return self.checkpoints_dir / f"{CKPT_PREFIX}+{name}"
 
-    def _save_checkpoint_metafile(
-        self, fpath, meta_to_include={}, end_of_epoch=True
-    ):
+    def _save_checkpoint_metafile(self, fpath, meta_to_include={}, end_of_epoch=True):
         # This internal method saves the meta information in the given path
         meta = {"unixtime": time.time(), "end-of-epoch": end_of_epoch}
         meta.update(meta_to_include)

@@ -69,9 +69,7 @@ class SLU(sb.Brain):
         if stage == sb.Stage.TRAIN and self.step % show_results_every != 0:
             return p_seq, asr_tokens_lens
         else:
-            p_tokens, scores = self.hparams.beam_searcher(
-                encoder_out, asr_tokens_lens
-            )
+            p_tokens, scores = self.hparams.beam_searcher(encoder_out, asr_tokens_lens)
             return p_seq, asr_tokens_lens, p_tokens
 
     def compute_objectives(self, predictions, batch, stage):
@@ -85,9 +83,7 @@ class SLU(sb.Brain):
         tokens_eos, tokens_eos_lens = batch.tokens_eos
         tokens, tokens_lens = batch.tokens
 
-        loss_seq = self.hparams.seq_cost(
-            p_seq, tokens_eos, length=tokens_eos_lens
-        )
+        loss_seq = self.hparams.seq_cost(p_seq, tokens_eos, length=tokens_eos_lens)
 
         # (No ctc loss)
         loss = loss_seq
@@ -95,8 +91,7 @@ class SLU(sb.Brain):
         if (stage != sb.Stage.TRAIN) or (self.step % show_results_every == 0):
             # Decode token terms to words
             predicted_semantics = [
-                tokenizer.decode_ids(utt_seq).split(" ")
-                for utt_seq in predicted_tokens
+                tokenizer.decode_ids(utt_seq).split(" ") for utt_seq in predicted_tokens
             ]
 
             target_semantics = [wrd.split(" ") for wrd in batch.semantics]
@@ -107,19 +102,14 @@ class SLU(sb.Brain):
                 print("")
 
             if stage != sb.Stage.TRAIN:
-                self.wer_metric.append(
-                    ids, predicted_semantics, target_semantics
-                )
-                self.cer_metric.append(
-                    ids, predicted_semantics, target_semantics
-                )
+                self.wer_metric.append(ids, predicted_semantics, target_semantics)
+                self.cer_metric.append(ids, predicted_semantics, target_semantics)
 
         return loss
 
     def on_stage_start(self, stage, epoch):
         """Gets called at the beginning of each epoch"""
         if stage != sb.Stage.TRAIN:
-
             self.cer_metric = self.hparams.cer_computer()
             self.wer_metric = self.hparams.error_rate_computer()
 
@@ -174,9 +164,7 @@ def data_io_prepare(hparams):
         hparams["dataloader_opts"]["shuffle"] = False
 
     elif hparams["sorting"] == "descending":
-        train_data = train_data.filtered_sorted(
-            sort_key="duration", reverse=True
-        )
+        train_data = train_data.filtered_sorted(sort_key="duration", reverse=True)
         # when sorting do not shuffle in dataloader ! otherwise is pointless
         hparams["dataloader_opts"]["shuffle"] = False
 
@@ -184,9 +172,7 @@ def data_io_prepare(hparams):
         pass
 
     else:
-        raise NotImplementedError(
-            "sorting must be random, ascending or descending"
-        )
+        raise NotImplementedError("sorting must be random, ascending or descending")
 
     # If we are testing on all the real data, including dev-real,
     # we shouldn't use dev-real as the validation set.
@@ -281,7 +267,6 @@ def data_io_prepare(hparams):
 
 
 if __name__ == "__main__":
-
     # Load hyperparameters file with command-line overrides
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
     with open(hparams_file, encoding="utf-8") as fin:

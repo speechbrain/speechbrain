@@ -116,9 +116,7 @@ def SSNR(ref_wav, deg_wav, srate=16000, eps=1e-10):
     # scale both to have same dynamic range. Remove DC too.
     clean_speech -= clean_speech.mean()
     processed_speech -= processed_speech.mean()
-    processed_speech *= np.max(np.abs(clean_speech)) / np.max(
-        np.abs(processed_speech)
-    )
+    processed_speech *= np.max(np.abs(clean_speech)) / np.max(np.abs(processed_speech))
 
     # Signal-to-Noise Ratio
     dif = ref_wav - deg_wav
@@ -147,9 +145,7 @@ def SSNR(ref_wav, deg_wav, srate=16000, eps=1e-10):
         # (2) Compute Segmental SNR
         signal_energy = np.sum(clean_frame**2)
         noise_energy = np.sum((clean_frame - processed_frame) ** 2)
-        segmental_snr.append(
-            10 * np.log10(signal_energy / (noise_energy + eps) + eps)
-        )
+        segmental_snr.append(10 * np.log10(signal_energy / (noise_energy + eps) + eps))
         segmental_snr[-1] = max(segmental_snr[-1], MIN_SNR)
         segmental_snr[-1] = min(segmental_snr[-1], MAX_SNR)
         start += int(skiprate)
@@ -245,9 +241,7 @@ def wss(ref_wav, deg_wav, srate):
         bw = (bandwidth[i] / max_freq) * (n_fftby2)
         norm_factor = np.log(bw_min) - np.log(bandwidth[i])
         j = list(range(n_fftby2))
-        crit_filter[i, :] = np.exp(
-            -11 * (((j - np.floor(f0)) / bw) ** 2) + norm_factor
-        )
+        crit_filter[i, :] = np.exp(-11 * (((j - np.floor(f0)) / bw) ** 2) + norm_factor)
         crit_filter[i, :] = crit_filter[i, :] * (crit_filter[i, :] > min_factor)
 
     # For each frame of input speech, compute Weighted Spectral Slope Measure
@@ -274,9 +268,7 @@ def wss(ref_wav, deg_wav, srate):
         # (3) Compute Filterbank output energies (in dB)
         for i in range(num_crit):
             clean_energy[i] = np.sum(clean_spec[:n_fftby2] * crit_filter[i, :])
-            processed_energy[i] = np.sum(
-                processed_spec[:n_fftby2] * crit_filter[i, :]
-            )
+            processed_energy[i] = np.sum(processed_spec[:n_fftby2] * crit_filter[i, :])
         clean_energy = np.array(clean_energy).reshape(-1, 1)
         eps = np.ones((clean_energy.shape[0], 1)) * 1e-10
         clean_energy = np.concatenate((clean_energy, eps), axis=1)
@@ -350,12 +342,7 @@ def wss(ref_wav, deg_wav, srate):
         W = (W_clean + W_processed) / 2
         distortion.append(
             np.sum(
-                W
-                * (
-                    clean_slope[: num_crit - 1]
-                    - processed_slope[: num_crit - 1]
-                )
-                ** 2
+                W * (clean_slope[: num_crit - 1] - processed_slope[: num_crit - 1]) ** 2
             )
         )
 
@@ -427,9 +414,7 @@ if __name__ == "__main__":
     for _file in tqdm(os.listdir(clean_path)):
         if _file.endswith("wav"):
             clean_path_f = os.path.join(clean_path, _file)
-            enhanced_path_f = os.path.join(
-                enhanced_path, _file[:-4] + "_enhanced.wav"
-            )
+            enhanced_path_f = os.path.join(enhanced_path, _file[:-4] + "_enhanced.wav")
             clean_sig = librosa.load(clean_path_f, sr=None)[0]
             enhanced_sig = librosa.load(enhanced_path_f, sr=None)[0]
             res = eval_composite(clean_sig, enhanced_sig)

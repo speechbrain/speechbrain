@@ -34,6 +34,7 @@ Authors
  * Titouan Parcollet 2021, 2022
  * Dongwon Kim, Dongwoo Kim 2023
 """
+
 import sys
 from pathlib import Path
 
@@ -89,9 +90,7 @@ class ASR(sb.core.Brain):
         is_test_search = stage == sb.Stage.TEST
 
         if is_valid_search:
-            hyps, _, _, _ = self.hparams.valid_search(
-                enc_out.detach(), wav_lens
-            )
+            hyps, _, _, _ = self.hparams.valid_search(enc_out.detach(), wav_lens)
         elif is_test_search:
             hyps, _, _, _ = self.hparams.test_search(enc_out.detach(), wav_lens)
 
@@ -109,12 +108,8 @@ class ASR(sb.core.Brain):
         if stage == sb.Stage.TRAIN:
             if hasattr(self.hparams, "fea_augment"):
                 tokens = self.hparams.fea_augment.replicate_labels(tokens)
-                tokens_lens = self.hparams.fea_augment.replicate_labels(
-                    tokens_lens
-                )
-                tokens_eos = self.hparams.fea_augment.replicate_labels(
-                    tokens_eos
-                )
+                tokens_lens = self.hparams.fea_augment.replicate_labels(tokens_lens)
+                tokens_eos = self.hparams.fea_augment.replicate_labels(tokens_eos)
                 tokens_eos_lens = self.hparams.fea_augment.replicate_labels(
                     tokens_eos_lens
                 )
@@ -125,9 +120,7 @@ class ASR(sb.core.Brain):
 
         # now as training progresses we use real prediction from the prev step instead of teacher forcing
 
-        loss_ctc = self.hparams.ctc_cost(
-            p_ctc, tokens, wav_lens, tokens_lens
-        ).sum()
+        loss_ctc = self.hparams.ctc_cost(p_ctc, tokens, wav_lens, tokens_lens).sum()
 
         loss = (
             self.hparams.ctc_weight * loss_ctc
@@ -137,9 +130,7 @@ class ASR(sb.core.Brain):
         if stage != sb.Stage.TRAIN:
             current_epoch = self.hparams.epoch_counter.current
             valid_search_interval = self.hparams.valid_search_interval
-            if current_epoch % valid_search_interval == 0 or (
-                stage == sb.Stage.TEST
-            ):
+            if current_epoch % valid_search_interval == 0 or (stage == sb.Stage.TEST):
                 # Decode token terms to words
                 predicted_words = [
                     tokenizer.decode_ids(utt_seq).split(" ") for utt_seq in hyps
@@ -173,10 +164,7 @@ class ASR(sb.core.Brain):
             stage_stats["ACC"] = self.acc_metric.summarize()
             current_epoch = self.hparams.epoch_counter.current
             valid_search_interval = self.hparams.valid_search_interval
-            if (
-                current_epoch % valid_search_interval == 0
-                or stage == sb.Stage.TEST
-            ):
+            if current_epoch % valid_search_interval == 0 or stage == sb.Stage.TEST:
                 stage_stats["WER"] = self.wer_metric.summarize("error_rate")
                 stage_stats["CER"] = self.cer_metric.summarize("error_rate")
 
@@ -209,9 +197,7 @@ class ASR(sb.core.Brain):
                 test_stats=stage_stats,
             )
             if if_main_process():
-                with open(
-                    self.hparams.test_wer_file, "w", encoding="utf-8"
-                ) as w:
+                with open(self.hparams.test_wer_file, "w", encoding="utf-8") as w:
                     self.wer_metric.write_stats(w)
                     self.cer_metric.write_stats(w)
 
@@ -228,12 +214,8 @@ class ASR(sb.core.Brain):
         """perform checkpoint average if needed"""
         super().on_evaluate_start()
 
-        ckpts = self.checkpointer.find_checkpoints(
-            max_key=max_key, min_key=min_key
-        )
-        ckpt = sb.utils.checkpoints.average_checkpoints(
-            ckpts, recoverable_name="model"
-        )
+        ckpts = self.checkpointer.find_checkpoints(max_key=max_key, min_key=min_key)
+        ckpt = sb.utils.checkpoints.average_checkpoints(ckpts, recoverable_name="model")
 
         self.hparams.model.load_state_dict(ckpt, strict=True)
         self.hparams.model.eval()
@@ -257,9 +239,7 @@ def dataio_prepare(hparams):
         hparams["train_dataloader_opts"]["shuffle"] = False
 
     elif hparams["sorting"] == "descending":
-        train_data = train_data.filtered_sorted(
-            sort_key="duration", reverse=True
-        )
+        train_data = train_data.filtered_sorted(sort_key="duration", reverse=True)
         # when sorting do not shuffle in dataloader ! otherwise is pointless
         hparams["train_dataloader_opts"]["shuffle"] = False
 
@@ -267,9 +247,7 @@ def dataio_prepare(hparams):
         pass
 
     else:
-        raise NotImplementedError(
-            "sorting must be random, ascending or descending"
-        )
+        raise NotImplementedError("sorting must be random, ascending or descending")
     valid_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
         csv_path=hparams["valid_csv"],
         replacements={"data_root": data_folder},
@@ -283,9 +261,7 @@ def dataio_prepare(hparams):
         test_datasets[name] = sb.dataio.dataset.DynamicItemDataset.from_csv(
             csv_path=csv_file, replacements={"data_root": data_folder}
         )
-        test_datasets[name] = test_datasets[name].filtered_sorted(
-            sort_key="duration"
-        )
+        test_datasets[name] = test_datasets[name].filtered_sorted(sort_key="duration")
 
     datasets = [train_data, valid_data] + [i for k, i in test_datasets.items()]
     valtest_datasets = [valid_data] + [i for k, i in test_datasets.items()]

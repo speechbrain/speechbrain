@@ -37,9 +37,7 @@ class ASR(sb.Brain):
         if stage == sb.Stage.TRAIN and hasattr(self.hparams, "wav_augment"):
             wavs, wav_lens = self.hparams.wav_augment(wavs, wav_lens)
             bos_tokens = self.hparams.wav_augment.replicate_labels(bos_tokens)
-            bos_tokens_lens = self.hparams.wav_augment.replicate_labels(
-                bos_tokens_lens
-            )
+            bos_tokens_lens = self.hparams.wav_augment.replicate_labels(bos_tokens_lens)
 
         # We compute the padding mask and replace the values with the pad_token_id
         # that the Whisper decoder expect to see.
@@ -56,9 +54,7 @@ class ASR(sb.Brain):
 
         hyps = None
         if stage == sb.Stage.VALID:
-            hyps, _, _, _ = self.hparams.valid_search(
-                enc_out.detach(), wav_lens
-            )
+            hyps, _, _, _ = self.hparams.valid_search(enc_out.detach(), wav_lens)
         elif stage == sb.Stage.TEST:
             hyps, _, _, _ = self.hparams.test_search(enc_out.detach(), wav_lens)
 
@@ -75,21 +71,16 @@ class ASR(sb.Brain):
         # Augment Labels
         if stage == sb.Stage.TRAIN and hasattr(self.hparams, "wav_augment"):
             tokens_eos = self.hparams.wav_augment.replicate_labels(tokens_eos)
-            tokens_eos_lens = self.hparams.wav_augment.replicate_labels(
-                tokens_eos_lens
-            )
+            tokens_eos_lens = self.hparams.wav_augment.replicate_labels(tokens_eos_lens)
 
-        loss = self.hparams.nll_loss(
-            log_probs, tokens_eos, length=tokens_eos_lens
-        )
+        loss = self.hparams.nll_loss(log_probs, tokens_eos, length=tokens_eos_lens)
 
         if stage != sb.Stage.TRAIN:
             tokens, tokens_lens = batch.tokens
 
             # Decode token terms to words
             predicted_words = [
-                self.tokenizer.decode(t, skip_special_tokens=True).strip()
-                for t in hyps
+                self.tokenizer.decode(t, skip_special_tokens=True).strip() for t in hyps
             ]
 
             # Convert indices to words
@@ -105,8 +96,7 @@ class ASR(sb.Brain):
                 ]
 
                 target_words = [
-                    self.tokenizer.normalize(text).split(" ")
-                    for text in target_words
+                    self.tokenizer.normalize(text).split(" ") for text in target_words
                 ]
             else:
                 predicted_words = [text.split(" ") for text in predicted_words]
@@ -151,9 +141,7 @@ class ASR(sb.Brain):
                 test_stats=stage_stats,
             )
             if if_main_process():
-                with open(
-                    self.hparams.test_wer_file, "w", encoding="utf-8"
-                ) as w:
+                with open(self.hparams.test_wer_file, "w", encoding="utf-8") as w:
                     self.wer_metric.write_stats(w)
 
 
@@ -190,9 +178,7 @@ def dataio_prepare(hparams, tokenizer):
         pass
 
     else:
-        raise NotImplementedError(
-            "sorting must be random, ascending or descending"
-        )
+        raise NotImplementedError("sorting must be random, ascending or descending")
 
     valid_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
         csv_path=hparams["valid_csv"],

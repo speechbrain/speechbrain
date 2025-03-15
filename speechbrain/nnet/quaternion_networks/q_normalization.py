@@ -72,9 +72,7 @@ class QBatchNorm(torch.nn.Module):
 
         # instantiate moving statistics
         if track_running_stats:
-            self.register_buffer(
-                "running_mean", torch.zeros(self.num_features * 4)
-            )
+            self.register_buffer("running_mean", torch.zeros(self.num_features * 4))
             self.register_buffer("running_var", torch.ones(self.num_features))
             self.register_buffer(
                 "num_batches_tracked", torch.tensor(0, dtype=torch.long)
@@ -100,8 +98,7 @@ class QBatchNorm(torch.nn.Module):
         exponential_average_factor = 0.0
 
         repeats = [
-            4 if dim == (self.dim % input.dim()) else 1
-            for dim in range(input.dim())
+            4 if dim == (self.dim % input.dim()) else 1 for dim in range(input.dim())
         ]
 
         # Entering training mode
@@ -110,9 +107,7 @@ class QBatchNorm(torch.nn.Module):
                 self.num_batches_tracked = self.num_batches_tracked + 1
 
             if self.momentum is None:  # use cumulative moving average
-                exponential_average_factor = (
-                    1.0 / self.num_batches_tracked.item()
-                )
+                exponential_average_factor = 1.0 / self.num_batches_tracked.item()
             else:  # use exponential moving average
                 exponential_average_factor = self.momentum
 
@@ -122,9 +117,7 @@ class QBatchNorm(torch.nn.Module):
 
             # Get variance along batch axis
             delta = input - mu
-            delta_r, delta_i, delta_j, delta_k = torch.chunk(
-                delta, 4, dim=self.dim
-            )
+            delta_r, delta_i, delta_j, delta_k = torch.chunk(delta, 4, dim=self.dim)
             quat_variance = torch.mean(
                 (delta_r**2 + delta_i**2 + delta_j**2 + delta_k**2),
                 dim=0,
@@ -147,9 +140,8 @@ class QBatchNorm(torch.nn.Module):
                     ) * self.running_mean + exponential_average_factor * mu
 
                     self.running_var = (
-                        (1 - exponential_average_factor) * self.running_var
-                        + exponential_average_factor * quat_variance
-                    )
+                        1 - exponential_average_factor
+                    ) * self.running_var + exponential_average_factor * quat_variance
         else:
             denominator = torch.rsqrt(self.running_var + self.eps)
             denominator = denominator.repeat(repeats)

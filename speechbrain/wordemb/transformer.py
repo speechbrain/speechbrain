@@ -132,11 +132,7 @@ class TransformerWordEmbeddings(nn.Module):
         emb: torch.Tensor
             the word embedding
         """
-        return (
-            self.embedding(sentence, word)
-            if word
-            else self.embeddings(sentence)
-        )
+        return self.embedding(sentence, word) if word else self.embeddings(sentence)
 
     def embedding(self, sentence, word):
         """Retrieves a word embedding for the specified word within
@@ -232,14 +228,10 @@ class TransformerWordEmbeddings(nn.Module):
         return self._get_hidden_states(states)
 
     def _to_device(self, encoded):
-        return {
-            key: self._tensor_to_device(value) for key, value in encoded.items()
-        }
+        return {key: self._tensor_to_device(value) for key, value in encoded.items()}
 
     def _tensor_to_device(self, value):
-        return (
-            value.to(self.device) if isinstance(value, torch.Tensor) else value
-        )
+        return value.to(self.device) if isinstance(value, torch.Tensor) else value
 
     def _get_word_idx(self, sent, word):
         return sent.split(" ").index(word)

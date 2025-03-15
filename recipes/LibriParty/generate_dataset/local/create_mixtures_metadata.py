@@ -21,9 +21,9 @@ def _read_metadata(file_path, configs):
         channel = np.random.randint(0, meta.num_channels - 1)
     else:
         channel = 0
-    assert (
-        meta.sample_rate == configs["samplerate"]
-    ), "file samplerate is different from the one specified"
+    assert meta.sample_rate == configs["samplerate"], (
+        "file samplerate is different from the one specified"
+    )
 
     return meta, channel
 
@@ -92,9 +92,7 @@ def create_metadata(
                         ),
                         "utt_id": id_utt,
                         "file": str(
-                            Path(spk_utts[j]).relative_to(
-                                configs["librispeech_root"]
-                            )
+                            Path(spk_utts[j]).relative_to(configs["librispeech_root"])
                         ),
                         "lvl": lvl,
                         "channel": channel,
@@ -124,9 +122,7 @@ def create_metadata(
                 if cursor + length > configs["max_length"]:
                     break
                 lvl = np.clip(
-                    np.random.normal(
-                        configs["imp_lvl_mean"], configs["imp_lvl_var"]
-                    ),
+                    np.random.normal(configs["imp_lvl_mean"], configs["imp_lvl_var"]),
                     configs["imp_lvl_min"],
                     min(min_spk_lvl + configs["imp_lvl_rel_max"], 0),
                 )
@@ -139,9 +135,7 @@ def create_metadata(
                             Path(c_rir).relative_to(configs["rirs_noises_root"])
                         ),
                         "file": str(
-                            Path(c_noise).relative_to(
-                                configs["rirs_noises_root"]
-                            )
+                            Path(c_noise).relative_to(configs["rirs_noises_root"])
                         ),
                         "lvl": lvl,
                         "channel": channel,
@@ -160,9 +154,9 @@ def create_metadata(
             # we scale the level but do not reverberate.
             background = np.random.choice(background_noises_list, 1)[0]
             meta, channel = _read_metadata(background, configs)
-            assert (
-                meta.num_frames >= configs["max_length"] * configs["samplerate"]
-            ), "background noise files should be >= max_length in duration"
+            assert meta.num_frames >= configs["max_length"] * configs["samplerate"], (
+                "background noise files should be >= max_length in duration"
+            )
             offset = 0
             if meta.num_frames > configs["max_length"] * configs["samplerate"]:
                 offset = np.random.randint(
@@ -174,9 +168,7 @@ def create_metadata(
             activity["background"] = {
                 "start": 0,
                 "stop": tot_length,
-                "file": str(
-                    Path(background).relative_to(configs["backgrounds_root"])
-                ),
+                "file": str(Path(background).relative_to(configs["backgrounds_root"])),
                 "lvl": lvl,
                 "orig_start": offset,
                 "orig_stop": offset + int(tot_length * configs["samplerate"]),

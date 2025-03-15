@@ -82,9 +82,7 @@ def prepare_iemocap(data_folder, save_json, seed=12):
 
     logger.info("VAD finished")
     logger.info("Start IEMOCAP concatenation ...")
-    data_json = concat_wavs(
-        data_folder, save_json, emotion_wavs, neutral_wavs, dict
-    )
+    data_json = concat_wavs(data_folder, save_json, emotion_wavs, neutral_wavs, dict)
     logger.info("IEMOCAP concatenation finished ...")
     return data_json
 
@@ -155,25 +153,15 @@ def get_path(datafolder, id):
     Get the filepath with ID
     """
     if "Ses01" in id:
-        return os.path.join(
-            datafolder, "Session1/sentences/wav", id[:-5], id + ".wav"
-        )
+        return os.path.join(datafolder, "Session1/sentences/wav", id[:-5], id + ".wav")
     if "Ses02" in id:
-        return os.path.join(
-            datafolder, "Session2/sentences/wav", id[:-5], id + ".wav"
-        )
+        return os.path.join(datafolder, "Session2/sentences/wav", id[:-5], id + ".wav")
     if "Ses03" in id:
-        return os.path.join(
-            datafolder, "Session3/sentences/wav", id[:-5], id + ".wav"
-        )
+        return os.path.join(datafolder, "Session3/sentences/wav", id[:-5], id + ".wav")
     if "Ses04" in id:
-        return os.path.join(
-            datafolder, "Session4/sentences/wav", id[:-5], id + ".wav"
-        )
+        return os.path.join(datafolder, "Session4/sentences/wav", id[:-5], id + ".wav")
     if "Ses05" in id:
-        return os.path.join(
-            datafolder, "Session5/sentences/wav", id[:-5], id + ".wav"
-        )
+        return os.path.join(datafolder, "Session5/sentences/wav", id[:-5], id + ".wav")
 
 
 def get_emotion(wav_path, annotations):
@@ -204,12 +192,8 @@ def concat_wavs(data_folder, save_json, emo_wavs, neu_wavs, annotations):
     ]
     data_json = {}
     for repo in repos:
-        emotion_wavs = [
-            i for i in emo_wavs if repo in i and f"_{repo[-1]}" in i
-        ]
-        neutral_wavs = [
-            i for i in neu_wavs if repo in i and f"_{repo[-1]}" in i
-        ]
+        emotion_wavs = [i for i in emo_wavs if repo in i and f"_{repo[-1]}" in i]
+        neutral_wavs = [i for i in neu_wavs if repo in i and f"_{repo[-1]}" in i]
 
         random.shuffle(emotion_wavs)
         random.shuffle(neutral_wavs)
@@ -220,9 +204,7 @@ def concat_wavs(data_folder, save_json, emo_wavs, neu_wavs, annotations):
             os.makedirs(combine_path)
 
         while len(emotion_wavs) > 0:
-            combination = np.random.choice(
-                combinations, p=probabilities.ravel()
-            )
+            combination = np.random.choice(combinations, p=probabilities.ravel())
 
             if combination == "neu_emo":
                 neutral_sample = neutral_wavs[0]
@@ -303,9 +285,7 @@ def concat_wavs(data_folder, save_json, emo_wavs, neu_wavs, annotations):
 
                 emotion_input += neutral_input_1.dBFS - emotion_input.dBFS
                 neutral_input_2 += neutral_input_1.dBFS - neutral_input_2.dBFS
-                combined_input = (
-                    neutral_input_1 + emotion_input + neutral_input_2
-                )
+                combined_input = neutral_input_1 + emotion_input + neutral_input_2
 
                 out_name = os.path.join(
                     combine_path,
@@ -339,9 +319,7 @@ def concat_wavs(data_folder, save_json, emo_wavs, neu_wavs, annotations):
 
                 emotion_input_1 = AudioSegment.from_wav(emo_sample_1)
 
-                out_name = os.path.join(
-                    combine_path, emo_sample_1.split("/")[-1]
-                )
+                out_name = os.path.join(combine_path, emo_sample_1.split("/")[-1])
                 emotion_input_1.export(out_name, format="wav")
 
                 id = out_name.split("/")[-1][:-4]

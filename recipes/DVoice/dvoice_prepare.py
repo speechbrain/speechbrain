@@ -78,9 +78,7 @@ def prepare_dvoice(
         ALFFA_LANGUAGES = ["amharic", "wolof"]
         df_alffa = pd.DataFrame()
         for lang in ALFFA_LANGUAGES:
-            data_folder2 = (
-                data_folder + f"/ALFFA_PUBLIC/ASR/{lang.upper()}/data"
-            )
+            data_folder2 = data_folder + f"/ALFFA_PUBLIC/ASR/{lang.upper()}/data"
             df_l = alffa_public_prepare(lang, data_folder2)
             df_l["wav"] = df_l["wav"].map(
                 lambda x: f"ALFFA_PUBLIC/ASR/{lang.upper()}/data/"
@@ -92,15 +90,11 @@ def prepare_dvoice(
         train_darija = pd.read_csv(
             f"{data_folder}/DVOICE/darija/texts/train.csv", sep="\t"
         )
-        dev_darija = pd.read_csv(
-            f"{data_folder}/DVOICE/darija/texts/dev.csv", sep="\t"
-        )
+        dev_darija = pd.read_csv(f"{data_folder}/DVOICE/darija/texts/dev.csv", sep="\t")
         test_darija = pd.read_csv(
             f"{data_folder}/DVOICE/darija/texts/test.csv", sep="\t"
         )
-        df_dar = pd.concat(
-            [train_darija, dev_darija, test_darija], ignore_index=True
-        )
+        df_dar = pd.concat([train_darija, dev_darija, test_darija], ignore_index=True)
         df_dar["wav"] = df_dar["wav"].map(lambda x: "DVOICE/darija/wavs/" + x)
         df = pd.concat([df_alffa, df_sw, df_dar], ignore_index=True)
         train, dev, test = train_validate_test_split(df)
@@ -212,24 +206,14 @@ def alffa_public_prepare(language, data_folder):
 
 
 def swahili_prepare(data_folder):
-    wavs_alffa = glob.glob(
-        f"{data_folder}/ALFFA_PUBLIC/ASR/SWAHILI/data/*/*/*/*"
-    )
+    wavs_alffa = glob.glob(f"{data_folder}/ALFFA_PUBLIC/ASR/SWAHILI/data/*/*/*/*")
     train_dvoice = pd.read_csv(
         f"{data_folder}/DVOICE/swahili/texts/train.csv", sep="\t"
     )
-    dev_dvoice = pd.read_csv(
-        f"{data_folder}/DVOICE/swahili/texts/dev.csv", sep="\t"
-    )
-    test_dvoice = pd.read_csv(
-        f"{data_folder}/DVOICE/swahili/texts/test.csv", sep="\t"
-    )
-    text_dvoice = pd.concat(
-        [train_dvoice, dev_dvoice, test_dvoice], ignore_index=True
-    )
-    text_dvoice["wav"] = text_dvoice["wav"].map(
-        lambda x: "DVOICE/swahili/wavs/" + x
-    )
+    dev_dvoice = pd.read_csv(f"{data_folder}/DVOICE/swahili/texts/dev.csv", sep="\t")
+    test_dvoice = pd.read_csv(f"{data_folder}/DVOICE/swahili/texts/test.csv", sep="\t")
+    text_dvoice = pd.concat([train_dvoice, dev_dvoice, test_dvoice], ignore_index=True)
+    text_dvoice["wav"] = text_dvoice["wav"].map(lambda x: "DVOICE/swahili/wavs/" + x)
 
     f_train_alffa = open(
         f"{data_folder}/ALFFA_PUBLIC/ASR/SWAHILI/data/train/text",
@@ -275,9 +259,7 @@ def swahili_prepare(data_folder):
     return df
 
 
-def train_validate_test_split(
-    df, train_percent=0.6, validate_percent=0.2, seed=None
-):
+def train_validate_test_split(df, train_percent=0.6, validate_percent=0.2, seed=None):
     np.random.seed(seed)
     perm = np.random.permutation(df.index)
     m = len(df.index)
@@ -375,11 +357,7 @@ def create_csv(
         ALFFA_LANGUAGES = ["amharic", "fongbe"]
         if language in ALFFA_LANGUAGES:
             mp3_path = line.split("\t")[0]
-        elif (
-            language == "multilingual"
-            or language == "swahili"
-            or language == "wolof"
-        ):
+        elif language == "multilingual" or language == "swahili" or language == "wolof":
             mp3_path = data_folder + "/" + line.split("\t")[0]
         else:
             mp3_path = data_folder + "/wavs/" + line.split("\t")[0]
@@ -503,10 +481,6 @@ def unicode_normalisation(text):
 
 
 def strip_accents(text):
-    text = (
-        unicodedata.normalize("NFD", text)
-        .encode("ascii", "ignore")
-        .decode("utf-8")
-    )
+    text = unicodedata.normalize("NFD", text).encode("ascii", "ignore").decode("utf-8")
 
     return str(text)

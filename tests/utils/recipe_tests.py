@@ -146,9 +146,7 @@ def prepare_test(
             reader = csv.DictReader(csvf, delimiter=",", skipinitialspace=True)
             for row_id, row in enumerate(reader):
                 recipe_id = f"{recipe_csvfile[:-4]}_row_{row_id + 2:02d}"
-                if not (
-                    check_row_for_test(row, filters_fields, filters, test_field)
-                ):
+                if not (check_row_for_test(row, filters_fields, filters, test_field)):
                     logger.info(f"    Skipped {recipe_id}")
                     continue
                 test_script[recipe_id] = row[script_field].strip()
@@ -172,9 +170,7 @@ def prepare_test(
     )
 
 
-def check_files(
-    check_str, output_folder, recipe_id, pattern=r"file_exists=\[(.*?)\]"
-):
+def check_files(check_str, output_folder, recipe_id, pattern=r"file_exists=\[(.*?)\]"):
     """Checks if the output folder created by the test has the expected files.
 
     Arguments
@@ -284,7 +280,6 @@ def check_performance(
         return False
 
     for line in lines_filt:
-
         # Search variable value
         var_value = extract_value(line, variable)
 
@@ -335,10 +330,8 @@ def extract_value(string, key):
     escaped_key = re.escape(key)
 
     # Create the regular expression pattern to match the argument and its corresponding value
-    pattern = (
-        r"(?P<key>{})\s*:\s*(?P<value>[-+]?\d*\.\d+([eE][-+]?\d+)?)".format(
-            escaped_key
-        )
+    pattern = r"(?P<key>{})\s*:\s*(?P<value>[-+]?\d*\.\d+([eE][-+]?\d+)?)".format(
+        escaped_key
     )
 
     # Search for the pattern in the input string
@@ -500,9 +493,7 @@ def run_recipe_tests(
 
     # Early stop if there are no recipes to test
     if len(test_script) == 0:
-        logger.error(
-            "No recipes found for testing (please check recipe filters)."
-        )
+        logger.error("No recipes found for testing (please check recipe filters).")
         return False
 
     # Download all upfront
@@ -521,7 +512,6 @@ def run_recipe_tests(
     # Run  script (check how to get std out, std err and save them in files)
     check = True
     for i, recipe_id in enumerate(sorted(test_script.keys())):
-
         # Check if the output folder is specified in test_field
         spec_outfold = False
         if "--output_folder" in test_flag[recipe_id]:
@@ -810,8 +800,7 @@ def load_yaml_test(
             continue
 
         logger.info(
-            "(%i/%i) Checking %s..."
-            % (i + 1, len(test_script.keys()), hparam_file)
+            "(%i/%i) Checking %s..." % (i + 1, len(test_script.keys()), hparam_file)
         )
 
         # Get absolute path to the hparam file
@@ -827,7 +816,9 @@ def load_yaml_test(
                 # os.chdir(run_folder) is not changing sys.module, and pydoc.locate (in load_hyperpyyaml) fails
                 if "new:custom_model" in line:
                     tag_custom_model = "custom_model"
-                    custom_model_from_root = f"{script_folder.replace(os.sep, '.')}.{tag_custom_model}"
+                    custom_model_from_root = (
+                        f"{script_folder.replace(os.sep, '.')}.{tag_custom_model}"
+                    )
                     if pydoc.locate(custom_model_from_root) is not None:
                         sys.modules[tag_custom_model] = sys.modules[
                             custom_model_from_root

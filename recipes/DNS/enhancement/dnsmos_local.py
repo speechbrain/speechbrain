@@ -71,20 +71,14 @@ class ComputeScore:
 
         for idx in range(num_hops):
             audio_seg = audio[
-                int(idx * hop_len_samples) : int(
-                    (idx + INPUT_LENGTH) * hop_len_samples
-                )
+                int(idx * hop_len_samples) : int((idx + INPUT_LENGTH) * hop_len_samples)
             ]
             if len(audio_seg) < len_samples:
                 continue
 
-            input_features = np.array(audio_seg).astype("float32")[
-                np.newaxis, :
-            ]
+            input_features = np.array(audio_seg).astype("float32")[np.newaxis, :]
             oi = {"input_1": input_features}
-            mos_sig_raw, mos_bak_raw, mos_ovr_raw = self.onnx_sess.run(
-                None, oi
-            )[0][0]
+            mos_sig_raw, mos_bak_raw, mos_ovr_raw = self.onnx_sess.run(None, oi)[0][0]
             mos_sig, mos_bak, mos_ovr = self.get_polyfit_val(
                 mos_sig_raw, mos_bak_raw, mos_ovr_raw, is_personalized_MOS=0
             )
@@ -138,9 +132,7 @@ def main(args):
 
     with concurrent.futures.ThreadPoolExecutor() as executor:
         future_to_url = {
-            executor.submit(
-                compute_score, clip, desired_fs, is_personalized_eval
-            ): clip
+            executor.submit(compute_score, clip, desired_fs, is_personalized_eval): clip
             for clip in clips
         }
         for future in tqdm(concurrent.futures.as_completed(future_to_url)):

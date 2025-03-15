@@ -16,6 +16,7 @@ can be used for enhancement or ASR models.
 Authors
  * Peter Plantinga 2020, 2021
 """
+
 import os
 import sys
 
@@ -35,15 +36,11 @@ logger = get_logger(__name__)
 
 
 def pesq_eval(pred_wav, target_wav):
-    return pesq(
-        fs=16000, ref=target_wav.numpy(), deg=pred_wav.numpy(), mode="wb"
-    )
+    return pesq(fs=16000, ref=target_wav.numpy(), deg=pred_wav.numpy(), mode="wb")
 
 
 def estoi_eval(pred_wav, target_wav):
-    return stoi(
-        x=target_wav.numpy(), y=pred_wav.numpy(), fs_sig=16000, extended=False
-    )
+    return stoi(x=target_wav.numpy(), y=pred_wav.numpy(), fs_sig=16000, extended=False)
 
 
 def composite_eval(pred_wav, target_wav):
@@ -130,9 +127,7 @@ class MTLbrain(sb.Brain):
             if self.hparams.ctc_type == "clean":
                 embed = self.modules.src_embedding(clean_feats)
             elif self.hparams.ctc_type == "joint":
-                enh_feats = self.hparams.spectral_magnitude(
-                    predictions["feats"]
-                )
+                enh_feats = self.hparams.spectral_magnitude(predictions["feats"])
                 enh_feats = torch.log1p(enh_feats)
                 embed = self.modules.src_embedding(enh_feats)
             out = self.modules.ctc_output(embed)
@@ -225,9 +220,7 @@ class MTLbrain(sb.Brain):
             loss += self.hparams.mimic_weight * mimic_loss
 
             if stage != sb.Stage.TRAIN:
-                self.mimic_metrics.append(
-                    batch.id, enh_embed, clean_embed, lens
-                )
+                self.mimic_metrics.append(batch.id, enh_embed, clean_embed, lens)
 
         # Compute hard ASR loss
         if self.hparams.ctc_weight > 0 and (
@@ -276,9 +269,7 @@ class MTLbrain(sb.Brain):
                         self.token_encoder.decode_ids(token_seq)
                         for token_seq in undo_padding(*batch.tokens)
                     ]
-                    self.err_rate_metrics.append(
-                        batch.id, pred_words, target_words
-                    )
+                    self.err_rate_metrics.append(batch.id, pred_words, target_words)
 
                 else:
                     self.err_rate_metrics.append(
@@ -338,15 +329,9 @@ class MTLbrain(sb.Brain):
                 stage_stats["pesq"] = self.pesq_metrics.summarize("average")
                 max_keys.extend(["pesq", "stoi"])
                 if stage == sb.Stage.TEST:
-                    stage_stats["csig"] = self.composite_metrics.summarize(
-                        "csig"
-                    )
-                    stage_stats["cbak"] = self.composite_metrics.summarize(
-                        "cbak"
-                    )
-                    stage_stats["covl"] = self.composite_metrics.summarize(
-                        "covl"
-                    )
+                    stage_stats["csig"] = self.composite_metrics.summarize("csig")
+                    stage_stats["cbak"] = self.composite_metrics.summarize("cbak")
+                    stage_stats["covl"] = self.composite_metrics.summarize("covl")
                     max_keys.extend(["csig", "cbak", "covl"])
 
             if self.hparams.mimic_weight > 0:
@@ -384,9 +369,7 @@ class MTLbrain(sb.Brain):
                 test_stats=stage_stats,
             )
             if if_main_process():
-                with open(
-                    self.hparams.stats_file + ".txt", "w", encoding="utf-8"
-                ) as w:
+                with open(self.hparams.stats_file + ".txt", "w", encoding="utf-8") as w:
                     if self.hparams.enhance_weight > 0:
                         w.write("\nstoi stats:\n")
                         self.stoi_metrics.write_stats(w)
@@ -474,16 +457,12 @@ def dataio_prep(hparams, token_encoder):
         )
         hparams["train_loader_options"]["shuffle"] = False
     elif hparams["sorting"] != "random":
-        raise NotImplementedError(
-            "Sorting must be random, ascending, or descending"
-        )
+        raise NotImplementedError("Sorting must be random, ascending, or descending")
 
     # Update token_encoder
     if "tokenizer" not in hparams:
         token_encoder.insert_blank()
-        token_encoder.update_from_didataset(
-            data["train"], output_key="tokens_list"
-        )
+        token_encoder.update_from_didataset(data["train"], output_key="tokens_list")
 
     return data
 

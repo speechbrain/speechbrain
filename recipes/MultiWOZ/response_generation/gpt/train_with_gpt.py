@@ -12,7 +12,6 @@ Authors
  * Simone Alghisi 2023
 """
 
-
 import math
 import sys
 from itertools import chain
@@ -37,9 +36,7 @@ class ResGenBrain(sb.Brain):
         padding_mask = ~self.hparams.padding_mask(
             input_ids, pad_idx=tokenizer.unk_token_id
         )
-        outputs = self.modules.gpt_model(
-            input_ids, token_type_ids, padding_mask
-        ).logits
+        outputs = self.modules.gpt_model(input_ids, token_type_ids, padding_mask).logits
 
         return outputs
 
@@ -155,9 +152,7 @@ class ResGenBrain(sb.Brain):
                 min_keys=["PPL"],
             )
             if epoch == hparams["number_of_epochs"] - 1:
-                with open(
-                    self.hparams.bleu_4_valid_file, "w", encoding="utf-8"
-                ) as w:
+                with open(self.hparams.bleu_4_valid_file, "w", encoding="utf-8") as w:
                     self.bleu_4_metric.write_stats(w)
                     for i in range(len(self.hyps)):
                         w.write("target: " + str(self.references[i]) + "\n")
@@ -172,9 +167,7 @@ class ResGenBrain(sb.Brain):
                 stats_meta={"Epoch loaded": self.hparams.epoch_counter.current},
                 test_stats=stage_stats,
             )
-            with open(
-                self.hparams.bleu_4_test_file, "w", encoding="utf-8"
-            ) as w:
+            with open(self.hparams.bleu_4_test_file, "w", encoding="utf-8") as w:
                 self.bleu_4_metric.write_stats(w)
                 for i in range(len(self.hyps)):
                     w.write("target: " + str(self.references[i]) + "\n")
@@ -201,9 +194,7 @@ def add_special_tokens_(model, tokenizer, attr_to_special_token) -> None:
         attr_to_special_token  # type: ignore
     )  # doesn't add if they are already there
     if num_added_tokens > 0:
-        model.resize_token_embeddings(
-            new_num_tokens=orig_num_tokens + num_added_tokens
-        )
+        model.resize_token_embeddings(new_num_tokens=orig_num_tokens + num_added_tokens)
 
 
 def dataio_prep(hparams, tokenizer):
@@ -229,9 +220,7 @@ def dataio_prep(hparams, tokenizer):
     """
 
     # convert special tokens to their ids
-    bos, eos, system, user = tokenizer.convert_tokens_to_ids(
-        hparams["special_tokens"]
-    )
+    bos, eos, system, user = tokenizer.convert_tokens_to_ids(hparams["special_tokens"])
     # history_window, i.e. how many user-system exchanges consider as context (+1 to consider at least the last user turn)
     history_window = 2 * hparams["max_history"] + 1
 
@@ -279,11 +268,7 @@ def dataio_prep(hparams, tokenizer):
             for i, encoded_turn in enumerate(history_input_lists)
         ]
         history_token_type = torch.LongTensor(
-            list(
-                chain(
-                    *([[system]] + history_token_type_lists[-history_window:])
-                )
-            )
+            list(chain(*([[system]] + history_token_type_lists[-history_window:])))
         )
 
         yield history_token_type
@@ -438,9 +423,7 @@ if __name__ == "__main__":
         """
 
         def __init__(self, examples, *args, **kwargs):
-            _, _, system, _ = tokenizer.convert_tokens_to_ids(
-                hparams["special_tokens"]
-            )
+            _, _, system, _ = tokenizer.convert_tokens_to_ids(hparams["special_tokens"])
             for k in [
                 "input_ids",
                 "history_bos",
@@ -462,9 +445,7 @@ if __name__ == "__main__":
                 for example in examples:
                     x = example[k]
                     if k in ["history_bos", "history_token_type"]:
-                        x = torch.cat(
-                            (example[k], torch.LongTensor([system])), -1
-                        )
+                        x = torch.cat((example[k], torch.LongTensor([system])), -1)
                         example[k] = torch.nn.functional.pad(
                             x, [max_len - len(x), 0], value=pad_value
                         )

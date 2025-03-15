@@ -73,9 +73,7 @@ except ImportError:
 logger = get_logger(__name__)
 
 
-def distributed_loader_specifics(
-    distributed_launch, rank, dataset, loader_kwargs
-):
+def distributed_loader_specifics(distributed_launch, rank, dataset, loader_kwargs):
     """Prepare loader_kwargs for DDP when necessary.
 
     Arguments
@@ -133,8 +131,7 @@ def distributed_loader_specifics(
             loader_kwargs["batch_sampler"] = sampler
     elif distributed_launch and isinstance(dataset, IterableDataset):
         logger.warning(
-            "Cannot automatically solve distributed sampling "
-            "for IterableDataset."
+            "Cannot automatically solve distributed sampling for IterableDataset."
         )
     return loader_kwargs
 
@@ -176,16 +173,13 @@ def make_dataloader(dataset, looped_nominal_epoch=None, **loader_kwargs):
         If looped_nominal_epoch is not None
     """
     # PaddedBatch as default collation for DynamicItemDataset
-    if "collate_fn" not in loader_kwargs and isinstance(
-        dataset, DynamicItemDataset
-    ):
+    if "collate_fn" not in loader_kwargs and isinstance(dataset, DynamicItemDataset):
         loader_kwargs["collate_fn"] = PaddedBatch
     # Reproducible random sampling
     if loader_kwargs.get("shuffle", False):
         if loader_kwargs.get("sampler") is not None:
             raise ValueError(
-                "Cannot specify both shuffle=True and a "
-                "sampler in loader_kwargs"
+                "Cannot specify both shuffle=True and a sampler in loader_kwargs"
             )
         seed = os.environ.get("SB_GLOBAL_SEED", 563375142)
         sampler = ReproducibleRandomSampler(dataset, seed=seed)

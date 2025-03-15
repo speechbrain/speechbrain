@@ -450,9 +450,7 @@ class Leaf(torch.nn.Module):
         outputs = self.complex_conv(x)
         outputs = self._squared_modulus_activation(outputs)
         outputs = self.pooling(outputs)
-        outputs = torch.maximum(
-            outputs, torch.tensor(1e-5, device=outputs.device)
-        )
+        outputs = torch.maximum(outputs, torch.tensor(1e-5, device=outputs.device))
         if self.compression:
             outputs = self.compression(outputs)
         if not self.skip_transpose:
@@ -461,9 +459,7 @@ class Leaf(torch.nn.Module):
 
     def _squared_modulus_activation(self, x):
         x = x.transpose(1, 2)
-        output = 2 * torch.nn.functional.avg_pool1d(
-            x**2.0, kernel_size=2, stride=2
-        )
+        output = 2 * torch.nn.functional.avg_pool1d(x**2.0, kernel_size=2, stride=2)
         output = output.transpose(1, 2)
         return output
 
@@ -475,9 +471,7 @@ class Leaf(torch.nn.Module):
         elif len(shape) == 3:
             in_channels = 1
         else:
-            raise ValueError(
-                "Leaf expects 2d or 3d inputs. Got " + str(len(shape))
-            )
+            raise ValueError("Leaf expects 2d or 3d inputs. Got " + str(len(shape)))
         return in_channels
 
 
@@ -530,14 +524,10 @@ class StreamingFeatureWrapper(torch.nn.Module):
         self.properties = properties
 
         if self.properties.causal:
-            raise ValueError(
-                "Causal streaming feature wrapper is not yet supported"
-            )
+            raise ValueError("Causal streaming feature wrapper is not yet supported")
 
         if self.properties.dilation != 1:
-            raise ValueError(
-                "Dilation not yet supported in streaming feature wrapper"
-            )
+            raise ValueError("Dilation not yet supported in streaming feature wrapper")
 
     def get_required_padding(self) -> int:
         """Computes the number of padding/context frames that need to be
@@ -739,9 +729,9 @@ class VocalFeatures(torch.nn.Module):
         self.eps = eps
         self.sma_neighbors = sma_neighbors
 
-        assert (
-            self.max_lag * PERIODIC_NEIGHBORS <= self.window_samples
-        ), f"Need at least {PERIODIC_NEIGHBORS} periods in a window"
+        assert self.max_lag * PERIODIC_NEIGHBORS <= self.window_samples, (
+            f"Need at least {PERIODIC_NEIGHBORS} periods in a window"
+        )
 
         self.compute_fbanks = Filterbank(
             sample_rate=sample_rate,
@@ -780,9 +770,7 @@ class VocalFeatures(torch.nn.Module):
              * spectral_flux: The 2-normed diff between successive spectral values.
              * mfcc_{0-n_mfcc}: The mel cepstral coefficients.
         """
-        assert (
-            audio.dim() == 2
-        ), "Expected audio to be 2-dimensional, [batch, samples]"
+        assert audio.dim() == 2, "Expected audio to be 2-dimensional, [batch, samples]"
 
         # Use frame-based autocorrelation to estimate harmonicity and f0
         frames = audio.unfold(

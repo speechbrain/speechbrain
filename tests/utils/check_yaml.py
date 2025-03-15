@@ -102,9 +102,7 @@ def detect_script_vars(script_file, var_lst):
                 re_match = re.search(r"\[f.\{.*\}(.*).\]", line)
                 # case: getattr(self.hparams, f"{stage.name}_search".lower())
                 if re_match is None:
-                    re_match = re.search(
-                        r"self\.hparams, f\"\{.*\}(.*)\"", line
-                    )
+                    re_match = re.search(r"self\.hparams, f\"\{.*\}(.*)\"", line)
                 if re_match is not None:
                     if re_match.group(1) in var:
                         print(
@@ -183,18 +181,14 @@ def check_yaml_vs_script(hparam_file, script_file):
     detected_vars_train = detect_script_vars(script_file, var_lst)
 
     # Check which variables are declared but not used
-    _,run_opt_defaults,_ = RunOptions.from_command_line_args()
-    default_run_opt_keys = list(run_opt_defaults.keys()) + [
-        "rescoring_lm_scale"
-    ]
+    _, run_opt_defaults, _ = RunOptions.from_command_line_args()
+    default_run_opt_keys = list(run_opt_defaults.keys()) + ["rescoring_lm_scale"]
 
     unused_vars = list(
         set(var_lst) - set(detected_vars_train) - set(default_run_opt_keys)
     )
     for unused_var in unused_vars:
-        print(
-            '\tERROR: variable "%s" not used in %s!' % (unused_var, script_file)
-        )
+        print('\tERROR: variable "%s" not used in %s!' % (unused_var, script_file))
 
     return len(unused_vars) == 0
 
@@ -220,9 +214,7 @@ def extract_patterns(lines, start_pattern, end_pattern):
 
     for line in lines:
         start_indexes = [
-            index
-            for index in range(len(line))
-            if line.startswith(start_pattern, index)
+            index for index in range(len(line)) if line.startswith(start_pattern, index)
         ]
         for index in start_indexes:
             start_var = index + len(start_pattern)
@@ -293,9 +285,7 @@ def check_module_vars(
     # Remove optional variables "if hasattr(self.modules, "env_corrupt"):"
     stop_char.append('"')
     opt_vars = extract_patterns(lines, 'if hasattr(self.modules, "', stop_char)
-    opt_vars.extend(
-        extract_patterns(lines, 'if hasattr(self.hparams, "', stop_char)
-    )
+    opt_vars.extend(extract_patterns(lines, 'if hasattr(self.hparams, "', stop_char))
 
     # Remove optional
     for avoid in set(opt_vars):

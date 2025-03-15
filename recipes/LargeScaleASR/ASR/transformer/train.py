@@ -77,9 +77,7 @@ class ASR(sb.core.Brain):
         is_test_search = stage == sb.Stage.TEST
 
         if is_valid_search:
-            hyps, _, _, _ = self.hparams.valid_search(
-                enc_out.detach(), wav_lens
-            )
+            hyps, _, _, _ = self.hparams.valid_search(enc_out.detach(), wav_lens)
 
         elif is_test_search:
             hyps, _, _, _ = self.hparams.test_search(enc_out.detach(), wav_lens)
@@ -124,9 +122,7 @@ class ASR(sb.core.Brain):
                     tokens, tokens_lens, tokens_eos, tokens_eos_lens
                 )
 
-        loss_seq = self.hparams.seq_cost(
-            p_seq, tokens_eos, length=tokens_eos_lens
-        )
+        loss_seq = self.hparams.seq_cost(p_seq, tokens_eos, length=tokens_eos_lens)
         loss_ctc = self.hparams.ctc_cost(p_ctc, tokens, wav_lens, tokens_lens)
         loss = (
             self.hparams.ctc_weight * loss_ctc
@@ -136,9 +132,7 @@ class ASR(sb.core.Brain):
         if stage != sb.Stage.TRAIN:
             current_epoch = self.hparams.epoch_counter.current
             valid_search_interval = self.hparams.valid_search_interval
-            if current_epoch % valid_search_interval == 0 or (
-                stage == sb.Stage.TEST
-            ):
+            if current_epoch % valid_search_interval == 0 or (stage == sb.Stage.TEST):
                 # Decode token terms to words
                 predicted_words = self.tokenizer(
                     predicted_tokens, task="decode_from_list"
@@ -146,9 +140,7 @@ class ASR(sb.core.Brain):
 
                 # Convert indices to words
                 target_words = undo_padding(tokens, tokens_lens)
-                target_words = self.tokenizer(
-                    target_words, task="decode_from_list"
-                )
+                target_words = self.tokenizer(target_words, task="decode_from_list")
                 if not isinstance(ids, list):
                     ids = ids.tolist()
                 self.wer_metric.append(ids, predicted_words, target_words)
@@ -180,10 +172,7 @@ class ASR(sb.core.Brain):
             stage_stats["ACC"] = self.acc_metric.summarize()
             current_epoch = self.hparams.epoch_counter.current
             valid_search_interval = self.hparams.valid_search_interval
-            if (
-                current_epoch % valid_search_interval == 0
-                or stage == sb.Stage.TEST
-            ):
+            if current_epoch % valid_search_interval == 0 or stage == sb.Stage.TEST:
                 stage_stats["WER"] = self.wer_metric.summarize("error_rate")
                 stage_stats["CER"] = self.cer_metric.summarize("error_rate")
 
@@ -215,9 +204,7 @@ class ASR(sb.core.Brain):
                 test_stats=stage_stats,
             )
             if if_main_process():
-                with open(
-                    self.hparams.test_wer_file, "w", encoding="utf-8"
-                ) as w:
+                with open(self.hparams.test_wer_file, "w", encoding="utf-8") as w:
                     self.wer_metric.write_stats(w)
 
 

@@ -224,9 +224,7 @@ class FastSpeech2Brain(sb.Brain):
             _,
         ) = self.hparams.model(tokens)
         self.hparams.progress_sample_logger.remember(
-            infer_output=self.process_mel(
-                postnet_mel_out, [len(postnet_mel_out[0])]
-            )
+            infer_output=self.process_mel(postnet_mel_out, [len(postnet_mel_out[0])])
         )
         return postnet_mel_out, predict_mel_lens
 

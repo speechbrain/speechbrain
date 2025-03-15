@@ -72,9 +72,7 @@ def check_already_generated(md_dir):
         for f in already_generated_csv
     ]
     # Actual directories that haven't already been processed
-    not_already_processed_dir = list(
-        set(wham_noise_dirs) - set(already_processed_dir)
-    )
+    not_already_processed_dir = list(set(wham_noise_dirs) - set(already_processed_dir))
     return not_already_processed_dir
 
 

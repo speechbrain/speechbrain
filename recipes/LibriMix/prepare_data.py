@@ -36,14 +36,14 @@ def prepare_librimix(
     if "Libri" in datapath:
         # Libri 2/3Mix datasets
         if n_spks == 2:
-            assert (
-                "Libri2Mix" in datapath
-            ), "Inconsistent number of speakers and datapath"
+            assert "Libri2Mix" in datapath, (
+                "Inconsistent number of speakers and datapath"
+            )
             create_libri2mix_csv(datapath, savepath, addnoise=librimix_addnoise)
         elif n_spks == 3:
-            assert (
-                "Libri3Mix" in datapath
-            ), "Inconsistent number of speakers and datapath"
+            assert "Libri3Mix" in datapath, (
+                "Inconsistent number of speakers and datapath"
+            )
             create_libri3mix_csv(datapath, savepath, addnoise=librimix_addnoise)
         else:
             raise ValueError("Unsupported Number of Speakers")

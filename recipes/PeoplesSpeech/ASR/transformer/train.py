@@ -63,9 +63,7 @@ class ASR(sb.core.Brain):
         # forward modules
         src = self.modules.CNN(feats)
 
-        enc_out, pred = self.modules.Transformer(
-            src, tokens_bos, wav_lens, pad_idx=0
-        )
+        enc_out, pred = self.modules.Transformer(src, tokens_bos, wav_lens, pad_idx=0)
 
         # output layer for ctc log-probabilities
         logits = self.modules.ctc_lin(enc_out)
@@ -90,13 +88,9 @@ class ASR(sb.core.Brain):
 
             # Decide searcher for inference: valid or test search
             if stage == sb.Stage.VALID:
-                hyps, _, _, _ = self.hparams.valid_search(
-                    enc_out.detach(), wav_lens
-                )
+                hyps, _, _, _ = self.hparams.valid_search(enc_out.detach(), wav_lens)
             else:
-                hyps, _, _, _ = self.hparams.test_search(
-                    enc_out.detach(), wav_lens
-                )
+                hyps, _, _, _ = self.hparams.test_search(enc_out.detach(), wav_lens)
 
         return p_ctc, p_seq, wav_lens, hyps
 
@@ -126,9 +120,7 @@ class ASR(sb.core.Brain):
             p_seq, tokens_eos, length=tokens_eos_lens
         ).sum()
 
-        loss_ctc = self.hparams.ctc_cost(
-            p_ctc, tokens, wav_lens, tokens_lens
-        ).sum()
+        loss_ctc = self.hparams.ctc_cost(p_ctc, tokens, wav_lens, tokens_lens).sum()
 
         loss = (
             self.hparams.ctc_weight * loss_ctc
@@ -138,17 +130,13 @@ class ASR(sb.core.Brain):
         if stage != sb.Stage.TRAIN:
             current_epoch = self.hparams.epoch_counter.current
             valid_search_interval = self.hparams.valid_search_interval
-            if current_epoch % valid_search_interval == 0 or (
-                stage == sb.Stage.TEST
-            ):
+            if current_epoch % valid_search_interval == 0 or (stage == sb.Stage.TEST):
                 # Decode token terms to words
                 predicted_words = self.tokenizer(hyps, task="decode_from_list")
 
                 # Convert indices to words
                 target_words = undo_padding(tokens, tokens_lens)
-                target_words = self.tokenizer(
-                    target_words, task="decode_from_list"
-                )
+                target_words = self.tokenizer(target_words, task="decode_from_list")
 
                 self.wer_metric.append(ids, predicted_words, target_words)
 
@@ -172,10 +160,7 @@ class ASR(sb.core.Brain):
             stage_stats["ACC"] = self.acc_metric.summarize()
             current_epoch = self.hparams.epoch_counter.current
             valid_search_interval = self.hparams.valid_search_interval
-            if (
-                current_epoch % valid_search_interval == 0
-                or stage == sb.Stage.TEST
-            ):
+            if current_epoch % valid_search_interval == 0 or stage == sb.Stage.TEST:
                 stage_stats["WER"] = self.wer_metric.summarize("error_rate")
 
         # log stats and save checkpoint at end-of-epoch
@@ -206,9 +191,7 @@ class ASR(sb.core.Brain):
                 test_stats=stage_stats,
             )
             if if_main_process():
-                with open(
-                    self.hparams.test_wer_file, "w", encoding="utf-8"
-                ) as w:
+                with open(self.hparams.test_wer_file, "w", encoding="utf-8") as w:
                     self.wer_metric.write_stats(w)
 
     def on_fit_batch_end(self, batch, outputs, loss, should_step):
@@ -239,9 +222,7 @@ def dataio_prepare(hparams):
     # of the usual iterable because the HF dataset ALWAYS open the file
     # when called, which means that the dynamic sampling needs to read the
     # 1.5M audio samples from disk.... using a list instead is much master.
-    train_len_list = list(
-        train_data.select_columns("duration_ms")["duration_ms"]
-    )
+    train_len_list = list(train_data.select_columns("duration_ms")["duration_ms"])
     val_len_list = list(valid_data.select_columns("duration_ms")["duration_ms"])
 
     train_data = sb.dataio.dataset.DynamicItemDataset.from_arrow_dataset(
@@ -279,7 +260,6 @@ def dataio_prepare(hparams):
         "wrd", "tokens_list", "tokens_bos", "tokens_eos", "tokens"
     )
     def text_pipeline(wrd):
-
         wrd = english_specific_preprocess(wrd)
         yield wrd
         tokens_list = tokenizer.sp.encode_as_ids(wrd)
@@ -309,8 +289,7 @@ def dataio_prepare(hparams):
 
     train_batch_sampler = DynamicBatchSampler(
         train_data,
-        dynamic_hparams["max_batch_length"]
-        * 1000,  # duration is in ms so back to s.
+        dynamic_hparams["max_batch_length"] * 1000,  # duration is in ms so back to s.
         num_buckets=num_buckets,
         lengths_list=train_len_list,
         shuffle=dynamic_hparams["shuffle"],

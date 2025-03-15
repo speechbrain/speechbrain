@@ -76,9 +76,7 @@ class HyperMixing(nn.Module):
         )
 
         # add pos encoding
-        self.positional_encoding = PositionalEncoding(
-            input_output_dim, max_length
-        )
+        self.positional_encoding = PositionalEncoding(input_output_dim, max_length)
 
     def _mlp_pass_from_components(self, out, W1, W2, activation):
         """function to stick MLP1 together manually"""
@@ -149,9 +147,7 @@ class HyperMixing(nn.Module):
         seq_len = out.size(1)
 
         if key_padding_mask is not None:
-            float_mask = (
-                torch.logical_not(key_padding_mask).unsqueeze(-1).float()
-            )
+            float_mask = torch.logical_not(key_padding_mask).unsqueeze(-1).float()
             out = out * float_mask
 
         # add position embedding before passing to hypernetwork
@@ -189,9 +185,7 @@ class HyperMixing(nn.Module):
         # apply layer norm on outputs of the TM-MLP
         out = self.layer_norm(out)
 
-        dummy_att_weights = torch.zeros(
-            (bsize, seq_len, seq_len), device=out.device
-        )
+        dummy_att_weights = torch.zeros((bsize, seq_len, seq_len), device=out.device)
         return out, dummy_att_weights
 
 
@@ -319,13 +313,9 @@ class ParallelMLPs(nn.Module):
         self.num_mlps = num_mlps
 
         # set the weights and biases parameters
-        self.fc1_weights = nn.Parameter(
-            torch.empty(num_mlps, hidden_size, input_size)
-        )
+        self.fc1_weights = nn.Parameter(torch.empty(num_mlps, hidden_size, input_size))
         self.fc1_biases = nn.Parameter(torch.empty(num_mlps, hidden_size))
-        self.fc2_weights = nn.Parameter(
-            torch.empty(num_mlps, output_size, hidden_size)
-        )
+        self.fc2_weights = nn.Parameter(torch.empty(num_mlps, output_size, hidden_size))
         self.fc2_biases = nn.Parameter(torch.empty(num_mlps, output_size))
 
         # initialize the weights and biases

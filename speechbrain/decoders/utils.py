@@ -1,4 +1,4 @@
-""" Utils functions for the decoding modules.
+"""Utils functions for the decoding modules.
 
 Authors
  * Adel Moumen 2023
@@ -144,9 +144,7 @@ def filter_seq2seq_output(string_pred, eos_id=-1):
     """
     if isinstance(string_pred, list):
         try:
-            eos_index = next(
-                i for i, v in enumerate(string_pred) if v == eos_id
-            )
+            eos_index = next(i for i, v in enumerate(string_pred) if v == eos_id)
         except StopIteration:
             eos_index = len(string_pred)
         string_out = string_pred[:eos_index]

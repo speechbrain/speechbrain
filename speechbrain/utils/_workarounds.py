@@ -28,7 +28,9 @@ def _cycliclrloader(obj, path, end_of_epoch):
             MSG = "Loading CyclicLR scheduler and the _scale_ref_fn did not exist in instance."
             MSG += " You did not construct it with the same parameters it was created!"
             MSG += " Looks like you changed the scale function!"
-            MSG += " If this was not intentional, the scheduler might not work correctly."
+            MSG += (
+                " If this was not intentional, the scheduler might not work correctly."
+            )
             warnings.warn(MSG)
     try:
         obj.load_state_dict(torch.load(path, map_location=device), strict=True)

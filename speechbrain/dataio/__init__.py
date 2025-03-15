@@ -1,5 +1,4 @@
-"""Data loading and dataset preprocessing
-"""
+"""Data loading and dataset preprocessing"""
 
 from speechbrain.utils.importutils import lazy_export_all
 

@@ -1,8 +1,8 @@
 """This file implements the necessary classes and functions to implement Posthoc Interpretations via Quantization.
 
- Authors
- * Cem Subakan 2023
- * Francesco Paissan 2023
+Authors
+* Cem Subakan 2023
+* Francesco Paissan 2023
 """
 
 import torch
@@ -53,9 +53,7 @@ def get_irrelevant_regions(labels, K, num_classes, N_shared=5, stage="TRAIN"):
             torch.cat(
                 [
                     irrelevant_regions,
-                    torch.ones(irrelevant_regions.shape[0], N_shared).to(
-                        labels.device
-                    ),
+                    torch.ones(irrelevant_regions.shape[0], N_shared).to(labels.device),
                 ],
                 dim=1,
             )
@@ -251,9 +249,7 @@ class VectorQuantizationStraightThrough(Function):
         ctx.save_for_backward(indices_flatten, codebook)
         ctx.mark_non_differentiable(indices_flatten)
 
-        codes_flatten = torch.index_select(
-            codebook, dim=0, index=indices_flatten
-        )
+        codes_flatten = torch.index_select(codebook, dim=0, index=indices_flatten)
         codes = codes_flatten.view_as(inputs)
 
         return (codes, indices_flatten)
@@ -282,9 +278,7 @@ class VectorQuantizationStraightThrough(Function):
             indices, codebook = ctx.saved_tensors
             embedding_size = codebook.size(1)
 
-            grad_output_flatten = grad_output.contiguous().view(
-                -1, embedding_size
-            )
+            grad_output_flatten = grad_output.contiguous().view(-1, embedding_size)
             grad_codebook = torch.zeros_like(codebook)
             grad_codebook.index_add_(0, indices, grad_output_flatten)
 
@@ -646,9 +640,7 @@ class VQEmbedding(nn.Module):
         torch.Size([3, 14, 25])
         """
         z_e_x_ = z_e_x.permute(0, 2, 3, 1).contiguous()
-        latents = VectorQuantization.apply(
-            z_e_x_, self.embedding.weight, labels
-        )
+        latents = VectorQuantization.apply(z_e_x_, self.embedding.weight, labels)
         return latents
 
     def straight_through(self, z_e_x, labels=None):

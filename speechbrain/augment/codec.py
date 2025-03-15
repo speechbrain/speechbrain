@@ -66,9 +66,7 @@ class CodecAugment(torch.nn.Module):
         torch.Tensor:
             Coded version of the input waveform of shape `[batch, time]`.
         """
-        audio_effector = torchaudio.io.AudioEffector(
-            format=format, encoder=encoder
-        )
+        audio_effector = torchaudio.io.AudioEffector(format=format, encoder=encoder)
         waveform_aug = audio_effector.apply(
             waveform.transpose(0, 1).to("cpu"), self.sample_rate
         )

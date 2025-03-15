@@ -21,9 +21,7 @@ def test_streaming_feature_wrapper(device):
     chunk_size = 3
     chunk_size_frames = (props.stride - 1) * chunk_size
 
-    x = torch.tensor(
-        [[1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0]], device=device
-    )
+    x = torch.tensor([[1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0]], device=device)
 
     chunks = split_fixed_chunks(x, chunk_size_frames)
     assert len(chunks) == 3

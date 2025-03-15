@@ -332,8 +332,7 @@ def create_csv(
     nb_samples = len(csv_data_lines)
 
     header_map = {
-        column_name: index
-        for index, column_name in enumerate(header_line.split("\t"))
+        column_name: index for index, column_name in enumerate(header_line.split("\t"))
     }
 
     msg = "Preparing CSV files for %s samples ..." % (str(nb_samples))
@@ -428,9 +427,7 @@ def language_specific_preprocess(language, words):
     # corresponding to your alphabet.
 
     if language in ["en", "fr", "it", "rw"]:
-        words = re.sub(
-            "[^’'A-Za-z0-9À-ÖØ-öø-ÿЀ-ӿéæœâçèàûî]+", " ", words
-        ).upper()
+        words = re.sub("[^’'A-Za-z0-9À-ÖØ-öø-ÿЀ-ӿéæœâçèàûî]+", " ", words).upper()
 
     if language == "de":
         # this replacement helps preserve the case of ß
@@ -491,7 +488,8 @@ def language_specific_preprocess(language, words):
         words = words.replace("O'", "O")
         words = words.replace("X'", "X")
         words = words.replace(
-            "AUJOURD' HUI", "AUJOURD'HUI"  # cspell:disable-line
+            "AUJOURD' HUI",
+            "AUJOURD'HUI",  # cspell:disable-line
         )
     elif language == "ar":
         HAMZA = "\u0621"
@@ -563,9 +561,5 @@ def unicode_normalisation(text):
 
 
 def strip_accents(text):
-    text = (
-        unicodedata.normalize("NFD", text)
-        .encode("ascii", "ignore")
-        .decode("utf-8")
-    )
+    text = unicodedata.normalize("NFD", text).encode("ascii", "ignore").decode("utf-8")
     return str(text)

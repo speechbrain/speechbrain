@@ -114,13 +114,9 @@ def get_decoding(
     """
 
     compose_HL_with_G = hparams.get("compose_HL_with_G")
-    use_G_rescoring = (
-        hparams.get("decoding_method") == "whole-lattice-rescoring"
-    )
+    use_G_rescoring = hparams.get("decoding_method") == "whole-lattice-rescoring"
 
-    caching = (
-        False if "caching" in hparams and hparams["caching"] is False else True
-    )
+    caching = False if "caching" in hparams and hparams["caching"] is False else True
 
     if compose_HL_with_G or use_G_rescoring:
         lm_dir = Path(hparams["lm_dir"])
@@ -403,13 +399,9 @@ def rescore_with_whole_lattice(
         except RuntimeError as e:
             logger.info(f"Caught exception:\n{e}\n")
             if loop_count >= max_loop_count:
-                logger.info(
-                    "Return None as the resulting lattice is too large."
-                )
+                logger.info("Return None as the resulting lattice is too large.")
                 return None
-            logger.info(
-                f"num_arcs before pruning: {inv_lattice.arcs.num_elements()}"
-            )
+            logger.info(f"num_arcs before pruning: {inv_lattice.arcs.num_elements()}")
             logger.info(
                 "This OOM is not an error. You can ignore it. "
                 "If your model does not converge well, or the segment length "
@@ -421,9 +413,7 @@ def rescore_with_whole_lattice(
                 prune_th_list[loop_count],
                 True,
             )
-            logger.info(
-                f"num_arcs after pruning: {inv_lattice.arcs.num_elements()}"
-            )
+            logger.info(f"num_arcs after pruning: {inv_lattice.arcs.num_elements()}")
         loop_count += 1
 
     # lat has token IDs as labels

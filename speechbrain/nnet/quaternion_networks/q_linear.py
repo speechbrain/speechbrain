@@ -139,9 +139,7 @@ class QLinear(torch.nn.Module):
                 torch.zeros(self.r_weight.shape), requires_grad=False
             )
         else:
-            self.zero_kernel = torch.Tensor(self.r_weight.shape).requires_grad_(
-                False
-            )
+            self.zero_kernel = torch.Tensor(self.r_weight.shape).requires_grad_(False)
 
         if self.spinor and self.vector_scale:
             self.scale_param = torch.nn.Parameter(

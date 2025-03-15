@@ -191,18 +191,12 @@ def skip(save_train, save_dev, save_test):
 
 
 def get_splits(dataset_folder) -> Tuple[List[str], List[str], List[str]]:
-    mwoz_21_dialogues = get_json_object(
-        os.path.join(dataset_folder, "data.json")
-    )
+    mwoz_21_dialogues = get_json_object(os.path.join(dataset_folder, "data.json"))
     dialogues_keys: Set[str] = set(mwoz_21_dialogues.keys())
     tr_split: List[str] = []
-    with open(
-        os.path.join(dataset_folder, "valListFile.txt"), encoding="utf-8"
-    ) as f:
+    with open(os.path.join(dataset_folder, "valListFile.txt"), encoding="utf-8") as f:
         dev_split: List[str] = [key.strip() for key in f]
-    with open(
-        os.path.join(dataset_folder, "testListFile.txt"), encoding="utf-8"
-    ) as f:
+    with open(os.path.join(dataset_folder, "testListFile.txt"), encoding="utf-8") as f:
         te_split: List[str] = [key.strip() for key in f]
 
     for key in dialogues_keys:
@@ -580,7 +574,7 @@ def get_json_object(data_path: str) -> dict:
 
 
 def create_dialogue_dataset(
-    dialogues: List[List[Dict[str, Any]]]
+    dialogues: List[List[Dict[str, Any]]],
 ) -> Dict[str, Dict[str, Any]]:
     """
     Creates a dialogue dataset starting from a set of dialogues. Each
@@ -676,9 +670,7 @@ def create_entry_key(turn: Dict[str, Any]) -> str:
     return f"{dialogue_idx}_{turn_idx}"
 
 
-def save_dialogue_dataset(
-    dataset: Dict[str, Dict[str, Any]], save_file: str
-) -> None:
+def save_dialogue_dataset(dataset: Dict[str, Dict[str, Any]], save_file: str) -> None:
     """
     Saves the dialogue dataset at dst_folder/file_name as a json file.
 

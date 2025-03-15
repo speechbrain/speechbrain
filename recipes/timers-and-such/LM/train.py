@@ -86,9 +86,7 @@ def dataio_prepare(hparams):
         hparams["dataloader_opts"]["shuffle"] = False
 
     elif hparams["sorting"] == "descending":
-        train_data = train_data.filtered_sorted(
-            sort_key="duration", reverse=True
-        )
+        train_data = train_data.filtered_sorted(sort_key="duration", reverse=True)
         # when sorting do not shuffle in dataloader ! otherwise is pointless
         hparams["dataloader_opts"]["shuffle"] = False
 
@@ -96,9 +94,7 @@ def dataio_prepare(hparams):
         pass
 
     else:
-        raise NotImplementedError(
-            "sorting must be random, ascending or descending"
-        )
+        raise NotImplementedError("sorting must be random, ascending or descending")
 
     valid_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
         csv_path=hparams["csv_valid"],
@@ -214,9 +210,5 @@ if __name__ == "__main__":
     )
 
     # Test
-    lm_brain.evaluate(
-        test_real_set, test_loader_kwargs=hparams["dataloader_opts"]
-    )
-    lm_brain.evaluate(
-        test_synth_set, test_loader_kwargs=hparams["dataloader_opts"]
-    )
+    lm_brain.evaluate(test_real_set, test_loader_kwargs=hparams["dataloader_opts"])
+    lm_brain.evaluate(test_synth_set, test_loader_kwargs=hparams["dataloader_opts"])

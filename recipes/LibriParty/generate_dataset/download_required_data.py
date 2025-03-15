@@ -28,9 +28,7 @@ QUT_TIMIT_URLS = [
     "https://data.researchdatafinder.qut.edu.au/dataset/a0eed5af-abd8-441b-b14a-8e064bc3d732/resource/10eeceae-9f0c-4556-b33a-dcf35c4f4db9/download/qutnoisestreet.zip",
 ]
 
-parser = argparse.ArgumentParser(
-    "Python script to download required recipe data"
-)
+parser = argparse.ArgumentParser("Python script to download required recipe data")
 parser.add_argument("--output_folder", type=str, required=True)
 parser.add_argument("--stage", type=int, default=0)
 args = parser.parse_args()
@@ -51,9 +49,7 @@ if args.stage <= 0:
 if args.stage <= 1:
     print("Stage 1: Downloading RIRs and Noises")
     name = OPENRIR_URL.split("/")[-1]
-    download_file(
-        OPENRIR_URL, os.path.join(args.output_folder, name), unpack=True
-    )
+    download_file(OPENRIR_URL, os.path.join(args.output_folder, name), unpack=True)
 
 if args.stage <= 2:
     print("Stage 2: Downloading QUT-TIMIT background noises")

@@ -277,9 +277,7 @@ class ContextNetBlock(torch.nn.Module):
         self.reduced_cov = None
         if residual:
             self.reduced_cov = Sequential(input_shape=input_shape)
-            self.reduced_cov.append(
-                Conv1d, out_channels, kernel_size=3, stride=stride
-            )
+            self.reduced_cov.append(Conv1d, out_channels, kernel_size=3, stride=stride)
             self.reduced_cov.append(norm)
 
         if isinstance(activation, Swish):

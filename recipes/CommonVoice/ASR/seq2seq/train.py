@@ -88,30 +88,20 @@ class ASR(sb.core.Brain):
         if stage == sb.Stage.TRAIN:
             if hasattr(self.hparams, "wav_augment"):
                 tokens = self.hparams.wav_augment.replicate_labels(tokens)
-                tokens_lens = self.hparams.wav_augment.replicate_labels(
-                    tokens_lens
-                )
-                tokens_eos = self.hparams.wav_augment.replicate_labels(
-                    tokens_eos
-                )
+                tokens_lens = self.hparams.wav_augment.replicate_labels(tokens_lens)
+                tokens_eos = self.hparams.wav_augment.replicate_labels(tokens_eos)
                 tokens_eos_lens = self.hparams.wav_augment.replicate_labels(
                     tokens_eos_lens
                 )
             if hasattr(self.hparams, "fea_augment"):
                 tokens = self.hparams.fea_augment.replicate_labels(tokens)
-                tokens_lens = self.hparams.fea_augment.replicate_labels(
-                    tokens_lens
-                )
-                tokens_eos = self.hparams.fea_augment.replicate_labels(
-                    tokens_eos
-                )
+                tokens_lens = self.hparams.fea_augment.replicate_labels(tokens_lens)
+                tokens_eos = self.hparams.fea_augment.replicate_labels(tokens_eos)
                 tokens_eos_lens = self.hparams.fea_augment.replicate_labels(
                     tokens_eos_lens
                 )
 
-        loss_seq = self.hparams.seq_cost(
-            p_seq, tokens_eos, length=tokens_eos_lens
-        )
+        loss_seq = self.hparams.seq_cost(p_seq, tokens_eos, length=tokens_eos_lens)
 
         # Add ctc loss if necessary
         current_epoch = self.hparams.epoch_counter.current
@@ -119,9 +109,7 @@ class ASR(sb.core.Brain):
             stage == sb.Stage.TRAIN
             and current_epoch <= self.hparams.number_of_ctc_epochs
         ):
-            loss_ctc = self.hparams.ctc_cost(
-                p_ctc, tokens, wav_lens, tokens_lens
-            )
+            loss_ctc = self.hparams.ctc_cost(p_ctc, tokens, wav_lens, tokens_lens)
             loss = self.hparams.ctc_weight * loss_ctc
             loss += (1 - self.hparams.ctc_weight) * loss_seq
         else:
@@ -129,9 +117,7 @@ class ASR(sb.core.Brain):
 
         if stage != sb.Stage.TRAIN:
             # Decode token terms to words
-            predicted_words = self.tokenizer(
-                predicted_tokens, task="decode_from_list"
-            )
+            predicted_words = self.tokenizer(predicted_tokens, task="decode_from_list")
 
             # Convert indices to words
             target_words = undo_padding(tokens, tokens_lens)
@@ -177,9 +163,7 @@ class ASR(sb.core.Brain):
                 test_stats=stage_stats,
             )
             if if_main_process():
-                with open(
-                    self.hparams.test_wer_file, "w", encoding="utf-8"
-                ) as w:
+                with open(self.hparams.test_wer_file, "w", encoding="utf-8") as w:
                     self.wer_metric.write_stats(w)
 
 
@@ -219,9 +203,7 @@ def dataio_prepare(hparams, tokenizer):
         pass
 
     else:
-        raise NotImplementedError(
-            "sorting must be random, ascending or descending"
-        )
+        raise NotImplementedError("sorting must be random, ascending or descending")
 
     valid_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
         csv_path=hparams["valid_csv"],

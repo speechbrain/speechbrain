@@ -1,4 +1,4 @@
-""" Specifies the inference interfaces for text-processing modules.
+"""Specifies the inference interfaces for text-processing modules.
 
 Authors:
  * Aku Rouhe 2021
@@ -87,9 +87,7 @@ class GraphemeToPhoneme(Pretrained, EncodeDecodePipelineMixin):
 
         model_inputs = encoded_inputs
         if hasattr(self.hparams, "model_input_keys"):
-            model_inputs = {
-                k: model_inputs[k] for k in self.hparams.model_input_keys
-            }
+            model_inputs = {k: model_inputs[k] for k in self.hparams.model_input_keys}
 
         model_outputs = self.mods.model(**model_inputs)
         decoded_output = self.decode_output(model_outputs)
@@ -114,8 +112,7 @@ class GraphemeToPhoneme(Pretrained, EncodeDecodePipelineMixin):
             phonemes, without <eos>
         """
         return [
-            item[:-1] if item and item[-1] == "<eos>" else item
-            for item in phonemes
+            item[:-1] if item and item[-1] == "<eos>" else item for item in phonemes
         ]
 
     def _update_graphemes(self, model_inputs):
@@ -123,9 +120,7 @@ class GraphemeToPhoneme(Pretrained, EncodeDecodePipelineMixin):
         if grapheme_sequence_mode and grapheme_sequence_mode != "raw":
             grapheme_encoded_key = f"grapheme_encoded_{grapheme_sequence_mode}"
             if grapheme_encoded_key in model_inputs:
-                model_inputs["grapheme_encoded"] = model_inputs[
-                    grapheme_encoded_key
-                ]
+                model_inputs["grapheme_encoded"] = model_inputs[grapheme_encoded_key]
 
     def load_dependencies(self):
         """Loads any relevant model dependencies"""
@@ -246,9 +241,7 @@ class GPTResponseGenerator(ResponseGenerator):
             self.eos,
             self.system,
             self.user,
-        ) = self.model.tokenizer.convert_tokens_to_ids(
-            self.hparams.special_tokens
-        )
+        ) = self.model.tokenizer.convert_tokens_to_ids(self.hparams.special_tokens)
 
     def generate(self, inputs):
         """

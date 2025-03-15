@@ -129,9 +129,7 @@ def timestep_embedding(timesteps, dim, max_period=10000):
     args = timesteps[:, None].float() * freqs[None]
     embedding = torch.cat([torch.cos(args), torch.sin(args)], dim=-1)
     if dim % 2:
-        embedding = torch.cat(
-            [embedding, torch.zeros_like(embedding[:, :1])], dim=-1
-        )
+        embedding = torch.cat([embedding, torch.zeros_like(embedding[:, :1])], dim=-1)
     return embedding
 
 
@@ -311,9 +309,7 @@ class Upsample(nn.Module):
         self.use_conv = use_conv
         self.dims = dims
         if use_conv:
-            self.conv = conv_nd(
-                dims, self.channels, self.out_channels, 3, padding=1
-            )
+            self.conv = conv_nd(dims, self.channels, self.out_channels, 3, padding=1)
 
     def forward(self, x):
         """Computes the upsampling pass
@@ -498,9 +494,7 @@ class ResBlock(TimestepBlock):
             nn.SiLU(),
             nn.Dropout(p=dropout),
             fixup(
-                conv_nd(
-                    dims, self.out_channels, self.out_channels, 3, padding=1
-                ),
+                conv_nd(dims, self.out_channels, self.out_channels, 3, padding=1),
                 use_fixup_init=use_fixup_init,
             ),
         )
@@ -597,9 +591,9 @@ class AttentionBlock(nn.Module):
         if num_head_channels == -1:
             self.num_heads = num_heads
         else:
-            assert (
-                channels % num_head_channels == 0
-            ), f"q,k,v channels {channels} is not divisible by num_head_channels {num_head_channels}"
+            assert channels % num_head_channels == 0, (
+                f"q,k,v channels {channels} is not divisible by num_head_channels {num_head_channels}"
+            )
             self.num_heads = channels // num_head_channels
         self.norm = nn.GroupNorm(norm_num_groups, channels)
         self.qkv = conv_nd(1, channels, channels * 3, 1)
@@ -848,11 +842,7 @@ class UNetModel(nn.Module):
 
         ch = input_ch = int(channel_mult[0] * model_channels)
         self.input_blocks = nn.ModuleList(
-            [
-                TimestepEmbedSequential(
-                    conv_nd(dims, in_channels, ch, 3, padding=1)
-                )
-            ]
+            [TimestepEmbedSequential(conv_nd(dims, in_channels, ch, 3, padding=1))]
         )
         self._feature_size = ch
         input_block_chans = [ch]
@@ -976,9 +966,7 @@ class UNetModel(nn.Module):
                             use_fixup_init=use_fixup_init,
                         )
                         if resblock_updown
-                        else Upsample(
-                            ch, conv_resample, dims=dims, out_channels=out_ch
-                        )
+                        else Upsample(ch, conv_resample, dims=dims, out_channels=out_ch)
                     )
                     ds //= 2
                 self.output_blocks.append(TimestepEmbedSequential(*layers))
@@ -1013,9 +1001,7 @@ class UNetModel(nn.Module):
         """
 
         hs = []
-        emb = self.time_embed(
-            timestep_embedding(timesteps, self.model_channels)
-        )
+        emb = self.time_embed(timestep_embedding(timesteps, self.model_channels))
 
         if cond_emb is not None:
             for key, value in cond_emb.items():
@@ -1168,11 +1154,7 @@ class EncoderUNetModel(nn.Module):
 
         ch = int(channel_mult[0] * model_channels)
         self.input_blocks = nn.ModuleList(
-            [
-                TimestepEmbedSequential(
-                    conv_nd(dims, in_channels, ch, 3, padding=1)
-                )
-            ]
+            [TimestepEmbedSequential(conv_nd(dims, in_channels, ch, 3, padding=1))]
         )
         self._feature_size = ch
         input_block_chans = [ch]
@@ -1257,9 +1239,7 @@ class EncoderUNetModel(nn.Module):
         self.spatial_pooling = False
         if pool is None:
             self.out = nn.Sequential(
-                nn.GroupNorm(
-                    num_channels=ch, num_groups=norm_num_groups, eps=1e-6
-                ),
+                nn.GroupNorm(num_channels=ch, num_groups=norm_num_groups, eps=1e-6),
                 nn.SiLU(),
                 conv_nd(
                     dims,
@@ -1328,9 +1308,7 @@ class EncoderUNetModel(nn.Module):
         """
         emb = None
         if timesteps is not None:
-            emb = self.time_embed(
-                timestep_embedding(timesteps, self.model_channels)
-            )
+            emb = self.time_embed(timestep_embedding(timesteps, self.model_channels))
 
         results = []
         h = x.type(self.dtype)
@@ -1580,9 +1558,7 @@ class DecoderUNetModel(nn.Module):
                             use_fixup_init=use_fixup_init,
                         )
                         if resblock_updown
-                        else Upsample(
-                            ch, conv_resample, dims=dims, out_channels=out_ch
-                        )
+                        else Upsample(ch, conv_resample, dims=dims, out_channels=out_ch)
                     )
                 )
                 ch = out_ch
@@ -1620,9 +1596,7 @@ class DecoderUNetModel(nn.Module):
         """
         emb = None
         if timesteps is not None:
-            emb = self.time_embed(
-                timestep_embedding(timesteps, self.model_channels)
-            )
+            emb = self.time_embed(timestep_embedding(timesteps, self.model_channels))
 
         h = x.type(self.dtype)
         h = self.input_block(h, emb)

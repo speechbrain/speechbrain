@@ -31,9 +31,7 @@ def prepare_musan(folder, music_csv, noise_csv, speech_csv, max_noise_len=None):
     csv_files = [music_csv, noise_csv, speech_csv]
     logger.info("Musan Data Preparation...")
     for sub_folder, csv_file in zip(sub_folders, csv_files):
-        wav_lst = get_all_files(
-            os.path.join(folder, sub_folder), match_and=[".wav"]
-        )
+        wav_lst = get_all_files(os.path.join(folder, sub_folder), match_and=[".wav"])
         if not os.path.isfile(csv_file):
             logger.info(csv_file + " creation...")
             _prepare_csv(folder, wav_lst, csv_file, max_noise_len)
@@ -77,15 +75,9 @@ def _prepare_csv(folder, filelist, csv_file, max_length=None):
                         os.remove(filename)
                         for i in range(int(duration / max_length)):
                             start = int(max_length * i * rate)
-                            stop = int(
-                                min(max_length * (i + 1), duration) * rate
-                            )
-                            new_filename = (
-                                filename[: -len(f".{ext}")] + f"_{i}.{ext}"
-                            )
-                            torchaudio.save(
-                                new_filename, signal[:, start:stop], rate
-                            )
+                            stop = int(min(max_length * (i + 1), duration) * rate)
+                            new_filename = filename[: -len(f".{ext}")] + f"_{i}.{ext}"
+                            torchaudio.save(new_filename, signal[:, start:stop], rate)
                             csv_row = (
                                 f"{ID}_{i}",
                                 str((stop - start) / rate),
@@ -95,8 +87,6 @@ def _prepare_csv(folder, filelist, csv_file, max_length=None):
                             )
                             w.write(",".join(csv_row))
                     else:
-                        w.write(
-                            ",".join((ID, str(duration), filename, ext, "\n"))
-                        )
+                        w.write(",".join((ID, str(duration), filename, ext, "\n")))
     finally:
         sb.utils.distributed.ddp_barrier()

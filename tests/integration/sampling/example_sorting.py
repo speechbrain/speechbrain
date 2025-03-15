@@ -1,5 +1,4 @@
-"""This minimal example checks on sampling with ascending/descending sorting and random shuffling; w/ & w/o DDP.
-"""
+"""This minimal example checks on sampling with ascending/descending sorting and random shuffling; w/ & w/o DDP."""
 
 import itertools
 import os
@@ -30,19 +29,12 @@ class SamplingBrain(sb.Brain):
                     assert False
             elif self.hparams.sorting == "descending":
                 if not all(
-                    [
-                        x == y
-                        for x, y in zip(
-                            lens[:-1], sorted(lens[:-1], reverse=True)
-                        )
-                    ]
+                    [x == y for x, y in zip(lens[:-1], sorted(lens[:-1], reverse=True))]
                 ):
                     print(lens)
                     assert False
             elif self.hparams.sorting == "random":
-                assert not all(
-                    [x == y for x, y in zip(lens[:-1], sorted(lens[:-1]))]
-                )
+                assert not all([x == y for x, y in zip(lens[:-1], sorted(lens[:-1]))])
             else:
                 raise NotImplementedError(
                     "sorting must be random, ascending or descending"
@@ -111,9 +103,7 @@ def data_prep(data_folder, hparams):
         pass
 
     else:
-        raise NotImplementedError(
-            "sorting must be random, ascending or descending"
-        )
+        raise NotImplementedError("sorting must be random, ascending or descending")
     # end: sorting impact
 
     valid_data = sb.dataio.dataset.DynamicItemDataset.from_csv(

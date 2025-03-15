@@ -59,9 +59,7 @@ def get_funcs_to_unary_input_classifier(
             batch_label: (
                 example[: duration * sampling_rate].repeat(batch_size, 1)
                 if example is not None
-                else torch.rand(
-                    (batch_size, duration * sampling_rate), device=device
-                )
+                else torch.rand((batch_size, duration * sampling_rate), device=device)
             ),
         }
         if lengths_label is not None:
@@ -226,12 +224,7 @@ def benchmark_to_markdown(
     """Implement benchmark to markdown."""
     cell_width = max([len(x) for x in benchmark[0]])
     fmt = "{: >%d} " % cell_width
-    out = (
-        "|   "
-        + fmt.format("|")
-        + "| ".join([fmt.format(x) for x in columns])
-        + "|\n"
-    )
+    out = "|   " + fmt.format("|") + "| ".join([fmt.format(x) for x in columns]) + "|\n"
     sep = "|:" + cell_width * "-" + ":"
     out += (1 + len(columns)) * sep + "|\n"
     for i, r in enumerate(rows):
@@ -280,17 +273,13 @@ def profile_pretrained(
         memory_peaks_row = []
         for b, bs in enumerate(batch_sizes):
             # skip expected heavy-loads
-            if (
-                triangle_only
-            ):  # this is a protection mechanism, since configs might explore exponentially
+            if triangle_only:  # this is a protection mechanism, since configs might explore exponentially
                 if (
                     (b + d >= (len(audio_mockup_secs) + len(batch_sizes)) / 2)
                     and (d > 0)
                     and (b > 0)
                 ):
-                    print(
-                        f"\tskipped - duration: {duration:d}, batch_size: {bs:d}"
-                    )
+                    print(f"\tskipped - duration: {duration:d}, batch_size: {bs:d}")
                     realtime_factor_row.append("_skip_")
                     memory_peaks_row.append("_skip_")
                     continue
@@ -306,17 +295,15 @@ def profile_pretrained(
 
             # Simulating batching and profiling it
             prof = export(profile_report()) if export_logs else profile_report()
-            num_steps = 10  # profile_report scheduler needs 10 steps for seven recordings
+            num_steps = (
+                10  # profile_report scheduler needs 10 steps for seven recordings
+            )
             for _ in range(num_steps):
                 call(model=pretrained, **kwargs)
                 prof.step()
 
             # Gathering time and memory reports
-            print(
-                prof.key_averages().table(
-                    sort_by="cpu_time_total", row_limit=10
-                )
-            )
+            print(prof.key_averages().table(sort_by="cpu_time_total", row_limit=10))
 
             cpu_time, cuda_time = report_time(
                 prof, verbose=True, upper_control_limit=True

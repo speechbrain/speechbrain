@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-""" This module contains functions to prepare the lexicon and the language model
+"""This module contains functions to prepare the lexicon and the language model
 for k2 training. It is based on the script `prepare_lang.sh` from k2/icefall (work
 of Fangjun Kuang). The original script is under Apache 2.0 license.
 This script is modified to work with SpeechBrain.
@@ -9,7 +9,6 @@ Modified by:
   * Zeyu Zhao 2023
   * Georgios Karakasidis 2023
 """
-
 
 import math
 import os
@@ -74,9 +73,9 @@ def get_tokens(
     if manually_add_sil_to_tokens:
         ans.add(sil_token)
     for _, tokens in lexicon:
-        assert (
-            sil_token not in tokens
-        ), f"{sil_token} should not appear in the lexicon but it is found in {_}"
+        assert sil_token not in tokens, (
+            f"{sil_token} should not appear in the lexicon but it is found in {_}"
+        )
         ans.update(tokens)
     sorted_ans = sorted(list(ans))
     return sorted_ans
@@ -470,8 +469,7 @@ def prepare_lang(lang_dir, sil_token="SIL", sil_prob=0.5, cache=True):
     if (
         cache
         and (out_dir / "Linv.pt").exists()
-        and (out_dir / "Linv.pt").stat().st_mtime
-        < lexicon_filename.stat().st_mtime
+        and (out_dir / "Linv.pt").stat().st_mtime < lexicon_filename.stat().st_mtime
     ):
         logger.warning(
             f"Skipping lang preparation of '{out_dir}'."
@@ -524,9 +522,7 @@ def prepare_lang(lang_dir, sil_token="SIL", sil_prob=0.5, cache=True):
     token2id = generate_id_map(tokens)
     word2id = generate_id_map(words)
 
-    logger.info(
-        f"Saving tokens.txt, words.txt, lexicon_disambig.txt to '{out_dir}'"
-    )
+    logger.info(f"Saving tokens.txt, words.txt, lexicon_disambig.txt to '{out_dir}'")
     write_mapping(out_dir / "tokens.txt", token2id)
     write_mapping(out_dir / "words.txt", word2id)
     write_lexicon(out_dir / "lexicon_disambig.txt", lexicon_disambig)

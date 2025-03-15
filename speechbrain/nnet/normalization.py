@@ -91,9 +91,7 @@ class BatchNorm1d(nn.Module):
             if x.ndim == 3:
                 x = x.reshape(shape_or[0] * shape_or[1], shape_or[2])
             else:
-                x = x.reshape(
-                    shape_or[0] * shape_or[1], shape_or[3], shape_or[2]
-                )
+                x = x.reshape(shape_or[0] * shape_or[1], shape_or[3], shape_or[2])
 
         elif not self.skip_transpose:
             x = x.transpose(-1, 1)
@@ -622,9 +620,7 @@ class PCEN(nn.Module):
         self.delta = nn.Parameter(
             torch.ones(input_size) * delta, requires_grad=trainable
         )
-        self.root = nn.Parameter(
-            torch.ones(input_size) * root, requires_grad=trainable
-        )
+        self.root = nn.Parameter(torch.ones(input_size) * root, requires_grad=trainable)
 
         self.ema = ExponentialMovingAverage(
             input_size,
@@ -649,12 +645,8 @@ class PCEN(nn.Module):
         """
         if not self.skip_transpose:
             x = x.transpose(1, -1)
-        alpha = torch.min(
-            self.alpha, torch.tensor(1.0, dtype=x.dtype, device=x.device)
-        )
-        root = torch.max(
-            self.root, torch.tensor(1.0, dtype=x.dtype, device=x.device)
-        )
+        alpha = torch.min(self.alpha, torch.tensor(1.0, dtype=x.dtype, device=x.device))
+        root = torch.max(self.root, torch.tensor(1.0, dtype=x.dtype, device=x.device))
         ema_smoother = self.ema(x)
         one_over_root = 1.0 / root
         output = (
@@ -662,9 +654,7 @@ class PCEN(nn.Module):
             + self.delta.view(1, -1, 1)
         ) ** one_over_root.view(1, -1, 1) - self.delta.view(
             1, -1, 1
-        ) ** one_over_root.view(
-            1, -1, 1
-        )
+        ) ** one_over_root.view(1, -1, 1)
         if not self.skip_transpose:
             output = output.transpose(1, -1)
         return output

@@ -238,9 +238,7 @@ def dataio_prep(hparams):
     # Load or compute the label encoder (with multi-GPU DDP support)
     # Please, take a look into the lab_enc_file to see the label to index
     # mapping.
-    language_encoder_file = os.path.join(
-        hparams["save_folder"], "language_encoder.txt"
-    )
+    language_encoder_file = os.path.join(hparams["save_folder"], "language_encoder.txt")
     language_encoder.load_or_create(
         path=language_encoder_file,
         from_didatasets=[datasets["train"]],

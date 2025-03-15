@@ -94,9 +94,9 @@ class FilterProperties:
     def __post_init__(self):
         assert self.window_size > 0
         assert self.stride > 0
-        assert (
-            self.dilation > 0
-        ), "Dilation must be >0. NOTE: a dilation of 1 means no dilation."
+        assert self.dilation > 0, (
+            "Dilation must be >0. NOTE: a dilation of 1 means no dilation."
+        )
 
     @staticmethod
     def pointwise_filter() -> "FilterProperties":

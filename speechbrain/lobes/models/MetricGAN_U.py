@@ -84,9 +84,7 @@ class EnhancementGenerator(nn.Module):
             elif "weight_hh" in name:
                 nn.init.orthogonal_(param)
 
-        self.linear1 = xavier_init_layer(
-            hidden_size * 2, lin_dim, spec_norm=False
-        )
+        self.linear1 = xavier_init_layer(hidden_size * 2, lin_dim, spec_norm=False)
         self.linear2 = xavier_init_layer(lin_dim, input_size, spec_norm=False)
 
         self.sigmoid = nn.Sigmoid()

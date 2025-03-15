@@ -133,13 +133,9 @@ class Whisper(HFTransformersInterface):
 
             if self.is_multilingual:
                 language = self.language or "en"
-                self.tokenizer.set_prefix_tokens(
-                    language=language, task=self.task
-                )
+                self.tokenizer.set_prefix_tokens(language=language, task=self.task)
 
-        self.load_feature_extractor(
-            source, save_path, sampling_rate=sampling_rate
-        )
+        self.load_feature_extractor(source, save_path, sampling_rate=sampling_rate)
 
         self._n_fft = self.feature_extractor.n_fft
         self._hop_length = self.feature_extractor.hop_length
@@ -403,9 +399,7 @@ class Whisper(HFTransformersInterface):
         x = output_states.last_hidden_state
         logits = (
             x
-            @ torch.transpose(
-                self.model.decoder.embed_tokens.weight.to(x.dtype), 0, 1
-            )
+            @ torch.transpose(self.model.decoder.embed_tokens.weight.to(x.dtype), 0, 1)
         ).float()
 
         return logits, attn, output_states.past_key_values
@@ -416,9 +410,7 @@ class Whisper(HFTransformersInterface):
         from transformers.models.whisper.tokenization_whisper import LANGUAGES
 
         langs = list(LANGUAGES.keys())  # Convert keys to a list
-        bos_token_id = self.tokenizer.convert_tokens_to_ids(
-            self.tokenizer.bos_token
-        )
+        bos_token_id = self.tokenizer.convert_tokens_to_ids(self.tokenizer.bos_token)
         result = []
         for lang in langs:
             result.append(bos_token_id + 1 + langs.index(lang))
@@ -447,7 +439,9 @@ class Whisper(HFTransformersInterface):
         Taken from: openai/whisper GitHub
         """
         symbols = list('"#()*+/:;<=>@[\\]^_`{|}~「」『』')
-        symbols += "<< >> <<< >>> -- --- -( -[ (' (\" (( )) ((( ))) [[ ]] {{ }} ♪♪ ♪♪♪".split()
+        symbols += (
+            "<< >> <<< >>> -- --- -( -[ (' (\" (( )) ((( ))) [[ ]] {{ }} ♪♪ ♪♪♪".split()
+        )
 
         # symbols that may be a single token or multiple tokens depending on the tokenizer.
         # In case they're multiple tokens, suppress the first token, which is safe because:
@@ -520,9 +514,7 @@ class Whisper(HFTransformersInterface):
     def language_token(self) -> int:
         """Returns the token id corresponding to the value of the `language` field"""
         if self.language is None:
-            raise ValueError(
-                "This tokenizer does not have language token configured"
-            )
+            raise ValueError("This tokenizer does not have language token configured")
         return self.to_language_token(self.language)
 
     def to_language_token(self, language):
@@ -543,9 +535,7 @@ class Whisper(HFTransformersInterface):
         KeyError
             If the language is not found in the tokenizer.
         """
-        token = self.tokenizer.convert_tokens_to_ids.get(
-            f"<|{language}|>", None
-        )
+        token = self.tokenizer.convert_tokens_to_ids.get(f"<|{language}|>", None)
         if token:
             return token
 
@@ -612,9 +602,7 @@ class Whisper(HFTransformersInterface):
         batch_size = mel.shape[0]
         enc_states = self.model.encoder(mel).last_hidden_state
 
-        decoder_input_ids = torch.tensor([[self.bos]] * batch_size).to(
-            mel.device
-        )
+        decoder_input_ids = torch.tensor([[self.bos]] * batch_size).to(mel.device)
         logits = self.forward_decoder(enc_states, decoder_input_ids)[0][:, 0]
         mask = torch.ones(logits.shape[-1], dtype=torch.bool)
         mask[list(self.all_language_tokens)] = False
@@ -625,9 +613,7 @@ class Whisper(HFTransformersInterface):
         language_probs = [
             {
                 c: language_token_probs[i, j].item()
-                for j, c in zip(
-                    self.all_language_tokens, self.all_language_codes
-                )
+                for j, c in zip(self.all_language_tokens, self.all_language_codes)
             }
             for i in range(batch_size)
         ]

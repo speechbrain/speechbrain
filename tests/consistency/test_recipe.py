@@ -185,9 +185,7 @@ def test_README_links(
         ) as csvf:
             reader = csv.DictReader(csvf, delimiter=",", skipinitialspace=True)
             for row in reader:
-                with open(
-                    row[readme_field].strip(), encoding="utf-8"
-                ) as readmefile:
+                with open(row[readme_field].strip(), encoding="utf-8") as readmefile:
                     content = readmefile.read()
                     for field in must_link:
                         links = row[field].strip().split(" ")

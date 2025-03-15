@@ -10,6 +10,7 @@ Authors
  * Mirco Ravanelli 2020
  * Peter Plantinga 2020
 """
+
 import os
 import sys
 
@@ -54,9 +55,7 @@ class AlignBrain(sb.Brain):
 
         phns, phn_lens = phns.to(self.device), phn_lens.to(self.device)
         phns_orig = sb.utils.data_utils.undo_padding(phns, phn_lens)
-        phns = self.hparams.aligner.expand_phns_by_states_per_phoneme(
-            phns, phn_lens
-        )
+        phns = self.hparams.aligner.expand_phns_by_states_per_phoneme(phns, phn_lens)
 
         phns = phns.int()
 
@@ -67,9 +66,7 @@ class AlignBrain(sb.Brain):
             loss = -forward_scores
 
         elif self.training_type == "ctc":
-            loss = self.hparams.compute_cost_ctc(
-                pout, phns, pout_lens, phn_lens
-            )
+            loss = self.hparams.compute_cost_ctc(pout, phns, pout_lens, phn_lens)
         elif self.training_type == "viterbi":
             prev_alignments = self.hparams.aligner.get_prev_alignments(
                 ids, pout, pout_lens, phns, phn_lens
@@ -99,12 +96,9 @@ class AlignBrain(sb.Brain):
         """Gets called at the end of a epoch."""
         if hasattr(self.hparams, "switch_training_type"):
             if not hasattr(self.hparams, "switch_training_epoch"):
-                raise ValueError(
-                    "Please specify `switch_training_epoch` in `params`"
-                )
+                raise ValueError("Please specify `switch_training_epoch` in `params`")
             if (
-                self.hparams.epoch_counter.current
-                == self.hparams.switch_training_epoch
+                self.hparams.epoch_counter.current == self.hparams.switch_training_epoch
             ) and stage == sb.Stage.VALID:
                 self.training_type = self.hparams.switch_training_type
                 print("Switching to training type", self.training_type)
@@ -155,9 +149,7 @@ def dataio_prep(hparams):
         hparams["dataloader_options"]["shuffle"] = False
 
     elif hparams["sorting"] == "descending":
-        train_data = train_data.filtered_sorted(
-            sort_key="duration", reverse=True
-        )
+        train_data = train_data.filtered_sorted(sort_key="duration", reverse=True)
         # when sorting do not shuffle in dataloader ! otherwise is pointless
         hparams["dataloader_options"]["shuffle"] = False
 
@@ -165,9 +157,7 @@ def dataio_prep(hparams):
         pass
 
     else:
-        raise NotImplementedError(
-            "sorting must be random, ascending or descending"
-        )
+        raise NotImplementedError("sorting must be random, ascending or descending")
 
     valid_data = sb.dataio.dataset.DynamicItemDataset.from_json(
         json_path=hparams["valid_annotation"],
@@ -217,16 +207,12 @@ def dataio_prep(hparams):
 
     # 3. Fit encoder:
     # Load or compute the label encoder
-    label_encoder_file = os.path.join(
-        hparams["save_folder"], "label_encoder.txt"
-    )
+    label_encoder_file = os.path.join(hparams["save_folder"], "label_encoder.txt")
     if os.path.exists(label_encoder_file):
         label_encoder.load(label_encoder_file)
     else:
         label_encoder.update_from_didataset(train_data, output_key="phn_list")
-        label_encoder.save(
-            os.path.join(hparams["save_folder"], "label_encoder.txt")
-        )
+        label_encoder.save(os.path.join(hparams["save_folder"], "label_encoder.txt"))
 
     # 6. Set output:
     sb.dataio.dataset.set_output_keys(

@@ -8,6 +8,7 @@ To run this recipe, do the following:
 Authors
  * Szu-Wei Fu 2020
 """
+
 import os
 import sys
 
@@ -56,9 +57,7 @@ class SEBrain(sb.Brain):
                 lens = lens * clean_wavs.shape[1]
                 for name, pred_wav, length in zip(batch.id, predict_wavs, lens):
                     name += ".wav"
-                    enhance_path = os.path.join(
-                        self.hparams.enhanced_folder, name
-                    )
+                    enhance_path = os.path.join(self.hparams.enhanced_folder, name)
                     pred_wav = pred_wav / torch.max(torch.abs(pred_wav)) * 0.99
                     torchaudio.save(
                         enhance_path,
@@ -84,9 +83,7 @@ class SEBrain(sb.Brain):
             )
 
         if stage != sb.Stage.TRAIN:
-            self.pesq_metric = MetricStats(
-                metric=pesq_eval, n_jobs=1, batch_eval=False
-            )
+            self.pesq_metric = MetricStats(metric=pesq_eval, n_jobs=1, batch_eval=False)
 
     def on_stage_end(self, stage, stage_loss, epoch=None):
         """Gets called at the end of an epoch."""
@@ -162,9 +159,7 @@ def dataio_prep(hparams):
         )
         hparams["dataloader_options"]["shuffle"] = False
     elif hparams["sorting"] != "random":
-        raise NotImplementedError(
-            "Sorting must be random, ascending, or descending"
-        )
+        raise NotImplementedError("Sorting must be random, ascending, or descending")
 
     return datasets
 

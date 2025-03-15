@@ -1,4 +1,4 @@
-""" Specifies the inference interfaces for interpretability modules.
+"""Specifies the inference interfaces for interpretability modules.
 
 Authors:
  * Aku Rouhe 2021
@@ -126,9 +126,7 @@ class PIQAudioInterpreter(Pretrained):
             X_int = (xhat > th) * X_stft_logpower[:, :Tmax, :]
         X_int = torch.expm1(X_int)
         x_int_sound_domain = self.invert_stft_with_phase(X_int, X_stft_phase)
-        text_lab = self.hparams.label_encoder.decode_torch(
-            class_pred.unsqueeze(0)
-        )
+        text_lab = self.hparams.label_encoder.decode_torch(class_pred.unsqueeze(0))
 
         return x_int_sound_domain, text_lab
 
@@ -166,11 +164,7 @@ class PIQAudioInterpreter(Pretrained):
 
         # resample the data if needed
         if fs_file != fs_model:
-            print(
-                "Resampling the audio from {} Hz to {} Hz".format(
-                    fs_file, fs_model
-                )
-            )
+            print("Resampling the audio from {} Hz to {} Hz".format(fs_file, fs_model))
             tf = torchaudio.transforms.Resample(
                 orig_freq=fs_file, new_freq=fs_model
             ).to(self.device)

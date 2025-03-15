@@ -43,15 +43,13 @@ class GumbelVectorQuantizer(nn.Module):
         self.num_vars = num_vars
         self.vq_dim = vq_dim
 
-        assert (
-            vq_dim % groups == 0
-        ), f"dim {vq_dim} must be divisible by groups {groups} for concatenation"
+        assert vq_dim % groups == 0, (
+            f"dim {vq_dim} must be divisible by groups {groups} for concatenation"
+        )
 
         var_dim = vq_dim // groups
 
-        self.vars = nn.Parameter(
-            torch.FloatTensor(1, groups * num_vars, var_dim)
-        )
+        self.vars = nn.Parameter(torch.FloatTensor(1, groups * num_vars, var_dim))
         nn.init.uniform_(self.vars)
 
         self.weight_proj = nn.Linear(self.input_dim, groups * num_vars)
@@ -69,9 +67,7 @@ class GumbelVectorQuantizer(nn.Module):
 
     def update_temp(self, steps):
         """Update the temperature given the current step"""
-        self.curr_temp = max(
-            self.max_temp * self.temp_decay**steps, self.min_temp
-        )
+        self.curr_temp = max(self.max_temp * self.temp_decay**steps, self.min_temp)
 
     def forward(self, x):
         """Forward the latent vector to obtain a quantised output"""
@@ -107,9 +103,7 @@ class GumbelVectorQuantizer(nn.Module):
         result["temp"] = self.curr_temp
 
         if self.training:
-            x = F.gumbel_softmax(
-                x.float(), tau=self.curr_temp, hard=True
-            ).type_as(x)
+            x = F.gumbel_softmax(x.float(), tau=self.curr_temp, hard=True).type_as(x)
         else:
             x = hard_x
 
@@ -169,6 +163,6 @@ class RandomProjectionQuantizer(nn.Module):
         """Forward the latent vector to obtain a quantised output"""
 
         x = F.normalize(x @ self.P, dim=2)
-        return vector_norm(
-            (self.CB.unsqueeze(1) - x.unsqueeze(1)), dim=-1
-        ).argmin(dim=1)
+        return vector_norm((self.CB.unsqueeze(1) - x.unsqueeze(1)), dim=-1).argmin(
+            dim=1
+        )

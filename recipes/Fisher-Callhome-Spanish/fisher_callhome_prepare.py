@@ -26,7 +26,9 @@ from speechbrain.utils.torch_audio_backend import check_torchaudio_backend
 try:
     from sacremoses import MosesPunctNormalizer, MosesTokenizer
 except ImportError:
-    err_msg = "The optional dependency sacremoses must be installed to run this recipe.\n"
+    err_msg = (
+        "The optional dependency sacremoses must be installed to run this recipe.\n"
+    )
     err_msg += "Install using `pip install sacremoses`.\n"
     raise ImportError(err_msg)
 
@@ -176,9 +178,7 @@ def prepare_fisher_callhome_spanish(
 
         # filter out empty or long transcription/translation
         concated_data = list(
-            filter(
-                lambda data: 0 < len(data.transcription) < 400, concated_data
-            )
+            filter(lambda data: 0 < len(data.transcription) < 400, concated_data)
         )
 
         if dataset == "train":
@@ -198,9 +198,7 @@ def prepare_fisher_callhome_spanish(
                 )
 
         # ignore empty or long utterances
-        concated_data = list(
-            filter(lambda data: 0 < data.duration < 30, concated_data)
-        )
+        concated_data = list(filter(lambda data: 0 < data.duration < 30, concated_data))
 
         # sort by utterance id
         concated_data = sorted(concated_data, key=lambda data: data.uid)
@@ -330,38 +328,27 @@ def concate_transcriptions_by_mapping_file(
             if len(need_to_be_concate_lines) > 1:
                 # index shift one is because id is count from 1 in file however, list start from 0
                 concated_transcripts = selected_transcription[
-                    need_to_be_concate_lines[0]
-                    - 1 : need_to_be_concate_lines[-1]
+                    need_to_be_concate_lines[0] - 1 : need_to_be_concate_lines[-1]
                 ]
                 concated_transcripts = list(
                     map(lambda tdf: tdf.transcript, concated_transcripts)
                 )
                 concated_transcripts = " ".join(concated_transcripts)
 
-                start = selected_transcription[
-                    need_to_be_concate_lines[0] - 1
-                ].start
-                end = selected_transcription[
-                    need_to_be_concate_lines[-1] - 1
-                ].end
+                start = selected_transcription[need_to_be_concate_lines[0] - 1].start
+                end = selected_transcription[need_to_be_concate_lines[-1] - 1].end
             else:
                 concated_transcripts = selected_transcription[
                     need_to_be_concate_lines[-1] - 1
                 ].transcript
-                start = selected_transcription[
-                    need_to_be_concate_lines[-1] - 1
-                ].start
-                end = selected_transcription[
-                    need_to_be_concate_lines[-1] - 1
-                ].end
+                start = selected_transcription[need_to_be_concate_lines[-1] - 1].start
+                end = selected_transcription[need_to_be_concate_lines[-1] - 1].end
 
             # clean up
             concated_transcripts = normalize_punctuation(concated_transcripts)
             concated_transcripts = es_normalizer.normalize(concated_transcripts)
 
-            channel = selected_transcription[
-                need_to_be_concate_lines[0] - 1
-            ].channel
+            channel = selected_transcription[need_to_be_concate_lines[0] - 1].channel
             channel_symbol = "B" if channel == 1 else "A"
             utterance_id = f"{uid}-{channel_symbol}-{start:06d}-{end:06d}"
 
@@ -392,9 +379,7 @@ def segment_audio(
     end = int(end / 100 * 8000)
     num_frames = end - start
 
-    data, _ = torchaudio.load(
-        audio_path, frame_offset=start, num_frames=num_frames
-    )
+    data, _ = torchaudio.load(audio_path, frame_offset=start, num_frames=num_frames)
 
     resampler = Resample(orig_freq=8000, new_freq=sample_rate).to(device=device)
 
@@ -477,11 +462,12 @@ def make_data_splits(
 
         for fisher_split in fisher_splits:
             split = set()
-            with open(
-                f"{mapping_folder}/fisher_{fisher_split}", "r", encoding="utf-8"
-            ) as fisher_file, open(
-                f"./splits/{fisher_split}", "a+", encoding="utf-8"
-            ) as split_file:
+            with (
+                open(
+                    f"{mapping_folder}/fisher_{fisher_split}", "r", encoding="utf-8"
+                ) as fisher_file,
+                open(f"./splits/{fisher_split}", "a+", encoding="utf-8") as split_file,
+            ):
                 fisher_file_lines = fisher_file.readlines()
 
                 for fisher_file_line in fisher_file_lines:
@@ -691,9 +677,7 @@ def clean_translation(translation: str) -> str:
 def remove_labels(transcription: str):
     """remove label such as <laugh> from transcript"""
 
-    transcription = re.sub(
-        r"<\s*[/]*\s*\s*for[ei][ei]g[nh]\s*\w*>", "", transcription
-    )
+    transcription = re.sub(r"<\s*[/]*\s*\s*for[ei][ei]g[nh]\s*\w*>", "", transcription)
     transcriptions = re.findall(r"<lname>\([^<]*\)<\/lname>", transcription)
 
     if len(transcriptions) > 0:

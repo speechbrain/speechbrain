@@ -144,9 +144,7 @@ def write_shards(
 ################################################################################
 # define CLI
 
-parser = argparse.ArgumentParser(
-    description="Convert DNS-4 to WebDataset shards"
-)
+parser = argparse.ArgumentParser(description="Convert DNS-4 to WebDataset shards")
 
 parser.add_argument(
     "dns_decompressed_path",

@@ -1,5 +1,4 @@
-""" Comprehensive speech processing toolkit
-"""
+"""Comprehensive speech processing toolkit"""
 
 import os
 
@@ -11,7 +10,7 @@ with open(
     os.path.join(os.path.dirname(__file__), "version.txt"), encoding="utf-8"
 ) as f:
     version = f.read().strip()
-parse_arguments = RunOptions.from_command_line_args
+_, parse_arguments, _ = RunOptions.from_command_line_args
 __all__ = [
     "Stage",
     "Brain",

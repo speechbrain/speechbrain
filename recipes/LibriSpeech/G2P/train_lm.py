@@ -13,6 +13,7 @@ Authors
  * Mirco Ravanelli 2021
  * Artem Ploujnikov 2021
 """
+
 import os
 import sys
 
@@ -89,9 +90,7 @@ class LM(sb.core.Brain):
         """
         batch = batch.to(self.device)
         tokens_eos, tokens_len = batch.phn_encoded_eos
-        loss = self.hparams.compute_cost(
-            predictions, tokens_eos, length=tokens_len
-        )
+        loss = self.hparams.compute_cost(predictions, tokens_eos, length=tokens_len)
         return loss
 
     def on_fit_batch_end(self, batch, outputs, loss, should_step):

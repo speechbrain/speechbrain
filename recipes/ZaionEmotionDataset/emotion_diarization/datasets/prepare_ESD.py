@@ -71,9 +71,7 @@ def prepare_esd(data_folder, save_json, seed=12):
                 source_folder = os.path.join(
                     data_folder, repo, sub_folder, sub_sub_folder
                 )
-                destin_folder = os.path.join(
-                    data_folder, "processed", repo, sub_folder
-                )
+                destin_folder = os.path.join(data_folder, "processed", repo, sub_folder)
                 if not os.path.exists(destin_folder):
                     os.makedirs(destin_folder)
                 vad_for_folder(source_folder, destin_folder)
@@ -125,15 +123,9 @@ def concat_wavs(data_folder, save_json):
         emotion_wavs = []
         neutral_wavs = []
 
-        angry_files = os.listdir(
-            os.path.join(data_folder, "processed", repo, "Angry")
-        )
-        happy_files = os.listdir(
-            os.path.join(data_folder, "processed", repo, "Happy")
-        )
-        sad_files = os.listdir(
-            os.path.join(data_folder, "processed", repo, "Sad")
-        )
+        angry_files = os.listdir(os.path.join(data_folder, "processed", repo, "Angry"))
+        happy_files = os.listdir(os.path.join(data_folder, "processed", repo, "Happy"))
+        sad_files = os.listdir(os.path.join(data_folder, "processed", repo, "Sad"))
         neutral_files = os.listdir(
             os.path.join(data_folder, "processed", repo, "Neutral")
         )
@@ -164,9 +156,7 @@ def concat_wavs(data_folder, save_json):
             os.makedirs(combine_path)
 
         while len(emotion_wavs) > 0:
-            combination = np.random.choice(
-                combinations, p=probabilities.ravel()
-            )
+            combination = np.random.choice(combinations, p=probabilities.ravel())
             if combination == "neu_emo":
                 neutral_sample = neutral_wavs[0]
                 emo_sample = emotion_wavs[0]
@@ -246,9 +236,7 @@ def concat_wavs(data_folder, save_json):
 
                 emotion_input += neutral_input_1.dBFS - emotion_input.dBFS
                 neutral_input_2 += neutral_input_1.dBFS - neutral_input_2.dBFS
-                combined_input = (
-                    neutral_input_1 + emotion_input + neutral_input_2
-                )
+                combined_input = neutral_input_1 + emotion_input + neutral_input_2
 
                 out_name = os.path.join(
                     combine_path,
@@ -281,9 +269,7 @@ def concat_wavs(data_folder, save_json):
 
                 emotion_input_1 = AudioSegment.from_wav(emo_sample_1)
 
-                out_name = os.path.join(
-                    combine_path, emo_sample_1.split("/")[-1]
-                )
+                out_name = os.path.join(combine_path, emo_sample_1.split("/")[-1])
                 emotion_input_1.export(out_name, format="wav")
 
                 id = out_name.split("/")[-1][:-4]

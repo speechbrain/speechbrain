@@ -109,8 +109,7 @@ def DER(
         # Get all recording IDs
         file_ids = [m.strip() for m in FILE_IDS.findall(stdout)]
         file_ids = [
-            file_id[2:] if file_id.startswith("f=") else file_id
-            for file_id in file_ids
+            file_id[2:] if file_id.startswith("f=") else file_id for file_id in file_ids
         ]
 
         scored_speaker_times = np.array(
@@ -121,9 +120,7 @@ def DER(
             [float(m) for m in MISS_SPEAKER_TIME.findall(stdout)]
         )
 
-        fa_speaker_times = np.array(
-            [float(m) for m in FA_SPEAKER_TIME.findall(stdout)]
-        )
+        fa_speaker_times = np.array([float(m) for m in FA_SPEAKER_TIME.findall(stdout)])
 
         error_speaker_times = np.array(
             [float(m) for m in ERROR_SPEAKER_TIME.findall(stdout)]

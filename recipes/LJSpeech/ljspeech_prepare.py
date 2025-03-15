@@ -135,15 +135,9 @@ def prepare_ljspeech(
         # This step requires phoneme alignments to be present in the data_folder
         # We automatically download the alignments from https://www.dropbox.com/s/v28x5ldqqa288pu/LJSpeech.zip
         # Download and unzip LJSpeech phoneme alignments from here: https://drive.google.com/drive/folders/1DBRkALpPd6FL9gjHMmMEdHODmkgNIIK4
-        alignment_URL = (
-            "https://www.dropbox.com/s/v28x5ldqqa288pu/LJSpeech.zip?dl=1"
-        )
-        phoneme_alignments_folder = os.path.join(
-            data_folder, "TextGrid", "LJSpeech"
-        )
-        download_file(
-            alignment_URL, data_folder + "/alignments.zip", unpack=True
-        )
+        alignment_URL = "https://www.dropbox.com/s/v28x5ldqqa288pu/LJSpeech.zip?dl=1"
+        phoneme_alignments_folder = os.path.join(data_folder, "TextGrid", "LJSpeech")
+        download_file(alignment_URL, data_folder + "/alignments.zip", unpack=True)
 
         duration_folder = os.path.join(data_folder, "durations")
         if not os.path.exists(duration_folder):
@@ -327,9 +321,7 @@ def split_sets(data_folder, splits, split_ratio):
             if split == "valid":
                 if "test" in splits:
                     random.shuffle(index_for_sessions[j])
-                    n_snts = int(
-                        session_len[j] * split_ratio[i] / sum(split_ratio)
-                    )
+                    n_snts = int(session_len[j] * split_ratio[i] / sum(split_ratio))
                     data_split[split].extend(index_for_sessions[j][0:n_snts])
                     del index_for_sessions[j][0:n_snts]
                 else:
@@ -430,12 +422,8 @@ def prepare_json(
             audio, fs = torchaudio.load(wav)
 
             # Parses phoneme alignments
-            textgrid_path = os.path.join(
-                phoneme_alignments_folder, f"{id}.TextGrid"
-            )
-            textgrid = tgt.io.read_textgrid(
-                textgrid_path, include_empty_intervals=True
-            )
+            textgrid_path = os.path.join(phoneme_alignments_folder, f"{id}.TextGrid")
+            textgrid = tgt.io.read_textgrid(textgrid_path, include_empty_intervals=True)
 
             last_phoneme_flags = get_last_phoneme_info(
                 textgrid.get_tier_by_name("words"),
@@ -470,9 +458,7 @@ def prepare_json(
 
             # Computes pitch
             audio = audio[:, int(fs * start) : int(fs * end)]
-            pitch_file = wav.replace(".wav", ".npy").replace(
-                wavs_folder, pitch_folder
-            )
+            pitch_file = wav.replace(".wav", ".npy").replace(wavs_folder, pitch_folder)
             if not os.path.isfile(pitch_file):
                 pitch = torchaudio.functional.detect_pitch_frequency(
                     waveform=audio,
@@ -502,17 +488,13 @@ def prepare_json(
             json_dict[id].update({"end": end})
             json_dict[id].update({"durations": duration_file_path})
             json_dict[id].update({"pitch": pitch_file})
-            json_dict[id].update(
-                {"last_phoneme_flags": trimmed_last_phoneme_flags}
-            )
+            json_dict[id].update({"last_phoneme_flags": trimmed_last_phoneme_flags})
 
         # FastSpeech2WithAlignment specific data preparation
         if model_name == "FastSpeech2WithAlignment":
             audio, fs = torchaudio.load(wav)
             # Computes pitch
-            pitch_file = wav.replace(".wav", ".npy").replace(
-                wavs_folder, pitch_folder
-            )
+            pitch_file = wav.replace(".wav", ".npy").replace(wavs_folder, pitch_folder)
             if not os.path.isfile(pitch_file):
                 if torchaudio.__version__ < "2.1":
                     pitch = torchaudio.functional.compute_kaldi_pitch(

@@ -78,9 +78,7 @@ class InterpreterESC50Brain(sb.core.Brain):
             modulators = [x.norm(dim=-3, p=2, keepdim=True) for x in modulators]
             # Upsample spatial dimensions
             modulators = [
-                torchvision.transforms.functional.resize(
-                    x, X_stft_logpower.shape[-2:]
-                )
+                torchvision.transforms.functional.resize(x, X_stft_logpower.shape[-2:])
                 for x in modulators
             ]
             xhat = modulators[-1]
@@ -103,15 +101,12 @@ class InterpreterESC50Brain(sb.core.Brain):
             )
 
             attentions = [
-                x.reshape(-1, num_heads, num_patches, num_patches)
-                for x in attentions
+                x.reshape(-1, num_heads, num_patches, num_patches) for x in attentions
             ]
             attentions = [x.mean(dim=-3, keepdim=True) for x in attentions]
             # Upsample spatial dimensions
             attentions = [
-                torchvision.transforms.functional.resize(
-                    x, X_stft_logpower.shape[-2:]
-                )
+                torchvision.transforms.functional.resize(x, X_stft_logpower.shape[-2:])
                 for x in attentions
             ]
             xhat = attentions[-1]
@@ -121,9 +116,9 @@ class InterpreterESC50Brain(sb.core.Brain):
         predictions = self.hparams.classifier(embeddings).squeeze(1)
         class_pred = predictions.argmax(1)
 
-        threshold = xhat.reshape(len(xhat), -1).quantile(
-            self.hparams.quantile, dim=-1
-        )[:, None, None, None]
+        threshold = xhat.reshape(len(xhat), -1).quantile(self.hparams.quantile, dim=-1)[
+            :, None, None, None
+        ]
         xhat[xhat < threshold] = -float("inf")
         xhat[xhat >= threshold] = float("inf")
 
@@ -157,9 +152,7 @@ class InterpreterESC50Brain(sb.core.Brain):
         """Get the interpratation for a given wav file."""
 
         # Get the interpretation spectrogram, phase, and the predicted class
-        X_int, X_stft_phase, pred_cl, _, _ = self.interpret_computation_steps(
-            wavs
-        )
+        X_int, X_stft_phase, pred_cl, _, _ = self.interpret_computation_steps(wavs)
         X_stft_phase = X_stft_phase[:, : X_int.shape[1], :]
         if not (batch is None):
             x_int_sb = self.invert_stft_with_phase(X_int, X_stft_phase)
@@ -174,12 +167,8 @@ class InterpreterESC50Brain(sb.core.Brain):
             )
 
             current_class_ind = batch.class_string_encoded.data[0].item()
-            current_class_name = self.hparams.label_encoder.ind2lab[
-                current_class_ind
-            ]
-            predicted_class_name = self.hparams.label_encoder.ind2lab[
-                pred_cl.item()
-            ]
+            current_class_name = self.hparams.label_encoder.ind2lab[current_class_ind]
+            predicted_class_name = self.hparams.label_encoder.ind2lab[pred_cl.item()]
             torchaudio.save(
                 os.path.join(
                     self.hparams.output_folder,
@@ -216,10 +205,7 @@ class InterpreterESC50Brain(sb.core.Brain):
         s2 = s2 / s2.max()
 
         # Create the mixture with s2 being the noise (lower gain)
-        if (
-            hasattr(self.hparams, "concat_sources")
-            and self.hparams.concat_sources
-        ):
+        if hasattr(self.hparams, "concat_sources") and self.hparams.concat_sources:
             length = min(len(s1), len(s2))
             mid = length // 2
             s1[mid:] = 0.0
@@ -247,12 +233,8 @@ class InterpreterESC50Brain(sb.core.Brain):
 
         # Save reconstructed and original spectrograms
         current_class_ind = batch.class_string_encoded.data[0].item()
-        current_class_name = self.hparams.label_encoder.ind2lab[
-            current_class_ind
-        ]
-        predicted_class_name = self.hparams.label_encoder.ind2lab[
-            pred_cl.item()
-        ]
+        current_class_name = self.hparams.label_encoder.ind2lab[current_class_ind]
+        predicted_class_name = self.hparams.label_encoder.ind2lab[pred_cl.item()]
 
         noise_class_ind = batch.class_string_encoded.data[1].item()
         noise_class_name = self.hparams.label_encoder.ind2lab[noise_class_ind]
@@ -304,9 +286,7 @@ class InterpreterESC50Brain(sb.core.Brain):
         X_target = X_s1[0].permute(1, 0)[:, : X_int.shape[1]].cpu()
         plt.imshow(X_target, origin="lower")
         current_class_ind = batch.class_string_encoded.data[0].item()
-        current_class_name = self.hparams.label_encoder.ind2lab[
-            current_class_ind
-        ]
+        current_class_name = self.hparams.label_encoder.ind2lab[current_class_ind]
         plt.title(current_class_name)
         plt.colorbar(fraction=0.05)
 
@@ -321,18 +301,14 @@ class InterpreterESC50Brain(sb.core.Brain):
         X_target = X_s2[0].permute(1, 0)[:, : X_int.shape[1]].cpu()
         plt.imshow(X_target, origin="lower")
         current_class_ind = batch.class_string_encoded.data[1].item()
-        current_class_name = self.hparams.label_encoder.ind2lab[
-            current_class_ind
-        ]
+        current_class_name = self.hparams.label_encoder.ind2lab[current_class_ind]
         plt.title(current_class_name)
         plt.colorbar(fraction=0.05)
 
         plt.subplot(163)
         X_target = X_mix[0].permute(1, 0)[:, : X_int.shape[1]].cpu()
         plt.imshow(X_target, origin="lower")
-        predicted_class_name = self.hparams.label_encoder.ind2lab[
-            pred_cl.item()
-        ]
+        predicted_class_name = self.hparams.label_encoder.ind2lab[pred_cl.item()]
         plt.title(predicted_class_name)
         plt.colorbar(fraction=0.05)
 
@@ -476,13 +452,9 @@ class InterpreterESC50Brain(sb.core.Brain):
 
         Tmax = xhat.shape[1]
 
-        _, theta_out, _ = self.classifier_forward(
-            xhat * X_stft_logpower[:, :Tmax, :]
-        )
+        _, theta_out, _ = self.classifier_forward(xhat * X_stft_logpower[:, :Tmax, :])
 
-        self.acc_metric.append(
-            uttid, predict=predictions, target=classid, length=lens
-        )
+        self.acc_metric.append(uttid, predict=predictions, target=classid, length=lens)
 
         self.top_3_fidelity.append(
             [batch.id] * theta_out.shape[0], theta_out, predictions
@@ -532,16 +504,14 @@ class InterpreterESC50Brain(sb.core.Brain):
             pred_cl = predictions.argmax(dim=1, keepdim=True)
 
             # Get the corresponding output probabilities
-            predictions_selected = torch.gather(
-                predictions, dim=1, index=pred_cl
-            )
+            predictions_selected = torch.gather(predictions, dim=1, index=pred_cl)
             predictions_masked_selected = torch.gather(
                 predictions_masked, dim=1, index=pred_cl
             )
 
-            faithfulness = (
-                predictions_selected - predictions_masked_selected
-            ).squeeze(1)
+            faithfulness = (predictions_selected - predictions_masked_selected).squeeze(
+                1
+            )
 
             return faithfulness
 
@@ -560,9 +530,7 @@ class InterpreterESC50Brain(sb.core.Brain):
         test_stats = {
             "acc": self.acc_metric.summarize("average"),
             "input_fidelity": current_fid,
-            "faithfulness_median": torch.Tensor(
-                self.faithfulness.scores
-            ).median(),
+            "faithfulness_median": torch.Tensor(self.faithfulness.scores).median(),
             "faithfulness_mean": torch.Tensor(self.faithfulness.scores).mean(),
         }
 
@@ -577,9 +545,7 @@ def dataio_prep(hparams):
     data_audio_folder = hparams["audio_data_folder"]
     config_sample_rate = hparams["sample_rate"]
     label_encoder = sb.dataio.encoder.CategoricalEncoder()
-    hparams["resampler"] = torchaudio.transforms.Resample(
-        new_freq=config_sample_rate
-    )
+    hparams["resampler"] = torchaudio.transforms.Resample(new_freq=config_sample_rate)
 
     # 2. Define audio pipeline:
     @sb.utils.data_pipeline.takes("wav")

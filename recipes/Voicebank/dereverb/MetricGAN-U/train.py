@@ -433,9 +433,7 @@ class MetricGanBrain(sb.Brain):
                 self.d_optimizer.step()
                 loss_tracker += loss.detach() / 3
         elif self.sub_stage == SubStage.HISTORICAL:
-            loss = self.compute_objectives(
-                predictions, batch, sb.Stage.TRAIN, "D_enh"
-            )
+            loss = self.compute_objectives(predictions, batch, sb.Stage.TRAIN, "D_enh")
             self.d_optimizer.zero_grad()
             loss.backward()
             torch.nn.utils.clip_grad_norm_(
@@ -647,9 +645,7 @@ class MetricGanBrain(sb.Brain):
                 self.train_sampler = sampler
 
         # Make the dataloader as normal
-        return super().make_dataloader(
-            dataset, stage, ckpt_prefix, **loader_kwargs
-        )
+        return super().make_dataloader(dataset, stage, ckpt_prefix, **loader_kwargs)
 
     def on_fit_start(self):
         "Override to prevent this from running for D training"
@@ -658,9 +654,7 @@ class MetricGanBrain(sb.Brain):
 
     def init_optimizers(self):
         "Initializes the generator and discriminator optimizers"
-        self.g_optimizer = self.hparams.g_opt_class(
-            self.modules.generator.parameters()
-        )
+        self.g_optimizer = self.hparams.g_opt_class(self.modules.generator.parameters())
         self.d_optimizer = self.hparams.d_opt_class(
             self.modules.discriminator.parameters()
         )

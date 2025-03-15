@@ -1,4 +1,4 @@
-""" This script prepares the data-manifest files (in JSON format)
+"""This script prepares the data-manifest files (in JSON format)
 for training and testing a Voice Activity Detection system with the
 LibriParty dataset.
 
@@ -295,9 +295,7 @@ def prepare_libriparty(
     df_test = merge_overlapping_intervals(df_test)
 
     # Create json structure
-    train_dict = create_json_structure(
-        df_train, data_folder + "/train/session_"
-    )
+    train_dict = create_json_structure(df_train, data_folder + "/train/session_")
     valid_dict = create_json_structure(df_valid, data_folder + "/dev/session_")
     test_dict = create_json_structure(df_test, data_folder + "/eval/session_")
 

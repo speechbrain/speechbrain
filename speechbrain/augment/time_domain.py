@@ -156,16 +156,12 @@ class AddNoise(torch.nn.Module):
         if self.csv_file is None:
             noise_waveform = self.noise_funct(waveforms)
             if noise_waveform.shape[0] == 1:
-                noise_waveform = torch.cat(
-                    [noise_waveform] * waveforms.shape[0], dim=0
-                )
+                noise_waveform = torch.cat([noise_waveform] * waveforms.shape[0], dim=0)
 
             noise_length = lengths
         else:
             tensor_length = waveforms.shape[1]
-            noise_waveform, noise_length = self._load_noise(
-                lengths, tensor_length
-            )
+            noise_waveform, noise_length = self._load_noise(lengths, tensor_length)
 
         # Rescale and add
         noise_amplitude = compute_amplitude(
@@ -176,9 +172,7 @@ class AddNoise(torch.nn.Module):
         noisy_waveform += noise_waveform
         # Normalizing to prevent clipping
         if self.normalize:
-            abs_max, _ = torch.max(
-                torch.abs(noisy_waveform), dim=1, keepdim=True
-            )
+            abs_max, _ = torch.max(torch.abs(noisy_waveform), dim=1, keepdim=True)
             noisy_waveform = noisy_waveform / abs_max.clamp(min=1.0)
 
         return noisy_waveform
@@ -203,9 +197,7 @@ class AddNoise(torch.nn.Module):
                 dataset = ExtendedCSVDataset(
                     csvpath=self.csv_file,
                     output_keys=self.csv_keys,
-                    sorting=(
-                        self.sorting if self.sorting != "random" else "original"
-                    ),
+                    sorting=(self.sorting if self.sorting != "random" else "original"),
                     replacements=self.replacements,
                 )
                 self.data_loader = make_dataloader(
@@ -247,9 +239,7 @@ class AddNoise(torch.nn.Module):
         if self.start_index is None:
             start_index = 0
             max_chop = (noise_len - lengths).min().clamp(min=1)
-            start_index = torch.randint(
-                high=max_chop, size=(1,), device=lengths.device
-            )
+            start_index = torch.randint(high=max_chop, size=(1,), device=lengths.device)
 
         # Truncate noise_batch to max_length
         noise_batch = noise_batch[:, start_index : start_index + max_length]
@@ -379,9 +369,7 @@ class AddReverb(torch.nn.Module):
         """
 
         if self.reverb_sample_rate != self.clean_sample_rate:
-            self.resampler = Resample(
-                self.reverb_sample_rate, self.clean_sample_rate
-            )
+            self.resampler = Resample(self.reverb_sample_rate, self.clean_sample_rate)
 
         # Add channels dimension if necessary
         channel_added = False
@@ -419,9 +407,7 @@ class AddReverb(torch.nn.Module):
         if not hasattr(self, "data_loader"):
             dataset = ExtendedCSVDataset(
                 csvpath=self.csv_file,
-                sorting=(
-                    self.sorting if self.sorting != "random" else "original"
-                ),
+                sorting=(self.sorting if self.sorting != "random" else "original"),
                 replacements=self.replacements,
             )
             self.data_loader = make_dataloader(
@@ -507,9 +493,7 @@ class SpeedPerturb(torch.nn.Module):
 
         # Perform a random perturbation
         self.samp_index = torch.randint(0, len(self.speeds), (1,))
-        perturbed_waveform = self.resamplers[self.samp_index](
-            waveform.to(self.device)
-        )
+        perturbed_waveform = self.resamplers[self.samp_index](waveform.to(self.device))
         # Move back from host to original device
         return perturbed_waveform.to(waveform.device)
 
@@ -1097,8 +1081,7 @@ class DoClip(torch.nn.Module):
         # Randomly select clip value
         clipping_range = self.clip_high - self.clip_low
         clip_value = (
-            torch.rand(1, device=waveforms.device)[0] * clipping_range
-            + self.clip_low
+            torch.rand(1, device=waveforms.device)[0] * clipping_range + self.clip_low
         )
 
         # Apply clipping
@@ -1248,9 +1231,7 @@ class ChannelSwap(torch.nn.Module):
         # Pick a frequency to drop
         rand_perm1 = torch.randperm(waveforms.shape[-1])
         rand_perm2 = torch.randperm(waveforms.shape[-1])
-        N_swaps = torch.randint(
-            low=self.min_swap, high=self.max_swap + 1, size=(1,)
-        )
+        N_swaps = torch.randint(low=self.min_swap, high=self.max_swap + 1, size=(1,))
 
         if N_swaps < waveforms.shape[-1]:
             for i in range(N_swaps):
@@ -1301,9 +1282,7 @@ class CutCat(torch.nn.Module):
         -------
         Tensor of shape `[batch, time]` or `[batch, time, channels]`
         """
-        if (
-            waveforms.shape[0] > 1
-        ):  # only if there are at least 2 examples in batch
+        if waveforms.shape[0] > 1:  # only if there are at least 2 examples in batch
             # rolling waveforms to point to segments of other examples in batch
             waveforms_rolled = torch.roll(waveforms, shifts=1, dims=0)
             # picking number of segments to use
@@ -1369,8 +1348,7 @@ def pink_noise_like(waveforms, alpha_low=1.0, alpha_high=1.0, sample_rate=50):
     # Sampling the spectral smoothing factor
     rand_range = alpha_high - alpha_low
     alpha = (
-        torch.rand(waveforms.shape[0], device=waveforms.device) * rand_range
-        + alpha_low
+        torch.rand(waveforms.shape[0], device=waveforms.device) * rand_range + alpha_low
     )
 
     # preparing the spectral mask (1/f^alpha)
@@ -1390,12 +1368,8 @@ def pink_noise_like(waveforms, alpha_low=1.0, alpha_high=1.0, sample_rate=50):
 
     # Managing odd/even sequences
     if white_noise.shape[1] % 2:
-        mid_element = spectral_mask[
-            :, int(white_noise.shape[1] / 2) - 1
-        ].unsqueeze(1)
-        spectral_mask = torch.cat(
-            [spectral_mask, mid_element, spectral_mask_up], dim=1
-        )
+        mid_element = spectral_mask[:, int(white_noise.shape[1] / 2) - 1].unsqueeze(1)
+        spectral_mask = torch.cat([spectral_mask, mid_element, spectral_mask_up], dim=1)
     else:
         spectral_mask = torch.cat([spectral_mask, spectral_mask_up], dim=1)
 
@@ -1439,10 +1413,7 @@ class DropBitResolution(torch.nn.Module):
             "float16": (16, torch.float16),
         }
 
-        if (
-            self.target_dtype != "random"
-            and self.target_dtype not in self.bit_depths
-        ):
+        if self.target_dtype != "random" and self.target_dtype not in self.bit_depths:
             raise ValueError(
                 f"target_dtype must be one of {list(self.bit_depths.keys())}"
             )

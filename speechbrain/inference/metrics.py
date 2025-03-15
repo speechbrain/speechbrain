@@ -1,4 +1,4 @@
-""" Specifies the inference interfaces for metric estimation modules.
+"""Specifies the inference interfaces for metric estimation modules.
 
 Authors:
  * Aku Rouhe 2021
@@ -49,9 +49,7 @@ class SNREstimator(Pretrained):
 
         if hasattr(self.hparams, "separation_norm_type"):
             if self.hparams.separation_norm_type == "max":
-                predictions = (
-                    predictions / predictions.max(dim=1, keepdim=True)[0]
-                )
+                predictions = predictions / predictions.max(dim=1, keepdim=True)[0]
                 mix = mix / mix.max(dim=1, keepdim=True)[0]
 
             elif self.hparams.separation_norm_type == "stnorm":

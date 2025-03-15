@@ -410,8 +410,7 @@ def create_json(wav_lst, json_file, uppercase, phn_set):
             raise FileNotFoundError(err_msg)
 
         words = [
-            line.rstrip("\n").split(" ")[2]
-            for line in open(wrd_file, encoding="utf-8")
+            line.rstrip("\n").split(" ")[2] for line in open(wrd_file, encoding="utf-8")
         ]
         words = " ".join(words)
 
@@ -498,9 +497,7 @@ def get_phoneme_lists(phn_file, phn_set):
                 elif remove_sil_mask[i + 1] is False:
                     remove_sil_mask[i] = False
 
-        phonemes = [
-            phon for i, phon in enumerate(phonemes) if not remove_sil_mask[i]
-        ]
+        phonemes = [phon for i, phon in enumerate(phonemes) if not remove_sil_mask[i]]
         ends = [end for i, end in enumerate(ends) if not remove_sil_mask[i]]
 
     # Convert to e.g. "a sil b", "1 4 5"

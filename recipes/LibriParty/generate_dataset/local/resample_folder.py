@@ -34,25 +34,19 @@ def resample_folder(input_folder, output_folder, fs, regex):
     files = get_all_files(input_folder, match_and=[regex])
     for f in tqdm.tqdm(files):
         # we use sox because torchaudio.Resample uses too much RAM.
-        audio, fs = torchaudio.sox_effects.apply_effects_file(
-            f, [["rate", str(fs)]]
-        )
+        audio, fs = torchaudio.sox_effects.apply_effects_file(f, [["rate", str(fs)]])
 
         audio = (
             audio / torch.max(torch.abs(audio), dim=-1, keepdim=True)[0]
         )  # scale back otherwise you get empty .wav file
         os.makedirs(
             Path(
-                os.path.join(
-                    output_folder, Path(f).relative_to(Path(input_folder))
-                )
+                os.path.join(output_folder, Path(f).relative_to(Path(input_folder)))
             ).parent,
             exist_ok=True,
         )
         torchaudio.save(
-            os.path.join(
-                output_folder, Path(f).relative_to(Path(input_folder))
-            ),
+            os.path.join(output_folder, Path(f).relative_to(Path(input_folder))),
             audio,
             fs,
         )

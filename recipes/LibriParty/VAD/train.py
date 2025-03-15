@@ -84,9 +84,7 @@ class VADBrain(sb.Brain):
 
         self.train_metrics.append(batch.id, torch.sigmoid(predictions), targets)
         if stage != sb.Stage.TRAIN:
-            self.valid_metrics.append(
-                batch.id, torch.sigmoid(predictions), targets
-            )
+            self.valid_metrics.append(batch.id, torch.sigmoid(predictions), targets)
         return loss
 
     def on_stage_start(self, stage, epoch=None):
@@ -177,11 +175,7 @@ def dataio_prep(hparams):
             else []
         )
         gt = torch.zeros(
-            int(
-                np.ceil(
-                    hparams["example_length"] * (1 / hparams["time_resolution"])
-                )
-            )
+            int(np.ceil(hparams["example_length"] * (1 / hparams["time_resolution"])))
         )
         for indxs in boundaries:
             start, stop = indxs
@@ -192,9 +186,7 @@ def dataio_prep(hparams):
     datasets = [train, validation, test]
     sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline)
     sb.dataio.dataset.add_dynamic_item(datasets, vad_targets)
-    sb.dataio.dataset.set_output_keys(
-        datasets, ["id", "signal", "target", "speech"]
-    )
+    sb.dataio.dataset.set_output_keys(datasets, ["id", "signal", "target", "speech"])
 
     # Split dataset
     train_data, valid_data, test_data = datasets

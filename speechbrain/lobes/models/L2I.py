@@ -1,8 +1,8 @@
 """This file implements the necessary classes and functions to implement Listen-to-Interpret (L2I) interpretation method from https://arxiv.org/abs/2202.11479v2
 
- Authors
- * Cem Subakan 2022
- * Francesco Paissan 2022
+Authors
+* Cem Subakan 2022
+* Francesco Paissan 2022
 """
 
 import torch
@@ -42,12 +42,8 @@ class Psi(nn.Module):
         self.upsamp_time = nn.UpsamplingBilinear2d(size=(T, 1))
         out_c = min(in_emb_dims)
 
-        self.c1 = nn.Conv2d(
-            in_emb_dims[0], out_c, kernel_size=3, padding="same"
-        )
-        self.c2 = nn.Conv2d(
-            in_emb_dims[1], out_c, kernel_size=3, padding="same"
-        )
+        self.c1 = nn.Conv2d(in_emb_dims[0], out_c, kernel_size=3, padding="same")
+        self.c2 = nn.Conv2d(in_emb_dims[1], out_c, kernel_size=3, padding="same")
 
         self.out_conv = nn.Conv2d(out_c, n_comp, kernel_size=3, padding="same")
 
@@ -74,9 +70,7 @@ class Psi(nn.Module):
         error = "in PSI doesn't match. The embedding dimensions need to be consistent with the list self.in_emb_dims"
         for i, in_emb_dim in enumerate(self.in_emb_dims):
             # sanity check on shapes
-            assert inp[i].shape[1] == self.in_emb_dims[i], (
-                "Nr. of channels " + error
-            )
+            assert inp[i].shape[1] == self.in_emb_dims[i], "Nr. of channels " + error
 
         assert inp[0].shape[2] == inp[1].shape[2], "Spatial dimension " + error
         assert inp[0].shape[3] == inp[1].shape[3], "Spatial dimension " + error
@@ -134,9 +128,7 @@ class NMFDecoderAudio(nn.Module):
     def __init__(self, n_comp=100, n_freq=513, device="cuda"):
         super().__init__()
 
-        self.W = nn.Parameter(
-            0.1 * torch.rand(n_freq, n_comp), requires_grad=True
-        )
+        self.W = nn.Parameter(0.1 * torch.rand(n_freq, n_comp), requires_grad=True)
         self.activ = nn.ReLU()
 
     def forward(self, H):
@@ -503,12 +495,8 @@ class CNN14PSI_stft_2d(nn.Module):
         self.convt4 = nn.ConvTranspose2d(dim // 4, dim, (5, 4), (2, 4), 1)
         self.convt5 = nn.ConvTranspose2d(dim, dim // 2, (3, 5), (2, 2), 1)
         self.convt6 = nn.ConvTranspose2d(dim // 8, dim // 2, (3, 3), (2, 4), 1)
-        self.convt7 = nn.ConvTranspose2d(
-            dim // 2, dim // 4, (4, 3), (2, 2), (0, 5)
-        )
-        self.convt8 = nn.ConvTranspose2d(
-            dim // 4, dim // 8, (3, 4), (2, 2), (0, 2)
-        )
+        self.convt7 = nn.ConvTranspose2d(dim // 2, dim // 4, (4, 3), (2, 2), (0, 5))
+        self.convt8 = nn.ConvTranspose2d(dim // 4, dim // 8, (3, 4), (2, 2), (0, 2))
         self.convt9 = nn.ConvTranspose2d(dim // 8, K, (7, 5), (1, 4), 0)
 
         self.nonl = nn.ReLU(True)

@@ -63,11 +63,7 @@ class CTCPrefixScore:
 
         # dim=0: xnb, nonblank posteriors, dim=1: xb, blank posteriors
         xnb = x.transpose(0, 1)
-        xb = (
-            xnb[:, :, self.blank_index]
-            .unsqueeze(2)
-            .expand(-1, -1, self.vocab_size)
-        )
+        xb = xnb[:, :, self.blank_index].unsqueeze(2).expand(-1, -1, self.vocab_size)
 
         # (2, L, batch_size * beam_size, vocab_size)
         self.x = torch.stack([xnb, xb])
@@ -114,13 +110,11 @@ class CTCPrefixScore:
             )
 
             # Accumulate blank posteriors at each step
-            r_prev[:, 1] = torch.cumsum(
-                self.x[0, :, :, self.blank_index], 0
-            ).unsqueeze(2)
-            r_prev = r_prev.view(-1, 2, n_bh)
-            psi_prev = torch.full(
-                (n_bh, self.vocab_size), 0.0, device=self.device
+            r_prev[:, 1] = torch.cumsum(self.x[0, :, :, self.blank_index], 0).unsqueeze(
+                2
             )
+            r_prev = r_prev.view(-1, 2, n_bh)
+            psi_prev = torch.full((n_bh, self.vocab_size), 0.0, device=self.device)
         else:
             r_prev, psi_prev = states
 
@@ -141,8 +135,7 @@ class CTCPrefixScore:
             )
             # Select candidates indices for scoring
             scoring_index = (
-                candidates
-                + cand_offset.unsqueeze(1).repeat(1, beam_size).view(-1, 1)
+                candidates + cand_offset.unsqueeze(1).repeat(1, beam_size).view(-1, 1)
             ).view(-1)
             x_inflate = torch.index_select(
                 self.x.view(2, -1, self.batch_size * self.vocab_size),
@@ -217,22 +210,16 @@ class CTCPrefixScore:
             psi = torch.full(
                 (n_bh, self.vocab_size), self.minus_inf, device=self.device
             )
-            psi_ = torch.logsumexp(
-                torch.cat((phix[start:end], psi_init), dim=0), dim=0
-            )
+            psi_ = torch.logsumexp(torch.cat((phix[start:end], psi_init), dim=0), dim=0)
             # only assign prob to candidates
             for i in range(n_bh):
                 psi[i, candidates[i]] = psi_[i]
         else:
-            psi = torch.logsumexp(
-                torch.cat((phix[start:end], psi_init), dim=0), dim=0
-            )
+            psi = torch.logsumexp(torch.cat((phix[start:end], psi_init), dim=0), dim=0)
 
         # (Alg.2-3): if c = <eos>, psi = log(r_T^n(g) + r_T^b(g)), where T is the length of max frames
         for i in range(n_bh):
-            psi[i, self.eos_index] = r_sum[
-                self.last_frame_index[i // beam_size], i
-            ]
+            psi[i, self.eos_index] = r_sum[self.last_frame_index[i // beam_size], i]
 
         if self.eos_index != self.blank_index:
             # Exclude blank probs for joint scoring
@@ -270,11 +257,7 @@ class CTCPrefixScore:
         ).view(n_bh)
         # synchronize forward prob
         psi = torch.index_select(psi.view(-1), dim=0, index=cand_index)
-        psi = (
-            psi.view(-1, 1)
-            .repeat(1, self.vocab_size)
-            .view(n_bh, self.vocab_size)
-        )
+        psi = psi.view(-1, 1).repeat(1, self.vocab_size).view(n_bh, self.vocab_size)
         # The index of top-K vocab came from in (t-1) timesteps at batch * beam dimension.
         hyp_index = (
             torch.div(index, self.vocab_size, rounding_mode="floor")
@@ -652,9 +635,7 @@ class CTCBaseSearcher(torch.nn.Module):
         self.spm_token = spm_token
 
         # check if the vocab is coming from SentencePiece
-        self.is_spm = any(
-            [str(s).startswith(self.spm_token) for s in vocab_list]
-        )
+        self.is_spm = any([str(s).startswith(self.spm_token) for s in vocab_list])
 
         # fetch the index of space_token
         if not self.is_spm:
@@ -822,9 +803,7 @@ class CTCBaseSearcher(torch.nn.Module):
         """
         return heapq.nlargest(self.beam_size, beams, key=lambda x: x.lm_score)
 
-    def _prune_history(
-        self, beams: List[CTCBeam], lm_order: int
-    ) -> List[CTCBeam]:
+    def _prune_history(self, beams: List[CTCBeam], lm_order: int) -> List[CTCBeam]:
         """Filter out beams that are the same over max_ngram history.
 
         Since n-gram language models have a finite history when scoring a new token, we can use that
@@ -924,9 +903,7 @@ class CTCBaseSearcher(torch.nn.Module):
         # remove beam outliers
         max_score = max([b.lm_score for b in scored_beams])
         scored_beams = [
-            b
-            for b in scored_beams
-            if b.lm_score >= max_score + self.beam_prune_logp
+            b for b in scored_beams if b.lm_score >= max_score + self.beam_prune_logp
         ]
 
         sorted_beams = self.sort_beams(scored_beams)
@@ -1140,9 +1117,7 @@ class CTCBaseSearcher(torch.nn.Module):
                     if (lm_beam.text, True) in cached_lm_scores
                     else None
                 ),
-                text_frames=list(
-                    zip(lm_beam.text.split(), lm_beam.text_frames)
-                ),
+                text_frames=list(zip(lm_beam.text.split(), lm_beam.text_frames)),
                 score=lm_beam.score,
                 lm_score=lm_beam.lm_score,
             )
@@ -1330,9 +1305,7 @@ class CTCBeamSearcher(CTCBaseSearcher):
         # select only the valid frames i.e. the frames that are not padded
         log_probs = log_probs[:wav_len]
 
-        for frame_index, logit_col in enumerate(
-            log_probs, start=processed_frames
-        ):
+        for frame_index, logit_col in enumerate(log_probs, start=processed_frames):
             # skip the frame if the blank probability is higher than the threshold
             if logit_col[self.blank_index] > self.blank_skip_threshold:
                 continue
@@ -1346,19 +1319,14 @@ class CTCBeamSearcher(CTCBaseSearcher):
 
             # select tokens that are in the vocab
             # this is useful if the logit vocab_size is larger than the vocab_list
-            tokens_index_list = tokens_index_list & set(
-                range(len(self.vocab_list))
-            )
+            tokens_index_list = tokens_index_list & set(range(len(self.vocab_list)))
 
             for token_index in tokens_index_list:
                 p_token = logit_col[token_index]
                 token = self.vocab_list[token_index]
 
                 for beam in beams:
-                    if (
-                        token_index == self.blank_index
-                        or beam.last_token == token
-                    ):
+                    if token_index == self.blank_index or beam.last_token == token:
                         if token_index == self.blank_index:
                             new_end_frame = beam.partial_frames[0]
                         else:
@@ -1815,9 +1783,7 @@ class CTCPrefixBeamSearcher(CTCBaseSearcher):
         # select only the valid frames, i.e., the frames that are not padded
         log_probs = log_probs[:wav_len]
 
-        for frame_index, logit_col in enumerate(
-            log_probs, start=processed_frames
-        ):
+        for frame_index, logit_col in enumerate(log_probs, start=processed_frames):
             # skip the frame if the blank probability is higher than the threshold
             if logit_col[self.blank_index] > self.blank_skip_threshold:
                 continue
@@ -1832,9 +1798,7 @@ class CTCPrefixBeamSearcher(CTCBaseSearcher):
 
             # select tokens that are in the vocab
             # this is useful if the logit vocab_size is larger than the vocab_list
-            tokens_index_list = tokens_index_list & set(
-                range(len(self.vocab_list))
-            )
+            tokens_index_list = tokens_index_list & set(range(len(self.vocab_list)))
 
             for token_index in tokens_index_list:
                 p_token = logit_col[token_index]
@@ -1845,9 +1809,7 @@ class CTCPrefixBeamSearcher(CTCBaseSearcher):
 
                     # blank case
                     if token_index == self.blank_index:
-                        beam.n_p_b = np.logaddexp(
-                            beam.n_p_b, beam.score_ctc + p_token
-                        )
+                        beam.n_p_b = np.logaddexp(beam.n_p_b, beam.score_ctc + p_token)
                         continue
 
                     if token == beam.last_token:
@@ -2069,9 +2031,9 @@ class TorchAudioCTCPrefixBeamSearcher:
                 raise ImportError(
                     "cuda_ctc_decoder not found. Please install the latest version of torchaudio to use this decoder."
                 )
-            assert (
-                self.blank_index == 0
-            ), "Index of blank token has to be 0 when using CUDA CTC decoder."
+            assert self.blank_index == 0, (
+                "Index of blank token has to be 0 when using CUDA CTC decoder."
+            )
 
             self._ctc_decoder = cuda_ctc_decoder(
                 tokens=self.tokens,
@@ -2141,18 +2103,12 @@ class TorchAudioCTCPrefixBeamSearcher:
         # over batch dim
         for i in range(len(results)):
             if self.using_cpu_decoder:
-                preds = [
-                    results[i][j].tokens.tolist()
-                    for j in range(len(results[i]))
-                ]
-                preds = [
-                    [self.tokens[token] for token in tokens] for tokens in preds
-                ]
+                preds = [results[i][j].tokens.tolist() for j in range(len(results[i]))]
+                preds = [[self.tokens[token] for token in tokens] for tokens in preds]
                 tokens_preds.append(preds)
 
                 timesteps = [
-                    results[i][j].timesteps.tolist()
-                    for j in range(len(results[i]))
+                    results[i][j].timesteps.tolist() for j in range(len(results[i]))
                 ]
                 timesteps_preds.append(timesteps)
 
@@ -2162,9 +2118,7 @@ class TorchAudioCTCPrefixBeamSearcher:
                 timesteps_preds.append(timesteps)
 
                 preds = [results[i][j].tokens for j in range(len(results[i]))]
-                preds = [
-                    [self.tokens[token] for token in tokens] for tokens in preds
-                ]
+                preds = [[self.tokens[token] for token in tokens] for tokens in preds]
                 tokens_preds.append(preds)
 
             words = [results[i][j].words for j in range(len(results[i]))]
@@ -2179,9 +2133,7 @@ class TorchAudioCTCPrefixBeamSearcher:
             (batch_text, batch_score, batch_timesteps),
         ) in enumerate(zip(tokens_preds, scores_preds, timesteps_preds)):
             hyps.append([])
-            for text, score, timestep in zip(
-                batch_text, batch_score, batch_timesteps
-            ):
+            for text, score, timestep in zip(batch_text, batch_score, batch_timesteps):
                 hyps[batch_index].append(
                     CTCHypothesis(
                         text="".join(text),

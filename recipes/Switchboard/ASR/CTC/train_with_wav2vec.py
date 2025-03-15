@@ -148,9 +148,7 @@ class ASR(sb.core.Brain):
             old_lr_wav2vec, new_lr_wav2vec = self.hparams.lr_annealing_wav2vec(
                 stage_stats["loss"]
             )
-            sb.nnet.schedulers.update_learning_rate(
-                self.model_optimizer, new_lr_model
-            )
+            sb.nnet.schedulers.update_learning_rate(self.model_optimizer, new_lr_model)
             if not self.hparams.wav2vec2.freeze:
                 sb.nnet.schedulers.update_learning_rate(
                     self.wav2vec_optimizer, new_lr_wav2vec
@@ -174,9 +172,7 @@ class ASR(sb.core.Brain):
                 test_stats=stage_stats,
             )
             if if_main_process():
-                with open(
-                    self.hparams.test_wer_file, "w", encoding="utf-8"
-                ) as w:
+                with open(self.hparams.test_wer_file, "w", encoding="utf-8") as w:
                     self.wer_metric.write_stats(w)
 
     def init_optimizers(self):
@@ -190,9 +186,7 @@ class ASR(sb.core.Brain):
                 self.modules.wav2vec2.parameters()
             )
             if self.checkpointer is not None:
-                self.checkpointer.add_recoverable(
-                    "wav2vec_opt", self.wav2vec_optimizer
-                )
+                self.checkpointer.add_recoverable("wav2vec_opt", self.wav2vec_optimizer)
 
             self.optimizers_dict["wav2vec_optimizer"] = self.wav2vec_optimizer
 
@@ -258,9 +252,7 @@ def dataio_prepare(hparams, tokenizer):
         pass
 
     else:
-        raise NotImplementedError(
-            "sorting must be random, ascending or descending"
-        )
+        raise NotImplementedError("sorting must be random, ascending or descending")
     valid_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
         csv_path=hparams["valid_csv"],
         replacements={"data_root": data_folder},
@@ -274,9 +266,7 @@ def dataio_prepare(hparams, tokenizer):
         test_datasets[name] = sb.dataio.dataset.DynamicItemDataset.from_csv(
             csv_path=csv_file, replacements={"data_root": data_folder}
         )
-        test_datasets[name] = test_datasets[name].filtered_sorted(
-            sort_key="duration"
-        )
+        test_datasets[name] = test_datasets[name].filtered_sorted(sort_key="duration")
     datasets = [train_data, valid_data] + [i for _, i in test_datasets.items()]
 
     # 2. Define audio pipeline:
@@ -289,9 +279,7 @@ def dataio_prepare(hparams, tokenizer):
         start = int(start)
         stop = int(stop)
         num_frames = stop - start
-        sig, fs = torchaudio.load(
-            wav, num_frames=num_frames, frame_offset=start
-        )
+        sig, fs = torchaudio.load(wav, num_frames=num_frames, frame_offset=start)
         info = torchaudio.info(wav)
 
         resampled = sig
@@ -405,9 +393,7 @@ if __name__ == "__main__":
     )
 
     asr_brain.tokenizer = tokenizer
-    vocab_list = [
-        tokenizer.sp.id_to_piece(i) for i in range(tokenizer.sp.vocab_size())
-    ]
+    vocab_list = [tokenizer.sp.id_to_piece(i) for i in range(tokenizer.sp.vocab_size())]
     test_searcher = hparams["test_searcher"](
         blank_index=hparams["blank_index"],
         vocab_list=vocab_list,

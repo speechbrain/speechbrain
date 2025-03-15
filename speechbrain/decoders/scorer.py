@@ -507,9 +507,7 @@ class TransformerLMScorer(BaseScorerInterface):
         """
         with torch.no_grad():
             if memory is None:
-                memory = torch.empty(
-                    inp_tokens.size(0), 0, device=inp_tokens.device
-                )
+                memory = torch.empty(inp_tokens.size(0), 0, device=inp_tokens.device)
             # Append the predicted token of the previous step to existing memory.
             memory = torch.cat([memory, inp_tokens.unsqueeze(1)], dim=-1)
             if not next(self.lm.parameters()).is_cuda:
@@ -881,9 +879,7 @@ class CoverageScorer(BaseScorerInterface):
             coverage = coverage + attn
 
         # Compute coverage penalty and add it to scores
-        penalty = torch.max(
-            coverage, coverage.clone().fill_(self.threshold)
-        ).sum(-1)
+        penalty = torch.max(coverage, coverage.clone().fill_(self.threshold)).sum(-1)
         penalty = penalty - coverage.size(-1) * self.threshold
         penalty = penalty.view(n_bh).unsqueeze(1).expand(-1, self.vocab_size)
         return -1 * penalty / self.time_step, coverage
@@ -1140,9 +1136,9 @@ class ScorerBuilder:
         partial_scorers=list(),
         scorer_beam_scale=2,
     ):
-        assert len(weights) == len(full_scorers) + len(
-            partial_scorers
-        ), "Weights and scorers are not matched."
+        assert len(weights) == len(full_scorers) + len(partial_scorers), (
+            "Weights and scorers are not matched."
+        )
 
         self.scorer_beam_scale = scorer_beam_scale
         all_scorer_names = [
@@ -1151,8 +1147,7 @@ class ScorerBuilder:
             if k.endswith("Scorer")
         ]
         full_scorer_names = [
-            impl.__class__.__name__.lower().split("scorer")[0]
-            for impl in full_scorers
+            impl.__class__.__name__.lower().split("scorer")[0] for impl in full_scorers
         ]
         partial_scorer_names = [
             impl.__class__.__name__.lower().split("scorer")[0]
@@ -1203,15 +1198,11 @@ class ScorerBuilder:
             log_probs += score * self.weights[k]
 
         # select candidates from the results of full scorers for partial scorers
-        _, candidates = log_probs.topk(
-            int(beam_size * self.scorer_beam_scale), dim=-1
-        )
+        _, candidates = log_probs.topk(int(beam_size * self.scorer_beam_scale), dim=-1)
 
         # score pruned tokens candidates
         for k, impl in self.partial_scorers.items():
-            score, new_memory[k] = impl.score(
-                inp_tokens, memory[k], candidates, attn
-            )
+            score, new_memory[k] = impl.score(inp_tokens, memory[k], candidates, attn)
             log_probs += score * self.weights[k]
 
         return log_probs, new_memory
@@ -1574,9 +1565,7 @@ class RNNLMRescorer(BaseRescorerInterface):
         log_probs = self.softmax(logits / self.temperature)
 
         target_log_probs = (
-            log_probs[:, :-1]
-            .gather(2, padded_hyps[:, 1:].unsqueeze(2))
-            .squeeze(2)
+            log_probs[:, :-1].gather(2, padded_hyps[:, 1:].unsqueeze(2)).squeeze(2)
         )
 
         log_probs_scores = torch.nansum(
@@ -1808,14 +1797,10 @@ class TransformerLMRescorer(BaseRescorerInterface):
         log_probs[:, :, self.pad_index] = float("-inf")
 
         target_log_probs = (
-            log_probs[:, :-1]
-            .gather(2, padded_hyps[:, 1:].unsqueeze(2))
-            .squeeze(2)
+            log_probs[:, :-1].gather(2, padded_hyps[:, 1:].unsqueeze(2)).squeeze(2)
         )
 
-        target_log_probs = target_log_probs - log_probs[:, :-1].logsumexp(
-            dim=-1
-        )
+        target_log_probs = target_log_probs - log_probs[:, :-1].logsumexp(dim=-1)
         log_probs_scores = torch.nansum(
             target_log_probs * bool_mask_tensor[:, 1:], dim=-1
         )
@@ -1874,18 +1859,14 @@ class HuggingFaceLMRescorer(BaseRescorerInterface):
             self.model_name, is_decoder=True
         ).eval()
 
-        self.tokenizer = AutoTokenizer.from_pretrained(
-            self.model_name, use_fast=True
-        )
+        self.tokenizer = AutoTokenizer.from_pretrained(self.model_name, use_fast=True)
 
         if self.tokenizer.pad_token is None:
             self.tokenizer.pad_token = "<|pad|>"
             self.tokenizer.add_special_tokens(
                 {"additional_special_tokens": [self.tokenizer.pad_token]}
             )
-            self.lm.resize_token_embeddings(
-                len(self.tokenizer), pad_to_multiple_of=32
-            )
+            self.lm.resize_token_embeddings(len(self.tokenizer), pad_to_multiple_of=32)
 
         self.bos_token = self.tokenizer.bos_token
         self.eos_token = self.tokenizer.eos_token
@@ -1990,9 +1971,7 @@ class HuggingFaceLMRescorer(BaseRescorerInterface):
 
         logits[:, :, self.tokenizer.pad_token_id :] = float("-inf")
 
-        target_log_probs = (
-            logits[:, :-1].gather(2, ids[:, 1:].unsqueeze(2)).squeeze(2)
-        )
+        target_log_probs = logits[:, :-1].gather(2, ids[:, 1:].unsqueeze(2)).squeeze(2)
 
         target_log_probs = target_log_probs - logits[:, :-1].logsumexp(dim=-1)
         log_probs_scores = torch.nansum(
@@ -2024,9 +2003,7 @@ class RescorerBuilder:
         weights=dict(),
         rescorers=list(),
     ):
-        assert len(weights) == len(
-            rescorers
-        ), "Weights and rescorers are not matched."
+        assert len(weights) == len(rescorers), "Weights and rescorers are not matched."
 
         self.weights = weights
 
@@ -2036,8 +2013,7 @@ class RescorerBuilder:
             if k.endswith("Rescorer")
         ]
         full_rescorer_names = [
-            impl.__class__.__name__.lower().split("rescorer")[0]
-            for impl in rescorers
+            impl.__class__.__name__.lower().split("rescorer")[0] for impl in rescorers
         ]
 
         # Have a default 0.0 weight for scorer not specified
@@ -2072,18 +2048,12 @@ class RescorerBuilder:
             index_scores = 0
             for i in range(len(new_scores)):
                 for j in range(len(new_scores[i])):
-                    new_scores[i][j] += (
-                        self.weights[k] * scores[index_scores].item()
-                    )
+                    new_scores[i][j] += self.weights[k] * scores[index_scores].item()
                     index_scores += 1
 
         sorted_candidates = [
             list(
-                zip(
-                    *sorted(
-                        zip(sublist, score), key=lambda x: x[1], reverse=True
-                    )
-                )
+                zip(*sorted(zip(sublist, score), key=lambda x: x[1], reverse=True))
                 for sublist, score in zip(topk_candidates, new_scores)
             )
         ]
@@ -2108,9 +2078,7 @@ class RescorerBuilder:
         """
         if len(self.weights) > len(rescorer_names):
             raise ValueError(
-                "The keys of weights should be named in {}".format(
-                    rescorer_names
-                )
+                "The keys of weights should be named in {}".format(rescorer_names)
             )
 
     def move_rescorers_to_device(self, device=None):

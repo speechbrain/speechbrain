@@ -231,16 +231,10 @@ class Tacotron2(nn.Module):
 
         # Additions for Zero-Shot Multi-Speaker TTS
         # FiLM (Feature-wise Linear Modulation) layers for injecting the speaker embeddings into the TTS pipeline
-        self.ms_film_hidden_size = int(
-            (spk_emb_size + encoder_embedding_dim) / 2
-        )
+        self.ms_film_hidden_size = int((spk_emb_size + encoder_embedding_dim) / 2)
         self.ms_film_hidden = LinearNorm(spk_emb_size, self.ms_film_hidden_size)
-        self.ms_film_h = LinearNorm(
-            self.ms_film_hidden_size, encoder_embedding_dim
-        )
-        self.ms_film_g = LinearNorm(
-            self.ms_film_hidden_size, encoder_embedding_dim
-        )
+        self.ms_film_h = LinearNorm(self.ms_film_hidden_size, encoder_embedding_dim)
+        self.ms_film_g = LinearNorm(self.ms_film_hidden_size, encoder_embedding_dim)
 
     def parse_output(self, outputs, output_lengths, alignments_dim=None):
         """
@@ -267,9 +261,7 @@ class Tacotron2(nn.Module):
         """
         mel_outputs, mel_outputs_postnet, gate_outputs, alignments = outputs
         if self.mask_padding and output_lengths is not None:
-            mask = get_mask_from_lengths(
-                output_lengths, max_len=mel_outputs.size(-1)
-            )
+            mask = get_mask_from_lengths(output_lengths, max_len=mel_outputs.size(-1))
             mask = mask.expand(self.n_mel_channels, mask.size(0), mask.size(1))
             mask = mask.permute(1, 0, 2)
 
@@ -277,9 +269,7 @@ class Tacotron2(nn.Module):
             mel_outputs_postnet.masked_fill_(mask, 0.0)
             gate_outputs.masked_fill_(mask[:, 0, :], 1e3)  # gate energies
         if alignments_dim is not None:
-            alignments = F.pad(
-                alignments, (0, alignments_dim - alignments.size(-1))
-            )
+            alignments = F.pad(alignments, (0, alignments_dim - alignments.size(-1)))
 
         return (
             mel_outputs,
@@ -482,9 +472,7 @@ class Loss(nn.Module):
 
         self.mse_loss = nn.MSELoss()
         self.bce_loss = nn.BCEWithLogitsLoss()
-        self.guided_attention_loss = GuidedAttentionLoss(
-            sigma=guided_attention_sigma
-        )
+        self.guided_attention_loss = GuidedAttentionLoss(sigma=guided_attention_sigma)
         self.cos_sim = nn.CosineSimilarity()
         self.triplet_loss = torch.nn.TripletMarginWithDistanceLoss(
             distance_function=lambda x, y: 1.0 - F.cosine_similarity(x, y)
@@ -557,9 +545,7 @@ class Loss(nn.Module):
             target_spk_embs, preds_spk_embs = spk_embs
 
             cos_sim_scores = self.cos_sim(preds_spk_embs, target_spk_embs)
-            spk_emb_loss = -torch.div(
-                torch.sum(cos_sim_scores), len(cos_sim_scores)
-            )
+            spk_emb_loss = -torch.div(torch.sum(cos_sim_scores), len(cos_sim_scores))
 
         if self.spk_emb_loss_type == "cos_emb_loss":
             target_spk_embs, preds_spk_embs = spk_embs
@@ -588,9 +574,7 @@ class Loss(nn.Module):
             attn_weight,
         )
 
-    def get_attention_loss(
-        self, alignments, input_lengths, target_lengths, epoch
-    ):
+    def get_attention_loss(self, alignments, input_lengths, target_lengths, epoch):
         """Computes the attention loss
         Arguments
         ---------
@@ -609,10 +593,7 @@ class Loss(nn.Module):
             the attention loss value
         """
         zero_tensor = torch.tensor(0.0, device=alignments.device)
-        if (
-            self.guided_attention_weight is None
-            or self.guided_attention_weight == 0
-        ):
+        if self.guided_attention_weight is None or self.guided_attention_weight == 0:
             attn_weight, attn_loss = zero_tensor, zero_tensor
         else:
             hard_stop_reached = (
@@ -676,9 +657,7 @@ class TextMelCollate:
 
         # TODO: Remove for loops and this dirty hack
         raw_batch = list(batch)
-        for i in range(
-            len(batch)
-        ):  # the pipeline return a dictionary with one element
+        for i in range(len(batch)):  # the pipeline return a dictionary with one element
             batch[i] = batch[i]["mel_text_pair"]
 
         # Right zero-pad all one-hot text sequences to max input length
@@ -710,9 +689,7 @@ class TextMelCollate:
         gate_padded.zero_()
         output_lengths = torch.LongTensor(len(batch))
         labels, wavs, spk_embs_list, spk_ids = [], [], [], []
-        with open(
-            self.speaker_embeddings_pickle, "rb"
-        ) as speaker_embeddings_file:
+        with open(self.speaker_embeddings_pickle, "rb") as speaker_embeddings_file:
             speaker_embeddings = pickle.load(speaker_embeddings_file)
 
         for i in range(len(ids_sorted_decreasing)):

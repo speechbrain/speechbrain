@@ -23,9 +23,7 @@ def create_mixture(session_n, output_dir, params, metadata):
     session_meta = {}
     speakers = [x for x in metadata.keys() if x not in ["noises", "background"]]
 
-    tot_length = int(
-        np.ceil(metadata["background"]["stop"] * params["samplerate"])
-    )
+    tot_length = int(np.ceil(metadata["background"]["stop"] * params["samplerate"]))
     mixture = torch.zeros(tot_length)  # total mixture file
     assert len(mixture) > 0, "Mixture has length 0, please raise max_length."
     # step 1
@@ -154,9 +152,7 @@ def create_mixture(session_n, output_dir, params, metadata):
     # add background
     if metadata["background"]["file"]:
         c_audio, fs = torchaudio.load(
-            os.path.join(
-                params["backgrounds_root"], metadata["background"]["file"]
-            ),
+            os.path.join(params["backgrounds_root"], metadata["background"]["file"]),
             frame_offset=metadata["background"]["orig_start"],
             num_frames=mixture.shape[-1],
         )

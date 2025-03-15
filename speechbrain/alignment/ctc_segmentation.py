@@ -31,9 +31,7 @@ try:
     )
 except ImportError:
     print(
-        "ImportError: "
-        "Is the ctc_segmentation module installed "
-        "and in your PYTHONPATH?"
+        "ImportError: Is the ctc_segmentation module installed and in your PYTHONPATH?"
     )
     raise ImportError("The ctc_segmentation module is missing.")
 
@@ -384,9 +382,7 @@ class CTCSegmentation:
         if set_blank is not None:
             self.config.blank = int(set_blank)
         if replace_spaces_with_blanks is not None:
-            self.config.replace_spaces_with_blanks = bool(
-                replace_spaces_with_blanks
-            )
+            self.config.replace_spaces_with_blanks = bool(replace_spaces_with_blanks)
         if kaldi_style_text is not None:
             self.kaldi_style_text = bool(kaldi_style_text)
         if text_converter is not None:
@@ -570,15 +566,11 @@ class CTCSegmentation:
         # Obtain utterance & label sequence from text
         if self.text_converter == "tokenize":
             # list of str --tokenize--> list of np.array
-            token_list = [
-                np.array(self._tokenizer.encode_as_ids(utt)) for utt in text
-            ]
+            token_list = [np.array(self._tokenizer.encode_as_ids(utt)) for utt in text]
             # filter out any instances of the <unk> token
             unk = config.char_list.index("<unk>")
             token_list = [utt[utt != unk] for utt in token_list]
-            ground_truth_mat, utt_begin_indices = prepare_token_list(
-                config, token_list
-            )
+            ground_truth_mat, utt_begin_indices = prepare_token_list(config, token_list)
         else:
             assert self.text_converter == "classic"
             text_pieces = [
@@ -586,9 +578,7 @@ class CTCSegmentation:
             ]
             # filter out any instances of the <unk> token
             text_pieces = [utt.replace("<unk>", "") for utt in text_pieces]
-            ground_truth_mat, utt_begin_indices = prepare_text(
-                config, text_pieces
-            )
+            ground_truth_mat, utt_begin_indices = prepare_text(config, text_pieces)
         task = CTCSegmentationTask(
             config=config,
             name=name,

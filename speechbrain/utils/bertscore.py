@@ -189,12 +189,8 @@ class BERTScoreStats(MetricStats):
 
             # for each token, load the matching token weight
             # the result is a weight tensor with the same shape as the inputs
-            recall_weights = self._select_by_tokens(
-                token_weights, ref_toks.cpu()
-            )
-            precision_weights = self._select_by_tokens(
-                token_weights, hyp_toks.cpu()
-            )
+            recall_weights = self._select_by_tokens(token_weights, ref_toks.cpu())
+            precision_weights = self._select_by_tokens(token_weights, hyp_toks.cpu())
 
             # mask off weights
             recall_weights[~ref_mask] = 0.0
@@ -212,8 +208,7 @@ class BERTScoreStats(MetricStats):
                             batch_recall[i].sum() / recall_weights[i].sum()
                         ).item(),
                         "precision": (
-                            batch_precision[i].sum()
-                            / precision_weights[i].sum()
+                            batch_precision[i].sum() / precision_weights[i].sum()
                         ).item(),
                     }
                 )
@@ -262,9 +257,9 @@ class BERTScoreStats(MetricStats):
         """From a batch of tokenized texts `input_tokens`, returns an
         identically shaped tensor where each item `token_id` becomes
         `token_weight[token_id]`."""
-        return token_weight.index_select(
-            dim=0, index=input_tokens.flatten()
-        ).reshape(input_tokens.shape)
+        return token_weight.index_select(dim=0, index=input_tokens.flatten()).reshape(
+            input_tokens.shape
+        )
 
 
 def get_bert_token_mask(tokenizer) -> torch.BoolTensor:

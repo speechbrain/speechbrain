@@ -85,12 +85,8 @@ class ASR(sb.Brain):
                 "".join(self.tokenizer.decode_ndim(utt_seq)).split(" ")
                 for utt_seq in predicted_tokens
             ]
-        elif (
-            stage == sb.Stage.TEST
-        ):  # Language model decoding only used for test
-            predicted_words = [
-                hyp[0].text.split(" ") for hyp in predicted_tokens
-            ]
+        elif stage == sb.Stage.TEST:  # Language model decoding only used for test
+            predicted_words = [hyp[0].text.split(" ") for hyp in predicted_tokens]
 
         if stage != sb.Stage.TRAIN:
             target_words = [wrd.split(" ") for wrd in batch.wrd]
@@ -123,9 +119,7 @@ class ASR(sb.Brain):
             old_lr_bestrq, new_lr_bestrq = self.hparams.lr_annealing_bestrq(
                 stage_stats["loss"]
             )
-            sb.nnet.schedulers.update_learning_rate(
-                self.model_optimizer, new_lr_model
-            )
+            sb.nnet.schedulers.update_learning_rate(self.model_optimizer, new_lr_model)
             sb.nnet.schedulers.update_learning_rate(
                 self.bestrq_optimizer, new_lr_bestrq
             )
@@ -148,9 +142,7 @@ class ASR(sb.Brain):
                 test_stats=stage_stats,
             )
             if if_main_process():
-                with open(
-                    self.hparams.test_wer_file, "w", encoding="utf-8"
-                ) as w:
+                with open(self.hparams.test_wer_file, "w", encoding="utf-8") as w:
                     self.wer_metric.write_stats(w)
 
     def init_optimizers(self):
@@ -172,9 +164,7 @@ class ASR(sb.Brain):
             self.optimizers_dict["bestrq_optimizer"] = self.bestrq_optimizer
 
         if self.checkpointer is not None:
-            self.checkpointer.add_recoverable(
-                "bestrq_opt", self.bestrq_optimizer
-            )
+            self.checkpointer.add_recoverable("bestrq_opt", self.bestrq_optimizer)
             self.checkpointer.add_recoverable("modelopt", self.model_optimizer)
 
 
@@ -196,9 +186,7 @@ def dataio_prepare(hparams):
         hparams["train_dataloader_opts"]["shuffle"] = False
 
     elif hparams["sorting"] == "descending":
-        train_data = train_data.filtered_sorted(
-            sort_key="duration", reverse=True
-        )
+        train_data = train_data.filtered_sorted(sort_key="duration", reverse=True)
         # when sorting do not shuffle in dataloader ! otherwise is pointless
         hparams["train_dataloader_opts"]["shuffle"] = False
 
@@ -206,9 +194,7 @@ def dataio_prepare(hparams):
         pass
 
     else:
-        raise NotImplementedError(
-            "sorting must be random, ascending or descending"
-        )
+        raise NotImplementedError("sorting must be random, ascending or descending")
 
     valid_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
         csv_path=hparams["valid_csv"],
@@ -223,9 +209,7 @@ def dataio_prepare(hparams):
         test_datasets[name] = sb.dataio.dataset.DynamicItemDataset.from_csv(
             csv_path=csv_file, replacements={"data_root": data_folder}
         )
-        test_datasets[name] = test_datasets[name].filtered_sorted(
-            sort_key="duration"
-        )
+        test_datasets[name] = test_datasets[name].filtered_sorted(sort_key="duration")
 
     datasets = [train_data, valid_data] + [i for k, i in test_datasets.items()]
 
@@ -241,9 +225,7 @@ def dataio_prepare(hparams):
 
     # 3. Define text pipeline:
     @sb.utils.data_pipeline.takes("wrd")
-    @sb.utils.data_pipeline.provides(
-        "wrd", "char_list", "tokens_list", "tokens"
-    )
+    @sb.utils.data_pipeline.provides("wrd", "char_list", "tokens_list", "tokens")
     def text_pipeline(wrd):
         yield wrd
         char_list = list(wrd)
@@ -277,7 +259,6 @@ def dataio_prepare(hparams):
 
 
 if __name__ == "__main__":
-
     # CLI:
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
 
@@ -313,9 +294,7 @@ if __name__ == "__main__":
     )
 
     # here we create the datasets objects as well as tokenization and encoding
-    train_data, valid_data, test_datasets, label_encoder = dataio_prepare(
-        hparams
-    )
+    train_data, valid_data, test_datasets, label_encoder = dataio_prepare(hparams)
 
     # Trainer initialization
     asr_brain = ASR(

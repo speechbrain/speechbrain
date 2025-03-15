@@ -130,8 +130,7 @@ class DiffWaveBrain(sb.Brain):
                 ckpt_predicate=(
                     (
                         lambda ckpt: (
-                            ckpt.meta["epoch"]
-                            % self.hparams.keep_checkpoint_interval
+                            ckpt.meta["epoch"] % self.hparams.keep_checkpoint_interval
                             != 0
                         )
                     )
@@ -173,9 +172,7 @@ class DiffWaveBrain(sb.Brain):
                 fast_sampling_noise_schedule=self.hparams.fast_sampling_noise_schedule,
             )
 
-            spec_out = self.hparams.mel_spectogram(
-                audio=sig_out.squeeze(1).cpu()
-            )
+            spec_out = self.hparams.mel_spectogram(audio=sig_out.squeeze(1).cpu())
 
         if self.hparams.use_tensorboard:
             self.tensorboard_logger.log_audio(
@@ -190,11 +187,7 @@ class DiffWaveBrain(sb.Brain):
             self.tensorboard_logger.log_figure(f"{name}/mel_pred", spec_out)
         else:
             # folder name is the current epoch for validation and "test" for test
-            folder = (
-                self.hparams.epoch_counter.current
-                if name == "Valid"
-                else "test"
-            )
+            folder = self.hparams.epoch_counter.current if name == "Valid" else "test"
             self.save_audio("target", y.squeeze(1), folder)
             self.save_audio("synthesized", sig_out, folder)
 
@@ -210,9 +203,7 @@ class DiffWaveBrain(sb.Brain):
             the epoch number (used in file path calculations)
             or "test" for test stage
         """
-        target_path = os.path.join(
-            self.hparams.progress_sample_path, str(epoch)
-        )
+        target_path = os.path.join(self.hparams.progress_sample_path, str(epoch))
         if not os.path.exists(target_path):
             os.makedirs(target_path)
         file_name = f"{name}.wav"

@@ -19,9 +19,9 @@ def test_read_audio_info(tmpdir, device):
         # This remains an exact read of the metadata, however, which is what we
         # want to test and is the reason for `read_audio_info` to exist (see
         # comments there).
-        assert (
-            32000 <= info.num_frames <= 35000
-        ), f"expected consistent len for codec {ext}"
+        assert 32000 <= info.num_frames <= 35000, (
+            f"expected consistent len for codec {ext}"
+        )
         assert info.sample_rate == 16000
 
 
@@ -37,19 +37,15 @@ def test_read_audio(tmpdir, device):
         start = torch.randint(0, 8000, (1,), device=device).item()
         stop = start + torch.randint(500, 1000, (1,), device=device).item()
 
-        loaded_range = read_audio(
-            {"file": wavfile, "start": start, "stop": stop}
-        ).to(device)
+        loaded_range = read_audio({"file": wavfile, "start": start, "stop": stop}).to(
+            device
+        )
         assert loaded_range.allclose(test_waveform[start:stop], atol=1e-4)
 
-        loaded_omit_start = read_audio({"file": wavfile, "stop": stop}).to(
-            device
-        )
+        loaded_omit_start = read_audio({"file": wavfile, "stop": stop}).to(device)
         assert loaded_omit_start.allclose(test_waveform[:stop], atol=1e-4)
 
-        loaded_omit_stop = read_audio({"file": wavfile, "start": start}).to(
-            device
-        )
+        loaded_omit_stop = read_audio({"file": wavfile, "start": start}).to(device)
         assert loaded_omit_stop.allclose(test_waveform[start:], atol=1e-4)
 
         loaded_simple = read_audio(wavfile).to(device)
@@ -89,9 +85,7 @@ def test_read_audio_multichannel(tmpdir, device):
         start = torch.randint(0, 8000, (1,), device=device).item()
         stop = start + torch.randint(500, 1000, (1,), device=device).item()
 
-        wav_obj = {
-            "wav": {"files": [wavfile, wavfile_2], "start": start, "stop": stop}
-        }
+        wav_obj = {"wav": {"files": [wavfile, wavfile_2], "start": start, "stop": stop}}
 
         loaded = read_audio_multichannel(wav_obj["wav"]).to(device)
         test_waveform3 = torch.cat(

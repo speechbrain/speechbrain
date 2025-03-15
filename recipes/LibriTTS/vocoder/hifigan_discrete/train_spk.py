@@ -144,9 +144,7 @@ class HifiGanBrain(sb.Brain):
             log_dur,
         ) = outputs
         # calculate discriminator loss with the latest updated generator
-        loss_d = self.compute_objectives(outputs, batch, sb.core.Stage.TRAIN)[
-            "D_loss"
-        ]
+        loss_d = self.compute_objectives(outputs, batch, sb.core.Stage.TRAIN)["D_loss"]
         # First train the discriminator
         self.optimizer_d.zero_grad()
         loss_d.backward()
@@ -164,9 +162,7 @@ class HifiGanBrain(sb.Brain):
             log_dur_pred,
             log_dur,
         )
-        loss_g = self.compute_objectives(outputs, batch, sb.core.Stage.TRAIN)[
-            "G_loss"
-        ]
+        loss_g = self.compute_objectives(outputs, batch, sb.core.Stage.TRAIN)["G_loss"]
         # Then train the generator
         self.optimizer_g.zero_grad()
         loss_g.backward()
@@ -216,9 +212,7 @@ class HifiGanBrain(sb.Brain):
             ) = self.opt_class
 
             self.optimizer_g = opt_g_class(self.modules.generator.parameters())
-            self.optimizer_d = opt_d_class(
-                self.modules.discriminator.parameters()
-            )
+            self.optimizer_d = opt_d_class(self.modules.discriminator.parameters())
             self.optimizers_dict = {
                 "optimizer_g": self.optimizer_g,
                 "optimizer_d": self.optimizer_d,
@@ -228,18 +222,10 @@ class HifiGanBrain(sb.Brain):
             self.scheduler_d = sch_d_class(self.optimizer_d)
 
             if self.checkpointer is not None:
-                self.checkpointer.add_recoverable(
-                    "optimizer_g", self.optimizer_g
-                )
-                self.checkpointer.add_recoverable(
-                    "optimizer_d", self.optimizer_d
-                )
-                self.checkpointer.add_recoverable(
-                    "scheduler_g", self.scheduler_d
-                )
-                self.checkpointer.add_recoverable(
-                    "scheduler_d", self.scheduler_d
-                )
+                self.checkpointer.add_recoverable("optimizer_g", self.optimizer_g)
+                self.checkpointer.add_recoverable("optimizer_d", self.optimizer_d)
+                self.checkpointer.add_recoverable("scheduler_g", self.scheduler_d)
+                self.checkpointer.add_recoverable("scheduler_d", self.scheduler_d)
 
     def on_stage_end(self, stage, stage_loss, epoch):
         """Gets called at the end of an epoch.
@@ -343,9 +329,7 @@ class HifiGanBrain(sb.Brain):
             if inference_generator.duration_predictor:
                 x = torch.unique_consecutive(x, dim=1)
             sig_out = inference_generator.inference(x, spk=spk)
-            spec_out = self.hparams.mel_spectogram(
-                audio=sig_out.squeeze(0).cpu()
-            )
+            spec_out = self.hparams.mel_spectogram(audio=sig_out.squeeze(0).cpu())
         if self.hparams.use_tensorboard:
             self.tensorboard_logger.log_audio(
                 f"{name}/audio_target", y.squeeze(0), self.hparams.sample_rate
@@ -359,11 +343,7 @@ class HifiGanBrain(sb.Brain):
             self.tensorboard_logger.log_figure(f"{name}/mel_pred", spec_out)
         else:
             # folder name is the current epoch for validation and "test" for test
-            folder = (
-                self.hparams.epoch_counter.current
-                if name == "Valid"
-                else "test"
-            )
+            folder = self.hparams.epoch_counter.current if name == "Valid" else "test"
             self.save_audio("target", y.squeeze(0), folder)
             self.save_audio("synthesized", sig_out.squeeze(0), folder)
 
@@ -569,10 +549,8 @@ if __name__ == "__main__":
     )
 
     if hparams["use_tensorboard"]:
-        hifi_gan_brain.tensorboard_logger = (
-            sb.utils.train_logger.TensorboardLogger(
-                save_dir=hparams["output_folder"] + "/tensorboard"
-            )
+        hifi_gan_brain.tensorboard_logger = sb.utils.train_logger.TensorboardLogger(
+            save_dir=hparams["output_folder"] + "/tensorboard"
         )
 
     # Training

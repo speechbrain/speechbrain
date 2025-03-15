@@ -249,9 +249,7 @@ class VariationalAutoencoder(Autoencoder):
         epsilon = torch.randn_like(log_var)
         return mean + epsilon * torch.exp(0.5 * log_var)
 
-    def train_sample(
-        self, x, length=None, out_mask_value=None, latent_mask_value=None
-    ):
+    def train_sample(self, x, length=None, out_mask_value=None, latent_mask_value=None):
         """Provides a data sample for training the autoencoder
 
         Arguments
@@ -320,9 +318,7 @@ VariationalAutoencoderOutput = namedtuple(
     ["rec", "latent", "mean", "log_var", "latent_sample", "latent_length"],
 )
 
-AutoencoderOutput = namedtuple(
-    "AutoencoderOutput", ["rec", "latent", "latent_length"]
-)
+AutoencoderOutput = namedtuple("AutoencoderOutput", ["rec", "latent", "latent_length"])
 
 
 class NormalizingAutoencoder(Autoencoder):
@@ -432,9 +428,7 @@ class NormalizingAutoencoder(Autoencoder):
         """
         return self.decoder(latent)
 
-    def train_sample(
-        self, x, length=None, out_mask_value=None, latent_mask_value=None
-    ):
+    def train_sample(self, x, length=None, out_mask_value=None, latent_mask_value=None):
         """Provides a data sample for training the autoencoder
 
         Arguments

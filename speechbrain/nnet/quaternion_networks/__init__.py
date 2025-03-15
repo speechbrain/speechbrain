@@ -1,2 +1,1 @@
-"""Package containing quaternion neural networks
-"""
+"""Package containing quaternion neural networks"""

@@ -105,7 +105,6 @@ def get_all_files(
 
     # Iterate over all the entries
     for entry in listOfFile:
-
         # Create full path
         fullPath = os.path.join(dirName, entry)
 
@@ -119,7 +118,6 @@ def get_all_files(
                 exclude_or=exclude_or,
             )
         else:
-
             # Check match_and case
             if match_and is not None:
                 match_and_entry = False
@@ -297,9 +295,7 @@ def recursive_update(d, u, must_match=False):
         if isinstance(v, collections.abc.Mapping) and k in d:
             recursive_update(d.get(k, {}), v)
         elif must_match and k not in d:
-            raise KeyError(
-                f"Override '{k}' not found in: {[key for key in d.keys()]}"
-            )
+            raise KeyError(f"Override '{k}' not found in: {[key for key in d.keys()]}")
         else:
             d[k] = v
 
@@ -445,9 +441,9 @@ def pad_right_to(tensor, target_shape, mode="constant", value=0):
     i = len(target_shape) - 1  # iterating over target_shape ndims
     j = 0
     while i >= 0:
-        assert (
-            target_shape[i] >= tensor.shape[i]
-        ), "Target shape must be >= original shape for every dim"
+        assert target_shape[i] >= tensor.shape[i], (
+            "Target shape must be >= original shape for every dim"
+        )
         pads.extend([0, target_shape[i] - tensor.shape[i]])
         valid_vals.append(tensor.shape[j] / target_shape[j])
         i -= 1
@@ -486,11 +482,7 @@ def batch_pad_right(tensors: list, mode="constant", value=0):
         # if there is only one tensor in the batch we simply unsqueeze it.
         return tensors[0].unsqueeze(0), torch.tensor([1.0])
 
-    if not (
-        all(
-            [tensors[i].ndim == tensors[0].ndim for i in range(1, len(tensors))]
-        )
-    ):
+    if not (all([tensors[i].ndim == tensors[0].ndim for i in range(1, len(tensors))])):
         raise IndexError("All tensors must have same number of dimensions")
 
     # FIXME we limit the support here: we allow padding of only the first dimension
@@ -498,9 +490,7 @@ def batch_pad_right(tensors: list, mode="constant", value=0):
     max_shape = []
     for dim in range(tensors[0].ndim):
         if dim != 0:
-            if not all(
-                [x.shape[dim] == tensors[0].shape[dim] for x in tensors[1:]]
-            ):
+            if not all([x.shape[dim] == tensors[0].shape[dim] for x in tensors[1:]]):
                 raise EnvironmentError(
                     "Tensors should have same dimensions except for the first one"
                 )
@@ -510,9 +500,7 @@ def batch_pad_right(tensors: list, mode="constant", value=0):
     valid = []
     for t in tensors:
         # for each tensor we apply pad_right_to
-        padded, valid_percent = pad_right_to(
-            t, max_shape, mode=mode, value=value
-        )
+        padded, valid_percent = pad_right_to(t, max_shape, mode=mode, value=value)
         batched.append(padded)
         valid.append(valid_percent[0])
 
@@ -535,14 +523,9 @@ def recursive_to(data, *args, **kwargs):
     if isinstance(data, torch.Tensor):
         return data.to(*args, **kwargs)
     elif isinstance(data, collections.abc.Mapping):
-        return {
-            k: recursive_to(sample, *args, **kwargs)
-            for k, sample in data.items()
-        }
+        return {k: recursive_to(sample, *args, **kwargs) for k, sample in data.items()}
     elif isinstance(data, tuple) and hasattr(data, "_fields"):  # namedtuple
-        return type(data)(
-            *(recursive_to(sample, *args, **kwargs) for sample in data)
-        )
+        return type(data)(*(recursive_to(sample, *args, **kwargs) for sample in data))
     elif isinstance(data, collections.abc.Sequence):
         return [recursive_to(sample, *args, **kwargs) for sample in data]
     elif hasattr(data, "to"):
@@ -587,10 +570,7 @@ def mod_default_collate(batch):
         and elem_type.__name__ != "string_"
     ):
         try:
-            if (
-                elem_type.__name__ == "ndarray"
-                or elem_type.__name__ == "memmap"
-            ):
+            if elem_type.__name__ == "ndarray" or elem_type.__name__ == "memmap":
                 # array of string classes and object
                 if np_str_obj_array_pattern.search(elem.dtype.str) is not None:
                     return batch
@@ -822,9 +802,7 @@ def batch_shuffle(items, batch_size):
     """
     batch_count = math.floor(len(items) / batch_size)
     batches = torch.randperm(batch_count)
-    batch_idx = (
-        batches.unsqueeze(-1).expand(batch_count, batch_size) * batch_size
-    )
+    batch_idx = batches.unsqueeze(-1).expand(batch_count, batch_size) * batch_size
     batch_offset = torch.arange(batch_size).unsqueeze(0)
     batch_idx += batch_offset
     tail = torch.arange(batch_count * batch_size, len(items))
@@ -932,15 +910,11 @@ def _offset_to_tensor(offset, lengths):
         else:
             result = torch.concat([item.unsqueeze(0) for item in offset])
     else:
-        raise ValueError(
-            "The offset must be a number, a tensor or a list of tensors"
-        )
+        raise ValueError("The offset must be a number, a tensor or a list of tensors")
     return result
 
 
-def _lens_to_boundaries(
-    lengths, slice_start=None, slice_end=None, cumulative=True
-):
+def _lens_to_boundaries(lengths, slice_start=None, slice_end=None, cumulative=True):
     """Converts a tensor of lengths to a tensor of start and end
     boundaries, used for concat_padded_features
 
@@ -980,9 +954,7 @@ def _lens_to_boundaries(
 
     if cumulative:
         effective_lengths = lengths - start_offset - end_offset
-        effective_lengths_zpad = torch.concat(
-            [batch_padding, effective_lengths], dim=0
-        )
+        effective_lengths_zpad = torch.concat([batch_padding, effective_lengths], dim=0)
 
         start = effective_lengths_zpad.cumsum(dim=0)[:-1, :]
     else:
@@ -1066,8 +1038,7 @@ def length_range(feats, len_dim):
     feats_range = torch.arange(max_len).to(feats.device)
     out = unsqueeze_1d(feats_range, feats.dim(), len_dim)
     repeat_dim = [
-        feats_size // out_size
-        for feats_size, out_size in zip(feats.shape, out.shape)
+        feats_size // out_size for feats_size, out_size in zip(feats.shape, out.shape)
     ]
     return out.repeat(*repeat_dim)
 
@@ -1132,9 +1103,7 @@ def masked_std(sample, mask=None):
     dims = non_batch_dims(sample)
     mean = unsqueeze_as(masked_mean(sample, mask), sample)
     diff_sq = ((sample - mean) * mask) ** 2
-    return (
-        diff_sq.sum(dim=dims) / (mask.expand_as(diff_sq).sum(dim=dims) - 1)
-    ).sqrt()
+    return (diff_sq.sum(dim=dims) / (mask.expand_as(diff_sq).sum(dim=dims) - 1)).sqrt()
 
 
 def masked_min(sample, mask=None):

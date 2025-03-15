@@ -112,9 +112,7 @@ class EmoIdBrain(sb.Brain):
             )
 
             # Save the current checkpoint and delete previous checkpoints,
-            self.checkpointer.save_and_keep_only(
-                meta=stats, min_keys=["error_rate"]
-            )
+            self.checkpointer.save_and_keep_only(meta=stats, min_keys=["error_rate"])
 
         # We also write statistics about test data to stdout and to logfile.
         if stage == sb.Stage.TEST:
@@ -131,9 +129,7 @@ class EmoIdBrain(sb.Brain):
         self.optimizer = self.hparams.opt_class(self.hparams.model.parameters())
 
         if self.checkpointer is not None:
-            self.checkpointer.add_recoverable(
-                "wav2vec2_opt", self.wav2vec2_optimizer
-            )
+            self.checkpointer.add_recoverable("wav2vec2_opt", self.wav2vec2_optimizer)
             self.checkpointer.add_recoverable("optimizer", self.optimizer)
 
         self.optimizers_dict = {

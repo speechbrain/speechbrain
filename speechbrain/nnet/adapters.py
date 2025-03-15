@@ -111,9 +111,7 @@ class AdaptedModel(nn.Module):
         # Iterate modules to create list of layers to adapt
         self.replace_layers = []
         for name, module in model_to_adapt.named_modules():
-            if is_layer_adaptable(
-                name, module, all_linear, all_conv, target_layers
-            ):
+            if is_layer_adaptable(name, module, all_linear, all_conv, target_layers):
                 # Torch's MultiheadAttention is not adaptable due to an
                 # optimized fused kernel, warn if we find this.
                 parent_name = ".".join(name.split(".")[:-1])
@@ -314,9 +312,7 @@ class HoulsbyAdapterLinear(nn.Module):
         x_pretrained = self.pretrained_linear(x)
 
         return (
-            self.adapter_up_proj(
-                self.activation(self.adapter_down_proj(x_pretrained))
-            )
+            self.adapter_up_proj(self.activation(self.adapter_down_proj(x_pretrained)))
             + x_pretrained
         )
 
@@ -359,12 +355,8 @@ class LoRA(nn.Module):
             param.requires_grad = False
         device = target_module.weight.device
 
-        self.adapter_down_proj = nn.Linear(
-            input_size, rank, bias=False, device=device
-        )
-        self.adapter_up_proj = nn.Linear(
-            rank, output_size, bias=False, device=device
-        )
+        self.adapter_down_proj = nn.Linear(input_size, rank, bias=False, device=device)
+        self.adapter_up_proj = nn.Linear(rank, output_size, bias=False, device=device)
         self.adapter_up_proj.weight.data.fill_(0.0)
 
         self.scaling = alpha / rank

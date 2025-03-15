@@ -1,4 +1,4 @@
-""" Specifies the inference interfaces for Automatic speech Recognition (ASR) modules.
+"""Specifies the inference interfaces for Automatic speech Recognition (ASR) modules.
 
 Authors:
  * Aku Rouhe 2021
@@ -90,9 +90,7 @@ class EncoderDecoderASR(Pretrained):
         # Fake a batch:
         batch = waveform.unsqueeze(0)
         rel_length = torch.tensor([1.0])
-        predicted_words, predicted_tokens = self.transcribe_batch(
-            batch, rel_length
-        )
+        predicted_words, predicted_tokens = self.transcribe_batch(batch, rel_length)
         return predicted_words[0]
 
     def encode_batch(self, wavs, wav_lens):
@@ -161,8 +159,7 @@ class EncoderDecoderASR(Pretrained):
                 inputs = [encoder_out, wav_lens]
             predicted_tokens, _, _, _ = self.mods.decoder(*inputs)
             predicted_words = [
-                self.tokenizer.decode_ids(token_seq)
-                for token_seq in predicted_tokens
+                self.tokenizer.decode_ids(token_seq) for token_seq in predicted_tokens
             ]
         return predicted_words, predicted_tokens
 
@@ -238,9 +235,7 @@ class EncoderASR(Pretrained):
                 ):
                     ind2lab = self.tokenizer.ind2lab
                     vocab_list = [ind2lab[x] for x in range(len(ind2lab))]
-                elif isinstance(
-                    self.tokenizer, sentencepiece.SentencePieceProcessor
-                ):
+                elif isinstance(self.tokenizer, sentencepiece.SentencePieceProcessor):
                     vocab_list = [
                         self.tokenizer.id_to_piece(i)
                         for i in range(self.tokenizer.vocab_size())
@@ -259,14 +254,10 @@ class EncoderASR(Pretrained):
                             opt_beam_search_params["kenlm_model_path"]
                         )
                         kenlm_model_path = str(
-                            fetch(
-                                fl, source=source, savedir=self.hparams.savedir
-                            )
+                            fetch(fl, source=source, savedir=self.hparams.savedir)
                         )
                         # we need to update the kenlm_model_path in the opt_beam_search_params
-                        opt_beam_search_params["kenlm_model_path"] = (
-                            kenlm_model_path
-                        )
+                        opt_beam_search_params["kenlm_model_path"] = kenlm_model_path
                 else:
                     opt_beam_search_params = {}
                 self.decoding_function = self.hparams.decoding_function(
@@ -296,9 +287,7 @@ class EncoderASR(Pretrained):
         # Fake a batch:
         batch = waveform.unsqueeze(0)
         rel_length = torch.tensor([1.0])
-        predicted_words, predicted_tokens = self.transcribe_batch(
-            batch, rel_length
-        )
+        predicted_words, predicted_tokens = self.transcribe_batch(batch, rel_length)
         return str(predicted_words[0])
 
     def encode_batch(self, wavs, wav_lens):
@@ -572,8 +561,7 @@ class WhisperASR(Pretrained):
         """
 
         stream_infos = [
-            streamer.get_src_stream_info(i)
-            for i in range(streamer.num_src_streams)
+            streamer.get_src_stream_info(i) for i in range(streamer.num_src_streams)
         ]
 
         audio_stream_infos = [
@@ -716,19 +704,12 @@ class WhisperASR(Pretrained):
             prompt = all_tokens[prompt_reset_since:]
             self.mods.decoder.set_prompt(prompt)
 
-            predicted_tokens, _, scores, _ = self.mods.decoder(
-                encoder_out, rel_length
-            )
+            predicted_tokens, _, scores, _ = self.mods.decoder(encoder_out, rel_length)
             avg_log_probs = scores.sum() / (len(predicted_tokens[0]) + 1)
 
             if no_speech_threshold is not None:
-                should_skip = (
-                    self.mods.decoder.no_speech_probs[0] > no_speech_threshold
-                )
-                if (
-                    logprob_threshold is not None
-                    and avg_log_probs > logprob_threshold
-                ):
+                should_skip = self.mods.decoder.no_speech_probs[0] > no_speech_threshold
+                if logprob_threshold is not None and avg_log_probs > logprob_threshold:
                     # don't skip if the logprob is high enough, despite the no_speech_prob
                     should_skip = False
 
@@ -765,10 +746,7 @@ class WhisperASR(Pretrained):
 
             all_tokens.extend(predicted_tokens[0])
 
-            if (
-                not condition_on_previous_text
-                or self.mods.decoder.temperature > 0.5
-            ):
+            if not condition_on_previous_text or self.mods.decoder.temperature > 0.5:
                 prompt_reset_since = len(all_tokens)
 
     def transcribe_file(
@@ -849,9 +827,7 @@ class WhisperASR(Pretrained):
                     if task != "lang_id"
                     else whisper_segment.lang_id
                 )
-                print(
-                    f"[{whisper_segment.start}s --> {whisper_segment.end}s] {pred}"
-                )
+                print(f"[{whisper_segment.start}s --> {whisper_segment.end}s] {pred}")
         return results
 
     def encode_batch(self, wavs, wav_lens):
@@ -917,8 +893,7 @@ class WhisperASR(Pretrained):
         ]
         if self.hparams.normalized_transcripts:
             predicted_words = [
-                self.tokenizer.normalize(text).split(" ")
-                for text in predicted_words
+                self.tokenizer.normalize(text).split(" ") for text in predicted_words
             ]
 
         return predicted_words, predicted_tokens
@@ -1013,8 +988,7 @@ class StreamingASR(Pretrained):
         """
 
         stream_infos = [
-            streamer.get_src_stream_info(i)
-            for i in range(streamer.num_src_streams)
+            streamer.get_src_stream_info(i) for i in range(streamer.num_src_streams)
         ]
 
         audio_stream_infos = [
@@ -1166,16 +1140,12 @@ class StreamingASR(Pretrained):
         return ASRStreamingContext(
             config=dynchunktrain_config,
             fea_extractor_context=self.hparams.fea_streaming_extractor.make_streaming_context(),
-            encoder_context=self.mods.enc.make_streaming_context(
-                dynchunktrain_config
-            ),
+            encoder_context=self.mods.enc.make_streaming_context(dynchunktrain_config),
             decoder_context=self.hparams.make_decoder_streaming_context(),
             tokenizer_context=None,
         )
 
-    def get_chunk_size_frames(
-        self, dynchunktrain_config: DynChunkTrainConfig
-    ) -> int:
+    def get_chunk_size_frames(self, dynchunktrain_config: DynChunkTrainConfig) -> int:
         """Returns the chunk size in actual audio samples, i.e. the exact
         expected length along the time dimension of an input chunk tensor (as
         passed to :meth:`~StreamingASR.encode_chunk` and similar low-level

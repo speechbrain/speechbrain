@@ -80,9 +80,7 @@ def compute_speaker_embeddings(
             # Loads and resamples waveforms if required
             signal, sig_sr = torchaudio.load(utt_wav_path)
             if sig_sr != spk_emb_sr:
-                signal = torchaudio.functional.resample(
-                    signal, sig_sr, spk_emb_sr
-                )
+                signal = torchaudio.functional.resample(signal, sig_sr, spk_emb_sr)
             signal = signal.to(device)
 
             # Computes the speaker embedding

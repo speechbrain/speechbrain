@@ -12,11 +12,7 @@ def test_add_noise(tmpdir, device):
     # Test concatenation of batches
     wav_a = torch.sin(torch.arange(8000.0, device=device)).unsqueeze(0)
     a_len = torch.ones(1, device=device)
-    wav_b = (
-        torch.cos(torch.arange(10000.0, device=device))
-        .unsqueeze(0)
-        .repeat(2, 1)
-    )
+    wav_b = torch.cos(torch.arange(10000.0, device=device)).unsqueeze(0).repeat(2, 1)
     b_len = torch.ones(2, device=device)
     concat, lens = AddNoise._concat_batch(wav_a, a_len, wav_b, b_len)
     assert concat.shape == (3, 10000)
@@ -563,9 +559,7 @@ def test_augment_pipeline():
         augmentations=[freq_dropper, chunk_dropper],
     )
     signal = torch.rand([4, 16000])
-    output_signal, lengths = augment(
-        signal, lengths=torch.tensor([0.2, 0.5, 0.7, 1.0])
-    )
+    output_signal, lengths = augment(signal, lengths=torch.tensor([0.2, 0.5, 0.7, 1.0]))
     assert len(output_signal) == 4
     assert len(lengths) == 4
 
@@ -580,9 +574,7 @@ def test_augment_pipeline():
         augmentations=[freq_dropper, chunk_dropper],
     )
     signal = torch.rand([4, 16000])
-    output_signal, lengths = augment(
-        signal, lengths=torch.tensor([0.2, 0.5, 0.7, 1.0])
-    )
+    output_signal, lengths = augment(signal, lengths=torch.tensor([0.2, 0.5, 0.7, 1.0]))
     assert torch.equal(signal, output_signal)
 
     freq_dropper = DropFreq()
@@ -597,9 +589,7 @@ def test_augment_pipeline():
         enable_augmentations=[False, False],
     )
     signal = torch.rand([4, 16000])
-    output_signal, lengths = augment(
-        signal, lengths=torch.tensor([0.2, 0.5, 0.7, 1.0])
-    )
+    output_signal, lengths = augment(signal, lengths=torch.tensor([0.2, 0.5, 0.7, 1.0]))
     assert torch.equal(signal, output_signal)
 
     freq_dropper = DropFreq()
@@ -614,9 +604,7 @@ def test_augment_pipeline():
         enable_augmentations=[True, False],
     )
     signal = torch.rand([4, 16000])
-    output_signal, lengths = augment(
-        signal, lengths=torch.tensor([0.2, 0.5, 0.7, 1.0])
-    )
+    output_signal, lengths = augment(signal, lengths=torch.tensor([0.2, 0.5, 0.7, 1.0]))
     assert output_signal.shape[0] == signal.shape[0] * 2
 
     augment = Augmenter(
@@ -626,9 +614,7 @@ def test_augment_pipeline():
         max_augmentations=2,
         augmentations=[freq_dropper, chunk_dropper],
     )
-    output_signal, lengths = augment(
-        signal, lengths=torch.tensor([0.2, 0.5, 0.7, 1.0])
-    )
+    output_signal, lengths = augment(signal, lengths=torch.tensor([0.2, 0.5, 0.7, 1.0]))
     assert len(output_signal) == 8
     assert len(lengths) == 8
     assert torch.equal(output_signal[0:4], signal[0:4])
@@ -640,9 +626,7 @@ def test_augment_pipeline():
         max_augmentations=2,
         augmentations=[freq_dropper, chunk_dropper],
     )
-    output_signal, lengths = augment(
-        signal, lengths=torch.tensor([0.2, 0.5, 0.7, 1.0])
-    )
+    output_signal, lengths = augment(signal, lengths=torch.tensor([0.2, 0.5, 0.7, 1.0]))
     assert len(output_signal) == 8
     assert len(lengths) == 8
 
@@ -653,9 +637,7 @@ def test_augment_pipeline():
         max_augmentations=2,
         augmentations=[freq_dropper, chunk_dropper],
     )
-    output_signal, lengths = augment(
-        signal, lengths=torch.tensor([0.2, 0.5, 0.7, 1.0])
-    )
+    output_signal, lengths = augment(signal, lengths=torch.tensor([0.2, 0.5, 0.7, 1.0]))
     assert len(output_signal) == 12
     assert len(lengths) == 12
     assert torch.equal(output_signal[0:4], signal[0:4])
@@ -670,9 +652,7 @@ def test_augment_pipeline():
         augmentations=[freq_dropper, chunk_dropper],
     )
 
-    output_signal, lengths = augment(
-        signal, lengths=torch.tensor([0.2, 0.5, 0.7, 1.0])
-    )
+    output_signal, lengths = augment(signal, lengths=torch.tensor([0.2, 0.5, 0.7, 1.0]))
     assert len(output_signal) == 20
     assert len(lengths) == 20
     assert torch.equal(output_signal[0:4], signal[0:4])
@@ -687,9 +667,7 @@ def test_augment_pipeline():
         augmentations=[freq_dropper, chunk_dropper],
     )
 
-    output_signal, lengths = augment(
-        signal, lengths=torch.tensor([0.2, 0.5, 0.7, 1.0])
-    )
+    output_signal, lengths = augment(signal, lengths=torch.tensor([0.2, 0.5, 0.7, 1.0]))
     assert torch.equal(output_signal, signal)
 
     augment = Augmenter(
@@ -702,7 +680,5 @@ def test_augment_pipeline():
         augmentations=[freq_dropper, chunk_dropper],
     )
 
-    output_signal, lengths = augment(
-        signal, lengths=torch.tensor([0.2, 0.5, 0.7, 1.0])
-    )
+    output_signal, lengths = augment(signal, lengths=torch.tensor([0.2, 0.5, 0.7, 1.0]))
     assert torch.equal(output_signal, signal)

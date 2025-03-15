@@ -21,9 +21,7 @@ from speechbrain.utils.parallel import parallel_map
 logger = get_logger(__name__)
 
 
-def extract_and_cleanup_wav_files(
-    tgz_list, wav_dir, splits, remove_compressed_wavs
-):
+def extract_and_cleanup_wav_files(tgz_list, wav_dir, splits, remove_compressed_wavs):
     """This function extracts the wav files in the AISHELL-1 dataset.
 
     Arguments
@@ -185,9 +183,7 @@ def prepare_aishell(
                 csv_f, delimiter=",", quotechar='"', quoting=csv.QUOTE_MINIMAL
             )
             csv_writer.writerow(["ID", "duration", "wav", "transcript"])
-            for row in parallel_map(
-                line_processor, transcript_wavs, chunk_size=4092
-            ):
+            for row in parallel_map(line_processor, transcript_wavs, chunk_size=4092):
                 if row is None:
                     continue
 
@@ -200,9 +196,7 @@ def prepare_aishell(
 
         msg = f"Number of samples: {total_line} "
         logger.info(msg)
-        msg = "Total duration: %s Hours" % (
-            str(round(total_duration / 3600, 2))
-        )
+        msg = "Total duration: %s Hours" % (str(round(total_duration / 3600, 2)))
 
         logger.info(msg)
 
@@ -213,7 +207,5 @@ def prepare_aishell(
 
         msg = f"Number of samples: {total_line} "
         logger.info(msg)
-        msg = "Total duration: %s Hours" % (
-            str(round(total_duration / 3600, 2))
-        )
+        msg = "Total duration: %s Hours" % (str(round(total_duration / 3600, 2)))
         logger.info(msg)

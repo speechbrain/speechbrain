@@ -27,9 +27,7 @@ from speechbrain.utils.logger import get_logger
 try:
     import pandas as pd
 except ImportError:
-    err_msg = (
-        "The optional dependency pandas must be installed to run this recipe.\n"
-    )
+    err_msg = "The optional dependency pandas must be installed to run this recipe.\n"
     err_msg += "Install using `pip install pandas`.\n"
     raise ImportError(err_msg)
 
@@ -172,9 +170,7 @@ def prepare_GSC(
 
         # Indicate once all wanted words are parsed
         if i >= len(words_wanted) and not words_wanted_parsed:
-            num_known_samples_total = np.sum(
-                list(num_known_samples_per_split.values())
-            )
+            num_known_samples_total = np.sum(list(num_known_samples_per_split.values()))
             num_unknown_samples_total = 105829 - num_known_samples_total
             percentage_applied_to_unknown_samples = (
                 percentage_unknown * num_known_samples_total
@@ -183,9 +179,7 @@ def prepare_GSC(
 
         # Read all files under a specific class (i.e. command)
         files = []
-        for dirpath, dirnames, filenames in walk(
-            os.path.join(data_folder, command)
-        ):
+        for dirpath, dirnames, filenames in walk(os.path.join(data_folder, command)):
             files.extend(filenames)
             break
 
@@ -200,22 +194,16 @@ def prepare_GSC(
                 continue
 
             # select the required split (i.e. set) for the sample
-            split = which_set(
-                filename, validation_percentage, testing_percentage
-            )
+            split = which_set(filename, validation_percentage, testing_percentage)
 
-            splits[split]["ID"].append(
-                command + "/" + re.sub(r".wav", "", filename)
-            )
+            splits[split]["ID"].append(command + "/" + re.sub(r".wav", "", filename))
 
             # We know that all recordings are 1 second long (i.e.16000 frames). No need to compute the duration.
             splits[split]["duration"].append(1.0)
             splits[split]["start"].append(0)
             splits[split]["stop"].append(16000)
 
-            splits[split]["wav"].append(
-                os.path.join(data_folder, command, filename)
-            )
+            splits[split]["wav"].append(os.path.join(data_folder, command, filename))
 
             splits[split]["spk_id"].append(re.sub(r"_.*", "", filename))
 
@@ -287,9 +275,9 @@ def which_set(filename, validation_percentage, testing_percentage):
     # itself, so we do a hash of that and then use that to generate a
     # probability value that we use to assign it.
     hash_name_hashed = hashlib.sha1(hash_name).hexdigest()
-    percentage_hash = (
-        int(hash_name_hashed, 16) % (MAX_NUM_WAVS_PER_CLASS + 1)
-    ) * (100.0 / MAX_NUM_WAVS_PER_CLASS)
+    percentage_hash = (int(hash_name_hashed, 16) % (MAX_NUM_WAVS_PER_CLASS + 1)) * (
+        100.0 / MAX_NUM_WAVS_PER_CLASS
+    )
     if percentage_hash < validation_percentage:
         result = "valid"
     elif percentage_hash < (testing_percentage + validation_percentage):
@@ -328,16 +316,11 @@ def generate_silence_data(
 
         # Generate random silence samples
         # Assumes that the pytorch seed has been defined in the HyperPyYaml file
-        num_silence_samples_per_path = int(
-            num_silence_samples / len(silence_paths)
-        )
+        num_silence_samples_per_path = int(num_silence_samples / len(silence_paths))
         for silence_path in silence_paths:
             signal = read_audio(silence_path)
             random_starts = (
-                (
-                    torch.rand(num_silence_samples_per_path)
-                    * (signal.shape[0] - 16001)
-                )
+                (torch.rand(num_silence_samples_per_path) * (signal.shape[0] - 16001))
                 .type(torch.int)
                 .tolist()
             )

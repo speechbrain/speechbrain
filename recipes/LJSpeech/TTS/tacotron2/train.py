@@ -1,22 +1,23 @@
 # -*- coding: utf-8 -*-
 """
- Recipe for training the Tacotron Text-To-Speech model, an end-to-end
- neural text-to-speech (TTS) system
+Recipe for training the Tacotron Text-To-Speech model, an end-to-end
+neural text-to-speech (TTS) system
 
- To run this recipe, do the following:
- # python train.py --device=cuda:0 --max_grad_norm=1.0 --data_folder=/your_folder/LJSpeech-1.1 hparams/train.yaml
+To run this recipe, do the following:
+# python train.py --device=cuda:0 --max_grad_norm=1.0 --data_folder=/your_folder/LJSpeech-1.1 hparams/train.yaml
 
- to infer simply load saved model and do
- savemodel.infer(text_Sequence,len(textsequence))
+to infer simply load saved model and do
+savemodel.infer(text_Sequence,len(textsequence))
 
- were text_Sequence is the output of the text_to_sequence function from
- textToSequence.py (from textToSequence import text_to_sequence)
+were text_Sequence is the output of the text_to_sequence function from
+textToSequence.py (from textToSequence import text_to_sequence)
 
- Authors
- * Georges Abous-Rjeili 2021
- * Artem Ploujnikov 2021
- * Yingzhi Wang 2022
+Authors
+* Georges Abous-Rjeili 2021
+* Artem Ploujnikov 2021
+* Yingzhi Wang 2022
 """
+
 import sys
 
 import torch
@@ -194,9 +195,7 @@ class Tacotron2Brain(sb.Brain):
         mel_padded = mel_padded.to(self.device, non_blocking=True).float()
         gate_padded = gate_padded.to(self.device, non_blocking=True).float()
 
-        output_lengths = output_lengths.to(
-            self.device, non_blocking=True
-        ).long()
+        output_lengths = output_lengths.to(self.device, non_blocking=True).long()
         x = (text_padded, input_lengths, mel_padded, max_len, output_lengths)
         y = (mel_padded, gate_padded)
         len_x = torch.sum(output_lengths)
@@ -258,8 +257,7 @@ class Tacotron2Brain(sb.Brain):
                 ckpt_predicate=(
                     (
                         lambda ckpt: (
-                            ckpt.meta["epoch"]
-                            % self.hparams.keep_checkpoint_interval
+                            ckpt.meta["epoch"] % self.hparams.keep_checkpoint_interval
                             != 0
                         )
                     )
@@ -292,9 +290,7 @@ class Tacotron2Brain(sb.Brain):
             return
         inputs, _, _, _, _ = self.last_batch
         text_padded, input_lengths, _, _, _ = inputs
-        mel_out, _, _ = self.hparams.model.infer(
-            text_padded[:1], input_lengths[:1]
-        )
+        mel_out, _, _ = self.hparams.model.infer(text_padded[:1], input_lengths[:1])
         self.hparams.progress_sample_logger.remember(
             inference_mel_out=self._get_spectrogram_sample(mel_out)
         )
@@ -305,9 +301,7 @@ def dataio_prepare(hparams):
     @sb.utils.data_pipeline.takes("wav", "label")
     @sb.utils.data_pipeline.provides("mel_text_pair")
     def audio_pipeline(wav, label):
-        text_seq = torch.IntTensor(
-            text_to_sequence(label, hparams["text_cleaners"])
-        )
+        text_seq = torch.IntTensor(text_to_sequence(label, hparams["text_cleaners"]))
 
         audio = sb.dataio.dataio.read_audio(wav)
         mel = hparams["mel_spectogram"](audio=audio)

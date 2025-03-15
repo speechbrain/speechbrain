@@ -223,9 +223,7 @@ class TransducerBeamSearcher(torch.nn.Module):
                 out_PN.unsqueeze(1),
             )
             # Sort outputs at time
-            logp_targets, positions = torch.max(
-                log_probs.squeeze(1).squeeze(1), dim=1
-            )
+            logp_targets, positions = torch.max(log_probs.squeeze(1).squeeze(1), dim=1)
             # Batch hidden update
             have_update_hyp = []
             for i in range(positions.size(0)):
@@ -242,17 +240,13 @@ class TransducerBeamSearcher(torch.nn.Module):
                 (
                     selected_input_PN,
                     selected_hidden,
-                ) = self._get_sentence_to_update(
-                    have_update_hyp, input_PN, hidden
-                )
+                ) = self._get_sentence_to_update(have_update_hyp, input_PN, hidden)
                 selected_out_PN, selected_hidden = self._forward_PN(
                     selected_input_PN, self.decode_network_lst, selected_hidden
                 )
                 # update hiddens and out_PN
                 out_PN[have_update_hyp] = selected_out_PN
-                hidden = self._update_hiddens(
-                    have_update_hyp, selected_hidden, hidden
-                )
+                hidden = self._update_hiddens(have_update_hyp, selected_hidden, hidden)
 
         ret = (
             hyp["prediction"],
@@ -402,19 +396,15 @@ class TransducerBeamSearcher(torch.nn.Module):
                         log_probs.view(-1), k=self.beam_size, dim=-1
                     )
                     best_logp = (
-                        logp_targets[0]
-                        if positions[0] != blank
-                        else logp_targets[1]
+                        logp_targets[0] if positions[0] != blank else logp_targets[1]
                     )
 
                     # Extend hyp by  selection
                     for j in range(logp_targets.size(0)):
-
                         # hyp
                         topk_hyp = {
                             "prediction": a_best_hyp["prediction"][:],
-                            "logp_score": a_best_hyp["logp_score"]
-                            + logp_targets[j],
+                            "logp_score": a_best_hyp["logp_score"] + logp_targets[j],
                             "hidden_dec": a_best_hyp["hidden_dec"],
                         }
 
@@ -430,8 +420,7 @@ class TransducerBeamSearcher(torch.nn.Module):
                             if self.lm_weight > 0:
                                 topk_hyp["hidden_lm"] = hidden_lm
                                 topk_hyp["logp_score"] += (
-                                    self.lm_weight
-                                    * log_probs_lm[0, 0, positions[j]]
+                                    self.lm_weight * log_probs_lm[0, 0, positions[j]]
                                 )
                             process_hyps.append(topk_hyp)
             # Add norm score
@@ -449,9 +438,7 @@ class TransducerBeamSearcher(torch.nn.Module):
             nbest_batch_score.append(all_scores)
         return (
             [nbest_utt[0] for nbest_utt in nbest_batch],
-            torch.Tensor(
-                [nbest_utt_score[0] for nbest_utt_score in nbest_batch_score]
-            )
+            torch.Tensor([nbest_utt_score[0] for nbest_utt_score in nbest_batch_score])
             .exp()
             .mean(),
             nbest_batch,

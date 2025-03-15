@@ -34,6 +34,7 @@ from speechbrain.utils.fetching import LocalStrategy, fetch
 from speechbrain.utils.logger import get_logger
 from speechbrain.utils.superpowers import import_from_path
 from speechbrain.utils.run_opts import RunOptions
+
 logger = get_logger(__name__)
 
 
@@ -208,9 +209,7 @@ class Pretrained(torch.nn.Module):
     HPARAMS_NEEDED = []
     MODULES_NEEDED = []
 
-    def __init__(
-        self, modules=None, hparams=None, run_opts=None, freeze_params=True
-    ):
+    def __init__(self, modules=None, hparams=None, run_opts=None, freeze_params=True):
         super().__init__()
         self.run_opt_defaults = RunOptions().from_command_line_args()
         # Arguments passed via the run opts dictionary. Set a limited
@@ -249,9 +248,7 @@ class Pretrained(torch.nn.Module):
         self._prepare_modules(freeze_params)
 
         # Audio normalization
-        self.audio_normalizer = hparams.get(
-            "audio_normalizer", AudioNormalizer()
-        )
+        self.audio_normalizer = hparams.get("audio_normalizer", AudioNormalizer())
 
     def _prepare_modules(self, freeze_params):
         """Prepare modules for computation, e.g. jit.
@@ -330,9 +327,7 @@ class Pretrained(torch.nn.Module):
         # find missing keys
         for name in compile_module_keys | jit_module_keys:
             if name not in self.mods:
-                raise ValueError(
-                    f"module {name} is not defined in your hparams file."
-                )
+                raise ValueError(f"module {name} is not defined in your hparams file.")
 
         # try 'torch.compile', remove successful compiles from JIT list
         for name in compile_module_keys:

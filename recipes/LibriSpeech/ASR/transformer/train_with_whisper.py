@@ -45,15 +45,11 @@ class ASR(sb.Brain):
         if stage == sb.Stage.TRAIN and hasattr(self.hparams, "wav_augment"):
             wavs, wav_lens = self.hparams.wav_augment(wavs, wav_lens)
             bos_tokens = self.hparams.wav_augment.replicate_labels(bos_tokens)
-            bos_tokens_lens = self.hparams.wav_augment.replicate_labels(
-                bos_tokens_lens
-            )
+            bos_tokens_lens = self.hparams.wav_augment.replicate_labels(bos_tokens_lens)
 
         # We compute the padding mask and replace the values with the pad_token_id
         # that the Whisper decoder expect to see.
-        abs_tokens_lens = torch.round(
-            bos_tokens_lens * bos_tokens.shape[1]
-        ).long()
+        abs_tokens_lens = torch.round(bos_tokens_lens * bos_tokens.shape[1]).long()
         pad_mask = (
             torch.arange(abs_tokens_lens.max(), device=self.device)[None, :]
             < abs_tokens_lens[:, None]
@@ -66,9 +62,7 @@ class ASR(sb.Brain):
 
         hyps = None
         if stage == sb.Stage.VALID:
-            hyps, _, _, _ = self.hparams.valid_search(
-                enc_out.detach(), wav_lens
-            )
+            hyps, _, _, _ = self.hparams.valid_search(enc_out.detach(), wav_lens)
         elif stage == sb.Stage.TEST:
             hyps, _, _, _ = self.hparams.test_search(enc_out.detach(), wav_lens)
 
@@ -85,21 +79,16 @@ class ASR(sb.Brain):
         # Label Augmentation
         if stage == sb.Stage.TRAIN and hasattr(self.hparams, "wav_augment"):
             tokens_eos = self.hparams.wav_augment.replicate_labels(tokens_eos)
-            tokens_eos_lens = self.hparams.wav_augment.replicate_labels(
-                tokens_eos_lens
-            )
+            tokens_eos_lens = self.hparams.wav_augment.replicate_labels(tokens_eos_lens)
 
-        loss = self.hparams.nll_loss(
-            log_probs, tokens_eos, length=tokens_eos_lens
-        )
+        loss = self.hparams.nll_loss(log_probs, tokens_eos, length=tokens_eos_lens)
 
         if stage != sb.Stage.TRAIN:
             tokens, tokens_lens = batch.tokens
 
             # Decode token terms to words
             predicted_words = [
-                self.tokenizer.decode(t, skip_special_tokens=True).strip()
-                for t in hyps
+                self.tokenizer.decode(t, skip_special_tokens=True).strip() for t in hyps
             ]
 
             # Convert indices to words
@@ -108,7 +97,6 @@ class ASR(sb.Brain):
                 target_words, skip_special_tokens=True
             )
             if hasattr(self.hparams, "normalized_transcripts"):
-
                 if hasattr(self.tokenizer, "normalize"):
                     normalized_fn = self.tokenizer.normalize
                 else:
@@ -118,9 +106,7 @@ class ASR(sb.Brain):
                     normalized_fn(text).split(" ") for text in predicted_words
                 ]
 
-                target_words = [
-                    normalized_fn(text).split(" ") for text in target_words
-                ]
+                target_words = [normalized_fn(text).split(" ") for text in target_words]
             else:
                 predicted_words = [text.split(" ") for text in predicted_words]
                 target_words = [text.split(" ") for text in target_words]
@@ -164,9 +150,7 @@ class ASR(sb.Brain):
                 test_stats=stage_stats,
             )
             if if_main_process():
-                with open(
-                    self.hparams.test_wer_file, "w", encoding="utf-8"
-                ) as w:
+                with open(self.hparams.test_wer_file, "w", encoding="utf-8") as w:
                     self.wer_metric.write_stats(w)
 
 
@@ -188,9 +172,7 @@ def dataio_prepare(hparams, tokenizer):
         hparams["train_loader_kwargs"]["shuffle"] = False
 
     elif hparams["sorting"] == "descending":
-        train_data = train_data.filtered_sorted(
-            sort_key="duration", reverse=True
-        )
+        train_data = train_data.filtered_sorted(sort_key="duration", reverse=True)
         # when sorting do not shuffle in dataloader ! otherwise is pointless
         hparams["train_loader_kwargs"]["shuffle"] = False
 
@@ -198,9 +180,7 @@ def dataio_prepare(hparams, tokenizer):
         pass
 
     else:
-        raise NotImplementedError(
-            "sorting must be random, ascending or descending"
-        )
+        raise NotImplementedError("sorting must be random, ascending or descending")
 
     valid_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
         csv_path=hparams["valid_csv"],
@@ -215,9 +195,7 @@ def dataio_prepare(hparams, tokenizer):
         test_datasets[name] = sb.dataio.dataset.DynamicItemDataset.from_csv(
             csv_path=csv_file, replacements={"data_root": data_folder}
         )
-        test_datasets[name] = test_datasets[name].filtered_sorted(
-            sort_key="duration"
-        )
+        test_datasets[name] = test_datasets[name].filtered_sorted(sort_key="duration")
 
     datasets = [train_data, valid_data] + [i for k, i in test_datasets.items()]
 
@@ -236,10 +214,7 @@ def dataio_prepare(hparams, tokenizer):
         "wrd", "tokens_list", "tokens_bos", "tokens_eos", "tokens"
     )
     def text_pipeline(wrd):
-        if (
-            "normalized_transcripts" in hparams
-            and hparams["normalized_transcripts"]
-        ):
+        if "normalized_transcripts" in hparams and hparams["normalized_transcripts"]:
             wrd = tokenizer.normalize(wrd)
         yield wrd
         tokens_list = tokenizer.encode(wrd, add_special_tokens=False)

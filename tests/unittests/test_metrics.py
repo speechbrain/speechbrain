@@ -66,16 +66,12 @@ def test_weighted_error_rate_stats():
         return 1.0  # low similarity
 
     wer_stats = ErrorRateStats()
-    weighted_wer_stats = WeightedErrorRateStats(
-        wer_stats, cost_function=test_cost
-    )
+    weighted_wer_stats = WeightedErrorRateStats(wer_stats, cost_function=test_cost)
 
     predict = [["d", "b", "c"], ["a'", "b", "c"]]
     refs = [["a", "b", "c"]] * 2
 
-    wer_stats.append(
-        ids=["utterance1", "utterance2"], predict=predict, target=refs
-    )
+    wer_stats.append(ids=["utterance1", "utterance2"], predict=predict, target=refs)
     summary = weighted_wer_stats.summarize()
 
     assert math.isclose(summary["weighted_wer"], 18.33333, abs_tol=1e-3)

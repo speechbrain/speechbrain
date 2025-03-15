@@ -66,12 +66,8 @@ class G2PEvaluator:
         )
         self.modules["model"].eval()
         self._word_separator = None
-        self._bos = torch.tensor(
-            self.hparams.bos_index, device=device
-        ).unsqueeze(-1)
-        self._eos = torch.tensor(
-            self.hparams.eos_index, device=device
-        ).unsqueeze(-1)
+        self._bos = torch.tensor(self.hparams.bos_index, device=device).unsqueeze(-1)
+        self._eos = torch.tensor(self.hparams.eos_index, device=device).unsqueeze(-1)
 
         # When reconstructing sentences word-wise, the process depends
         # on whether spaces are preserved or omitted, as controlled by
@@ -151,9 +147,9 @@ class G2PEvaluator:
         """
         _, char_word_emb = None, None
         if self._grapheme_word_separator_idx is None:
-            self._grapheme_word_separator_idx = (
-                self.hparams.grapheme_encoder.lab2ind[" "]
-            )
+            self._grapheme_word_separator_idx = self.hparams.grapheme_encoder.lab2ind[
+                " "
+            ]
         if not phn_encoded:
             grapheme_encoded_data, grapheme_lens = grapheme_encoded
             phn_encoded = (
@@ -161,9 +157,7 @@ class G2PEvaluator:
                     grapheme_encoded_data.device
                 )
                 * self.hparams.bos_index,
-                torch.ones(len(grapheme_encoded_data)).to(
-                    grapheme_encoded_data.device
-                ),
+                torch.ones(len(grapheme_encoded_data)).to(grapheme_encoded_data.device),
             )
             char_word_emb = self._apply_word_embeddings(grapheme_encoded, char)
         p_seq, char_lens, encoder_out, _ = self.modules.model(
@@ -213,9 +207,7 @@ class G2PEvaluator:
             grapheme_encoded.data, grapheme_encoded.lengths
         ):
             words_batch = self._split_words_batch(grapheme_item, grapheme_len)
-            item_hyps, item_scores = self._get_phonemes(
-                words_batch.grapheme_encoded
-            )
+            item_hyps, item_scores = self._get_phonemes(words_batch.grapheme_encoded)
             hyps.append(self._flatten_results(item_hyps))
             scores.append(self._flatten_scores(item_hyps, item_scores))
         return hyps, scores
@@ -279,8 +271,7 @@ class G2PEvaluator:
         seq_len = sum(len(word_hyp) for word_hyp in hyps)
         return (
             sum(
-                word_score * len(word_hyp)
-                for word_hyp, word_score in zip(hyps, scores)
+                word_score * len(word_hyp) for word_hyp, word_score in zip(hyps, scores)
             )
             / seq_len
         )
@@ -318,9 +309,7 @@ class G2PEvaluator:
             last_word_boundary = word_boundary
         char_length = math.ceil(len(graphemes) * length)
         if last_word_boundary < char_length:
-            yield self._add_delimiters(
-                graphemes[last_word_boundary + 1 : char_length]
-            )
+            yield self._add_delimiters(graphemes[last_word_boundary + 1 : char_length])
 
     def _add_delimiters(self, word):
         """Adds the required delimiter characters to a word
@@ -375,9 +364,7 @@ class G2PEvaluator:
                 )
                 batch_count = self.hparams.eval_batch_count
             else:
-                batch_count = math.ceil(
-                    len(dataset) / self.hparams.eval_batch_size
-                )
+                batch_count = math.ceil(len(dataset) / self.hparams.eval_batch_size)
             for batch in tqdm(dataloader_it, total=batch_count):
                 self.evaluate_batch(batch)
             if self.hparams.eval_output_wer_file:

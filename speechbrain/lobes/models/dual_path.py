@@ -88,10 +88,7 @@ class GlobalLayerNorm(nn.Module):
             mean = torch.mean(x, (1, 2), keepdim=True)
             var = torch.mean((x - mean) ** 2, (1, 2), keepdim=True)
             if self.elementwise_affine:
-                x = (
-                    self.weight * (x - mean) / torch.sqrt(var + self.eps)
-                    + self.bias
-                )
+                x = self.weight * (x - mean) / torch.sqrt(var + self.eps) + self.bias
             else:
                 x = (x - mean) / torch.sqrt(var + self.eps)
 
@@ -99,10 +96,7 @@ class GlobalLayerNorm(nn.Module):
             mean = torch.mean(x, (1, 2, 3), keepdim=True)
             var = torch.mean((x - mean) ** 2, (1, 2, 3), keepdim=True)
             if self.elementwise_affine:
-                x = (
-                    self.weight * (x - mean) / torch.sqrt(var + self.eps)
-                    + self.bias
-                )
+                x = self.weight * (x - mean) / torch.sqrt(var + self.eps) + self.bias
             else:
                 x = (x - mean) / torch.sqrt(var + self.eps)
         return x
@@ -272,9 +266,7 @@ class Decoder(nn.ConvTranspose1d):
         """
 
         if x.dim() not in [2, 3]:
-            raise RuntimeError(
-                "{} accept 3/4D tensor as input".format(self.__name__)
-            )
+            raise RuntimeError("{} accept 3/4D tensor as input".format(self.__name__))
         x = super().forward(x if x.dim() == 3 else torch.unsqueeze(x, 1))
 
         if torch.squeeze(x).dim() == 1:
@@ -776,9 +768,7 @@ class DPTNetBlock(nn.Module):
         -------
         Encoded outputs.
         """
-        src2 = self.self_attn(
-            src, src, src, attn_mask=None, key_padding_mask=None
-        )[0]
+        src2 = self.self_attn(src, src, src, attn_mask=None, key_padding_mask=None)[0]
         src = src + self.dropout1(src2)
         src = self.norm1(src)
         # src2 = self.linear2(self.dropout(self.activation(self.linear1(src))))
@@ -858,18 +848,14 @@ class Dual_Computation_Block(nn.Module):
                     out_channels, input_size=2 * intra_mdl.mdl.rnn.hidden_size
                 )
             else:
-                self.intra_linear = Linear(
-                    out_channels, input_size=out_channels
-                )
+                self.intra_linear = Linear(out_channels, input_size=out_channels)
 
             if isinstance(inter_mdl, SBRNNBlock):
                 self.inter_linear = Linear(
                     out_channels, input_size=2 * intra_mdl.mdl.rnn.hidden_size
                 )
             else:
-                self.inter_linear = Linear(
-                    out_channels, input_size=out_channels
-                )
+                self.inter_linear = Linear(out_channels, input_size=out_channels)
 
     def forward(self, x):
         """Returns the output tensor.
@@ -1015,16 +1001,12 @@ class Dual_Path_Model(nn.Module):
                 )
             )
 
-        self.conv2d = nn.Conv2d(
-            out_channels, out_channels * num_spks, kernel_size=1
-        )
+        self.conv2d = nn.Conv2d(out_channels, out_channels * num_spks, kernel_size=1)
         self.end_conv1x1 = nn.Conv1d(out_channels, in_channels, 1, bias=False)
         self.prelu = nn.PReLU()
         self.activation = nn.ReLU()
         # gated output layer
-        self.output = nn.Sequential(
-            nn.Conv1d(out_channels, out_channels, 1), nn.Tanh()
-        )
+        self.output = nn.Sequential(nn.Conv1d(out_channels, out_channels, 1), nn.Tanh())
         self.output_gate = nn.Sequential(
             nn.Conv1d(out_channels, out_channels, 1), nn.Sigmoid()
         )
@@ -1116,17 +1098,11 @@ class Dual_Path_Model(nn.Module):
         gap = K - (P + L % K) % K
         if gap > 0:
             pad = (
-                torch.Tensor(torch.zeros(B, N, gap))
-                .type(input.dtype)
-                .to(input.device)
+                torch.Tensor(torch.zeros(B, N, gap)).type(input.dtype).to(input.device)
             )
             input = torch.cat([input, pad], dim=2)
 
-        _pad = (
-            torch.Tensor(torch.zeros(B, N, P))
-            .type(input.dtype)
-            .to(input.device)
-        )
+        _pad = torch.Tensor(torch.zeros(B, N, P)).type(input.dtype).to(input.device)
         input = torch.cat([_pad, input, _pad], dim=2)
 
         return input, gap
@@ -1159,9 +1135,7 @@ class Dual_Path_Model(nn.Module):
         # [B, N, K, S]
         input1 = input[:, :, :-P].contiguous().view(B, N, -1, K)
         input2 = input[:, :, P:].contiguous().view(B, N, -1, K)
-        input = (
-            torch.cat([input1, input2], dim=3).view(B, N, -1, K).transpose(2, 3)
-        )
+        input = torch.cat([input1, input2], dim=3).view(B, N, -1, K).transpose(2, 3)
 
         return input.contiguous(), gap
 
@@ -1346,10 +1320,7 @@ class SepformerWrapper(nn.Module):
 
         # Decoding
         est_source = torch.cat(
-            [
-                self.decoder(sep_h[i]).unsqueeze(-1)
-                for i in range(self.num_spks)
-            ],
+            [self.decoder(sep_h[i]).unsqueeze(-1) for i in range(self.num_spks)],
             dim=-1,
         )
 
@@ -1477,9 +1448,7 @@ class SBConformerEncoderBlock(nn.Module):
         """
         if self.attention_type == "RelPosMHAXL":
             pos_enc = self.pos_enc(
-                torch.ones(
-                    x.shape[0], x.shape[1] * 2 - 1, x.shape[2], device=x.device
-                )
+                torch.ones(x.shape[0], x.shape[1] * 2 - 1, x.shape[2], device=x.device)
             )
             return self.mdl(x, pos_embs=pos_enc)[0]
         elif self.attention_type == "regularMHA":

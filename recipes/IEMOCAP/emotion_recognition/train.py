@@ -159,13 +159,9 @@ class EmoIdBrain(sb.Brain):
 
         if not isinstance(test_set, DataLoader):
             test_loader_kwargs["ckpt_prefix"] = None
-            test_set = self.make_dataloader(
-                test_set, Stage.TEST, **test_loader_kwargs
-            )
+            test_set = self.make_dataloader(test_set, Stage.TEST, **test_loader_kwargs)
 
-            save_file = os.path.join(
-                self.hparams.output_folder, "predictions.csv"
-            )
+            save_file = os.path.join(self.hparams.output_folder, "predictions.csv")
             with open(save_file, "w", newline="", encoding="utf-8") as csvfile:
                 outwriter = csv.writer(csvfile, delimiter=",")
                 outwriter.writerow(["id", "prediction", "true_value"])
@@ -173,21 +169,15 @@ class EmoIdBrain(sb.Brain):
         self.on_evaluate_start(max_key=max_key, min_key=min_key)  # done before
         self.modules.eval()
         with torch.no_grad():
-            for batch in tqdm(
-                test_set, dynamic_ncols=True, disable=not progressbar
-            ):
+            for batch in tqdm(test_set, dynamic_ncols=True, disable=not progressbar):
                 self.step += 1
 
                 emo_ids = batch.id
                 true_vals = batch.emo_encoded.data.squeeze(dim=1).tolist()
                 output = self.compute_forward(batch, stage=Stage.TEST)
-                predictions = (
-                    torch.argmax(output, dim=-1).squeeze(dim=1).tolist()
-                )
+                predictions = torch.argmax(output, dim=-1).squeeze(dim=1).tolist()
 
-                with open(
-                    save_file, "a", newline="", encoding="utf-8"
-                ) as csvfile:
+                with open(save_file, "a", newline="", encoding="utf-8") as csvfile:
                     outwriter = csv.writer(csvfile, delimiter=",")
                     for emo_id, prediction, true_val in zip(
                         emo_ids, predictions, true_vals

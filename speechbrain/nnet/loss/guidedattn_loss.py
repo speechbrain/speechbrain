@@ -163,10 +163,7 @@ class GuidedAttentionLoss(nn.Module):
         target_lengths_broad = target_lengths.view(-1, 1, 1)
         soft_mask = 1.0 - torch.exp(
             -(
-                (
-                    input_mesh / input_lengths_broad
-                    - target_mesh / target_lengths_broad
-                )
+                (input_mesh / input_lengths_broad - target_mesh / target_lengths_broad)
                 ** 2
             )
             / self.weight_factor

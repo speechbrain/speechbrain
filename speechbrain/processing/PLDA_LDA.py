@@ -61,7 +61,6 @@ class StatObject_SB:
         stat0=None,
         stat1=None,
     ):
-
         if modelset is None:  # For creating empty stat server
             self.modelset = numpy.empty(0, dtype="|O")
             self.segset = numpy.empty(0, dtype="|O")
@@ -192,9 +191,7 @@ class StatObject_SB:
         and a numpy array with session_per_model.
         """
         sts_per_model = StatObject_SB()
-        sts_per_model.modelset = numpy.unique(
-            self.modelset
-        )  # nd: get uniq spkr ids
+        sts_per_model.modelset = numpy.unique(self.modelset)  # nd: get uniq spkr ids
         sts_per_model.segset = copy.deepcopy(sts_per_model.modelset)
         sts_per_model.stat0 = numpy.zeros(
             (sts_per_model.modelset.shape[0], self.stat0.shape[1]),
@@ -215,12 +212,8 @@ class StatObject_SB:
 
         # For each model sum the stats
         for idx, model in enumerate(sts_per_model.modelset):
-            sts_per_model.stat0[idx, :] = self.get_model_stat0(model).sum(
-                axis=0
-            )
-            sts_per_model.stat1[idx, :] = self.get_model_stat1(model).sum(
-                axis=0
-            )
+            sts_per_model.stat0[idx, :] = self.get_model_stat0(model).sum(axis=0)
+            sts_per_model.stat1[idx, :] = self.get_model_stat1(model).sum(axis=0)
             session_per_model[idx] += self.get_model_stat1(model).shape[0]
         return sts_per_model, session_per_model
 
@@ -234,15 +227,11 @@ class StatObject_SB:
         """
         dim = self.stat1.shape[1] / self.stat0.shape[1]
         index_map = numpy.repeat(numpy.arange(self.stat0.shape[1]), dim)
-        self.stat1 = self.stat1 - (
-            self.stat0[:, index_map] * mu.astype(STAT_TYPE)
-        )
+        self.stat1 = self.stat1 - (self.stat0[:, index_map] * mu.astype(STAT_TYPE))
 
     def norm_stat1(self):
         """Divide all first-order statistics by their Euclidean norm."""
-        vect_norm = numpy.clip(
-            numpy.linalg.norm(self.stat1, axis=1), 1e-08, numpy.inf
-        )
+        vect_norm = numpy.clip(numpy.linalg.norm(self.stat1, axis=1), 1e-08, numpy.inf)
         self.stat1 = (self.stat1.transpose() / vect_norm).transpose()
 
     def rotate_stat1(self, R):
@@ -286,9 +275,7 @@ class StatObject_SB:
                 eigen_vectors = eigen_vectors.real[:, ind]
 
                 sqr_inv_eval_sigma = 1 / numpy.sqrt(eigen_values.real)
-                sqr_inv_sigma = numpy.dot(
-                    eigen_vectors, numpy.diag(sqr_inv_eval_sigma)
-                )
+                sqr_inv_sigma = numpy.dot(eigen_vectors, numpy.diag(sqr_inv_eval_sigma))
             else:
                 pass
 
@@ -463,9 +450,7 @@ class Ndx:
             modelset = numpy.unique(models)
             segset = numpy.unique(testsegs)
 
-            trialmask = numpy.zeros(
-                (modelset.shape[0], segset.shape[0]), dtype="bool"
-            )
+            trialmask = numpy.zeros((modelset.shape[0], segset.shape[0]), dtype="bool")
             for m in range(modelset.shape[0]):
                 segs = testsegs[numpy.array(ismember(models, modelset[m]))]
                 trialmask[m,] = ismember(segset, segs)  # noqa E231
@@ -525,8 +510,7 @@ class Ndx:
 
         if self.modelset.shape[0] > outNdx.modelset.shape[0]:
             print(
-                "Number of models reduced from %d to %d"
-                % self.modelset.shape[0],
+                "Number of models reduced from %d to %d" % self.modelset.shape[0],
                 outNdx.modelset.shape[0],
             )
         if self.segset.shape[0] > outNdx.segset.shape[0]:
@@ -640,9 +624,7 @@ def fa_model_loop(
         A = factor_analyser.F.T.dot(factor_analyser.F)
         inv_lambda_unique = dict()
         for sess in numpy.unique(stat0[:, 0]):
-            inv_lambda_unique[sess] = linalg.inv(
-                sess * A + numpy.eye(A.shape[0])
-            )
+            inv_lambda_unique[sess] = linalg.inv(sess * A + numpy.eye(A.shape[0]))
 
     tmp = numpy.zeros(
         (factor_analyser.F.shape[1], factor_analyser.F.shape[1]),
@@ -981,7 +963,6 @@ class PLDA:
 
         # Estimate PLDA model by iterating the EM algorithm
         for it in range(self.nb_iter):
-
             # E-step
             # print(
             #    f"E-step: Estimate between class covariance, it {it+1} / {nb_iter}"
@@ -999,9 +980,7 @@ class PLDA:
             eigen_values = eigen_values.real[ind]
             eigen_vectors = eigen_vectors.real[:, ind]
             sqr_inv_eval_sigma = 1 / numpy.sqrt(eigen_values.real)
-            sqr_inv_sigma = numpy.dot(
-                eigen_vectors, numpy.diag(sqr_inv_eval_sigma)
-            )
+            sqr_inv_sigma = numpy.dot(eigen_vectors, numpy.diag(sqr_inv_eval_sigma))
             self.F = sqr_inv_sigma.T.dot(self.F)
 
             # Replicate self.stat0

@@ -1,8 +1,8 @@
-""" This file implements the CNN14 model from https://arxiv.org/abs/1912.10211
+"""This file implements the CNN14 model from https://arxiv.org/abs/1912.10211
 
- Authors
- * Cem Subakan 2022
- * Francesco Paissan 2022
+Authors
+* Cem Subakan 2022
+* Francesco Paissan 2022
 """
 
 import torch
@@ -154,9 +154,7 @@ class Cnn14(nn.Module):
     torch.Size([3, 1, 256])
     """
 
-    def __init__(
-        self, mel_bins, emb_dim, norm_type="bn", return_reps=False, l2i=False
-    ):
+    def __init__(self, mel_bins, emb_dim, norm_type="bn", return_reps=False, l2i=False):
         super(Cnn14, self).__init__()
         self.return_reps = return_reps
         self.l2i = l2i
@@ -366,12 +364,8 @@ class CNN14PSI_stft(nn.Module):
         self.convt4 = nn.ConvTranspose2d(dim // 4, dim, (5, 4), (2, 4), 1)
         self.convt5 = nn.ConvTranspose2d(dim, dim // 2, (3, 5), (2, 2), 1)
         self.convt6 = nn.ConvTranspose2d(dim // 8, dim // 2, (3, 3), (2, 4), 1)
-        self.convt7 = nn.ConvTranspose2d(
-            dim // 2, dim // 4, (4, 3), (2, 2), (0, 5)
-        )
-        self.convt8 = nn.ConvTranspose2d(
-            dim // 4, dim // 8, (3, 4), (2, 2), (0, 2)
-        )
+        self.convt7 = nn.ConvTranspose2d(dim // 2, dim // 4, (4, 3), (2, 2), (0, 5))
+        self.convt8 = nn.ConvTranspose2d(dim // 4, dim // 8, (3, 4), (2, 2), (0, 2))
         self.convt9 = nn.ConvTranspose2d(dim // 8, outdim, (1, 5), (1, 4), 0)
 
         self.nonl = nn.ReLU(True)

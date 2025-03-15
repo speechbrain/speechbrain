@@ -28,6 +28,7 @@ Author
     * Nauman Dawalatabad 2020
     * Xuechen Liu 2023
 """
+
 import os
 import sys
 
@@ -92,9 +93,7 @@ def compute_embeddings(params, wav_scp, outdir):
                     data.to(run_opts["device"]),
                     lens.to(run_opts["device"]),
                 )
-                embedding = compute_embeddings_single(
-                    data, lens, params
-                ).squeeze()
+                embedding = compute_embeddings_single(data, lens, params).squeeze()
 
                 out_embedding = embedding.detach().cpu().numpy()
                 np.save(out_file, out_embedding)

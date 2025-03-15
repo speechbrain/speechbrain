@@ -130,9 +130,7 @@ class Enhancement(sb.Brain):
             target_specs = self.compute_feats(clean)
             return self.hparams.loss(target_specs, predicted_specs)
         else:
-            return self.hparams.loss(
-                clean.unsqueeze(-1), predicted_wavs.unsqueeze(-1)
-            )
+            return self.hparams.loss(clean.unsqueeze(-1), predicted_wavs.unsqueeze(-1))
 
     def fit_batch(self, batch):
         """Trains one batch"""
@@ -266,9 +264,7 @@ class Enhancement(sb.Brain):
                     print("pesq encountered an error for this data item")
                     return 0
 
-            self.pesq_metric = MetricStats(
-                metric=pesq_eval, n_jobs=1, batch_eval=False
-            )
+            self.pesq_metric = MetricStats(metric=pesq_eval, n_jobs=1, batch_eval=False)
 
     def on_stage_end(self, stage, stage_loss, epoch):
         """Gets called at the end of a epoch."""
@@ -294,9 +290,7 @@ class Enhancement(sb.Brain):
                 self.hparams.tensorboard_train_logger.log_stats(valid_stats)
 
             # Learning rate annealing
-            if isinstance(
-                self.hparams.lr_scheduler, schedulers.ReduceLROnPlateau
-            ):
+            if isinstance(self.hparams.lr_scheduler, schedulers.ReduceLROnPlateau):
                 current_lr, next_lr = self.hparams.lr_scheduler(
                     [self.optimizer], epoch, stage_loss
                 )
@@ -382,12 +376,8 @@ class Enhancement(sb.Brain):
             1 + max(0, noisy.shape[1] - self.hparams.training_signal_len),
             (1,),
         ).item()
-        clean = clean[
-            :, randstart : randstart + self.hparams.training_signal_len, :
-        ]
-        noisy = noisy[
-            :, randstart : randstart + self.hparams.training_signal_len
-        ]
+        clean = clean[:, randstart : randstart + self.hparams.training_signal_len, :]
+        noisy = noisy[:, randstart : randstart + self.hparams.training_signal_len]
         return noisy, clean
 
     def reset_layer_recursively(self, layer):
@@ -409,9 +399,7 @@ class Enhancement(sb.Brain):
         from mir_eval.separation import bss_eval_sources
 
         # Create folders where to store audio
-        save_file = os.path.join(
-            self.hparams.output_folder, "valid_results.csv"
-        )
+        save_file = os.path.join(self.hparams.output_folder, "valid_results.csv")
 
         # Variable init
         all_sdrs = []
@@ -458,9 +446,7 @@ class Enhancement(sb.Brain):
                         )
 
                     # Compute PESQ
-                    psq_mode = (
-                        "wb" if self.hparams.sample_rate == 16000 else "nb"
-                    )
+                    psq_mode = "wb" if self.hparams.sample_rate == 16000 else "nb"
 
                     try:
                         # Compute SI-SNR
@@ -568,9 +554,7 @@ class Enhancement(sb.Brain):
         print("Saving enhanced sources (valid set)")
 
         # Create output folders
-        save_path = os.path.join(
-            self.hparams.save_folder, "valid_audio_results"
-        )
+        save_path = os.path.join(self.hparams.save_folder, "valid_audio_results")
         save_path_enhanced = os.path.join(save_path, "enhanced_sources")
         save_path_clean = os.path.join(save_path, "clean_sources")
         save_path_noisy = os.path.join(save_path, "noisy_sources")
@@ -585,29 +569,19 @@ class Enhancement(sb.Brain):
         save_file = os.path.join(
             save_path_enhanced, "item{}_sourcehat.wav".format(snt_id)
         )
-        torchaudio.save(
-            save_file, signal.unsqueeze(0).cpu(), self.hparams.sample_rate
-        )
+        torchaudio.save(save_file, signal.unsqueeze(0).cpu(), self.hparams.sample_rate)
 
         # Original source
         signal = clean[0, :]
         signal = signal / signal.abs().max()
-        save_file = os.path.join(
-            save_path_clean, "item{}_source.wav".format(snt_id)
-        )
-        torchaudio.save(
-            save_file, signal.unsqueeze(0).cpu(), self.hparams.sample_rate
-        )
+        save_file = os.path.join(save_path_clean, "item{}_source.wav".format(snt_id))
+        torchaudio.save(save_file, signal.unsqueeze(0).cpu(), self.hparams.sample_rate)
 
         # Noisy source
         signal = noisy[0][0, :]
         signal = signal / signal.abs().max()
-        save_file = os.path.join(
-            save_path_noisy, "item{}_noisy.wav".format(snt_id)
-        )
-        torchaudio.save(
-            save_file, signal.unsqueeze(0).cpu(), self.hparams.sample_rate
-        )
+        save_file = os.path.join(save_path_noisy, "item{}_noisy.wav".format(snt_id))
+        torchaudio.save(save_file, signal.unsqueeze(0).cpu(), self.hparams.sample_rate)
 
 
 def dataio_prep(hparams):
@@ -687,9 +661,7 @@ def dataio_prep(hparams):
         # mix multiple datasets, where each dataset consists of multiple shards
         # e.g. combine read_speech, german_speech etc. each with multiple shards.
         urls = [
-            url
-            for shard in shard_patterns
-            for url in braceexpand.braceexpand(shard)
+            url for shard in shard_patterns for url in braceexpand.braceexpand(shard)
         ]
 
         combined_dataset = (
@@ -837,9 +809,7 @@ if __name__ == "__main__":
     def save_baseline_audio(snt_id, predictions):
         "saves the  estimated sources on disk"
         # Create output folder
-        save_path = os.path.join(
-            hparams["save_folder"], "baseline_audio_results"
-        )
+        save_path = os.path.join(hparams["save_folder"], "baseline_audio_results")
         save_path_enhanced = os.path.join(save_path, "enhanced_testclips")
 
         if not os.path.exists(save_path_enhanced):
@@ -850,9 +820,7 @@ if __name__ == "__main__":
         signal = signal / signal.abs().max()
         save_file = os.path.join(save_path_enhanced, snt_id) + ".wav"
 
-        torchaudio.save(
-            save_file, signal.unsqueeze(0).cpu(), hparams["sample_rate"]
-        )
+        torchaudio.save(save_file, signal.unsqueeze(0).cpu(), hparams["sample_rate"])
 
     test_loader = sb.dataio.dataloader.make_dataloader(
         baseline_data, **hparams["dataloader_opts_test"]

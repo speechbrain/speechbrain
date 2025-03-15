@@ -1,4 +1,4 @@
-""" This file contains the loss functions for k2 training. Currently, we only
+"""This file contains the loss functions for k2 training. Currently, we only
 support CTC loss.
 
 Authors:
@@ -104,9 +104,7 @@ def ctc_k2(
         dtype=torch.int32,
     )
 
-    decoding_graph, target_lens = graph_compiler.compile(
-        texts, is_training=is_training
-    )
+    decoding_graph, target_lens = graph_compiler.compile(texts, is_training=is_training)
 
     # An introduction to DenseFsaVec:
     # https://k2-fsa.github.io/k2/core_concepts/index.html#dense-fsa-vector

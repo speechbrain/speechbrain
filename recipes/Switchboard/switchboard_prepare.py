@@ -238,11 +238,11 @@ def download_transcripts(target_folder):
     transcription_dir = os.path.join(target_folder, "swb_ms98_transcriptions")
 
     if not os.path.exists(transcription_dir):
-        logger.info(
-            f"Download transcriptions and store them in {target_folder}"
-        )
+        logger.info(f"Download transcriptions and store them in {target_folder}")
 
-        download_source = "http://www.openslr.org/resources/5/switchboard_word_alignments.tar.gz"
+        download_source = (
+            "http://www.openslr.org/resources/5/switchboard_word_alignments.tar.gz"
+        )
         download_target = os.path.join(
             target_folder, "switchboard_word_alignments.tar.gz"
         )
@@ -274,9 +274,7 @@ def skip(*filenames):
     return True
 
 
-def filter_text(
-    transcription: str, dataset="train", acronyms=None, acronyms_noi=None
-):
+def filter_text(transcription: str, dataset="train", acronyms=None, acronyms_noi=None):
     """
     This function takes a string representing a sentence in one
     of the datasets and cleans it using various regular expressions.
@@ -303,9 +301,7 @@ def filter_text(
 
     if dataset == "train":
         # This is similar to what swbd1_data_prep.sh and swbd1_map_words.pl does.
-        transcription = re.sub(
-            r"\[SILENCE\]", "", transcription, flags=re.IGNORECASE
-        )
+        transcription = re.sub(r"\[SILENCE\]", "", transcription, flags=re.IGNORECASE)
         transcription = re.sub(r"<.*?>", "", transcription)
         transcription = match_swbd1(transcription.strip())
 
@@ -455,21 +451,13 @@ def match_fisher(text):
         text = text.replace(nw, "")
 
     if "((" not in text:
-        cleaned_text = re.sub(
-            r"\[laugh\]", "[laughter]", text, flags=re.IGNORECASE
-        )
-        cleaned_text = re.sub(
-            r"\[sigh\]", "[noise]", cleaned_text, flags=re.IGNORECASE
-        )
+        cleaned_text = re.sub(r"\[laugh\]", "[laughter]", text, flags=re.IGNORECASE)
+        cleaned_text = re.sub(r"\[sigh\]", "[noise]", cleaned_text, flags=re.IGNORECASE)
         cleaned_text = re.sub(
             r"\[cough\]", "[noise]", cleaned_text, flags=re.IGNORECASE
         )
-        cleaned_text = re.sub(
-            r"\[sigh\]", "[noise]", cleaned_text, flags=re.IGNORECASE
-        )
-        cleaned_text = re.sub(
-            r"\[mn\]", "[noise]", cleaned_text, flags=re.IGNORECASE
-        )
+        cleaned_text = re.sub(r"\[sigh\]", "[noise]", cleaned_text, flags=re.IGNORECASE)
+        cleaned_text = re.sub(r"\[mn\]", "[noise]", cleaned_text, flags=re.IGNORECASE)
         cleaned_text = re.sub(
             r"\[breath\]", "[noise]", cleaned_text, flags=re.IGNORECASE
         )
@@ -618,30 +606,19 @@ def make_acronym_map(save_folder, lexicon_file, acronym_map_file):
                 actual_lexicon = lexicon[:-2]
                 acronym_lexicon = ""
                 for w in actual_word:
-                    acronym_lexicon = (
-                        acronym_lexicon + dict_letter[w.upper()] + " "
-                    )
+                    acronym_lexicon = acronym_lexicon + dict_letter[w.upper()] + " "
                 if acronym_lexicon.strip() == actual_lexicon:
                     acronym_mapped = ""
                     acronym_mapped_back = ""
                     for w in actual_word[:-1]:
                         acronym_mapped = acronym_mapped + w.lower() + "._"
-                        acronym_mapped_back = (
-                            acronym_mapped_back + w.lower() + " "
-                        )
-                    acronym_mapped = (
-                        acronym_mapped + actual_word[-1].lower() + ".'s"
-                    )
+                        acronym_mapped_back = acronym_mapped_back + w.lower() + " "
+                    acronym_mapped = acronym_mapped + actual_word[-1].lower() + ".'s"
                     acronym_mapped_back = (
                         acronym_mapped_back + actual_word[-1].lower() + "'s"
                     )
                     fout_map.write(
-                        word
-                        + "\t"
-                        + acronym_mapped
-                        + "\t"
-                        + acronym_mapped_back
-                        + "\n"
+                        word + "\t" + acronym_mapped + "\t" + acronym_mapped_back + "\n"
                     )
 
             # find if words in the form of xxxs is acronym # cspell:ignore xxxs
@@ -650,56 +627,36 @@ def make_acronym_map(save_folder, lexicon_file, acronym_map_file):
                 actual_lexicon = lexicon[:-2]
                 acronym_lexicon = ""
                 for w in actual_word:
-                    acronym_lexicon = (
-                        acronym_lexicon + dict_letter[w.upper()] + " "
-                    )
+                    acronym_lexicon = acronym_lexicon + dict_letter[w.upper()] + " "
                 if acronym_lexicon.strip() == actual_lexicon:
                     acronym_mapped = ""
                     acronym_mapped_back = ""
                     for w in actual_word[:-1]:
                         acronym_mapped = acronym_mapped + w.lower() + "._"
-                        acronym_mapped_back = (
-                            acronym_mapped_back + w.lower() + " "
-                        )
-                    acronym_mapped = (
-                        acronym_mapped + actual_word[-1].lower() + ".s"
-                    )
+                        acronym_mapped_back = acronym_mapped_back + w.lower() + " "
+                    acronym_mapped = acronym_mapped + actual_word[-1].lower() + ".s"
                     acronym_mapped_back = (
                         acronym_mapped_back + actual_word[-1].lower() + "'s"
                     )
                     fout_map.write(
-                        word
-                        + "\t"
-                        + acronym_mapped
-                        + "\t"
-                        + acronym_mapped_back
-                        + "\n"
+                        word + "\t" + acronym_mapped + "\t" + acronym_mapped_back + "\n"
                     )
 
             # find if words in the form of xxx (not ended with 's or s) is acronym
             elif word.find("'") == -1 and word[-1] != "s":
                 acronym_lexicon = ""
                 for w in word:
-                    acronym_lexicon = (
-                        acronym_lexicon + dict_letter[w.upper()] + " "
-                    )
+                    acronym_lexicon = acronym_lexicon + dict_letter[w.upper()] + " "
                 if acronym_lexicon.strip() == lexicon:
                     acronym_mapped = ""
                     acronym_mapped_back = ""
                     for w in word[:-1]:
                         acronym_mapped = acronym_mapped + w.lower() + "._"
-                        acronym_mapped_back = (
-                            acronym_mapped_back + w.lower() + " "
-                        )
+                        acronym_mapped_back = acronym_mapped_back + w.lower() + " "
                     acronym_mapped = acronym_mapped + word[-1].lower() + "."
                     acronym_mapped_back = acronym_mapped_back + word[-1].lower()
                     fout_map.write(
-                        word
-                        + "\t"
-                        + acronym_mapped
-                        + "\t"
-                        + acronym_mapped_back
-                        + "\n"
+                        word + "\t" + acronym_mapped + "\t" + acronym_mapped_back + "\n"
                     )
 
     fout_map.close()
@@ -753,9 +710,7 @@ def map_acronyms(dict_acronym, dict_acronym_noi, transcription):
                 x += 1
 
             y = 0
-            while i + 1 + y < utt_length and re.match(
-                r"^[A-Z]$", items[i + 1 + y]
-            ):
+            while i + 1 + y < utt_length and re.match(r"^[A-Z]$", items[i + 1 + y]):
                 y += 1
 
             if x + y > 0:
@@ -854,9 +809,7 @@ def swbd1_data_prep(
 
     assert len(splits) == len(split_ratio)
     if sum(split_ratio) != 100 and sum(split_ratio) != 1:
-        error_msg = (
-            "Implausible split ratios! Make sure they equal to 1 (or 100)."
-        )
+        error_msg = "Implausible split ratios! Make sure they equal to 1 (or 100)."
         raise ValueError(error_msg)
     if sum(split_ratio) == 100:
         split_ratio = [i / 100 for i in split_ratio]
@@ -915,9 +868,7 @@ def swbd1_data_prep(
                     wav_name = wav_name.replace(wav_name[0:2], "sw0")
                     disk = name2disk[wav_name]
 
-                    wav_path = os.path.join(
-                        train_data_folder, disk, "data", wav_name
-                    )
+                    wav_path = os.path.join(train_data_folder, disk, "data", wav_name)
                     # We want the segment start and end times in samples,
                     # so we can slice the segment from the tensor
                     seg_start = int(float(str_split[1].strip()) * SAMPLERATE)
@@ -1038,9 +989,7 @@ def eval2000_data_prep(data_folder: str, save_folder: str):
             audio_duration = (seg_end - seg_start) / SAMPLERATE
 
             transcription = " ".join(str_split[6:])
-            cleaned_transcription = filter_text(
-                transcription, dataset="eval2000"
-            )
+            cleaned_transcription = filter_text(transcription, dataset="eval2000")
 
             # Skip empty transcriptions
             if len(cleaned_transcription) > 0:
@@ -1078,9 +1027,7 @@ def eval2000_data_prep(data_folder: str, save_folder: str):
                 csv_writer.writerow(line)
 
         merge_files.append(filename)
-    merge_csvs(
-        data_folder=save_folder, csv_lst=merge_files, merged_csv="test.csv"
-    )
+    merge_csvs(data_folder=save_folder, csv_lst=merge_files, merged_csv="test.csv")
 
     glm_dir = os.path.join(
         data_folder,
@@ -1106,9 +1053,7 @@ def parse_glm_file(glm_dir, save_folder):
         Directory to store the parsed GLM file
     """
     results = defaultdict(list)
-    with open(
-        os.path.join(glm_dir, "en20000405_hub5.glm"), encoding="utf-8"
-    ) as file:
+    with open(os.path.join(glm_dir, "en20000405_hub5.glm"), encoding="utf-8") as file:
         is_contraction = False
         for line in file:
             # Skip comments
@@ -1212,14 +1157,10 @@ def fisher_data_prep(data_folder, save_folder):
                     id = "fisher-" + str(utt_count)
                     transcription = line.split()[3:]
                     transcription = " ".join(transcription)
-                    transcription_clean = filter_text(
-                        transcription, dataset="fisher"
-                    )
+                    transcription_clean = filter_text(transcription, dataset="fisher")
 
                     # Split acronyms written as u._c._l._a._ into single characters (e.g. u c l a)
-                    transcription_clean = remove_acronym_symbols(
-                        transcription_clean
-                    )
+                    transcription_clean = remove_acronym_symbols(transcription_clean)
                     transcription_clean = transcription_clean.upper().strip()
 
                     # Skip empty transcriptions
