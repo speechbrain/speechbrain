@@ -1,8 +1,9 @@
-from dataclasses import dataclass, field, asdict
-from typing import Optional, Dict
+import argparse
 import os
 import sys
-import argparse
+from dataclasses import asdict, dataclass, field
+from typing import Dict, Optional
+
 import torch
 
 
@@ -40,13 +41,18 @@ class RunOptions:
     optimizer_step_limit: Optional[None] = None
     tqdm_colored_bar: bool = False
     tqdm_barcolor: Dict[str, str] = field(
-        default_factory=lambda: {"train": "GREEN", "valid": "MAGENTA", "test": "CYAN"}
+        default_factory=lambda: {
+            "train": "GREEN",
+            "valid": "MAGENTA",
+            "test": "CYAN",
+        }
     )
     remove_vector_weight_decay: bool = False
     profile_training: bool = False
     profile_warmup: int = 5
     profile_steps: int = 5
     log_config: Optional[str] = None
+    param_file: str = ""
 
     def as_dict(self) -> Dict:
         """
@@ -89,7 +95,9 @@ class RunOptions:
         """
         if arg_list is None:
             arg_list = sys.argv[1:]
-        parser = argparse.ArgumentParser(description="Run a SpeechBrain experiment")
+        parser = argparse.ArgumentParser(
+            description="Run a SpeechBrain experiment"
+        )
         parser.add_argument(
             "param_file",
             type=str,
@@ -315,7 +323,7 @@ class RunOptions:
         # Accept extra args to override yaml
         parsed_args, overrides = parser.parse_known_args(arg_list)
         args_dict = vars(parsed_args)
-        param_file = args_dict.pop("param_file")
+        param_file = args_dict["param_file"]
         run_opts = cls(**args_dict)
 
         overrides = cls._convert_to_yaml(overrides)
@@ -329,7 +337,7 @@ class RunOptions:
         if local_rank is not None and "cuda" in run_opts.device:
             run_opts.devide = run_opts.devide[:-1] + str(local_rank)
 
-        return param_file, cls, overrides
+        return [param_file, cls, overrides]
 
     @staticmethod
     def _convert_to_yaml(overrides):
