@@ -251,17 +251,13 @@ freq_drop: !new:speechbrain.augment.freq_domain.SpectrogramDrop
     replace: "zeros"
     dim: 2
 
-# Time warp
-time_warp: !new:speechbrain.augment.freq_domain.Warping
-
 fea_augment: !new:speechbrain.augment.augmenter.Augmenter
     min_augmentations: 3
     max_augmentations: 3
     augment_prob: 1.0
     augmentations: [
         !ref <time_drop>,
-        !ref <freq_drop>,
-        !ref <time_warp>]
+        !ref <freq_drop>]
 
 compute_features: !new:speechbrain.lobes.features.Fbank
     sample_rate: !ref <sample_rate>
