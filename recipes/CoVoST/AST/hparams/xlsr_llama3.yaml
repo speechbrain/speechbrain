@@ -68,7 +68,6 @@ lr_wav2vec: 0.00002
 
 weight_decay: 0.001
 warmup_steps: 5000
-augment_warmup: 2500
 
 # BPE parameters
 token_type: unigram  # ["unigram", "bpe", "char"]
