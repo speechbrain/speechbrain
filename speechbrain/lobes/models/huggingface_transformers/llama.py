@@ -84,13 +84,8 @@ class LLaMA(HFTransformersInterface):
             freeze=freeze,
             with_casual_lm=True,
             quantization_config=self.bnb_config,
+            torch_dtype=weight_precision_load,
         )
-
-        if self.bnb_config is None:
-            self.model = self.model.to(weight_precision_load)
-            logger.info(
-                f"Converted {self.__class__.__name__} to {weight_precision_load}"
-            )
 
         self.load_tokenizer(source=source, pad_token=self.pad_token)
         self.model.resize_token_embeddings(
