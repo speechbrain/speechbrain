@@ -15,7 +15,7 @@ class BLEUStats(MetricStats):
 
     Arguments
     ---------
-    max_ngram_order: int, (optional)
+    max_ngram_order: int, default 4
         The maximum length of the ngrams to use for BLEU scoring. Default is 4.
 
     Example
