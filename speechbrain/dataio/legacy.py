@@ -89,9 +89,7 @@ class ExtendedCSVDataset(DynamicItemDataset):
             clsname = self.__class__.__name__
             raise ValueError(f"{clsname} doesn't support {sorting} sorting")
         # Load the CSV, init class
-        data, di_to_add, data_names = load_sb_extended_csv(
-            csvpath, replacements
-        )
+        data, di_to_add, data_names = load_sb_extended_csv(csvpath, replacements)
         super().__init__(data, dynamic_items, output_keys)
         self.pipeline.add_dynamic_items(di_to_add)
         # Handle filtering, sorting:
@@ -154,8 +152,7 @@ def load_sb_extended_csv(csv_path, replacements={}):
         variable_finder = re.compile(r"\$([\w.]+)")
         if not reader.fieldnames[0] == "ID":
             raise KeyError(
-                "CSV has to have an 'ID' field, with unique ids"
-                " for all data points"
+                "CSV has to have an 'ID' field, with unique ids for all data points"
             )
         if not reader.fieldnames[1] == "duration":
             raise KeyError(
@@ -279,7 +276,6 @@ def read_pkl(file, data_options={}, lab2ind=None):
     type_ok = False
 
     if isinstance(pkl_element, list):
-
         if isinstance(pkl_element[0], float):
             tensor = torch.FloatTensor(pkl_element)
             type_ok = True
@@ -289,7 +285,6 @@ def read_pkl(file, data_options={}, lab2ind=None):
             type_ok = True
 
         if isinstance(pkl_element[0], str):
-
             # convert string to integer as specified in self.label_dict
             if lab2ind is not None:
                 for index, val in enumerate(pkl_element):

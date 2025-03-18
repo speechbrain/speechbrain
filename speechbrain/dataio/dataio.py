@@ -146,8 +146,7 @@ def load_data_csv(csv_path, replacements={}):
                 del row["ID"]  # This is used as a key in result, instead.
             except KeyError:
                 raise KeyError(
-                    "CSV has to have an 'ID' field, with unique ids"
-                    " for all data points"
+                    "CSV has to have an 'ID' field, with unique ids for all data points"
                 )
             if data_id in result:
                 raise ValueError(f"Duplicate id: {data_id}")
@@ -169,9 +168,7 @@ def load_data_csv(csv_path, replacements={}):
     return result
 
 
-def read_audio_info(
-    path, backend=None
-) -> "torchaudio.backend.common.AudioMetaData":
+def read_audio_info(path, backend=None) -> "torchaudio.backend.common.AudioMetaData":
     """Retrieves audio metadata from a file path. Behaves identically to
     torchaudio.info, but attempts to fix metadata (such as frame count) that is
     otherwise broken with certain torchaudio version and codec combinations.
@@ -325,9 +322,7 @@ def read_audio(waveforms_obj, backend=None):
         stop = waveforms_obj.get("stop", start)
 
         if start < 0:
-            raise ValueError(
-                f"Invalid sample range (start < 0): {start}..{stop}!"
-            )
+            raise ValueError(f"Invalid sample range (start < 0): {start}..{stop}!")
 
         if stop < start:
             # Could occur if the user tried one of two things:
@@ -346,9 +341,7 @@ def read_audio(waveforms_obj, backend=None):
             )
         else:
             # Load to the end.
-            audio, fs = torchaudio.load(
-                path, frame_offset=start, backend=backend
-            )
+            audio, fs = torchaudio.load(path, frame_offset=start, backend=backend)
 
     audio = audio.transpose(0, 1)
     return audio.squeeze(1)
@@ -850,9 +843,9 @@ def length_to_mask(length, max_len=None, dtype=None, device=None):
 
     if max_len is None:
         max_len = length.max().long().item()  # using arange to generate mask
-    mask = torch.arange(
-        max_len, device=length.device, dtype=length.dtype
-    ).expand(len(length), max_len) < length.unsqueeze(1)
+    mask = torch.arange(max_len, device=length.device, dtype=length.dtype).expand(
+        len(length), max_len
+    ) < length.unsqueeze(1)
 
     if dtype is None:
         dtype = length.dtype
@@ -1145,9 +1138,7 @@ def merge_csvs(data_folder, csv_lst, merged_csv):
     write_path = os.path.join(data_folder, merged_csv)
     if os.path.isfile(write_path):
         logger.info("Skipping merging. Completed in previous run.")
-    with open(
-        os.path.join(data_folder, csv_lst[0]), newline="", encoding="utf-8"
-    ) as f:
+    with open(os.path.join(data_folder, csv_lst[0]), newline="", encoding="utf-8") as f:
         header = f.readline()
     lines = []
     for csv_file in csv_lst:
@@ -1159,7 +1150,7 @@ def merge_csvs(data_folder, csv_lst, merged_csv):
                     # Checking header
                     if line != header:
                         raise ValueError(
-                            "Different header for " f"{csv_lst[0]} and {csv}."
+                            f"Different header for {csv_lst[0]} and {csv}."
                         )
                     continue
                 lines.append(line)
@@ -1366,9 +1357,7 @@ def extract_concepts_values(sequences, keep_values, tag_in, tag_out, space):
         # ['<response>','no','>','<localisation-ville>','Le','Mans,'>']
         sequence = sequence.split(space)
         processed_sequence = []
-        value = (
-            []
-        )  # If previous sequence value never used because never had a tag_out
+        value = []  # If previous sequence value never used because never had a tag_out
         kept = ""  # If previous sequence kept never used because never had a tag_out
         concept_open = False
         for word in sequence:
@@ -1389,9 +1378,7 @@ def extract_concepts_values(sequences, keep_values, tag_in, tag_out, space):
             elif re.match(tag_out, word) and concept_open and keep_values:
                 # If we have a value
                 if len(value) != 0:
-                    kept += " " + " ".join(
-                        value
-                    )  # 1st loop: '<response>' + ' ' + 'no'
+                    kept += " " + " ".join(value)  # 1st loop: '<response>' + ' ' + 'no'
                 concept_open = False  # Wait for a new tag_in to pursue
                 processed_sequence.append(kept)  # Add the kept concept + value
             elif concept_open:

@@ -316,9 +316,7 @@ class TransformerASR(TransformerInterface):
         )
 
         if num_decoder_layers > 0:
-            self.custom_tgt_module = ModuleList(
-                NormalizedEmbedding(d_model, tgt_vocab)
-            )
+            self.custom_tgt_module = ModuleList(NormalizedEmbedding(d_model, tgt_vocab))
 
         # reset parameters using xavier_normal_
         self._init_params()
@@ -363,10 +361,7 @@ class TransformerASR(TransformerInterface):
 
         src = self.custom_src_module(src)
         # add pos encoding to queries if are sinusoidal ones else
-        if (
-            self.attention_type == "hypermixing"
-            or self.attention_type == "RoPEMHA"
-        ):
+        if self.attention_type == "hypermixing" or self.attention_type == "RoPEMHA":
             pos_embs_encoder = None
         elif self.attention_type == "RelPosMHAXL":
             pos_embs_encoder = self.positional_encoding(src)
@@ -392,10 +387,7 @@ class TransformerASR(TransformerInterface):
 
         tgt = self.custom_tgt_module(tgt)
 
-        if (
-            self.attention_type == "RelPosMHAXL"
-            or self.attention_type == "RoPEMHA"
-        ):
+        if self.attention_type == "RelPosMHAXL" or self.attention_type == "RoPEMHA":
             tgt = tgt + self.positional_encoding_decoder(tgt)
             pos_embs_encoder = None
             pos_embs_target = None
@@ -447,10 +439,7 @@ class TransformerASR(TransformerInterface):
 
         tgt = self.custom_tgt_module(tgt)
 
-        if (
-            self.attention_type == "RelPosMHAXL"
-            or self.attention_type == "RoPEMHA"
-        ):
+        if self.attention_type == "RelPosMHAXL" or self.attention_type == "RoPEMHA":
             tgt = tgt + self.positional_encoding_decoder(tgt)
             pos_embs_encoder = None
             pos_embs_target = None
@@ -517,10 +506,7 @@ class TransformerASR(TransformerInterface):
         )
 
         src = self.custom_src_module(src)
-        if (
-            self.attention_type == "hypermixing"
-            or self.attention_type == "RoPEMHA"
-        ):
+        if self.attention_type == "hypermixing" or self.attention_type == "RoPEMHA":
             pos_embs_source = None
         elif self.attention_type == "RelPosMHAXL":
             pos_embs_source = self.positional_encoding(src)

@@ -24,7 +24,6 @@ from mini_librispeech_prepare import prepare_mini_librispeech
 import speechbrain as sb
 
 if __name__ == "__main__":
-
     # Load hyperparameters file with command-line overrides
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
     with open(hparams_file, encoding="utf-8") as fin:

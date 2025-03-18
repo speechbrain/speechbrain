@@ -103,9 +103,7 @@ class CLinear(torch.nn.Module):
             self.weight_init
         ]
 
-        affect_init(
-            self.real_weight, self.imag_weight, self.winit, init_criterion
-        )
+        affect_init(self.real_weight, self.imag_weight, self.winit, init_criterion)
 
     def forward(self, x):
         """Returns the linear transformation of input tensor.

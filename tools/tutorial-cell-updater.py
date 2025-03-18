@@ -21,9 +21,7 @@ with open("tutorials/notebook-footer.md", "r", encoding="utf-8") as footer_file:
     FOOTER_CONTENTS = footer_file.read()
 
 
-def find_first_cell_with_tag(
-    cell_list: list, tag_to_find: str
-) -> Optional[dict]:
+def find_first_cell_with_tag(cell_list: list, tag_to_find: str) -> Optional[dict]:
     """Returns the first cell to match a given tag given a jupyter cell dict.
 
     Arguments

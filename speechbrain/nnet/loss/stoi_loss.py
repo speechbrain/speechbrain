@@ -92,9 +92,7 @@ def removeSilentFrames(x, y, dyn_range=40, N=256, K=128):
     X[:, 0::2] = X1
     X[:, 1::2] = X2
 
-    energy = 20 * torch.log10(
-        torch.sqrt(torch.matmul(w**2, X**2)) / 16.0 + smallVal
-    )
+    energy = 20 * torch.log10(torch.sqrt(torch.matmul(w**2, X**2)) / 16.0 + smallVal)
 
     Max_energy = torch.max(energy)
     msk = torch.squeeze((energy - Max_energy + dyn_range > 0))
@@ -173,9 +171,7 @@ def stoi_loss(y_pred_batch, y_true_batch, lens, reduction="mean"):
     octave_band = thirdoct(fs=10000, nfft=512, num_bands=15, min_freq=150)
     c = 5.62341325  # 10^(-Beta/20) with Beta = -15
     D = torch.zeros(batch_size)
-    resampler = torchaudio.transforms.Resample(fs, 10000).to(
-        y_pred_batch.device
-    )
+    resampler = torchaudio.transforms.Resample(fs, 10000).to(y_pred_batch.device)
 
     for i in range(0, batch_size):  # Run over mini-batches
         y_true = y_true_batch[i, 0 : int(lens[i] * y_pred_batch.shape[1])]
@@ -195,9 +191,7 @@ def stoi_loss(y_pred_batch, y_true_batch, lens, reduction="mean"):
         OCT_true = torch.sqrt(torch.matmul(octave_band, stft_true) + 1e-14)
         OCT_pred = torch.sqrt(torch.matmul(octave_band, stft_pred) + 1e-14)
 
-        M = int(
-            stft_pred.shape[-1] - (N - 1)
-        )  # number of temporal envelope vectors
+        M = int(stft_pred.shape[-1] - (N - 1))  # number of temporal envelope vectors
 
         X = torch.zeros(15 * M, 30)
         Y = torch.zeros(15 * M, 30)

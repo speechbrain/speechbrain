@@ -80,10 +80,7 @@ def skip(splits, save_folder, conf):
     }
 
     for split in splits:
-        if (
-            split in split_files
-            and not (save_folder / split_files[split]).exists()
-        ):
+        if split in split_files and not (save_folder / split_files[split]).exists():
             skip = False
 
     #  Checking saved options

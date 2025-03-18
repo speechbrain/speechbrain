@@ -102,7 +102,6 @@ def prepare_voxpopuli(
 
     # If csv already exists, we skip the data preparation
     if skip(save_csv_train, save_csv_dev, save_csv_test):
-
         msg = "%s already exists, skipping data preparation!" % (save_csv_train)
         logger.info(msg)
 
@@ -122,9 +121,7 @@ def prepare_voxpopuli(
         [save_csv_train, save_csv_dev, save_csv_test],
     )
     for tsv_file, save_csv in file_pairs:
-        create_csv(
-            tsv_file, save_csv, data_folder, language, remove_if_longer_than
-        )
+        create_csv(tsv_file, save_csv, data_folder, language, remove_if_longer_than)
 
 
 def skip(save_csv_train, save_csv_dev, save_csv_test):
@@ -225,9 +222,7 @@ def process_line(line, data_folder, language):
     return VPRow(snt_id, duration, ogg_path, spk_id, words)
 
 
-def create_csv(
-    orig_tsv_file, csv_file, data_folder, language, remove_if_longer_than
-):
+def create_csv(orig_tsv_file, csv_file, data_folder, language, remove_if_longer_than):
     """
     Creates the csv file given a list of ogg files.
 

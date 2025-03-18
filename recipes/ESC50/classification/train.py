@@ -54,10 +54,7 @@ class ESC50Brain(sb.core.Brain):
         net_input = sb.processing.features.spectral_magnitude(
             X_stft, power=self.hparams.spec_mag_power
         )
-        if (
-            hasattr(self.hparams, "use_melspectra")
-            and self.hparams.use_melspectra
-        ):
+        if hasattr(self.hparams, "use_melspectra") and self.hparams.use_melspectra:
             net_input = self.modules.compute_fbank(net_input)
 
         if (not self.hparams.use_melspectra) or self.hparams.use_log1p_mel:
@@ -74,9 +71,7 @@ class ESC50Brain(sb.core.Brain):
             # Expand to have 3 channels
             net_input = net_input[:, None, ...].expand(-1, 3, -1, -1)
             if config.model_type == "focalnet":
-                embeddings = self.modules.embedding_model(
-                    net_input
-                ).feature_maps[-1]
+                embeddings = self.modules.embedding_model(net_input).feature_maps[-1]
                 embeddings = embeddings.mean(dim=(-1, -2))
             elif config.model_type == "vit":
                 embeddings = self.modules.embedding_model(
@@ -113,21 +108,15 @@ class ESC50Brain(sb.core.Brain):
         classid = torch.cat(N_augments * [classid], dim=0)
 
         # loss = self.hparams.compute_cost(predictions.squeeze(1), classid, lens)
-        target = F.one_hot(
-            classid.squeeze(), num_classes=self.hparams.out_n_neurons
-        )
-        loss = (
-            -(F.log_softmax(predictions.squeeze(1), 1) * target).sum(1).mean()
-        )
+        target = F.one_hot(classid.squeeze(), num_classes=self.hparams.out_n_neurons)
+        loss = -(F.log_softmax(predictions.squeeze(1), 1) * target).sum(1).mean()
 
         if stage != sb.Stage.TEST:
             if hasattr(self.hparams.lr_annealing, "on_batch_end"):
                 self.hparams.lr_annealing.on_batch_end(self.optimizer)
 
         # Append this batch of losses to the loss metric
-        self.loss_metric.append(
-            uttid, predictions, classid, lens, reduction="batch"
-        )
+        self.loss_metric.append(uttid, predictions, classid, lens, reduction="batch")
 
         # Confusion matrices
         if stage != sb.Stage.TRAIN:
@@ -150,9 +139,7 @@ class ESC50Brain(sb.core.Brain):
             self.test_confusion_matrix += confusion_matix
 
         # Compute accuracy using MetricStats
-        self.acc_metric.append(
-            uttid, predict=predictions, target=classid, lengths=lens
-        )
+        self.acc_metric.append(uttid, predict=predictions, target=classid, lengths=lens)
 
         if stage != sb.Stage.TRAIN:
             self.error_metrics.append(uttid, predictions, classid, lens)
@@ -255,9 +242,7 @@ class ESC50Brain(sb.core.Brain):
                 # Log confusion matrix fig to tensorboard
                 cm_fig = create_cm_fig(
                     self.valid_confusion_matrix,
-                    display_labels=list(
-                        self.hparams.label_encoder.ind2lab.values()
-                    ),
+                    display_labels=list(self.hparams.label_encoder.ind2lab.values()),
                 )
                 self.hparams.tensorboard_train_logger.writer.add_figure(
                     "Validation Confusion Matrix", cm_fig, epoch
@@ -270,9 +255,7 @@ class ESC50Brain(sb.core.Brain):
                 valid_stats=valid_stats,
             )
             # Save the current checkpoint and delete previous checkpoints,
-            self.checkpointer.save_and_keep_only(
-                meta=valid_stats, min_keys=["error"]
-            )
+            self.checkpointer.save_and_keep_only(meta=valid_stats, min_keys=["error"])
 
         # We also write statistics about test data to stdout and to the log file
         if stage == sb.Stage.TEST:
@@ -289,9 +272,7 @@ class ESC50Brain(sb.core.Brain):
                 {
                     "Epoch loaded": self.hparams.epoch_counter.current,
                     "\n Per Class Accuracy": per_class_acc_arr_str,
-                    "\n Confusion Matrix": "\n{:}\n".format(
-                        self.test_confusion_matrix
-                    ),
+                    "\n Confusion Matrix": "\n{:}\n".format(self.test_confusion_matrix),
                 },
                 test_stats=test_stats,
             )
@@ -302,9 +283,7 @@ def dataio_prep(hparams):
     data_audio_folder = hparams["audio_data_folder"]
     config_sample_rate = hparams["sample_rate"]
     label_encoder = sb.dataio.encoder.CategoricalEncoder()
-    hparams["resampler"] = torchaudio.transforms.Resample(
-        new_freq=config_sample_rate
-    )
+    hparams["resampler"] = torchaudio.transforms.Resample(new_freq=config_sample_rate)
 
     # 2. Define audio pipeline:
     @sb.utils.data_pipeline.takes("wav")

@@ -122,9 +122,7 @@ def tokenizer_encode_pipeline(
     token_list = [token for token in seq if token in tokens]
     yield token_list
     tokenizer_input = "".join(
-        _map_tokens_item(token_list, char_map)
-        if char_map is not None
-        else token_list
+        _map_tokens_item(token_list, char_map) if char_map is not None else token_list
     )
 
     if wordwise:
@@ -161,16 +159,12 @@ def _wordwise_tokenize(tokenizer, sequence, input_separator, token_separator):
     if input_separator not in sequence:
         return tokenizer.sp.encode_as_ids(sequence)
     words = list(_split_list(sequence, input_separator))
-    encoded_words = [
-        tokenizer.sp.encode_as_ids(word_tokens) for word_tokens in words
-    ]
+    encoded_words = [tokenizer.sp.encode_as_ids(word_tokens) for word_tokens in words]
     sep_list = [token_separator]
     return reduce((lambda left, right: left + sep_list + right), encoded_words)
 
 
-def _wordwise_detokenize(
-    tokenizer, sequence, output_separator, token_separator
-):
+def _wordwise_detokenize(tokenizer, sequence, output_separator, token_separator):
     """Detokenizes a sequence wordwise
 
     Arguments
@@ -192,14 +186,10 @@ def _wordwise_detokenize(
     if isinstance(sequence, str) and sequence == "":
         return ""
     if token_separator not in sequence:
-        sequence_list = (
-            sequence if isinstance(sequence, list) else sequence.tolist()
-        )
+        sequence_list = sequence if isinstance(sequence, list) else sequence.tolist()
         return tokenizer.sp.decode_ids(sequence_list)
     words = list(_split_list(sequence, token_separator))
-    encoded_words = [
-        tokenizer.sp.decode_ids(word_tokens) for word_tokens in words
-    ]
+    encoded_words = [tokenizer.sp.decode_ids(word_tokens) for word_tokens in words]
     return output_separator.join(encoded_words)
 
 
@@ -447,9 +437,7 @@ def text_decode(seq, encoder):
     return encoder.decode_ndim(seq)
 
 
-def char_map_detokenize(
-    char_map, tokenizer, token_space_index=None, wordwise=True
-):
+def char_map_detokenize(char_map, tokenizer, token_space_index=None, wordwise=True):
     """Returns a function that recovers the original sequence from one that has been
     tokenized using a character map
 

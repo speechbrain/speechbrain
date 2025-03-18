@@ -11,7 +11,6 @@ Authors
  * Pooneh Mousavi 2023
 """
 
-
 import math
 import sys
 from itertools import chain
@@ -153,9 +152,7 @@ class ResGenBrain(sb.Brain):
                 min_keys=["PPL"],
             )
             if epoch == hparams["number_of_epochs"] - 1:
-                with open(
-                    self.hparams.bleu_4_valid_file, "w", encoding="utf-8"
-                ) as w:
+                with open(self.hparams.bleu_4_valid_file, "w", encoding="utf-8") as w:
                     self.bleu_4_metric.write_stats(w)
                     for i in range(len(self.hyps)):
                         w.write("target: " + str(self.references[i]) + "\n")
@@ -170,9 +167,7 @@ class ResGenBrain(sb.Brain):
                 stats_meta={"Epoch loaded": self.hparams.epoch_counter.current},
                 test_stats=stage_stats,
             )
-            with open(
-                self.hparams.bleu_4_test_file, "w", encoding="utf-8"
-            ) as w:
+            with open(self.hparams.bleu_4_test_file, "w", encoding="utf-8") as w:
                 self.bleu_4_metric.write_stats(w)
                 for i in range(len(self.hyps)):
                     w.write("target: " + str(self.references[i]) + "\n")
@@ -198,9 +193,7 @@ def add_special_tokens_(model, tokenizer, attr_to_special_token) -> None:
         attr_to_special_token  # type: ignore
     )  # doesn't add if they are already there
     if num_added_tokens > 0:
-        model.resize_token_embeddings(
-            new_num_tokens=orig_num_tokens + num_added_tokens
-        )
+        model.resize_token_embeddings(new_num_tokens=orig_num_tokens + num_added_tokens)
 
 
 def dataio_prep(hparams, tokenizer):
@@ -261,9 +254,7 @@ def dataio_prep(hparams, tokenizer):
         yield prompt_ids
 
         # # create bos version for the input
-        prompt_bos = torch.cat(
-            (torch.tensor([tokenizer.bos_token_id]), prompt_ids)
-        )
+        prompt_bos = torch.cat((torch.tensor([tokenizer.bos_token_id]), prompt_ids))
         yield prompt_bos
 
     #  Define reply pipeline:
@@ -281,19 +272,13 @@ def dataio_prep(hparams, tokenizer):
         yield reply_ids
 
         # create eos version of the reply for lm_labels
-        reply_eos = torch.cat(
-            (reply_ids, torch.tensor([tokenizer.eos_token_id]))
-        )
+        reply_eos = torch.cat((reply_ids, torch.tensor([tokenizer.eos_token_id])))
         yield reply_eos
 
     # Define input_and_token_type_pipeline
-    @sb.utils.data_pipeline.takes(
-        "prompt_ids", "prompt_bos", "reply_ids", "reply_eos"
-    )
+    @sb.utils.data_pipeline.takes("prompt_ids", "prompt_bos", "reply_ids", "reply_eos")
     @sb.utils.data_pipeline.provides("input_ids", "lm_labels")
-    def input_and_token_type_pipeline(
-        prompt_ids, prompt_bos, reply_ids, reply_eos
-    ):
+    def input_and_token_type_pipeline(prompt_ids, prompt_bos, reply_ids, reply_eos):
         # put history and reply together
         # N.B. input_sequence = history_ids + reply_ids, we don't have eos in the input
         input_ids = torch.cat((prompt_bos, reply_ids), -1)
@@ -303,9 +288,7 @@ def dataio_prep(hparams, tokenizer):
         # -100 is a special tokens that is ignored during the loss computation
         # the idea is to mask everything except the reply (without the speaker token)
         # N.B. we don't have bos in the input
-        lm_labels = [hparams["ignore_index"]] * prompt_ids.shape[
-            0
-        ] + reply_eos.tolist()
+        lm_labels = [hparams["ignore_index"]] * prompt_ids.shape[0] + reply_eos.tolist()
         lm_labels = torch.LongTensor(lm_labels)
 
         yield lm_labels
@@ -375,9 +358,7 @@ if __name__ == "__main__":
     tokenizer = hparams["llama2_model"].tokenizer
 
     #  Load pretrained LLAMA2
-    hparams["llama2_model"] = hparams["llama2_model"].to(
-        device=run_opts["device"]
-    )
+    hparams["llama2_model"] = hparams["llama2_model"].to(device=run_opts["device"])
 
     # Add special tokens to the tokenizer and resize model embedding
     add_special_tokens_(

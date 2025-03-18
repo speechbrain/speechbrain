@@ -20,9 +20,9 @@ def test_streaming_conformer_layer(device):
     bs, seq_len, num_feats = input_shape = 1, 24, 16
     config = DynChunkTrainConfig(chunk_size=8, left_context_size=1)
 
-    assert (
-        seq_len % config.chunk_size == 0
-    ), "For this test, we assume the sequence length can evenly be divided"
+    assert seq_len % config.chunk_size == 0, (
+        "For this test, we assume the sequence length can evenly be divided"
+    )
     num_chunks = seq_len // config.chunk_size
 
     torch.manual_seed(1337)
@@ -50,9 +50,7 @@ def test_streaming_conformer_layer(device):
 
     # build the transformer mask for masked inference (dynchunktrain_config does
     # not suffice)
-    src_mask = make_transformer_src_mask(
-        test_input, dynchunktrain_config=config
-    )
+    src_mask = make_transformer_src_mask(test_input, dynchunktrain_config=config)
 
     # masked inference
     pos_embs_full = pos_encoder(test_input)

@@ -12,6 +12,7 @@ Authors
     * Mirco Ravanelli 2020
     * Xuechen Liu 2023
 """
+
 import os
 import sys
 
@@ -109,9 +110,7 @@ def get_verification_scores(veri_test):
             score_e_c = similarity(enrol_rep, train_cohort)
 
             if "cohort_size" in params:
-                score_e_c = torch.topk(
-                    score_e_c, k=params["cohort_size"], dim=0
-                )[0]
+                score_e_c = torch.topk(score_e_c, k=params["cohort_size"], dim=0)[0]
 
             mean_e_c = torch.mean(score_e_c, dim=0)
             std_e_c = torch.std(score_e_c, dim=0)
@@ -121,9 +120,7 @@ def get_verification_scores(veri_test):
             score_t_c = similarity(test_rep, train_cohort)
 
             if "cohort_size" in params:
-                score_t_c = torch.topk(
-                    score_t_c, k=params["cohort_size"], dim=0
-                )[0]
+                score_t_c = torch.topk(score_t_c, k=params["cohort_size"], dim=0)[0]
 
             mean_t_c = torch.mean(score_t_c, dim=0)
             std_t_c = torch.std(score_t_c, dim=0)
@@ -192,9 +189,7 @@ def dataio_prep(params):
         start = int(start)
         stop = int(stop)
         num_frames = stop - start
-        sig, fs = torchaudio.load(
-            wav, num_frames=num_frames, frame_offset=start
-        )
+        sig, fs = torchaudio.load(wav, num_frames=num_frames, frame_offset=start)
         sig = sig.transpose(0, 1).squeeze(1)
         return sig
 
@@ -252,9 +247,7 @@ if __name__ == "__main__":
         split_ratio=params["split_ratio"],
         seg_dur=3.0,
         skip_prep=params["skip_prep"],
-        source=(
-            params["voxceleb_source"] if "voxceleb_source" in params else None
-        ),
+        source=(params["voxceleb_source"] if "voxceleb_source" in params else None),
     )
 
     # here we create the datasets objects as well as tokenization and encoding
@@ -289,7 +282,5 @@ if __name__ == "__main__":
     eer, th = EER(torch.tensor(positive_scores), torch.tensor(negative_scores))
     logger.info("EER(%%)=%f", eer * 100)
 
-    min_dcf, th = minDCF(
-        torch.tensor(positive_scores), torch.tensor(negative_scores)
-    )
+    min_dcf, th = minDCF(torch.tensor(positive_scores), torch.tensor(negative_scores))
     logger.info("minDCF=%f", min_dcf * 100)

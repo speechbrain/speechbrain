@@ -121,9 +121,7 @@ def is_distributed_initialized() -> bool:
     # `is_initialized` is only defined conditionally
     # https://github.com/pytorch/pytorch/blob/v2.1.0/torch/distributed/__init__.py#L25
     # this might happen to MacOS builds from source (default) or any build from source that sets `USE_DISTRIBUTED=0`
-    return (
-        torch.distributed.is_available() and torch.distributed.is_initialized()
-    )
+    return torch.distributed.is_available() and torch.distributed.is_initialized()
 
 
 def if_main_process() -> bool:
@@ -282,7 +280,7 @@ def ddp_init_group(run_opts):
     if not run_opts["distributed_backend"] == "gloo":
         if local_rank + 1 > torch.cuda.device_count():
             raise ValueError(
-                "Killing process " + str() + "\n" "Not enough GPUs available!"
+                "Killing process " + str() + "\nNot enough GPUs available!"
             )
     rank = int(rank)
 
@@ -297,8 +295,7 @@ def ddp_init_group(run_opts):
             raise ValueError("MPI is not supported in your machine.")
     else:
         raise ValueError(
-            run_opts["distributed_backend"]
-            + " communication protocol doesn't exist."
+            run_opts["distributed_backend"] + " communication protocol doesn't exist."
         )
 
     if run_opts["distributed_backend"] == "nccl":

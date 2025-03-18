@@ -9,9 +9,7 @@ import os
 from torch import profiler
 
 
-def prepare_profiler(
-    profile_warmup=5, profile_steps=5, logdir="tensorboard_logs"
-):
+def prepare_profiler(profile_warmup=5, profile_steps=5, logdir="tensorboard_logs"):
     """Wrapper to create a PyTorch profiler to benchmark training of speechbrain.core.Brain instances.
     See ``torch.profiler.profile`` documentation for details (brief summary below).
 

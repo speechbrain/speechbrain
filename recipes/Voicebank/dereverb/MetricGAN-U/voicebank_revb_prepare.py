@@ -150,9 +150,7 @@ MISSING_LEXICON = {
 }
 
 
-def prepare_voicebank(
-    data_folder, save_folder, valid_speaker_count=2, skip_prep=False
-):
+def prepare_voicebank(data_folder, save_folder, valid_speaker_count=2, skip_prep=False):
     """
     Prepares the json files for the Voicebank dataset.
 
@@ -194,12 +192,8 @@ def prepare_voicebank(
         logger.info("Preparation completed in previous run, skipping.")
         return
 
-    train_clean_folder = os.path.join(
-        data_folder, "clean_trainset_28spk_wav_16k"
-    )
-    train_noisy_folder = os.path.join(
-        data_folder, "reverb_trainset_28spk_wav_16k"
-    )
+    train_clean_folder = os.path.join(data_folder, "clean_trainset_28spk_wav_16k")
+    train_noisy_folder = os.path.join(data_folder, "reverb_trainset_28spk_wav_16k")
 
     test_clean_folder = os.path.join(data_folder, "clean_testset_wav_16k")
     test_noisy_folder = os.path.join(data_folder, "reverb_testset_wav_16k")

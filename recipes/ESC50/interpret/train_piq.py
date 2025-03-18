@@ -89,8 +89,7 @@ class PIQ(InterpreterBrain):
         if stage == sb.Stage.VALID:
             # Save some samples
             if (
-                self.hparams.epoch_counter.current
-                % self.hparams.interpret_period
+                self.hparams.epoch_counter.current % self.hparams.interpret_period
             ) == 0 and self.hparams.save_interpretations:
                 self.viz_ints(X_stft, X_stft_logpower, batch, wavs)
 
@@ -125,9 +124,7 @@ class PIQ(InterpreterBrain):
             eps = 1e-10
             target_spec = X_stft_logpower[:, : xhat.shape[1], :]
             target_mask = target_spec > (
-                target_spec.max(keepdim=True, dim=-1)[0].max(
-                    keepdim=True, dim=-2
-                )[0]
+                target_spec.max(keepdim=True, dim=-1)[0].max(keepdim=True, dim=-2)[0]
                 * self.hparams.mask_th
             )
             target_mask = target_mask.float()
@@ -136,9 +133,7 @@ class PIQ(InterpreterBrain):
                 - (1 - target_mask) * torch.log(1 - xhat + eps)
             ).mean()
         else:
-            rec_loss = (
-                (X_stft_logpower[:, : xhat.shape[1], :] - xhat).pow(2).mean()
-            )
+            rec_loss = (X_stft_logpower[:, : xhat.shape[1], :] - xhat).pow(2).mean()
 
         if self.hparams.use_vq:
             loss_vq = F.mse_loss(z_q_x, hcat.detach())
@@ -182,12 +177,7 @@ class PIQ(InterpreterBrain):
             if hasattr(self.hparams.lr_annealing, "on_batch_end"):
                 self.hparams.lr_annealing.on_batch_end(self.optimizer)
 
-        return (
-            self.hparams.rec_loss_coef * rec_loss
-            + loss_vq
-            + loss_commit
-            + loss_fid
-        )
+        return self.hparams.rec_loss_coef * rec_loss + loss_vq + loss_commit + loss_fid
 
 
 if __name__ == "__main__":

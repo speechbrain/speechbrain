@@ -12,6 +12,7 @@ To use pretrained model, enter the path in `pretrained` field.
 Authors
  * Peter Plantinga 2020
 """
+
 import os
 import sys
 
@@ -86,9 +87,7 @@ class ASR_Brain(sb.Brain):
                 train_stats={"loss": self.train_loss},
                 valid_stats={"loss": stage_loss, "PER": per},
             )
-            self.checkpointer.save_and_keep_only(
-                meta={"PER": per}, min_keys=["PER"]
-            )
+            self.checkpointer.save_and_keep_only(meta={"PER": per}, min_keys=["PER"])
 
         elif stage == sb.Stage.TEST:
             self.hparams.train_logger.log_stats(
@@ -146,9 +145,7 @@ def dataio_prep(hparams):
         )
         hparams["dataloader_options"]["shuffle"] = False
     elif hparams["sorting"] != "random":
-        raise NotImplementedError(
-            "Sorting must be random, ascending, or descending"
-        )
+        raise NotImplementedError("Sorting must be random, ascending, or descending")
 
     # 4. Fit encoder:
     # Load or compute the label encoder (with multi-gpu dpp support)

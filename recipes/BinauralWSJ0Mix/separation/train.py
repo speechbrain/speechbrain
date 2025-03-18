@@ -122,9 +122,9 @@ class Separation(sb.Brain):
             # [1,64,t/k]
             n_samples = mix_wl.shape[-1]
             ILD_upsample = F.interpolate(ILD, size=n_samples)
-            conv1 = Conv1d(
-                ILD_upsample.shape[1], mix_wl.shape[1], kernel_size=1
-            ).to(self.device)
+            conv1 = Conv1d(ILD_upsample.shape[1], mix_wl.shape[1], kernel_size=1).to(
+                self.device
+            )
             ILD_cat = conv1(ILD_upsample)
 
             mix_catl = torch.cat((mix_wl, ILD_cat), dim=1)
@@ -323,9 +323,7 @@ class Separation(sb.Brain):
         # Perform end-of-iteration things, like annealing, logging, etc.
         if stage == sb.Stage.VALID:
             # Learning rate annealing
-            if isinstance(
-                self.hparams.lr_scheduler, schedulers.ReduceLROnPlateau
-            ):
+            if isinstance(self.hparams.lr_scheduler, schedulers.ReduceLROnPlateau):
                 current_lr, next_lr = self.hparams.lr_scheduler(
                     [self.optimizer], epoch, stage_loss
                 )
@@ -409,9 +407,7 @@ class Separation(sb.Brain):
         targets = targets[
             :, randstart : randstart + self.hparams.training_signal_len, :
         ]
-        mixture = mixture[
-            :, randstart : randstart + self.hparams.training_signal_len
-        ]
+        mixture = mixture[:, randstart : randstart + self.hparams.training_signal_len]
         return mixture, targets
 
     def reset_layer_recursively(self, layer):
@@ -448,9 +444,7 @@ class Separation(sb.Brain):
             * 10**6
             for i in range(s_prediction.shape[-1])
         ]
-        ITD_error1 = np.mean(
-            np.abs(np.array(ITD_target) - np.array(ITD_prediction))
-        )
+        ITD_error1 = np.mean(np.abs(np.array(ITD_target) - np.array(ITD_prediction)))
         ITD_error2 = np.mean(
             np.abs(np.array(ITD_target) - np.array(ITD_prediction)[::-1])
         )
@@ -517,9 +511,7 @@ class Separation(sb.Brain):
                         [mixture] * self.hparams.num_spks, dim=-1
                     )
                     mixture_signal = mixture_signal.to(targets.device)
-                    snr_baseline = self.compute_objectives(
-                        mixture_signal, targets
-                    )
+                    snr_baseline = self.compute_objectives(mixture_signal, targets)
                     snr_i = snr - snr_baseline
 
                     # Compute ITD and ILD
@@ -554,12 +546,8 @@ class Separation(sb.Brain):
 
         logger.info("Mean SNR is {}".format(np.array(all_snrs).mean()))
         logger.info("Mean SNRi is {}".format(np.array(all_snrs_i).mean()))
-        logger.info(
-            "Mean Delta ITD is {}".format(np.array(all_delta_ITDs).mean())
-        )
-        logger.info(
-            "Mean Delta ILD is {}".format(np.array(all_delta_ILDs).mean())
-        )
+        logger.info("Mean Delta ITD is {}".format(np.array(all_delta_ITDs).mean()))
+        logger.info("Mean Delta ILD is {}".format(np.array(all_delta_ILDs).mean()))
 
     def save_audio(self, snt_id, mixture, targets, predictions):
         "saves the test audio (mixture, targets, and estimated sources) on disk"
@@ -594,9 +582,7 @@ class Separation(sb.Brain):
         signal = mixture[0][0, :]
         signal = signal / signal.abs().max(0).values
         save_file = os.path.join(save_path, "item{}_mix.wav".format(snt_id))
-        torchaudio.save(
-            save_file, signal.permute(1, 0).cpu(), self.hparams.sample_rate
-        )
+        torchaudio.save(save_file, signal.permute(1, 0).cpu(), self.hparams.sample_rate)
 
 
 def dataio_prep(hparams):
@@ -694,9 +680,7 @@ if __name__ == "__main__":
     )
 
     # Check if wsj0_tr is set with dynamic mixing
-    if hparams["dynamic_mixing"] and not os.path.exists(
-        hparams["base_folder_dm"]
-    ):
+    if hparams["dynamic_mixing"] and not os.path.exists(hparams["base_folder_dm"]):
         raise ValueError(
             "Please, specify a valid base_folder_dm folder when using dynamic mixing"
         )
@@ -713,27 +697,19 @@ if __name__ == "__main__":
         if "noise" in hparams["experiment_name"]:
             from create_wav_2speakers_noise import create_binaural_wsj0mix
 
-            hparams["data_folder"] = os.path.join(
-                hparams["data_folder"], "noise"
-            )
+            hparams["data_folder"] = os.path.join(hparams["data_folder"], "noise")
         elif "reverb" in hparams["experiment_name"]:
             from create_wav_2speakers_reverb import create_binaural_wsj0mix
 
-            hparams["data_folder"] = os.path.join(
-                hparams["data_folder"], "reverb"
-            )
+            hparams["data_folder"] = os.path.join(hparams["data_folder"], "reverb")
         elif hparams["num_spks"] == 2:
             from create_wav_2speakers import create_binaural_wsj0mix
 
-            hparams["data_folder"] = os.path.join(
-                hparams["data_folder"], "2speakers"
-            )
+            hparams["data_folder"] = os.path.join(hparams["data_folder"], "2speakers")
         else:
             from create_wav_3speakers import create_binaural_wsj0mix
 
-            hparams["data_folder"] = os.path.join(
-                hparams["data_folder"], "3speakers"
-            )
+            hparams["data_folder"] = os.path.join(hparams["data_folder"], "3speakers")
 
         if not os.path.exists(os.path.join(hparams["data_folder"], "wav8k")):
             print("Generate Binaural WSJ0Mix dataset automatically")
@@ -781,9 +757,7 @@ if __name__ == "__main__":
                     resample_folder,
                     kwargs={
                         "input_folder": hparams["base_folder_dm"],
-                        "output_folder": os.path.normpath(
-                            hparams["base_folder_dm"]
-                        )
+                        "output_folder": os.path.normpath(hparams["base_folder_dm"])
                         + "_processed",
                         "fs": hparams["sample_rate"],
                         "regex": "**/*.wav",

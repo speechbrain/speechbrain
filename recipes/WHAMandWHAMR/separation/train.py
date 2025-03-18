@@ -230,9 +230,7 @@ class Separation(sb.Brain):
         # Perform end-of-iteration things, like annealing, logging, etc.
         if stage == sb.Stage.VALID:
             # Learning rate annealing
-            if isinstance(
-                self.hparams.lr_scheduler, schedulers.ReduceLROnPlateau
-            ):
+            if isinstance(self.hparams.lr_scheduler, schedulers.ReduceLROnPlateau):
                 current_lr, next_lr = self.hparams.lr_scheduler(
                     [self.optimizer], epoch, stage_loss
                 )
@@ -322,9 +320,7 @@ class Separation(sb.Brain):
         targets = targets[
             :, randstart : randstart + self.hparams.training_signal_len, :
         ]
-        mixture = mixture[
-            :, randstart : randstart + self.hparams.training_signal_len
-        ]
+        mixture = mixture[:, randstart : randstart + self.hparams.training_signal_len]
         return mixture, targets
 
     def reset_layer_recursively(self, layer):
@@ -383,9 +379,7 @@ class Separation(sb.Brain):
                         [mixture] * self.hparams.num_spks, dim=-1
                     )
                     mixture_signal = mixture_signal.to(targets.device)
-                    sisnr_baseline = self.compute_objectives(
-                        mixture_signal, targets
-                    )
+                    sisnr_baseline = self.compute_objectives(mixture_signal, targets)
                     sisnr_i = sisnr - sisnr_baseline
 
                     # Compute SDR
@@ -464,9 +458,7 @@ class Separation(sb.Brain):
         signal = mixture[0][0, :]
         signal = signal / signal.abs().max()
         save_file = os.path.join(save_path, "item{}_mix.wav".format(snt_id))
-        torchaudio.save(
-            save_file, signal.unsqueeze(0).cpu(), self.hparams.sample_rate
-        )
+        torchaudio.save(save_file, signal.unsqueeze(0).cpu(), self.hparams.sample_rate)
 
 
 def dataio_prep(hparams):
@@ -555,9 +547,7 @@ if __name__ == "__main__":
         print("bbbbbbbbbbbbbbbbb")
 
     # Check if wsj0_tr is set with dynamic mixing
-    if hparams["dynamic_mixing"] and not os.path.exists(
-        hparams["base_folder_dm"]
-    ):
+    if hparams["dynamic_mixing"] and not os.path.exists(hparams["base_folder_dm"]):
         raise ValueError(
             "Please, specify a valid base_folder_dm folder when using dynamic mixing"
         )
@@ -622,9 +612,7 @@ if __name__ == "__main__":
                     resample_folder,
                     kwargs={
                         "input_folder": hparams["base_folder_dm"],
-                        "output_folder": os.path.normpath(
-                            hparams["base_folder_dm"]
-                        )
+                        "output_folder": os.path.normpath(hparams["base_folder_dm"])
                         + "_processed",
                         "fs": hparams["sample_rate"],
                         "regex": "**/*.wav",

@@ -88,9 +88,7 @@ def prepare_data(
         )
 
     # List files and create manifest from list
-    logger.info(
-        f"Creating {save_json_train}, {save_json_valid}, and {save_json_test}"
-    )
+    logger.info(f"Creating {save_json_train}, {save_json_valid}, and {save_json_test}")
 
     if different_speakers:
         data_split = split_different_speakers(speaker_dict, test_spk_id)
@@ -324,9 +322,7 @@ def load_session(pathSession):
 
     improvisedUtteranceList = []
     for emoFile in [
-        f
-        for f in os.listdir(pathEmo)
-        if os.path.isfile(os.path.join(pathEmo, f))
+        f for f in os.listdir(pathEmo) if os.path.isfile(os.path.join(pathEmo, f))
     ]:
         for utterance in load_utterInfo(pathEmo + emoFile):
             if (
@@ -336,24 +332,14 @@ def load_session(pathSession):
                 or (utterance[3] == "ang")
                 or (utterance[3] == "exc")
             ):
-                path = (
-                    pathWavFolder
-                    + utterance[2][:-5]
-                    + "/"
-                    + utterance[2]
-                    + ".wav"
-                )
+                path = pathWavFolder + utterance[2][:-5] + "/" + utterance[2] + ".wav"
 
                 label = utterance[3]
                 if label == "exc":
                     label = "hap"
 
                 if emoFile[7] != "i" and utterance[2][7] == "s":
-                    improvisedUtteranceList.append(
-                        [path, label, utterance[2][18]]
-                    )
+                    improvisedUtteranceList.append([path, label, utterance[2][18]])
                 else:
-                    improvisedUtteranceList.append(
-                        [path, label, utterance[2][15]]
-                    )
+                    improvisedUtteranceList.append([path, label, utterance[2][15]])
     return improvisedUtteranceList

@@ -46,7 +46,8 @@ def test_categorical_encoder(device):
     encoder = CategoricalEncoder()
     encoder.expect_len(3)
     encoder.limited_labelset_from_iterable(
-        "aabbbcccd", n_most_common=3  # cspell:ignore aabbbcccd
+        "aabbbcccd",
+        n_most_common=3,  # cspell:ignore aabbbcccd
     )
     encoder.encode_sequence("abc")
     with pytest.raises(KeyError):
@@ -61,9 +62,7 @@ def test_categorical_encoder(device):
         encoder.encode_label("d")
     encoder = CategoricalEncoder()
     encoder.expect_len(2)
-    encoder.limited_labelset_from_iterable(
-        "aabbbcccd", n_most_common=3, min_count=3
-    )
+    encoder.limited_labelset_from_iterable("aabbbcccd", n_most_common=3, min_count=3)
     encoder.encode_sequence("cbcb")
     with pytest.raises(KeyError):
         encoder.encode_label("a")
@@ -189,17 +188,13 @@ def test_text_encoder(tmpdir):
         encoder.prepend_bos_label(["are", "you", "world"])
     )
     assert encoded[0] == 0
-    encoded = encoder.append_eos_index(
-        encoder.encode_sequence(["are", "you", "world"])
-    )
+    encoded = encoder.append_eos_index(encoder.encode_sequence(["are", "you", "world"]))
     assert encoded[-1] == 1  # By default uses just one sentence_boundary marker
     encoder.save(encoding_file)
     encoder = TextEncoder()
     encoder.expect_len(7)
     assert encoder.load_if_possible(encoding_file)
-    encoded = encoder.encode_sequence(
-        encoder.append_eos_label(["are", "you", "world"])
-    )
+    encoded = encoder.encode_sequence(encoder.append_eos_label(["are", "you", "world"]))
     assert encoded[-1] == 1
     encoded = encoder.prepend_bos_index(
         encoder.encode_sequence(["are", "you", "world"])
@@ -212,13 +207,12 @@ def test_ctc_encoder(tmpdir):
 
     encoder = CTCTextEncoder()
     encoder.expect_len(9)  # "abcdef" + bos + eos + blank
-    encoder.insert_bos_eos(
-        bos_label="<s>", bos_index=0, eos_label="</s>", eos_index=1
-    )
+    encoder.insert_bos_eos(bos_label="<s>", bos_index=0, eos_label="</s>", eos_index=1)
     encoder.insert_blank(blank_label="_", index=2)
     encoding_file = tmpdir / "ctc_encoding.txt"
     encoder.update_from_iterable(
-        ["abcd", "bcdef"], sequence_input=True  # cspell:disable-line
+        ["abcd", "bcdef"],
+        sequence_input=True,  # cspell:disable-line
     )
     encoded = encoder.encode_sequence(encoder.prepend_bos_label(["a", "b"]))
     assert encoded[0] == 0
@@ -233,9 +227,7 @@ def test_ctc_encoder(tmpdir):
     assert "".join(encoder.collapse_labels("babe")) == "babe"
     assert (
         "".join(
-            encoder.collapse_labels(
-                "_bb_aaa___bbbbb_b_eeee_____", merge_repeats=False
-            )
+            encoder.collapse_labels("_bb_aaa___bbbbb_b_eeee_____", merge_repeats=False)
         )
         == "bbaaabbbbbbeeee"  # cspell:disable-line
     )

@@ -59,18 +59,14 @@ def save_for_pretrained(
         min_key=min_key, max_key=max_key, ckpt_predicate=ckpt_predicate
     )
     if checkpoint:
-        logger.info(
-            "Saving checkpoint '%s' a pretrained model", checkpoint.path
-        )
+        logger.info("Saving checkpoint '%s' a pretrained model", checkpoint.path)
         pretrainer_keys = set(pretrainer.loadables.keys())
         checkpointer_keys = set(checkpoint.paramfiles.keys())
         keys_to_save = pretrainer_keys & checkpointer_keys
         for key in keys_to_save:
             source_path = checkpoint.paramfiles[key]
             if not os.path.exists(source_path):
-                raise ValueError(
-                    f"File {source_path} does not exist in the checkpoint"
-                )
+                raise ValueError(f"File {source_path} does not exist in the checkpoint")
             target_path = pretrainer.paths[key]
             dirname = os.path.dirname(target_path)
             if not os.path.exists(dirname):
@@ -87,8 +83,7 @@ def save_for_pretrained(
         )
         checkpoints = checkpointer.list_checkpoints()
         checkpoints_str = "\n".join(
-            f"{checkpoint.path}: {checkpoint.meta}"
-            for checkpoint in checkpoints
+            f"{checkpoint.path}: {checkpoint.meta}" for checkpoint in checkpoints
         )
         logger.info("Available checkpoints: %s", checkpoints_str)
         saved = False

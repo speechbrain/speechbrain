@@ -112,9 +112,7 @@ def _prepare_unigram_set(
         )
     unigram_set = set(unigrams)
     unigram_set = set([t for t in unigram_set if t in kenlm_model])
-    retained_fraction = (
-        1.0 if len(unigrams) == 0 else len(unigram_set) / len(unigrams)
-    )
+    retained_fraction = 1.0 if len(unigrams) == 0 else len(unigram_set) / len(unigrams)
     if retained_fraction < 0.1:
         logger.warning(
             "Only %s%% of unigrams in vocabulary found in kenlm model-- this might mean that your "
@@ -209,9 +207,7 @@ class LanguageModel:
         """Calculate final lm score."""
         if self.score_boundary:
             end_state = _get_empty_lm_state()
-            score: float = self._kenlm_model.BaseScore(
-                start_state, "</s>", end_state
-            )
+            score: float = self._kenlm_model.BaseScore(start_state, "</s>", end_state)
         else:
             score = 0.0
         return score
@@ -237,9 +233,7 @@ class LanguageModel:
                 f"Wrong input state type found. Expected KenlmState, got {type(prev_state)}"
             )
         end_state = _get_empty_lm_state()
-        lm_score = self._kenlm_model.BaseScore(
-            prev_state.state, word, end_state
-        )
+        lm_score = self._kenlm_model.BaseScore(prev_state.state, word, end_state)
         # override UNK prob. use unigram set if we have because it's faster
         if (
             len(self._unigram_set) > 0

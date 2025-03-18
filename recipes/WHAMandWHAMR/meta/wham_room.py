@@ -13,19 +13,14 @@ class WhamRoom(pra.room.ShoeBox):
     This class is used to simulate the room-impulse-responses (RIRs) in the WHAMR dataset.
     """
 
-    def __init__(
-        self, p, mics, s1, s2, T60, fs=16000, t0=0.0, sigma2_awgn=None
-    ):
+    def __init__(self, p, mics, s1, s2, T60, fs=16000, t0=0.0, sigma2_awgn=None):
         self.T60 = T60
         self.max_rir_len = np.ceil(T60 * fs).astype(int)
 
         volume = p[0] * p[1] * p[2]
         surface_area = 2 * (p[0] * p[1] + p[0] * p[2] + p[1] * p[2])
         absorption = (
-            24
-            * volume
-            * np.log(10.0)
-            / (constants.get("c") * surface_area * T60)
+            24 * volume * np.log(10.0) / (constants.get("c") * surface_area * T60)
         )
 
         # minimum max order to guarantee complete filter of length T60
@@ -61,9 +56,9 @@ class WhamRoom(pra.room.ShoeBox):
             h = []
             for s, source in enumerate(self.sources):
                 h.append(
-                    source.get_rir(
-                        mic, self.visibility[s][m], self.fs, self.t0
-                    )[: self.max_rir_len]
+                    source.get_rir(mic, self.visibility[s][m], self.fs, self.t0)[
+                        : self.max_rir_len
+                    ]
                 )
             self.rir.append(h)
 
@@ -100,9 +95,7 @@ class WhamRoom(pra.room.ShoeBox):
                 elem = int(elem.replace("k", "000"))
             if elem != self.fs:
                 assert self.fs % elem == 0
-                audio_out.append(
-                    resample_poly(audio_array, elem, self.fs, axis=2)
-                )
+                audio_out.append(resample_poly(audio_array, elem, self.fs, axis=2))
             else:
                 audio_out.append(audio_array)
         if type(fs) is not list:

@@ -33,9 +33,7 @@ def download_librispeech_lm_training_text(destination):
         Place to put dataset.
     """
     f = "librispeech-lm-norm.txt.gz"
-    download_file(
-        OPEN_SLR_11_LINK + f, os.path.join(destination, f), unpack=True
-    )
+    download_file(OPEN_SLR_11_LINK + f, os.path.join(destination, f), unpack=True)
 
 
 def dataprep_lm_training(
@@ -149,9 +147,7 @@ if __name__ == "__main__":
     )
 
     caching = (
-        {"cache": False}
-        if "caching" in hparams and hparams["caching"] is False
-        else {}
+        {"cache": False} if "caching" in hparams and hparams["caching"] is False else {}
     )
 
     # Create the lang directory for k2

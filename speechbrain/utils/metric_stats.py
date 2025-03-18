@@ -478,16 +478,8 @@ class WeightedErrorRateStats(MetricStats):
             utt_total = 0.0
 
             for edit_symbol, a_idx, b_idx in utterance["alignment"]:
-                a = (
-                    utterance["ref_tokens"][a_idx]
-                    if a_idx is not None
-                    else None
-                )
-                b = (
-                    utterance["hyp_tokens"][b_idx]
-                    if b_idx is not None
-                    else None
-                )
+                a = utterance["ref_tokens"][a_idx] if a_idx is not None else None
+                b = utterance["hyp_tokens"][b_idx] if b_idx is not None else None
 
                 if edit_symbol != EDIT_SYMBOLS["eq"]:
                     pair_score = self.cost_function(edit_symbol, a, b)
@@ -602,9 +594,7 @@ class EmbeddingErrorRateSimilarity:
         self.high_similarity_weight = high_similarity_weight
         self.threshold = threshold
 
-    def __call__(
-        self, edit_symbol: str, a: Optional[str], b: Optional[str]
-    ) -> float:
+    def __call__(self, edit_symbol: str, a: Optional[str], b: Optional[str]) -> float:
         """Returns the weight that should be associated with a specific edit
         in the WER calculation.
 
@@ -693,9 +683,7 @@ class BinaryMetricStats(MetricStats):
         self.scores.extend(scores.detach())
         self.labels.extend(labels.detach())
 
-    def summarize(
-        self, field=None, threshold=None, max_samples=None, beta=1, eps=1e-8
-    ):
+    def summarize(self, field=None, threshold=None, max_samples=None, beta=1, eps=1e-8):
         """Compute statistics using a full set of scores.
 
         Full set of fields:
@@ -791,9 +779,7 @@ class BinaryMetricStats(MetricStats):
         self.summary["precision"] = TP / (TP + FP + eps)
         self.summary["recall"] = TP / (TP + FN + eps)
         self.summary["F-score"] = (
-            (1.0 + beta**2.0)
-            * TP
-            / ((1.0 + beta**2.0) * TP + beta**2.0 * FN + FP)
+            (1.0 + beta**2.0) * TP / ((1.0 + beta**2.0) * TP + beta**2.0 * FN + FP)
         )
 
         self.summary["MCC"] = (TP * TN - FP * FN) / (
@@ -865,9 +851,7 @@ def EER(positive_scores, negative_scores):
     return float(EER), float(thresholds[min_index])
 
 
-def minDCF(
-    positive_scores, negative_scores, c_miss=1.0, c_fa=1.0, p_target=0.01
-):
+def minDCF(positive_scores, negative_scores, c_miss=1.0, c_fa=1.0, p_target=0.01):
     """Computes the minDCF metric normally used to evaluate speaker verification
     systems. The min_DCF is the minimum of the following C_det function computed
     within the defined threshold range:
@@ -914,18 +898,14 @@ def minDCF(
     thresholds, _ = torch.sort(torch.cat([thresholds, intermediate_thresholds]))
 
     # Computing False Rejection Rate (miss detection)
-    positive_scores = torch.cat(
-        len(thresholds) * [positive_scores.unsqueeze(0)]
-    )
+    positive_scores = torch.cat(len(thresholds) * [positive_scores.unsqueeze(0)])
     pos_scores_threshold = positive_scores.transpose(0, 1) <= thresholds
     p_miss = (pos_scores_threshold.sum(0)).float() / positive_scores.shape[1]
     del positive_scores
     del pos_scores_threshold
 
     # Computing False Acceptance Rate (false alarm)
-    negative_scores = torch.cat(
-        len(thresholds) * [negative_scores.unsqueeze(0)]
-    )
+    negative_scores = torch.cat(len(thresholds) * [negative_scores.unsqueeze(0)])
     neg_scores_threshold = negative_scores.transpose(0, 1) > thresholds
     p_fa = (neg_scores_threshold.sum(0)).float() / negative_scores.shape[1]
     del negative_scores
@@ -1094,9 +1074,7 @@ class ClassificationStats(MetricStats):
             sorted(set(prediction for prediction in self.predictions))
         )
         self._keys_lookup = self._index_lookup(self._available_keys)
-        self._predictions_lookup = self._index_lookup(
-            self._available_predictions
-        )
+        self._predictions_lookup = self._index_lookup(self._available_predictions)
 
     def _compute_confusion_matrix(self):
         confusion_matrix = torch.zeros(
@@ -1182,9 +1160,7 @@ class ClassificationStats(MetricStats):
         """
         if self.summary is None:
             self.summarize()
-        print(
-            f"Overall Accuracy: {self.summary['accuracy']:.0%}", file=filestream
-        )
+        print(f"Overall Accuracy: {self.summary['accuracy']:.0%}", file=filestream)
         print(file=filestream)
         self._write_classwise_stats(filestream)
         print(file=filestream)
@@ -1192,9 +1168,7 @@ class ClassificationStats(MetricStats):
 
     def _write_classwise_stats(self, filestream):
         self._write_header("Class-Wise Accuracy", filestream=filestream)
-        key_labels = {
-            key: self._format_key_label(key) for key in self._available_keys
-        }
+        key_labels = {key: self._format_key_label(key) for key in self._available_keys}
         longest_key_label = max(len(label) for label in key_labels.values())
         for key in self._available_keys:
             stats = self.summary["classwise_stats"][key]
@@ -1223,9 +1197,7 @@ class ClassificationStats(MetricStats):
             for index in indexes:
                 count = key_predictions[index].item()
                 prediction = self._available_predictions[index]
-                padded_label = self._pad_to_length(
-                    prediction, longest_prediction
-                )
+                padded_label = self._pad_to_length(prediction, longest_prediction)
                 print(
                     f"  -> {padded_label}: {count} / {total} ({count / total:.2%})",
                     file=filestream,
@@ -1356,8 +1328,7 @@ class MultiMetricStats:
 
             keys = scores_raw[0].keys()
             scores = {
-                key: torch.tensor([score[key] for score in scores_raw])
-                for key in keys
+                key: torch.tensor([score[key] for score in scores_raw]) for key in keys
             }
 
         for key, metric_scores in scores.items():
@@ -1386,9 +1357,7 @@ class MultiMetricStats:
         dict
             Returns a dictionary of all computed stats
         """
-        result = {
-            key: metric.summarize(field) for key, metric in self.metrics.items()
-        }
+        result = {key: metric.summarize(field) for key, metric in self.metrics.items()}
         if flat:
             result = {
                 f"{key}_{field}": value

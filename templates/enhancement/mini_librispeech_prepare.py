@@ -62,9 +62,7 @@ def prepare_mini_librispeech(
         download_mini_librispeech(data_folder)
 
     # List files and create manifest from list
-    logger.info(
-        f"Creating {save_json_train}, {save_json_valid}, and {save_json_test}"
-    )
+    logger.info(f"Creating {save_json_train}, {save_json_valid}, and {save_json_test}")
     extension = [".flac"]
     wav_list_train = get_all_files(train_folder, match_and=extension)
     wav_list_valid = get_all_files(valid_folder, match_and=extension)
@@ -88,7 +86,6 @@ def create_json(wav_list, json_file):
     # Processing all the wav files in the list
     json_dict = {}
     for wav_file in wav_list:
-
         # Reading the signal (to retrieve duration in seconds)
         signal = read_audio(wav_file)
         duration = signal.shape[0] / SAMPLERATE

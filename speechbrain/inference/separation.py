@@ -1,4 +1,4 @@
-""" Specifies the inference interfaces for speech separation modules.
+"""Specifies the inference interfaces for speech separation modules.
 
 Authors:
  * Aku Rouhe 2021
@@ -110,11 +110,7 @@ class SepformerSeparation(Pretrained):
 
         # resample the data if needed
         if fs_file != fs_model:
-            print(
-                "Resampling the audio from {} Hz to {} Hz".format(
-                    fs_file, fs_model
-                )
-            )
+            print("Resampling the audio from {} Hz to {} Hz".format(fs_file, fs_model))
             tf = torchaudio.transforms.Resample(
                 orig_freq=fs_file, new_freq=fs_model
             ).to(self.device)
@@ -122,9 +118,7 @@ class SepformerSeparation(Pretrained):
             batch = tf(batch)
 
         est_sources = self.separate_batch(batch)
-        est_sources = (
-            est_sources / est_sources.abs().max(dim=1, keepdim=True)[0]
-        )
+        est_sources = est_sources / est_sources.abs().max(dim=1, keepdim=True)[0]
         return est_sources
 
     def forward(self, mix):

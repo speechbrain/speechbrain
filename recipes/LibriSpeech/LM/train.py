@@ -9,6 +9,7 @@ Authors
  * Jianyuan Zhong 2021
  * Ju-Chieh Chou 2020
 """
+
 import glob
 import os
 import sys
@@ -37,9 +38,7 @@ class LM(sb.core.Brain):
         """Computes the loss given predictions and targets."""
         batch = batch.to(self.device)
         tokens_eos, tokens_len = batch.tokens_eos
-        loss = self.hparams.compute_cost(
-            predictions, tokens_eos, length=tokens_len
-        )
+        loss = self.hparams.compute_cost(predictions, tokens_eos, length=tokens_len)
         return loss
 
     def on_fit_batch_end(self, batch, outputs, loss, should_step):
@@ -61,9 +60,7 @@ class LM(sb.core.Brain):
 
         if stage == sb.Stage.VALID:
             if not (
-                isinstance(
-                    self.hparams.lr_annealing, sb.nnet.schedulers.NoamScheduler
-                )
+                isinstance(self.hparams.lr_annealing, sb.nnet.schedulers.NoamScheduler)
                 or isinstance(
                     self.hparams.lr_annealing,
                     sb.nnet.schedulers.CyclicCosineScheduler,
@@ -121,15 +118,9 @@ def dataio_prepare(hparams):
     )
 
     """convert huggingface's dataset to DynamicItemDataset via a magical function"""
-    train_data = sb.dataio.dataset.DynamicItemDataset.from_arrow_dataset(
-        train_data
-    )
-    valid_data = sb.dataio.dataset.DynamicItemDataset.from_arrow_dataset(
-        valid_data
-    )
-    test_data = sb.dataio.dataset.DynamicItemDataset.from_arrow_dataset(
-        test_data
-    )
+    train_data = sb.dataio.dataset.DynamicItemDataset.from_arrow_dataset(train_data)
+    valid_data = sb.dataio.dataset.DynamicItemDataset.from_arrow_dataset(valid_data)
+    test_data = sb.dataio.dataset.DynamicItemDataset.from_arrow_dataset(test_data)
 
     datasets = [train_data, valid_data, test_data]
 

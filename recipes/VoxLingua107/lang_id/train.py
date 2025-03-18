@@ -17,6 +17,7 @@ Author
     * Tanel Alumäe 2021
     * @nikvaessen
 """
+
 import json
 import os
 import random
@@ -77,9 +78,7 @@ class LanguageBrain(sb.core.Brain):
             self.hparams.lr_annealing.on_batch_end(self.optimizer)
 
         if stage != sb.Stage.TRAIN:
-            self.error_metrics.append(
-                uttid, predictions, langid.unsqueeze(1), lens
-            )
+            self.error_metrics.append(uttid, predictions, langid.unsqueeze(1), lens)
 
         return loss
 
@@ -143,9 +142,7 @@ def dataio_prep_shards(hparams):
             if len(audio_tensor) - snt_len_sample - 1 <= 0:
                 start = 0
             else:
-                start = random.randint(
-                    0, len(audio_tensor) - snt_len_sample - 1
-                )
+                start = random.randint(0, len(audio_tensor) - snt_len_sample - 1)
 
             stop = start + snt_len_sample
         else:
@@ -164,28 +161,20 @@ def dataio_prep_shards(hparams):
         }
 
     train_data = (
-        wds.WebDataset(
-            hparams["train_shards"], cache_dir=hparams["shard_cache_dir"]
-        )
+        wds.WebDataset(hparams["train_shards"], cache_dir=hparams["shard_cache_dir"])
         .repeat()
         .shuffle(1000)
         .decode("pil")
         .map(partial(audio_pipeline, random_chunk=True))
     )
-    logger.info(
-        f"Training data consist of {train_meta['num_data_samples']} samples"
-    )
+    logger.info(f"Training data consist of {train_meta['num_data_samples']} samples")
 
     valid_data = (
-        wds.WebDataset(
-            hparams["val_shards"], cache_dir=hparams["shard_cache_dir"]
-        )
+        wds.WebDataset(hparams["val_shards"], cache_dir=hparams["shard_cache_dir"])
         .decode("pil")
         .map(partial(audio_pipeline, random_chunk=False))
     )
-    logger.info(
-        f"Validation data consist of {val_meta['num_data_samples']} samples"
-    )
+    logger.info(f"Validation data consist of {val_meta['num_data_samples']} samples")
 
     return (
         train_data,

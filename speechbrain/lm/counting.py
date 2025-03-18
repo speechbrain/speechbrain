@@ -14,9 +14,7 @@ import itertools
 # NLTK is licensed under the Apache 2.0 License, same as SpeechBrain
 # See https://github.com/nltk/nltk
 # The NLTK implementation is highly focused on getting lazy evaluation.
-def pad_ends(
-    sequence, pad_left=True, left_pad_symbol="<s>", right_pad_symbol="</s>"
-):
+def pad_ends(sequence, pad_left=True, left_pad_symbol="<s>", right_pad_symbol="</s>"):
     """
     Pad sentence ends with start- and end-of-sentence tokens
 
@@ -53,9 +51,7 @@ def pad_ends(
 
     """
     if pad_left:
-        return itertools.chain(
-            (left_pad_symbol,), tuple(sequence), (right_pad_symbol,)
-        )
+        return itertools.chain((left_pad_symbol,), tuple(sequence), (right_pad_symbol,))
     else:
         return itertools.chain(tuple(sequence), (right_pad_symbol,))
 

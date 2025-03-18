@@ -1,2 +1,1 @@
-""" Package containing various techniques of data augmentation
-"""
+"""Package containing various techniques of data augmentation"""

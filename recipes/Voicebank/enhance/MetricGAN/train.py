@@ -32,8 +32,7 @@ from speechbrain.utils.metric_stats import MetricStats
 def pesq_eval(pred_wav, target_wav):
     """Normalized PESQ (to 0-1)"""
     return (
-        pesq(fs=16000, ref=target_wav.numpy(), deg=pred_wav.numpy(), mode="wb")
-        + 0.5
+        pesq(fs=16000, ref=target_wav.numpy(), deg=pred_wav.numpy(), mode="wb") + 0.5
     ) / 5
 
 
@@ -74,9 +73,7 @@ class MetricGanBrain(sb.Brain):
             predict_spec = torch.mul(mask, noisy_spec)
 
             # Also return predicted wav
-            predict_wav = self.hparams.resynth(
-                torch.expm1(predict_spec), noisy_wav
-            )
+            predict_wav = self.hparams.resynth(torch.expm1(predict_spec), noisy_wav)
 
         return predict_wav
 
@@ -252,9 +249,7 @@ class MetricGanBrain(sb.Brain):
         -------
         est_score : torch.Tensor
         """
-        combined_spec = torch.cat(
-            [deg_spec.unsqueeze(1), ref_spec.unsqueeze(1)], 1
-        )
+        combined_spec = torch.cat([deg_spec.unsqueeze(1), ref_spec.unsqueeze(1)], 1)
         return self.modules.discriminator(combined_spec)
 
     def write_wavs(self, batch_id, wavs, clean_paths, scores, lens):
@@ -313,9 +308,7 @@ class MetricGanBrain(sb.Brain):
                 self.d_optimizer.step()
                 loss_tracker += loss.detach() / 3
         elif self.sub_stage == SubStage.HISTORICAL:
-            loss = self.compute_objectives(
-                predictions, batch, sb.Stage.TRAIN, "D_enh"
-            )
+            loss = self.compute_objectives(predictions, batch, sb.Stage.TRAIN, "D_enh")
             self.d_optimizer.zero_grad()
             loss.backward()
             torch.nn.utils.clip_grad_norm_(
@@ -363,9 +356,7 @@ class MetricGanBrain(sb.Brain):
             elif self.hparams.target_metric == "stoi":
                 self.target_metric = MetricStats(metric=stoi_loss)
             else:
-                raise NotImplementedError(
-                    "Right now we only support 'pesq' and 'stoi'"
-                )
+                raise NotImplementedError("Right now we only support 'pesq' and 'stoi'")
 
             # Train discriminator before we start generator training
             if self.sub_stage == SubStage.GENERATOR:
@@ -494,9 +485,7 @@ class MetricGanBrain(sb.Brain):
                 self.train_sampler = sampler
 
         # Make the dataloader as normal
-        return super().make_dataloader(
-            dataset, stage, ckpt_prefix, **loader_kwargs
-        )
+        return super().make_dataloader(dataset, stage, ckpt_prefix, **loader_kwargs)
 
     def on_fit_start(self):
         "Override to prevent this from running for D training"
@@ -505,9 +494,7 @@ class MetricGanBrain(sb.Brain):
 
     def init_optimizers(self):
         "Initializes the generator and discriminator optimizers"
-        self.g_optimizer = self.hparams.g_opt_class(
-            self.modules.generator.parameters()
-        )
+        self.g_optimizer = self.hparams.g_opt_class(self.modules.generator.parameters())
         self.d_optimizer = self.hparams.d_opt_class(
             self.modules.discriminator.parameters()
         )

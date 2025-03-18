@@ -47,13 +47,13 @@ parser.add_argument(
     "--freqs",
     nargs="+",
     default=["8k", "16k"],
-    help="--freqs 16k 8k will create 2 directories wav8k " "and wav16k",
+    help="--freqs 16k 8k will create 2 directories wav8k and wav16k",
 )
 parser.add_argument(
     "--modes",
     nargs="+",
     default=["min", "max"],
-    help="--modes min max will create 2 directories in " "each freq directory",
+    help="--modes min max will create 2 directories in each freq directory",
 )
 parser.add_argument(
     "--types",
@@ -101,9 +101,7 @@ def create_aishell1mix(
 ):
     """Generate sources mixtures and saves them in out_dir"""
     # Get metadata files
-    md_filename_list = [
-        file for file in os.listdir(metadata_dir) if "info" not in file
-    ]
+    md_filename_list = [file for file in os.listdir(metadata_dir) if "info" not in file]
     # Create all parts of aishell1mix
     for md_filename in md_filename_list:
         csv_path = os.path.join(metadata_dir, md_filename)
@@ -147,24 +145,14 @@ def process_metadata_file(
             if types == ["mix_clean"]:
                 subdirs = [f"s{i + 1}" for i in range(n_src)] + ["mix_clean"]
             else:
-                subdirs = (
-                    [f"s{i + 1}" for i in range(n_src)] + types + ["noise"]
-                )
+                subdirs = [f"s{i + 1}" for i in range(n_src)] + types + ["noise"]
             # If the files already exist then continue, otherwise remove the dir and regenerate
-            sounds = glob.glob(
-                os.path.join(dir_path, "**/*.wav"), recursive=True
-            )
+            sounds = glob.glob(os.path.join(dir_path, "**/*.wav"), recursive=True)
             if len(md_file) * len(subdirs) == len(sounds):
-                print(
-                    f"Directory {dir_path} already exist. "
-                    f"Files won't be overwritten"
-                )
+                print(f"Directory {dir_path} already exist. Files won't be overwritten")
                 continue
             shutil.rmtree(dir_path, ignore_errors=True)
-            print(
-                f"Creating mixtures and sources from {csv_path} "
-                f"in {dir_path}"
-            )
+            print(f"Creating mixtures and sources from {csv_path} in {dir_path}")
             # Create directories accordingly
             for subdir in subdirs:
                 os.makedirs(os.path.join(dir_path, subdir))
@@ -257,9 +245,7 @@ def process_utterance(
 ):
     res = []
     # Get sources and mixture infos
-    mix_id, gain_list, sources = read_sources(
-        row, n_src, aishell1_dir, wham_dir
-    )
+    mix_id, gain_list, sources = read_sources(row, n_src, aishell1_dir, wham_dir)
     # Transform sources
     transformed_sources = transform_sources(sources, freq, mode, gain_list)
     # Write the sources and get their paths
@@ -443,9 +429,7 @@ def fit_lengths(source_list, mode):
         target_length = max([len(source) for source in source_list])
         for source in source_list:
             sources_list_reshaped.append(
-                np.pad(
-                    source, (0, target_length - len(source)), mode="constant"
-                )
+                np.pad(source, (0, target_length - len(source)), mode="constant")
             )
     return sources_list_reshaped
 

@@ -1,4 +1,4 @@
-""" This recipe finetunes a pretrained wavlm model large
+"""This recipe finetunes a pretrained wavlm model large
 on GigaSpeech for speech recognition with CTC and at the character level.
 The WavLM model can be swapped with any HuggingFace model if wanted.
 
@@ -60,9 +60,7 @@ class ASR(sb.Brain):
 
         # Upsample the inputs if they have been highly downsampled
         if hasattr(self.hparams, "upsampling") and self.hparams.upsampling:
-            logits = logits.view(
-                logits.shape[0], -1, self.hparams.output_neurons
-            )
+            logits = logits.view(logits.shape[0], -1, self.hparams.output_neurons)
 
         p_ctc = self.hparams.log_softmax(logits)
 
@@ -94,13 +92,9 @@ class ASR(sb.Brain):
 
         if stage == sb.Stage.VALID:
             # Decode token terms to words
-            predicted_words = self.tokenizer(
-                predicted_tokens, task="decode_from_list"
-            )
+            predicted_words = self.tokenizer(predicted_tokens, task="decode_from_list")
         elif stage == sb.Stage.TEST:
-            predicted_words = [
-                hyp[0].text.split(" ") for hyp in predicted_tokens
-            ]
+            predicted_words = [hyp[0].text.split(" ") for hyp in predicted_tokens]
 
         if stage != sb.Stage.TRAIN:
             # Convert indices to words
@@ -155,9 +149,7 @@ class ASR(sb.Brain):
                 test_stats=stage_stats,
             )
             if if_main_process():
-                with open(
-                    self.hparams.test_wer_file, "w", encoding="utf-8"
-                ) as w:
+                with open(self.hparams.test_wer_file, "w", encoding="utf-8") as w:
                     self.wer_metric.write_stats(w)
 
     def on_fit_batch_end(self, batch, outputs, loss, should_step):
@@ -205,9 +197,7 @@ class ASR(sb.Brain):
             self.optimizers_dict["wav2vec_optimizer"] = self.wav2vec_optimizer
 
         if self.checkpointer is not None:
-            self.checkpointer.add_recoverable(
-                "wav2vec_opt", self.wav2vec_optimizer
-            )
+            self.checkpointer.add_recoverable("wav2vec_opt", self.wav2vec_optimizer)
             self.checkpointer.add_recoverable("modelopt", self.model_optimizer)
 
 
@@ -229,9 +219,7 @@ def dataio_prepare(hparams, tokenizer):
         hparams["train_dataloader_opts"]["shuffle"] = False
 
     elif hparams["sorting"] == "descending":
-        train_data = train_data.filtered_sorted(
-            sort_key="duration", reverse=True
-        )
+        train_data = train_data.filtered_sorted(sort_key="duration", reverse=True)
         # when sorting do not shuffle in dataloader ! otherwise is pointless
         hparams["train_dataloader_opts"]["shuffle"] = False
 
@@ -239,9 +227,7 @@ def dataio_prepare(hparams, tokenizer):
         pass
 
     else:
-        raise NotImplementedError(
-            "sorting must be random, ascending or descending"
-        )
+        raise NotImplementedError("sorting must be random, ascending or descending")
 
     valid_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
         csv_path=hparams["valid_csv"],
@@ -277,9 +263,7 @@ def dataio_prepare(hparams, tokenizer):
 
     # 3. Define text pipeline:
     @sb.utils.data_pipeline.takes("text")
-    @sb.utils.data_pipeline.provides(
-        "wrd", "char_list", "tokens_list", "tokens"
-    )
+    @sb.utils.data_pipeline.provides("wrd", "char_list", "tokens_list", "tokens")
     def text_pipeline(wrd):
         yield wrd
         char_list = list(wrd)
@@ -327,7 +311,6 @@ def dataio_prepare(hparams, tokenizer):
 
 
 if __name__ == "__main__":
-
     # CLI:
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
 
@@ -440,9 +423,7 @@ if __name__ == "__main__":
         if collate_fn is not None:
             valid_dataloader_opts["collate_fn"] = collate_fn
 
-    vocab_list = [
-        tokenizer.sp.id_to_piece(i) for i in range(tokenizer.sp.vocab_size())
-    ]
+    vocab_list = [tokenizer.sp.id_to_piece(i) for i in range(tokenizer.sp.vocab_size())]
 
     from speechbrain.decoders.ctc import CTCBeamSearcher
 

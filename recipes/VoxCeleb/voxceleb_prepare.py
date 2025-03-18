@@ -145,18 +145,14 @@ def prepare_voxceleb(
 
     # Creating csv file for training data
     if "train" in splits:
-        prepare_csv(
-            seg_dur, wav_lst_train, save_csv_train, random_segment, amp_th
-        )
+        prepare_csv(seg_dur, wav_lst_train, save_csv_train, random_segment, amp_th)
 
     if "dev" in splits:
         prepare_csv(seg_dur, wav_lst_dev, save_csv_dev, random_segment, amp_th)
 
     # For PLDA verification
     if "test" in splits:
-        prepare_csv_enrol_test(
-            data_folder, save_folder, verification_pairs_file
-        )
+        prepare_csv_enrol_test(data_folder, save_folder, verification_pairs_file)
 
     # Saving options (useful to skip this phase when already done)
     save_pkl(conf, save_opt)
@@ -228,9 +224,7 @@ def _check_voxceleb_folders(data_folders, splits):
             folder_vox1 = os.path.join(data_folder, "wav", "id10001")
             folder_vox2 = os.path.join(data_folder, "wav", "id00012")
 
-            if not os.path.exists(folder_vox1) or not os.path.exists(
-                folder_vox2
-            ):
+            if not os.path.exists(folder_vox1) or not os.path.exists(folder_vox2):
                 err_msg = "the specified folder does not contain Voxceleb"
                 raise FileNotFoundError(err_msg)
 
@@ -442,9 +436,7 @@ def prepare_csv_enrol_test(data_folders, save_folder, verification_pairs_file):
     # msg = '\t"Creating csv lists in  %s..."' % (csv_file)
     # logger.debug(msg)
 
-    csv_output_head = [
-        ["ID", "duration", "wav", "start", "stop", "spk_id"]
-    ]  # noqa E231
+    csv_output_head = [["ID", "duration", "wav", "start", "stop", "spk_id"]]  # noqa E231
 
     for data_folder in data_folders:
         test_lst_file = verification_pairs_file

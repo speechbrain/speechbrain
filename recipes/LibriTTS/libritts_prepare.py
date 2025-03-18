@@ -93,9 +93,7 @@ def prepare_libritts(
         logger.info("Preparation completed in previous run, skipping.")
         return
 
-    logger.info(
-        f"Creating {save_json_train}, {save_json_valid}, and {save_json_test}"
-    )
+    logger.info(f"Creating {save_json_train}, {save_json_valid}, and {save_json_test}")
 
     # If specific splits are provided, creates data manifest files accordingly
     if train_split:
@@ -121,12 +119,8 @@ def prepare_libritts(
         # Random split the signal list into train, valid, and test sets.
         data_split = split_sets(wav_list, split_ratio)
         # Creating json files
-        create_json(
-            data_split["train"], save_json_train, sample_rate, model_name
-        )
-        create_json(
-            data_split["valid"], save_json_valid, sample_rate, model_name
-        )
+        create_json(data_split["train"], save_json_train, sample_rate, model_name)
+        create_json(data_split["valid"], save_json_valid, sample_rate, model_name)
         create_json(data_split["test"], save_json_test, sample_rate, model_name)
 
 

@@ -192,9 +192,7 @@ def train(
                 features_list = []
 
             if (iteration + 1) % checkpoint_interval == 0:
-                logger.info(
-                    f"Saving intra-checkpoints for iteration {iteration}."
-                )
+                logger.info(f"Saving intra-checkpoints for iteration {iteration}.")
                 train_set._speechbrain_save(
                     os.path.join(save_path, "dataloader-TRAIN.ckpt")
                 )

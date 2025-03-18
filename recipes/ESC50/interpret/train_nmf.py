@@ -8,6 +8,7 @@ Authors
     * Cem Subakan 2022, 2023
     * Francesco Paissan 2022, 2023
 """
+
 import os
 import sys
 
@@ -58,8 +59,7 @@ class NMFBrain(sb.core.Brain):
 
         with torch.no_grad():
             if (
-                self.hparams.epoch_counter.current % self.hparams.save_period
-                == 0
+                self.hparams.epoch_counter.current % self.hparams.save_period == 0
                 and stage == sb.Stage.VALID
             ):
                 os.makedirs("nmf_rec", exist_ok=True)
@@ -98,9 +98,7 @@ class NMFBrain(sb.core.Brain):
                 valid_stats=valid_stats,
             )
             # Save the current checkpoint and delete previous checkpoints,
-            self.checkpointer.save_and_keep_only(
-                meta=valid_stats, min_keys=["loss"]
-            )
+            self.checkpointer.save_and_keep_only(meta=valid_stats, min_keys=["loss"])
 
 
 if __name__ == "__main__":

@@ -126,12 +126,8 @@ class STFT(torch.nn.Module):
         self.onesided = onesided
 
         # Convert win_length and hop_length from ms to samples
-        self.win_length = int(
-            round((self.sample_rate / 1000.0) * self.win_length)
-        )
-        self.hop_length = int(
-            round((self.sample_rate / 1000.0) * self.hop_length)
-        )
+        self.win_length = int(round((self.sample_rate / 1000.0) * self.win_length))
+        self.hop_length = int(round((self.sample_rate / 1000.0) * self.hop_length))
 
         self.window = window_fn(self.win_length)
 
@@ -191,9 +187,7 @@ class STFT(torch.nn.Module):
                 "assumes either centering or causality"
             )
 
-        return FilterProperties(
-            window_size=self.win_length, stride=self.hop_length
-        )
+        return FilterProperties(window_size=self.win_length, stride=self.hop_length)
 
 
 class ISTFT(torch.nn.Module):
@@ -270,12 +264,8 @@ class ISTFT(torch.nn.Module):
         self.epsilon = epsilon
 
         # Convert win_length and hop_length from ms to samples
-        self.win_length = int(
-            round((self.sample_rate / 1000.0) * self.win_length)
-        )
-        self.hop_length = int(
-            round((self.sample_rate / 1000.0) * self.hop_length)
-        )
+        self.win_length = int(round((self.sample_rate / 1000.0) * self.win_length))
+        self.hop_length = int(round((self.sample_rate / 1000.0) * self.hop_length))
 
         # Create window using provided function
         self.window = window_fn(self.win_length)
@@ -337,9 +327,7 @@ class ISTFT(torch.nn.Module):
         return istft
 
 
-def spectral_magnitude(
-    stft, power: int = 1, log: bool = False, eps: float = 1e-14
-):
+def spectral_magnitude(stft, power: int = 1, log: bool = False, eps: float = 1e-14):
     """Returns the magnitude of a complex spectrogram.
 
     Arguments
@@ -521,12 +509,10 @@ class Filterbank(torch.nn.Module):
         fbanks : torch.Tensor
         """
         # Computing central frequency and bandwidth of each filter
-        f_central_mat = self.f_central.repeat(
-            self.all_freqs_mat.shape[1], 1
-        ).transpose(0, 1)
-        band_mat = self.band.repeat(self.all_freqs_mat.shape[1], 1).transpose(
+        f_central_mat = self.f_central.repeat(self.all_freqs_mat.shape[1], 1).transpose(
             0, 1
         )
+        band_mat = self.band.repeat(self.all_freqs_mat.shape[1], 1).transpose(0, 1)
 
         # Uncomment to print filter parameters
         # print(self.f_central*self.sample_rate * self.param_change_factor)
@@ -536,14 +522,10 @@ class Filterbank(torch.nn.Module):
         # the filters that average the computed spectrogram.
         if not self.freeze:
             f_central_mat = f_central_mat * (
-                self.sample_rate
-                * self.param_change_factor
-                * self.param_change_factor
+                self.sample_rate * self.param_change_factor * self.param_change_factor
             )
             band_mat = band_mat * (
-                self.sample_rate
-                * self.param_change_factor
-                * self.param_change_factor
+                self.sample_rate * self.param_change_factor * self.param_change_factor
             )
 
         # Regularization with random changes of filter central frequency and band
@@ -577,9 +559,7 @@ class Filterbank(torch.nn.Module):
         # Reshaping in the case of multi-channel inputs
         if len(sp_shape) == 4:
             fb_shape = fbanks.shape
-            fbanks = fbanks.reshape(
-                sp_shape[0], sp_shape[3], fb_shape[1], fb_shape[2]
-            )
+            fbanks = fbanks.reshape(sp_shape[0], sp_shape[3], fb_shape[1], fb_shape[2])
             fbanks = fbanks.permute(0, 2, 3, 1)
 
         return fbanks
@@ -639,9 +619,7 @@ class Filterbank(torch.nn.Module):
 
         # Adding zeros for negative values
         zero = torch.zeros(1, device=self.device_inp)
-        fbank_matrix = torch.max(
-            zero, torch.min(left_side, right_side)
-        ).transpose(0, 1)
+        fbank_matrix = torch.max(zero, torch.min(left_side, right_side)).transpose(0, 1)
 
         return fbank_matrix
 
@@ -890,9 +868,7 @@ class Deltas(torch.nn.Module):
 
         # Derivative estimation (with a fixed convolutional kernel)
         delta_coeff = (
-            torch.nn.functional.conv1d(
-                x, self.kernel.to(x.device), groups=x.shape[1]
-            )
+            torch.nn.functional.conv1d(x, self.kernel.to(x.device), groups=x.shape[1])
             / self.denom
         )
 
@@ -984,9 +960,7 @@ class ContextWindow(torch.nn.Module):
 
         # Retrieving the original dimensionality (for multi-channel case)
         if len(or_shape) == 4:
-            cw_x = cw_x.reshape(
-                or_shape[0], cw_x.shape[1], or_shape[2], cw_x.shape[-1]
-            )
+            cw_x = cw_x.reshape(or_shape[0], cw_x.shape[1], or_shape[2], cw_x.shape[-1])
 
         cw_x = cw_x.transpose(1, 2)
 
@@ -1115,9 +1089,7 @@ class InputNormalization(torch.nn.Module):
                         self.spk_dict_count[spk_id] = 1
 
                     else:
-                        self.spk_dict_count[spk_id] = (
-                            self.spk_dict_count[spk_id] + 1
-                        )
+                        self.spk_dict_count[spk_id] = self.spk_dict_count[spk_id] + 1
 
                         if self.avg_factor is None:
                             self.weight = 1 / self.spk_dict_count[spk_id]
@@ -1155,12 +1127,8 @@ class InputNormalization(torch.nn.Module):
             current_std = torch.mean(torch.stack(current_stds), dim=0)
 
             # For multi GPU, we need to sync the statistics across processes.
-            current_mean = ddp_all_reduce(
-                current_mean, torch.distributed.ReduceOp.AVG
-            )
-            current_std = ddp_all_reduce(
-                current_std, torch.distributed.ReduceOp.AVG
-            )
+            current_mean = ddp_all_reduce(current_mean, torch.distributed.ReduceOp.AVG)
+            current_std = ddp_all_reduce(current_std, torch.distributed.ReduceOp.AVG)
 
             if self.norm_type == "batch":
                 out = (x - current_mean.data) / (current_std.data)
@@ -1190,9 +1158,7 @@ class InputNormalization(torch.nn.Module):
 
                     self.count = self.count + 1
 
-                out = (x - self.glob_mean.data.to(x)) / (
-                    self.glob_std.data.to(x)
-                )
+                out = (x - self.glob_mean.data.to(x)) / (self.glob_std.data.to(x))
 
         return out
 
@@ -1224,9 +1190,7 @@ class InputNormalization(torch.nn.Module):
             current_std = torch.tensor([1.0], device=x.device)
 
         # Improving numerical stability of std
-        current_std = torch.max(
-            current_std, self.eps * torch.ones_like(current_std)
-        )
+        current_std = torch.max(current_std, self.eps * torch.ones_like(current_std))
 
         return current_mean, current_std
 
@@ -1432,9 +1396,7 @@ class GlobalNorm(torch.nn.Module):
         if (
             not skip_update
             and not self.frozen
-            and (
-                self.update_steps is None or self.step_count < self.update_steps
-            )
+            and (self.update_steps is None or self.step_count < self.update_steps)
         ):
             x_masked = x.masked_select(mask)
             mean = x_masked.mean()

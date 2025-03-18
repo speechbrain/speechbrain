@@ -10,7 +10,6 @@ Authors
  * Adel Moumen 2023, 2024
 """
 
-import argparse
 import inspect
 import logging
 import os
@@ -45,6 +44,7 @@ from speechbrain.utils.distributed import is_distributed_initialized
 from speechbrain.utils.logger import get_logger
 from speechbrain.utils.optimizers import rm_vector_weight_decay
 from speechbrain.utils.profiling import prepare_profiler
+from speechbrain.utils.run_opts import RunOptions
 
 sb.utils.quirks.apply_quirks()
 
@@ -54,44 +54,6 @@ DEFAULT_LOG_CONFIG = os.path.join(DEFAULT_LOG_CONFIG, "log-config.yaml")
 INTRA_EPOCH_CKPT_FLAG = "brain_intra_epoch_ckpt"
 PYTHON_VERSION_MAJOR = 3
 PYTHON_VERSION_MINOR = 8
-
-# Arguments passed via the run opts dictionary
-run_opt_defaults = {
-    "test_only": False,
-    "debug": False,
-    "debug_batches": 2,
-    "debug_epochs": 2,
-    "debug_persistently": False,
-    "device": "cpu",
-    "data_parallel_backend": False,
-    "distributed_backend": "nccl",
-    "find_unused_parameters": False,
-    "jit": False,
-    "jit_module_keys": None,
-    "compile": False,
-    "compile_module_keys": None,
-    "compile_mode": "default",
-    "compile_using_fullgraph": False,
-    "compile_using_dynamic_shape_tracing": True,
-    "precision": "fp32",
-    "eval_precision": "fp32",
-    "auto_mix_prec": False,
-    "bfloat16_mix_prec": False,
-    "max_grad_norm": 5.0,
-    "skip_nonfinite_grads": False,
-    "nonfinite_patience": 3,
-    "noprogressbar": False,
-    "ckpt_interval_minutes": 0,
-    "ckpt_interval_steps": 0,
-    "grad_accumulation_factor": 1,
-    "optimizer_step_limit": None,
-    "tqdm_colored_bar": False,
-    "tqdm_barcolor": {"train": "GREEN", "valid": "MAGENTA", "test": "CYAN"},
-    "remove_vector_weight_decay": False,
-    "profile_training": False,
-    "profile_warmup": 5,
-    "profile_steps": 5,
-}
 
 
 @dataclass
@@ -185,9 +147,7 @@ def create_experiment_directory(
 
             # Log exceptions to output automatically
             log_file = os.path.join(experiment_directory, "log.txt")
-            logger_overrides = {
-                "handlers": {"file_handler": {"filename": log_file}}
-            }
+            logger_overrides = {"handlers": {"file_handler": {"filename": log_file}}}
             sb.utils.logger.setup_logging(log_config, logger_overrides)
             sys.excepthook = _logging_excepthook
 
@@ -217,301 +177,6 @@ def create_experiment_directory(
 def _logging_excepthook(exc_type, exc_value, exc_traceback):
     """Interrupt exception raising to log the error."""
     logger.error("Exception:", exc_info=(exc_type, exc_value, exc_traceback))
-
-
-def parse_arguments(arg_list=None):
-    """Parse command-line arguments to the experiment.
-
-    Arguments
-    ---------
-    arg_list : list, None
-        A list of arguments to parse.  If not given, this is read from
-        `sys.argv[1:]`
-
-    Returns
-    -------
-    param_file : str
-        The location of the parameters file.
-    run_opts : dict
-        Run options, such as distributed, device, etc.
-    overrides : dict
-        The overrides to pass to ``load_hyperpyyaml``.
-
-    Example
-    -------
-    >>> argv = ['hyperparams.yaml', '--device', 'cuda:1', '--seed', '10']
-    >>> filename, run_opts, overrides = parse_arguments(argv)
-    >>> filename
-    'hyperparams.yaml'
-    >>> run_opts["device"]
-    'cuda:1'
-    >>> overrides
-    'seed: 10'
-    """
-    if arg_list is None:
-        arg_list = sys.argv[1:]
-    parser = argparse.ArgumentParser(description="Run a SpeechBrain experiment")
-    parser.add_argument(
-        "param_file",
-        type=str,
-        help="A yaml-formatted file using the extended YAML syntax. "
-        "defined by SpeechBrain.",
-    )
-    parser.add_argument(
-        "--test_only",
-        default=False,
-        action="store_true",
-        help="Run the experiment in evaluate only mode."
-        "It skips the training and goes directly to the evaluation."
-        "The model is expected to be already trained.",
-    )
-    parser.add_argument(
-        "--debug",
-        default=False,
-        action="store_true",
-        help="Run the experiment with only a few batches for all "
-        "datasets, to ensure code runs without crashing.",
-    )
-    parser.add_argument(
-        "--debug_batches",
-        type=int,
-        default=2,
-        help="Number of batches to run in debug mode.",
-    )
-    parser.add_argument(
-        "--debug_epochs",
-        type=int,
-        default=2,
-        help="Number of epochs to run in debug mode. "
-        "If a non-positive number is passed, all epochs are run.",
-    )
-    parser.add_argument(
-        "--debug_persistently",
-        default=False,
-        action="store_true",
-        help="Keep data stored during debug mode (not using /tmp).",
-    )
-    parser.add_argument(
-        "--log_config",
-        type=str,
-        help="A file storing the configuration options for logging",
-    )
-    parser.add_argument(
-        "--device",
-        type=str,
-        default="cuda:0",
-        help="The device to run the experiment on (e.g. 'cuda:0')",
-    )
-    parser.add_argument(
-        "--data_parallel_backend",
-        default=False,
-        action="store_true",
-        help="This flag enables training with data_parallel.",
-    )
-    parser.add_argument(
-        "--distributed_backend",
-        type=str,
-        default="nccl",
-        help="One of {nccl, gloo, mpi}",
-    )
-    parser.add_argument(
-        "--find_unused_parameters",
-        default=False,
-        action="store_true",
-        help="This flag disable unused parameters detection",
-    )
-    parser.add_argument(
-        "--jit",
-        default=False,
-        action="store_true",
-        help="Enables jit compilation for all modules. "
-        "Compilation may fail depending on the modules. "
-        "Use --jit_module_keys to compile a subset of modules.",
-    )
-    parser.add_argument(
-        "--jit_module_keys",
-        type=str,
-        nargs="*",
-        help="A list of keys in the 'modules' dict to jitify",
-    )
-    parser.add_argument(
-        "--compile",
-        default=False,
-        action="store_true",
-        help="Enabling this flag compiles all modules using torch.compile (if available). "
-        "Beta feature. Use --compile_module_keys to compile a subset of modules. "
-        "Set the compilation flags below properly. "
-        "Compilation can be time-consuming and might fail.",
-    )
-    parser.add_argument(
-        "--compile_module_keys",
-        type=str,
-        nargs="*",
-        help="A list of keys in the 'modules' dict to compile using "
-        "TorchInductor. If a module also has a JIT key specified, "
-        "TorchInductor will take precedence when available.",
-    )
-    parser.add_argument(
-        "--compile_mode",
-        type=str,
-        nargs="*",
-        help="One of {default, reduce-overhead, max-autotune}",
-    )
-    parser.add_argument(
-        "--compile_using_fullgraph",
-        type=bool,
-        nargs="*",
-        help="Whether it is ok to break model into several subgraphs",
-    )
-    parser.add_argument(
-        "--compile_using_dynamic_shape_tracing",
-        type=bool,
-        nargs="*",
-        help="Use dynamic shape tracing for compilation",
-    )
-    parser.add_argument(
-        "--precision",
-        type=str,
-        help="This flag enables training with automatic mixed-precision."
-        "It can be set to `fp32`, `fp16`, or `bf16`.",
-    )
-    parser.add_argument(
-        "--eval_precision",
-        type=str,
-        help="This flag enables inference with automatic mixed-precision."
-        "It can be set to `fp32`, `fp16`, or `bf16`.",
-    )
-    parser.add_argument(
-        "--auto_mix_prec",
-        default=None,
-        action="store_true",
-        help="This flag enables training with automatic mixed-precision.",
-    )
-    parser.add_argument(
-        "--bfloat16_mix_prec",
-        default=None,
-        action="store_true",
-        help="This flag enables training with bfloat16 mixed-precision.",
-    )
-    parser.add_argument(
-        "--max_grad_norm",
-        type=float,
-        help="Gradient norm will be clipped to this value, "
-        "enter negative value to disable.",
-    )
-    parser.add_argument(
-        "--skip_nonfinite_grads",
-        default=False,
-        action="store_true",
-        help="Set the gradients to None if they are nonfinite (inf or nan).",
-    )
-    parser.add_argument(
-        "--nonfinite_patience",
-        type=int,
-        help="Max number of batches per epoch to skip if loss is nonfinite.",
-    )
-    parser.add_argument(
-        "--noprogressbar",
-        default=None,
-        action="store_true",
-        help="This flag disables the data loop progressbars.",
-    )
-    parser.add_argument(
-        "--ckpt_interval_minutes",
-        type=float,
-        help="Amount of time between saving intra-epoch checkpoints "
-        "in minutes. If non-positive, intra-epoch checkpoints are not saved.",
-    )
-    parser.add_argument(
-        "--ckpt_interval_steps",
-        type=int,
-        help="Save an intra-epoch checkpoint after this many steps."
-        "If non-positive, intra-epoch checkpoints are not saved.",
-    )
-    parser.add_argument(
-        "--grad_accumulation_factor",
-        type=int,
-        help="Number of batches to accumulate gradients before optimizer step",
-    )
-    parser.add_argument(
-        "--optimizer_step_limit",
-        type=int,
-        help="Number of optimizer steps to run. If not passed, all epochs are run.",
-    )
-    parser.add_argument(
-        "--tqdm_colored_bar",
-        default=False,
-        action="store_true",
-        help="Enable colored progress-bar in tqdm. If this is "
-        "false, tqdm shall use default colors.",
-    )
-    parser.add_argument(
-        "--remove_vector_weight_decay",
-        default=False,
-        action="store_true",
-        help="Make vectors (e.g. norms and biases) a separate parameter group without weight_decay.",
-    )
-    parser.add_argument(
-        "--profile_training",
-        default=False,
-        action="store_true",
-        help=(
-            "If set to True, a profiler will be initiated and tensorboard logs will be generated. "
-            "Please ensure you have installed the torch.TensorBoard profiler with 'pip install torch_tb_profiler'."
-        ),
-    )
-    parser.add_argument(
-        "--profile_warmup",
-        default=5,
-        type=int,
-        help="Number of warmup steps before logging for the profiler.",
-    )
-    parser.add_argument(
-        "--profile_steps",
-        default=5,
-        type=int,
-        help="Number of steps of logging for the profiler",
-    )
-
-    # Accept extra args to override yaml
-    run_opts, overrides = parser.parse_known_args(arg_list)
-
-    # Ignore items that are "None", they were not passed
-    run_opts = {k: v for k, v in vars(run_opts).items() if v is not None}
-
-    param_file = run_opts["param_file"]
-    del run_opts["param_file"]
-
-    overrides = _convert_to_yaml(overrides)
-
-    # Checking that DataParallel use the right number of GPU
-    if run_opts["data_parallel_backend"]:
-        if torch.cuda.device_count() == 0:
-            raise ValueError("You must have at least 1 GPU.")
-
-    # force device arg to be the same as local_rank from torchrun
-    local_rank = os.environ.get("LOCAL_RANK")
-    if local_rank is not None and "cuda" in run_opts["device"]:
-        run_opts["device"] = run_opts["device"][:-1] + str(local_rank)
-
-    return param_file, run_opts, overrides
-
-
-def _convert_to_yaml(overrides):
-    """Convert args to yaml for overrides"""
-    yaml_string = ""
-
-    # Handle '--arg=val' type args
-    joined_args = "=".join(overrides)
-    split_args = joined_args.split("=")
-
-    for arg in split_args:
-        if arg.startswith("--"):
-            yaml_string += "\n" + arg[len("--") :] + ":"
-        else:
-            yaml_string += " " + arg
-
-    return yaml_string.strip()
 
 
 class Stage(Enum):
@@ -658,8 +323,9 @@ class Brain:
         self.optimizers_dict = None
         self.opt_class = opt_class
         self.checkpointer = checkpointer
+        self.run_opts = run_opts
 
-        for arg, default in run_opt_defaults.items():
+        for arg, default in self.run_opts.as_dict():
             if run_opts is not None and arg in run_opts:
                 if hparams is not None and arg in hparams:
                     logger.info(
@@ -673,9 +339,7 @@ class Brain:
                 # If any arg from run_opt_defaults exist in hparams and
                 # not in command line args "run_opts"
                 if hparams is not None and arg in hparams:
-                    logger.info(
-                        "Info: " + arg + " arg from hparam file is used"
-                    )
+                    logger.info("Info: " + arg + " arg from hparam file is used")
                     setattr(self, arg, hparams[arg])
                 else:
                     setattr(self, arg, default)
@@ -804,9 +468,7 @@ class Brain:
             self.use_amp = True
 
         if self.use_amp and self.checkpointer is not None:
-            self.checkpointer.add_recoverable(
-                "scaler", self.scaler, optional_load=True
-            )
+            self.checkpointer.add_recoverable("scaler", self.scaler, optional_load=True)
 
         # List parameter count for the user
         self.print_trainable_parameters()
@@ -884,13 +546,9 @@ class Brain:
                 f"* Trainable Parameters represent {0:.4f}% of the total size."
             )
         else:
-            percentage_trainable = (
-                100 * total_trainable_params / total_parameters
-            )
-            formatted_trainable_params = (
-                sb.utils.logger.format_order_of_magnitude(
-                    total_trainable_params
-                )
+            percentage_trainable = 100 * total_trainable_params / total_parameters
+            formatted_trainable_params = sb.utils.logger.format_order_of_magnitude(
+                total_trainable_params
             )
             formatted_total_params = sb.utils.logger.format_order_of_magnitude(
                 total_parameters
@@ -1030,9 +688,7 @@ class Brain:
         #     loader_kwargs = sb.dataio.dataloader.distributed_loader_specifics(
         #         self.distributed_launch, self.rank, dataset, loader_kwargs
         #     )
-        dataloader = sb.dataio.dataloader.make_dataloader(
-            dataset, **loader_kwargs
-        )
+        dataloader = sb.dataio.dataloader.make_dataloader(dataset, **loader_kwargs)
 
         if (
             self.checkpointer is not None
@@ -1055,8 +711,7 @@ class Brain:
         if shuffle and not self.distributed_launch:
             if sampler is not None:
                 raise ValueError(
-                    "Cannot specify both shuffle=True"
-                    "and a sampler in loader_kwargs"
+                    "Cannot specify both shuffle=Trueand a sampler in loader_kwargs"
                 )
             seed = os.environ.get("SB_GLOBAL_SEED", 563375142)
             sampler = ReproducibleRandomSampler(dataset, seed=seed)
@@ -1112,8 +767,7 @@ class Brain:
                 loader_kwargs["batch_sampler"] = self.train_sampler
         elif self.distributed_launch and isinstance(dataset, IterableDataset):
             logger.warning(
-                "Cannot automatically solve distributed sampling "
-                "for IterableDataset."
+                "Cannot automatically solve distributed sampling for IterableDataset."
             )
         return loader_kwargs
 
@@ -1194,9 +848,7 @@ class Brain:
 
         # Recover best checkpoint for evaluation
         if self.checkpointer is not None:
-            self.checkpointer.recover_if_possible(
-                max_key=max_key, min_key=min_key
-            )
+            self.checkpointer.recover_if_possible(max_key=max_key, min_key=min_key)
 
     def fit_batch(self, batch):
         """Fit one batch, override to do multiple updates.
@@ -1230,16 +882,12 @@ class Brain:
                     dtype=amp.dtype, device_type=torch.device(self.device).type
                 ):
                     outputs = self.compute_forward(batch, sb.Stage.TRAIN)
-                    loss = self.compute_objectives(
-                        outputs, batch, sb.Stage.TRAIN
-                    )
+                    loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
             else:
                 outputs = self.compute_forward(batch, sb.Stage.TRAIN)
                 loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
 
-            scaled_loss = self.scaler.scale(
-                loss / self.grad_accumulation_factor
-            )
+            scaled_loss = self.scaler.scale(loss / self.grad_accumulation_factor)
             self.check_loss_isfinite(scaled_loss)
             scaled_loss.backward()
 
@@ -1420,9 +1068,7 @@ class Brain:
         # Reset nonfinite count to 0 each epoch
         self.nonfinite_count = 0
 
-        if self.train_sampler is not None and hasattr(
-            self.train_sampler, "set_epoch"
-        ):
+        if self.train_sampler is not None and hasattr(self.train_sampler, "set_epoch"):
             self.train_sampler.set_epoch(epoch)
 
         # Time since last intra-epoch checkpoint
@@ -1444,17 +1090,13 @@ class Brain:
                 self.step += 1
                 steps_since_ckpt += 1
                 loss = self.fit_batch(batch)
-                self.avg_train_loss = self.update_average(
-                    loss, self.avg_train_loss
-                )
+                self.avg_train_loss = self.update_average(loss, self.avg_train_loss)
                 t.set_postfix(train_loss=self.avg_train_loss)
 
                 if self.profiler is not None:
                     self.profiler.step()
                     if self.profiler.step_num > self.tot_prof_steps:
-                        logger.info(
-                            "The profiler finished, training is stopped."
-                        )
+                        logger.info("The profiler finished, training is stopped.")
                         self.profiler.stop()
                         quit()
 
@@ -1462,9 +1104,7 @@ class Brain:
                 if self.debug and self.step == self.debug_batches:
                     break
 
-                if self._should_save_intra_epoch_ckpt(
-                    last_ckpt_time, steps_since_ckpt
-                ):
+                if self._should_save_intra_epoch_ckpt(last_ckpt_time, steps_since_ckpt):
                     # Checkpointer class will handle running this on main only
                     self._save_intra_epoch_ckpt()
                     last_ckpt_time = time.time()
@@ -1585,21 +1225,17 @@ class Brain:
         None
         """
         if self.test_only:
-            logger.info(
-                "Test only mode, skipping training and validation stages."
-            )
+            logger.info("Test only mode, skipping training and validation stages.")
             return
 
         if not (
-            isinstance(train_set, DataLoader)
-            or isinstance(train_set, LoopedLoader)
+            isinstance(train_set, DataLoader) or isinstance(train_set, LoopedLoader)
         ):
             train_set = self.make_dataloader(
                 train_set, stage=sb.Stage.TRAIN, **train_loader_kwargs
             )
         if valid_set is not None and not (
-            isinstance(valid_set, DataLoader)
-            or isinstance(valid_set, LoopedLoader)
+            isinstance(valid_set, DataLoader) or isinstance(valid_set, LoopedLoader)
         ):
             valid_set = self.make_dataloader(
                 valid_set,
@@ -1682,9 +1318,7 @@ class Brain:
         # find missing keys
         for name in compile_module_keys | jit_module_keys:
             if name not in self.modules:
-                raise ValueError(
-                    f"module {name} is not defined in your hparams file."
-                )
+                raise ValueError(f"module {name} is not defined in your hparams file.")
 
         # try 'torch.compile', remove successful compiles from JIT list
         for name in compile_module_keys:
@@ -1778,14 +1412,9 @@ class Brain:
         # Only show progressbar if requested and main_process
         enable = progressbar and sb.utils.distributed.if_main_process()
 
-        if not (
-            isinstance(test_set, DataLoader)
-            or isinstance(test_set, LoopedLoader)
-        ):
+        if not (isinstance(test_set, DataLoader) or isinstance(test_set, LoopedLoader)):
             test_loader_kwargs["ckpt_prefix"] = None
-            test_set = self.make_dataloader(
-                test_set, Stage.TEST, **test_loader_kwargs
-            )
+            test_set = self.make_dataloader(test_set, Stage.TEST, **test_loader_kwargs)
         self.on_evaluate_start(max_key=max_key, min_key=min_key)
         self.on_stage_start(Stage.TEST, epoch=None)
         self.modules.eval()

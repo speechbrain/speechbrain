@@ -36,6 +36,7 @@ Usage
 Authors:
  * Aku Rouhe 2020
 """
+
 import speechbrain.dataio.wer as wer_io
 import speechbrain.utils.edit_distance as edit_distance
 
@@ -144,9 +145,7 @@ if __name__ == "__main__":
     summary_details = edit_distance.wer_summary(details_by_utterance)
     wer_io.print_wer_summary(summary_details)
     if args.print_top_wer:
-        top_non_empty, top_empty = edit_distance.top_wer_utts(
-            details_by_utterance
-        )
+        top_non_empty, top_empty = edit_distance.top_wer_utts(details_by_utterance)
         wer_io._print_top_wer_utts(top_non_empty, top_empty)
     if args.utt2spk:
         utt2spk = _utt2spk_keydict(args.utt2spk)

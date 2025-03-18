@@ -39,9 +39,7 @@ class FetchFrom(Enum):
 
 # For easier use
 FetchSource = namedtuple("FetchSource", ["FetchFrom", "path"])
-FetchSource.__doc__ = (
-    """NamedTuple describing a source path and how to fetch it"""
-)
+FetchSource.__doc__ = """NamedTuple describing a source path and how to fetch it"""
 FetchSource.__hash__ = lambda self: hash(self.path)
 FetchSource.encode = lambda self, *args, **kwargs: "_".join(
     (str(self.path), str(self.FetchFrom))
@@ -154,9 +152,7 @@ def link_with_strategy(
                 "`LocalStrategy` documentation."
             )
 
-        logger.debug(
-            "Fetch: Local file found, creating symlink '%s' -> '%s'", src, dst
-        )
+        logger.debug("Fetch: Local file found, creating symlink '%s' -> '%s'", src, dst)
 
         dst.unlink(missing_ok=True)  # remove link or delete file
         dst.symlink_to(src)
@@ -169,9 +165,7 @@ def link_with_strategy(
         shutil.copy(str(src), str(dst))
         return dst
 
-    raise ValueError(
-        f"Illegal local strategy {local_strategy} passed for linking"
-    )
+    raise ValueError(f"Illegal local strategy {local_strategy} passed for linking")
 
 
 def guess_source(source: Union[str, FetchSource]) -> FetchSource:
@@ -314,11 +308,7 @@ def fetch(
     )
 
     # Check if file is already present at destination
-    if (
-        destination is not None
-        and destination.exists()
-        and not should_try_update
-    ):
+    if destination is not None and destination.exists() and not should_try_update:
         file_kind = "symlink" if destination.is_symlink() else "file"
         logger.info(
             "Fetch %s: Using %s found at '%s'",

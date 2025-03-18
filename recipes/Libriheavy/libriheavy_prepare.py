@@ -161,7 +161,6 @@ def extract_transcripts(jsonl_gz_file_path):
 
     # Open the gzipped JSONL file and the CSV file
     with gzip.open(jsonl_gz_file_path, "rt") as jsonl_file:
-
         # Write the header to the CSV file
         header = "ID,wav,start,duration,text,spk_id"
         csv_corpus.append(header)
@@ -308,9 +307,7 @@ def create_csv(
             csv_f, delimiter=",", quotechar='"', quoting=csv.QUOTE_MINIMAL
         )
 
-        csv_writer.writerow(
-            ["ID", "duration", "start", "wav", "spk_id", "text"]
-        )
+        csv_writer.writerow(["ID", "duration", "start", "wav", "spk_id", "text"])
 
         for row in parallel_map(line_processor, csv_data_lines):
             if row is None:
@@ -372,11 +369,11 @@ def english_specific_preprocess(sentence):
         # Suggests the sentence is not English but German.
         "öÖßüÜ"
         # All sorts of languages: Greek, Arabic...
-        "\u0370-\u1AAF"
+        "\u0370-\u1aaf"
         # Chinese/Japanese/Korean.
-        "\u4E00-\u9FFF"
+        "\u4e00-\u9fff"
         # Technical symbols.
-        "\u2190-\u23FF"
+        "\u2190-\u23ff"
         # Symbols that could be pronounced in various ways.
         "\\[\\]€→=~%§_#"
         "]"

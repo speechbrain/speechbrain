@@ -22,9 +22,7 @@ class SEP28kBrain(sb.Brain):
         if wavs.shape[1] > 48000:
             wavs = wavs[:, :48000]
         elif wavs.shape[1] < 48000:
-            pad = torch.zeros([wavs.shape[0], 48000 - wavs.shape[1]]).to(
-                self.device
-            )
+            pad = torch.zeros([wavs.shape[0], 48000 - wavs.shape[1]]).to(self.device)
             wavs = torch.cat([wavs, pad], dim=1)
         return wavs
 
@@ -189,16 +187,12 @@ if __name__ == "__main__":
         with open(hparams_file, "r", encoding="utf-8") as fin:
             hparams = load_hyperpyyaml(fin, overrides)
             if hp_ctx.reporter is not None:
-                hparams["output_folder"] = (
-                    hparams["output_folder"] + hp.get_trial_id()
-                )
+                hparams["output_folder"] = hparams["output_folder"] + hp.get_trial_id()
                 if hparams["use_tensorboard"]:
                     writer = SummaryWriter("/tensorboard")
             else:
                 if hparams["use_tensorboard"]:
-                    writer = SummaryWriter(
-                        hparams["output_folder"] + "/tensorboard"
-                    )
+                    writer = SummaryWriter(hparams["output_folder"] + "/tensorboard")
 
         # multi-gpu (ddp) save data preparation
         run_on_main(

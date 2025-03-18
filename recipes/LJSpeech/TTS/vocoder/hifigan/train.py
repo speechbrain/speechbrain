@@ -88,9 +88,7 @@ class HifiGanBrain(sb.Brain):
         outputs = self.compute_forward(batch, sb.core.Stage.TRAIN)
         (y_g_hat, scores_fake, feats_fake, scores_real, feats_real) = outputs
         # calculate discriminator loss with the latest updated generator
-        loss_d = self.compute_objectives(outputs, batch, sb.core.Stage.TRAIN)[
-            "D_loss"
-        ]
+        loss_d = self.compute_objectives(outputs, batch, sb.core.Stage.TRAIN)["D_loss"]
         # First train the discriminator
         self.optimizer_d.zero_grad()
         loss_d.backward()
@@ -100,9 +98,7 @@ class HifiGanBrain(sb.Brain):
         scores_fake, feats_fake = self.modules.discriminator(y_g_hat)
         scores_real, feats_real = self.modules.discriminator(y)
         outputs = (y_g_hat, scores_fake, feats_fake, scores_real, feats_real)
-        loss_g = self.compute_objectives(outputs, batch, sb.core.Stage.TRAIN)[
-            "G_loss"
-        ]
+        loss_g = self.compute_objectives(outputs, batch, sb.core.Stage.TRAIN)["G_loss"]
         # Then train the generator
         self.optimizer_g.zero_grad()
         loss_g.backward()
@@ -139,25 +135,15 @@ class HifiGanBrain(sb.Brain):
             ) = self.opt_class
 
             self.optimizer_g = opt_g_class(self.modules.generator.parameters())
-            self.optimizer_d = opt_d_class(
-                self.modules.discriminator.parameters()
-            )
+            self.optimizer_d = opt_d_class(self.modules.discriminator.parameters())
             self.scheduler_g = sch_g_class(self.optimizer_g)
             self.scheduler_d = sch_d_class(self.optimizer_d)
 
             if self.checkpointer is not None:
-                self.checkpointer.add_recoverable(
-                    "optimizer_g", self.optimizer_g
-                )
-                self.checkpointer.add_recoverable(
-                    "optimizer_d", self.optimizer_d
-                )
-                self.checkpointer.add_recoverable(
-                    "scheduler_g", self.scheduler_d
-                )
-                self.checkpointer.add_recoverable(
-                    "scheduler_d", self.scheduler_d
-                )
+                self.checkpointer.add_recoverable("optimizer_g", self.optimizer_g)
+                self.checkpointer.add_recoverable("optimizer_d", self.optimizer_d)
+                self.checkpointer.add_recoverable("scheduler_g", self.scheduler_d)
+                self.checkpointer.add_recoverable("scheduler_d", self.scheduler_d)
 
     def zero_grad(self, set_to_none=False):
         if self.opt_class is not None:
@@ -211,8 +197,7 @@ class HifiGanBrain(sb.Brain):
                 ckpt_predicate=(
                     (
                         lambda ckpt: (
-                            ckpt.meta["epoch"]
-                            % self.hparams.keep_checkpoint_interval
+                            ckpt.meta["epoch"] % self.hparams.keep_checkpoint_interval
                             != 0
                         )
                     )
@@ -249,9 +234,7 @@ class HifiGanBrain(sb.Brain):
             inference_generator = copy.deepcopy(self.hparams.generator)
             inference_generator.remove_weight_norm()
             sig_out = inference_generator.inference(x)
-            spec_out = self.hparams.mel_spectogram(
-                audio=sig_out.squeeze(0).cpu()
-            )
+            spec_out = self.hparams.mel_spectogram(audio=sig_out.squeeze(0).cpu())
         if self.hparams.use_tensorboard:
             self.tensorboard_logger.log_audio(
                 f"{name}/audio_target", y.squeeze(0), self.hparams.sample_rate
@@ -265,11 +248,7 @@ class HifiGanBrain(sb.Brain):
             self.tensorboard_logger.log_figure(f"{name}/mel_pred", spec_out)
         else:
             # folder name is the current epoch for validation and "test" for test
-            folder = (
-                self.hparams.epoch_counter.current
-                if name == "Valid"
-                else "test"
-            )
+            folder = self.hparams.epoch_counter.current if name == "Valid" else "test"
             self.save_audio("target", y.squeeze(0), folder)
             self.save_audio("synthesized", sig_out.squeeze(0), folder)
 
@@ -286,9 +265,7 @@ class HifiGanBrain(sb.Brain):
             the epoch number (used in file path calculations)
             or "test" for test stage
         """
-        target_path = os.path.join(
-            self.hparams.progress_sample_path, str(epoch)
-        )
+        target_path = os.path.join(self.hparams.progress_sample_path, str(epoch))
         if not os.path.exists(target_path):
             os.makedirs(target_path)
         file_name = f"{name}.wav"
@@ -388,10 +365,8 @@ if __name__ == "__main__":
     )
 
     if hparams["use_tensorboard"]:
-        hifi_gan_brain.tensorboard_logger = (
-            sb.utils.train_logger.TensorboardLogger(
-                save_dir=hparams["output_folder"] + "/tensorboard"
-            )
+        hifi_gan_brain.tensorboard_logger = sb.utils.train_logger.TensorboardLogger(
+            save_dir=hparams["output_folder"] + "/tensorboard"
         )
 
     # Training

@@ -49,9 +49,7 @@ def download_sep28k(data_path):
             "https://www.dropbox.com/scl/fi/rpavffri0odb2g25bxy58/sep28k_clips.zip?rlkey=zfxpdrek642pxu0rj64qid7gh&st=xum8yxm1&dl=0",
             f"{temp_path}/SEP28k-data.zip",
         )
-    if not os.path.exists(
-        os.path.join(data_path, "SEP-28k-Extended_clips.csv")
-    ):
+    if not os.path.exists(os.path.join(data_path, "SEP-28k-Extended_clips.csv")):
         logger.info("**** NOW DOWNLOADING csv file *******")
         download_dropbox(
             "https://www.dropbox.com/scl/fi/amzp62bpj8zqo21kpmoqy/SEP-28k-Extended_ \
@@ -63,9 +61,7 @@ def download_sep28k(data_path):
         shutil.move(os.path.join(temp_path, fl), data_path)
     shutil.rmtree(os.path.join(temp_path))
     if not os.path.exists(os.path.join(data_path, "SEP28k-data")):
-        shutil.unpack_archive(
-            os.path.join(data_path, "SEP28k-data.zip"), data_path
-        )
+        shutil.unpack_archive(os.path.join(data_path, "SEP28k-data.zip"), data_path)
     logger.info(f"SEP-28k is downloaded in {data_path}")
 
 

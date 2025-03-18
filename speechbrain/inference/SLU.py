@@ -1,4 +1,4 @@
-""" Specifies the inference interfaces for Spoken Language Understanding (SLU) modules.
+"""Specifies the inference interfaces for Spoken Language Understanding (SLU) modules.
 
 Authors:
  * Aku Rouhe 2021
@@ -132,8 +132,7 @@ class EndToEndSLU(Pretrained):
                 encoder_out, wav_lens
             )
             predicted_words = [
-                self.tokenizer.decode_ids(token_seq)
-                for token_seq in predicted_tokens
+                self.tokenizer.decode_ids(token_seq) for token_seq in predicted_tokens
             ]
         return predicted_words, predicted_tokens
 

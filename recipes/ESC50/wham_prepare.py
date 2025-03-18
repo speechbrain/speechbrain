@@ -54,9 +54,7 @@ class WHAMDataset(IterableDataset):
                 end = int(self.target_length * self.sample_rate)
                 waveform = waveform[:, start:end]
 
-            zeros = (
-                int(self.target_length * self.sample_rate) - waveform.shape[1]
-            )
+            zeros = int(self.target_length * self.sample_rate) - waveform.shape[1]
             waveform = F.pad(waveform, (0, zeros))
 
             yield waveform
@@ -137,9 +135,7 @@ def download_wham(wham_path: str):
 
     files = os.listdir(os.path.join(wham_path, "WHAM", "wham_noise"))
     for fl in files:
-        shutil.move(
-            os.path.join(wham_path, "WHAM", "wham_noise", fl), wham_path
-        )
+        shutil.move(os.path.join(wham_path, "WHAM", "wham_noise", fl), wham_path)
 
     # remove the unused datapath
     shutil.rmtree(temp_path)

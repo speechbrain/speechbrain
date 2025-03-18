@@ -44,9 +44,7 @@ def test_rnnlmrescorer(tmpdir, device):
     )
 
     # Define a rescorer builder
-    rescorer = RescorerBuilder(
-        rescorers=[rnnlm_rescorer], weights={"rnnlm": 1.0}
-    )
+    rescorer = RescorerBuilder(rescorers=[rnnlm_rescorer], weights={"rnnlm": 1.0})
 
     # Topk hypotheses
     topk_hyps = [["HELLO", "HE LLO", "H E L L O"]]
@@ -147,14 +145,10 @@ def test_transformerlmrescorer(tmpdir, device):
 
     # check lm is on the right device
     transformerlm_rescorer.to_device(device)
-    assert (
-        transformerlm_rescorer.lm.parameters().__next__().device.type == device
-    )
+    assert transformerlm_rescorer.lm.parameters().__next__().device.type == device
 
     # check preprocess_func
-    padded_hyps, enc_hyps_length = transformerlm_rescorer.preprocess_func(
-        topk_hyps
-    )
+    padded_hyps, enc_hyps_length = transformerlm_rescorer.preprocess_func(topk_hyps)
     assert padded_hyps.shape[0] == 3
     assert len(padded_hyps) == 3
 

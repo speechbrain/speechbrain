@@ -71,9 +71,7 @@ def compute_mask(shape, sample_lens, mask_prob, mask_length):
     return idx
 
 
-def brq_mask_collate_fn(
-    samples_lst, get_out_len_fn, mask_prob, mask_length, n_mels
-):
+def brq_mask_collate_fn(samples_lst, get_out_len_fn, mask_prob, mask_length, n_mels):
     """This creates a batch from a list of samples and also creates
     the mask that will be used to mask the inputs of BEST-RQ.
     To create the mask we need to know the output shape after the

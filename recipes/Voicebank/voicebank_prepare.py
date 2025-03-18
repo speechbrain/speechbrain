@@ -156,9 +156,7 @@ MISSING_LEXICON = {
 # cspell:enable
 
 
-def prepare_voicebank(
-    data_folder, save_folder, valid_speaker_count=2, skip_prep=False
-):
+def prepare_voicebank(data_folder, save_folder, valid_speaker_count=2, skip_prep=False):
     """
     Prepares the json files for the Voicebank dataset.
 
@@ -198,12 +196,8 @@ def prepare_voicebank(
         logger.info("Preparation completed in previous run, skipping.")
         return
 
-    train_clean_folder = os.path.join(
-        data_folder, "clean_trainset_28spk_wav_16k"
-    )
-    train_noisy_folder = os.path.join(
-        data_folder, "noisy_trainset_28spk_wav_16k"
-    )
+    train_clean_folder = os.path.join(data_folder, "clean_trainset_28spk_wav_16k")
+    train_noisy_folder = os.path.join(data_folder, "noisy_trainset_28spk_wav_16k")
     train_txts = os.path.join(data_folder, "trainset_28spk_txt")
     test_clean_folder = os.path.join(data_folder, "clean_testset_wav_16k")
     test_noisy_folder = os.path.join(data_folder, "noisy_testset_wav_16k")
@@ -239,15 +233,9 @@ def prepare_voicebank(
     wav_lst_test = get_all_files(test_noisy_folder, match_and=extension)
 
     logger.debug("Creating json files for noisy VoiceBank...")
-    create_json(
-        wav_lst_train, save_json_train, train_clean_folder, train_txts, lexicon
-    )
-    create_json(
-        wav_lst_valid, save_json_valid, train_clean_folder, train_txts, lexicon
-    )
-    create_json(
-        wav_lst_test, save_json_test, test_clean_folder, test_txts, lexicon
-    )
+    create_json(wav_lst_train, save_json_train, train_clean_folder, train_txts, lexicon)
+    create_json(wav_lst_valid, save_json_valid, train_clean_folder, train_txts, lexicon)
+    create_json(wav_lst_test, save_json_test, test_clean_folder, test_txts, lexicon)
 
 
 def skip(*filenames):
@@ -353,14 +341,10 @@ def create_json(wav_lst, json_file, clean_folder, txt_folder, lexicon):
 
         # Read text
         snt_id = filename.replace(".wav", "")
-        with open(
-            os.path.join(txt_folder, snt_id + ".txt"), encoding="utf-8"
-        ) as f:
+        with open(os.path.join(txt_folder, snt_id + ".txt"), encoding="utf-8") as f:
             word_string = f.read()
         word_string = remove_punctuation(word_string).strip().upper()
-        phones = [
-            phn for word in word_string.split() for phn in lexicon[word].split()
-        ]
+        phones = [phn for word in word_string.split() for phn in lexicon[word].split()]
 
         # Remove duplicate phones
         phones = [i for i, j in zip(phones, phones[1:] + [None]) if i != j]

@@ -75,7 +75,6 @@ class Mimi(HFTransformersInterface):
         freeze=True,
         num_codebooks=8,
     ):
-
         super().__init__(source=source, save_path=save_path, freeze=freeze)
         self.num_codebooks = num_codebooks
         self.sample_rate = sample_rate
@@ -83,12 +82,8 @@ class Mimi(HFTransformersInterface):
 
     @torch.no_grad()
     def _compute_embedding(self):
-        semantic_layers = (
-            self.model.quantizer.semantic_residual_vector_quantizer.layers
-        )
-        acoustic_layers = (
-            self.model.quantizer.acoustic_residual_vector_quantizer.layers
-        )
+        semantic_layers = self.model.quantizer.semantic_residual_vector_quantizer.layers
+        acoustic_layers = self.model.quantizer.acoustic_residual_vector_quantizer.layers
         layers = (semantic_layers + acoustic_layers)[: self.num_codebooks]
         embs = [layer.codebook.embed for layer in layers]
         embs = torch.stack(embs)  # [K, C, H]

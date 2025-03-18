@@ -14,9 +14,7 @@ def test_pretrainer(tmpdir, device):
     assert not torch.all(torch.eq(pretrained_model.weight, first_model.weight))
     from speechbrain.utils.parameter_transfer import Pretrainer
 
-    pt = Pretrainer(
-        collect_in=tmpdir / "reused", loadables={"model": pretrained_model}
-    )
+    pt = Pretrainer(collect_in=tmpdir / "reused", loadables={"model": pretrained_model})
     pt.collect_files(default_source=pretrained_dir)
     pt.load_collected()
     assert torch.all(torch.eq(pretrained_model.weight, first_model.weight))

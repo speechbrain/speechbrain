@@ -1,2 +1,1 @@
-"""Package containing various techniques of speech processing
-"""
+"""Package containing various techniques of speech processing"""

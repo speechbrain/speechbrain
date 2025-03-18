@@ -63,9 +63,7 @@ def compute_amplitude(waveforms, lengths=None, amp_type="avg", scale="linear"):
         if lengths is None:
             out = torch.sqrt(torch.mean(waveforms**2, dim=1, keepdim=True))
         else:
-            wav_sum = torch.sum(
-                input=torch.pow(waveforms, 2), dim=1, keepdim=True
-            )
+            wav_sum = torch.sum(input=torch.pow(waveforms, 2), dim=1, keepdim=True)
             if len(wav_sum.shape) == 3 and isinstance(lengths, torch.Tensor):
                 lengths = lengths.unsqueeze(2)
             out = torch.sqrt(wav_sum / lengths)
@@ -257,13 +255,10 @@ def convolve1d(
 
     # Padding can be a tuple (left_pad, right_pad) or an int
     if isinstance(padding, tuple):
-        waveform = torch.nn.functional.pad(
-            input=waveform, pad=padding, mode=pad_type
-        )
+        waveform = torch.nn.functional.pad(input=waveform, pad=padding, mode=pad_type)
 
     # This approach uses FFT, which is more efficient if the kernel is large
     if use_fft:
-
         # Pad kernel to same length as signal, ensuring correct alignment
         zero_length = waveform.size(-1) - kernel.size(-1)
 
@@ -298,9 +293,7 @@ def convolve1d(
                 ],
                 dim=-1,
             )
-            convolved = torch.irfft(
-                f_result, 1, signal_sizes=[waveform.size(-1)]
-            )
+            convolved = torch.irfft(f_result, 1, signal_sizes=[waveform.size(-1)])
 
     # Use the implementation given by torch, which should be efficient on GPU
     else:
@@ -357,9 +350,7 @@ def reverberate(waveforms, rir_waveform, rescale_amp="avg"):
         rir_waveform = rir_waveform.unsqueeze(-1)
 
     # Compute the average amplitude of the clean
-    orig_amplitude = compute_amplitude(
-        waveforms, waveforms.size(1), rescale_amp
-    )
+    orig_amplitude = compute_amplitude(waveforms, waveforms.size(1), rescale_amp)
 
     # Compute index of the direct signal, so we can preserve alignment
     value_max, direct_index = rir_waveform.abs().max(axis=1, keepdim=True)
@@ -377,9 +368,7 @@ def reverberate(waveforms, rir_waveform, rescale_amp="avg"):
     )
 
     # Rescale to the peak amplitude of the clean waveform
-    waveforms = rescale(
-        waveforms, waveforms.size(1), orig_amplitude, rescale_amp
-    )
+    waveforms = rescale(waveforms, waveforms.size(1), orig_amplitude, rescale_amp)
 
     if len(orig_shape) == 1:
         waveforms = waveforms.squeeze(0).squeeze(-1)
@@ -506,9 +495,7 @@ def overlap_and_add(signal, frame_step):
     outer_dimensions = signal.size()[:-2]
     frames, frame_length = signal.size()[-2:]
 
-    subframe_length = math.gcd(
-        frame_length, frame_step
-    )  # gcd=Greatest Common Divisor
+    subframe_length = math.gcd(frame_length, frame_step)  # gcd=Greatest Common Divisor
     subframe_step = frame_step // subframe_length
     subframes_per_frame = frame_length // subframe_length
     output_size = frame_step * (frames - 1) + frame_length
@@ -525,9 +512,7 @@ def overlap_and_add(signal, frame_step):
     # print((frame - frame_old).sum())
     frame = frame.contiguous().view(-1)
 
-    result = signal.new_zeros(
-        *outer_dimensions, output_subframes, subframe_length
-    )
+    result = signal.new_zeros(*outer_dimensions, output_subframes, subframe_length)
     result.index_add_(-2, frame, subframe_signal)
     result = result.view(*outer_dimensions, -1)
     return result
@@ -648,20 +633,20 @@ def gabor_impulse_response_legacy_complex(t, center, fwhm):
 
     denominator_sinusoid = torch.zeros(*temp.shape + (2,), device=temp.device)
 
-    denominator_sinusoid[:, :, 0] = (
-        denominator.view(-1, 1) * sinusoid[:, :, 0]
-    ) - (torch.zeros_like(denominator).view(-1, 1) * sinusoid[:, :, 1])
+    denominator_sinusoid[:, :, 0] = (denominator.view(-1, 1) * sinusoid[:, :, 0]) - (
+        torch.zeros_like(denominator).view(-1, 1) * sinusoid[:, :, 1]
+    )
 
-    denominator_sinusoid[:, :, 1] = (
-        denominator.view(-1, 1) * sinusoid[:, :, 1]
-    ) + (torch.zeros_like(denominator).view(-1, 1) * sinusoid[:, :, 0])
+    denominator_sinusoid[:, :, 1] = (denominator.view(-1, 1) * sinusoid[:, :, 1]) + (
+        torch.zeros_like(denominator).view(-1, 1) * sinusoid[:, :, 0]
+    )
 
     output = torch.zeros(*temp.shape + (2,), device=temp.device)
 
     output[:, :, 0] = (denominator_sinusoid[:, :, 0] * gaussian) - (
         denominator_sinusoid[:, :, 1] * torch.zeros_like(gaussian)
     )
-    output[:, :, 1] = (
-        denominator_sinusoid[:, :, 0] * torch.zeros_like(gaussian)
-    ) + (denominator_sinusoid[:, :, 1] * gaussian)
+    output[:, :, 1] = (denominator_sinusoid[:, :, 0] * torch.zeros_like(gaussian)) + (
+        denominator_sinusoid[:, :, 1] * gaussian
+    )
     return output

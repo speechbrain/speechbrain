@@ -84,9 +84,7 @@ class Transducer_joint(nn.Module):
                 dim = len(input_TN.shape) - 1
                 xs = input_TN
                 ymat = input_PN
-                sz = [
-                    max(i, j) for i, j in zip(xs.size()[:-1], ymat.size()[:-1])
-                ]
+                sz = [max(i, j) for i, j in zip(xs.size()[:-1], ymat.size()[:-1])]
                 xs = xs.expand(torch.Size(sz + [xs.shape[-1]]))
                 ymat = ymat.expand(torch.Size(sz + [ymat.shape[-1]]))
                 joint = torch.cat((xs, ymat), dim=dim)

@@ -26,7 +26,6 @@ logger = get_logger(__name__)
 
 
 class BestRQBrain(sb.core.Brain):
-
     def compute_forward(self, batch, stage):
         """Computes forward pass through BestRQ model and returns encoded and
         target embeddings as well as other metrics of interest.
@@ -90,9 +89,7 @@ class BestRQBrain(sb.core.Brain):
         if stage != sb.Stage.TRAIN and sb.utils.distributed.if_main_process():
             predicted_classes = torch.argmax(pred, dim=-1)
             correct_predictions = predicted_classes == targets
-            accuracy = correct_predictions.sum().item() / len(
-                correct_predictions
-            )
+            accuracy = correct_predictions.sum().item() / len(correct_predictions)
             self.acc_metric.append(accuracy)
 
         return F.cross_entropy(pred, targets)
@@ -108,7 +105,6 @@ class BestRQBrain(sb.core.Brain):
             hasattr(self.hparams, "log_interval")
             and self.optimizer_step % self.hparams.log_interval == 0
         ):
-
             # Create a dictionary and fill it with everything we
             # want to log such as contrastive loss, diversity loss,
             # learning rate etc.
@@ -135,17 +131,13 @@ class BestRQBrain(sb.core.Brain):
             self.acc_metric = []
 
     def on_stage_end(self, stage, stage_loss, epoch=None):
-
         stage_stats = {"loss": stage_loss}
         if stage == sb.Stage.TRAIN:
             self.train_stats = stage_stats
 
         if stage == sb.Stage.VALID:
             if self.acc_metric:
-
-                stage_stats["accuracy"] = sum(self.acc_metric) / len(
-                    self.acc_metric
-                )
+                stage_stats["accuracy"] = sum(self.acc_metric) / len(self.acc_metric)
 
             self.hparams.train_stage_logger.log_stats(
                 stats_meta={
@@ -198,9 +190,7 @@ def pad_feats(feats, divis_by):
     # Initialize padding for all dimensions, have a look at the documentation of
     # torch.nn.functional.pad because the padding argument is quite special.
     padding = [0, 0, 0, 0, 0, 0]
-    padding[dim_to_pad * 2] = (
-        padding_needed  # Set padding for the chosen dimension
-    )
+    padding[dim_to_pad * 2] = padding_needed  # Set padding for the chosen dimension
 
     # add in padding to features and mask
     return torch.nn.functional.pad(feats, padding)

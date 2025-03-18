@@ -71,15 +71,9 @@ def _prepare_csv(folder, filelist, csv_file, max_length=None):
                         os.remove(filename)
                         for i in range(int(duration / max_length)):
                             start = int(max_length * i * rate)
-                            stop = int(
-                                min(max_length * (i + 1), duration) * rate
-                            )
-                            new_filename = (
-                                filename[: -len(f".{ext}")] + f"_{i}.{ext}"
-                            )
-                            torchaudio.save(
-                                new_filename, signal[:, start:stop], rate
-                            )
+                            stop = int(min(max_length * (i + 1), duration) * rate)
+                            new_filename = filename[: -len(f".{ext}")] + f"_{i}.{ext}"
+                            torchaudio.save(new_filename, signal[:, start:stop], rate)
                             csv_row = (
                                 f"{ID}_{i}",
                                 str((stop - start) / rate),
@@ -89,8 +83,6 @@ def _prepare_csv(folder, filelist, csv_file, max_length=None):
                             )
                             w.write(",".join(csv_row))
                     else:
-                        w.write(
-                            ",".join((ID, str(duration), filename, ext, "\n"))
-                        )
+                        w.write(",".join((ID, str(duration), filename, ext, "\n")))
     finally:
         sb.utils.distributed.ddp_barrier()

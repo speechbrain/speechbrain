@@ -54,12 +54,8 @@ class WeightedSSLModel(HFTransformersInterface):
     >>> outputs = model(inputs)
     """
 
-    def __init__(
-        self, hub, save_path="", layernorm=False, freeze=False, **kwargs
-    ):
-        super().__init__(
-            source=hub, save_path=save_path, freeze=freeze, **kwargs
-        )
+    def __init__(self, hub, save_path="", layernorm=False, freeze=False, **kwargs):
+        super().__init__(source=hub, save_path=save_path, freeze=freeze, **kwargs)
         self.model.eval()
         self.layernorm = layernorm
         self.freeze = freeze
@@ -91,9 +87,9 @@ class WeightedSSLModel(HFTransformersInterface):
             hidden_states = torch.stack(feats.hidden_states, dim=0)
 
         # First dimension should be equal to the number of layers in the hparams
-        assert (
-            self.num_layers == hidden_states.shape[0]
-        ), "Num layers not equal to num hidden states"
+        assert self.num_layers == hidden_states.shape[0], (
+            "Num layers not equal to num hidden states"
+        )
 
         # Layernorming the layers representations if asked
         if self.layernorm:

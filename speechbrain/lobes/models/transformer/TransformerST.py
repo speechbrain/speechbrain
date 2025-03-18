@@ -193,13 +193,11 @@ class TransformerST(TransformerASR):
                     causal=self.causal,
                     attention_type=self.attention_type,
                 )
-                assert (
-                    normalize_before
-                ), "normalize_before must be True for Conformer"
+                assert normalize_before, "normalize_before must be True for Conformer"
 
-                assert (
-                    conformer_activation is not None
-                ), "conformer_activation must not be None"
+                assert conformer_activation is not None, (
+                    "conformer_activation must not be None"
+                )
 
         # reset parameters using xavier_normal_
         self._init_params()
@@ -244,9 +242,7 @@ class TransformerST(TransformerASR):
                 transcription
             )
         elif self.attention_type == "fixed_abs_sine":
-            transcription = transcription + self.positional_encoding(
-                transcription
-            )
+            transcription = transcription + self.positional_encoding(transcription)
 
         asr_decoder_out, _, _ = self.asr_decoder(
             tgt=transcription,
@@ -383,9 +379,7 @@ class TransformerST(TransformerASR):
         if self.attention_type == "RelPosMHAXL":
             # we use fixed positional encodings in the decoder
             tgt = tgt + self.positional_encoding_decoder(tgt)
-            encoder_out = encoder_out + self.positional_encoding_decoder(
-                encoder_out
-            )
+            encoder_out = encoder_out + self.positional_encoding_decoder(encoder_out)
         elif self.positional_encoding_type == "fixed_abs_sine":
             tgt = tgt + self.positional_encoding(tgt)  # add the encodings here
 

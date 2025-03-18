@@ -150,9 +150,7 @@ class SentencePiece:
             if text_file is None:
                 text_file = os.path.join(
                     model_dir,
-                    os.path.basename(self.annotation_train).replace(
-                        ext, ".txt"
-                    ),
+                    os.path.basename(self.annotation_train).replace(ext, ".txt"),
                 )
             self.text_file = text_file
 
@@ -227,10 +225,7 @@ class SentencePiece:
         row_idx = 0
         for row in reader:
             if self.num_sequences is not None and row_idx > self.num_sequences:
-                print(
-                    "Using %d sequences to train the tokenizer."
-                    % self.num_sequences
-                )
+                print("Using %d sequences to train the tokenizer." % self.num_sequences)
                 break
             row_idx += 1
             sent = row[index_label]
@@ -266,10 +261,7 @@ class SentencePiece:
 
         for snt_id in out_json.keys():
             if self.num_sequences is not None and row_idx > self.num_sequences:
-                print(
-                    "Using %d sequences to train the tokenizer."
-                    % self.num_sequences
-                )
+                print("Using %d sequences to train the tokenizer." % self.num_sequences)
                 break
             row_idx += 1
             sent = out_json[snt_id][self.annotation_read]
@@ -347,23 +339,17 @@ class SentencePiece:
                 )
                 # csv reading
                 if self.annotation_format == "csv":
-                    fannotation_file = open(
-                        annotation_file, "r", encoding="utf-8"
-                    )
+                    fannotation_file = open(annotation_file, "r", encoding="utf-8")
                     reader = csv.reader(fannotation_file)
                     headers = next(reader, None)
                     if self.annotation_read not in headers:
                         raise ValueError(
-                            self.annotation_read
-                            + " must exist in:"
-                            + annotation_file
+                            self.annotation_read + " must exist in:" + annotation_file
                         )
                     index_label = headers.index(self.annotation_read)
                 # json reading
                 else:
-                    with open(
-                        self.annotation_train, "r", encoding="utf-8"
-                    ) as f:
+                    with open(self.annotation_train, "r", encoding="utf-8") as f:
                         reader = json.load(f)
                         index_label = self.annotation_read
 
@@ -397,24 +383,16 @@ class SentencePiece:
                     logger.warning(
                         "Wrong recover words: " + str(len(wrong_recover_list))
                     )
-                    logger.warning(
-                        "Tokenizer vocab size: " + str(self.sp.vocab_size())
-                    )
+                    logger.warning("Tokenizer vocab size: " + str(self.sp.vocab_size()))
                     logger.warning(
                         "accuracy recovering words: "
-                        + str(
-                            1
-                            - float(len(wrong_recover_list))
-                            / self.sp.vocab_size()
-                        )
+                        + str(1 - float(len(wrong_recover_list)) / self.sp.vocab_size())
                     )
                 else:
                     logger.info("Wrong recover words: 0")
                     logger.warning("accuracy recovering words: " + str(1.0))
             else:
-                logger.info(
-                    "No accuracy recover checking for" + annotation_file
-                )
+                logger.info("No accuracy recover checking for" + annotation_file)
 
     def __call__(self, batch, batch_lens=None, ind2lab=None, task="encode"):
         """This __call__ function implements the tokenizer encoder and decoder
@@ -448,9 +426,7 @@ class SentencePiece:
             max_bpe_len = 0
             batch_lens = (batch_lens * batch.shape[1]).round().int()
             for i, utt_seq in enumerate(batch):
-                tokens = [
-                    ind2lab[int(index)] for index in utt_seq[: batch_lens[i]]
-                ]
+                tokens = [ind2lab[int(index)] for index in utt_seq[: batch_lens[i]]]
                 if self.char_format_input:
                     (words_list,) = merge_char([tokens])
                     sent = " ".join(words_list)
@@ -463,9 +439,7 @@ class SentencePiece:
                 if len(bpe_encode) > max_bpe_len:
                     max_bpe_len = len(bpe_encode)
             # Create bpe tensor
-            bpe_tensor = torch.zeros(
-                (batch.shape[0], max_bpe_len), device=batch.device
-            )
+            bpe_tensor = torch.zeros((batch.shape[0], max_bpe_len), device=batch.device)
             bpe_lens = torch.zeros((batch.shape[0]), device=batch.device)
             for i, bpe_utt in enumerate(bpe):
                 bpe_tensor[i, : len(bpe_utt)] = torch.Tensor(bpe_utt)
@@ -480,9 +454,7 @@ class SentencePiece:
             # find the absolute batch lengths and do decoding
             batch_lens = (batch_lens * batch.shape[1]).round().int()
             return [
-                self.sp.decode_ids(
-                    utt_seq[: batch_lens[i]].int().tolist()
-                ).split(" ")
+                self.sp.decode_ids(utt_seq[: batch_lens[i]].int().tolist()).split(" ")
                 for i, utt_seq in enumerate(batch)
             ]
 

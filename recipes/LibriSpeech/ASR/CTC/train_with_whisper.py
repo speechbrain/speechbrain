@@ -80,23 +80,17 @@ class ASR(sb.Brain):
             (
                 tokens,
                 tokens_lens,
-            ) = self.hparams.wav_augment.replicate_multiple_labels(
-                tokens, tokens_lens
-            )
+            ) = self.hparams.wav_augment.replicate_multiple_labels(tokens, tokens_lens)
 
         loss_ctc = self.hparams.ctc_cost(p_ctc, tokens, wav_lens, tokens_lens)
         loss = loss_ctc
 
         if stage == sb.Stage.VALID:
             # Decode token terms to words
-            predicted_words = self.tokenizer(
-                predicted_tokens, task="decode_from_list"
-            )
+            predicted_words = self.tokenizer(predicted_tokens, task="decode_from_list")
 
         elif stage == sb.Stage.TEST:
-            predicted_words = [
-                hyp[0].text.split(" ") for hyp in predicted_tokens
-            ]
+            predicted_words = [hyp[0].text.split(" ") for hyp in predicted_tokens]
 
         if stage != sb.Stage.TRAIN:
             # Convert indices to words
@@ -132,9 +126,7 @@ class ASR(sb.Brain):
             old_lr_whisper, new_lr_whisper = self.hparams.lr_annealing_whisper(
                 stage_stats["loss"]
             )
-            sb.nnet.schedulers.update_learning_rate(
-                self.model_optimizer, new_lr_model
-            )
+            sb.nnet.schedulers.update_learning_rate(self.model_optimizer, new_lr_model)
             sb.nnet.schedulers.update_learning_rate(
                 self.whisper_optimizer, new_lr_whisper
             )
@@ -157,9 +149,7 @@ class ASR(sb.Brain):
                 test_stats=stage_stats,
             )
             if if_main_process():
-                with open(
-                    self.hparams.test_wer_file, "w", encoding="utf-8"
-                ) as w:
+                with open(self.hparams.test_wer_file, "w", encoding="utf-8") as w:
                     self.wer_metric.write_stats(w)
 
     def init_optimizers(self):
@@ -180,9 +170,7 @@ class ASR(sb.Brain):
         }
 
         if self.checkpointer is not None:
-            self.checkpointer.add_recoverable(
-                "whisper_opt", self.whisper_optimizer
-            )
+            self.checkpointer.add_recoverable("whisper_opt", self.whisper_optimizer)
             self.checkpointer.add_recoverable("modelopt", self.model_optimizer)
 
     def freeze_optimizers(self, optimizers):
@@ -192,9 +180,7 @@ class ASR(sb.Brain):
             # Here we added a warmup to the CTC encoder to make sure that
             # it does not break the whisper with too large gradients.
             if self.optimizer_step > self.hparams.warmup_steps:
-                valid_optimizers["whisper_optimizer"] = optimizers[
-                    "whisper_optimizer"
-                ]
+                valid_optimizers["whisper_optimizer"] = optimizers["whisper_optimizer"]
         valid_optimizers["model_optimizer"] = optimizers["model_optimizer"]
         return valid_optimizers
 
@@ -217,9 +203,7 @@ def dataio_prepare(hparams, tokenizer):
         hparams["train_dataloader_opts"]["shuffle"] = False
 
     elif hparams["sorting"] == "descending":
-        train_data = train_data.filtered_sorted(
-            sort_key="duration", reverse=True
-        )
+        train_data = train_data.filtered_sorted(sort_key="duration", reverse=True)
         # when sorting do not shuffle in dataloader ! otherwise is pointless
         hparams["train_dataloader_opts"]["shuffle"] = False
 
@@ -227,9 +211,7 @@ def dataio_prepare(hparams, tokenizer):
         pass
 
     else:
-        raise NotImplementedError(
-            "sorting must be random, ascending or descending"
-        )
+        raise NotImplementedError("sorting must be random, ascending or descending")
 
     valid_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
         csv_path=hparams["valid_csv"],
@@ -244,9 +226,7 @@ def dataio_prepare(hparams, tokenizer):
         test_datasets[name] = sb.dataio.dataset.DynamicItemDataset.from_csv(
             csv_path=csv_file, replacements={"data_root": data_folder}
         )
-        test_datasets[name] = test_datasets[name].filtered_sorted(
-            sort_key="duration"
-        )
+        test_datasets[name] = test_datasets[name].filtered_sorted(sort_key="duration")
 
     datasets = [train_data, valid_data] + [i for k, i in test_datasets.items()]
 
@@ -261,9 +241,7 @@ def dataio_prepare(hparams, tokenizer):
 
     # 3. Define text pipeline:
     @sb.utils.data_pipeline.takes("wrd")
-    @sb.utils.data_pipeline.provides(
-        "wrd", "char_list", "tokens_list", "tokens"
-    )
+    @sb.utils.data_pipeline.provides("wrd", "char_list", "tokens_list", "tokens")
     def text_pipeline(wrd):
         yield wrd
         char_list = list(wrd)
@@ -349,9 +327,7 @@ if __name__ == "__main__":
     # NB: This tokenizer corresponds to the one used for the LM!!
     asr_brain.tokenizer = tokenizer
 
-    vocab_list = [
-        tokenizer.sp.id_to_piece(i) for i in range(tokenizer.sp.vocab_size())
-    ]
+    vocab_list = [tokenizer.sp.id_to_piece(i) for i in range(tokenizer.sp.vocab_size())]
 
     from speechbrain.decoders.ctc import CTCBeamSearcher
 

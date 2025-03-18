@@ -65,9 +65,7 @@ class W2V2Brain(sb.core.Brain):
         # 3. Mask some of the latent and projection
         embeddings = embeddings[mask]
         embeddings = self.modules.feat_proj(embeddings)
-        results["embeddings"] = embeddings.view(
-            batch_size, -1, embeddings.size(1)
-        )
+        results["embeddings"] = embeddings.view(batch_size, -1, embeddings.size(1))
 
         latents = latents[mask].view(batch_size, -1, latents.size(2))
 
@@ -97,9 +95,7 @@ class W2V2Brain(sb.core.Brain):
             "num_masked": forward_outputs["num_masked"],
             "ratio_masked": forward_outputs["ratio_masked"],
         }
-        if (
-            "diversity_loss" in forward_outputs
-        ):  # only quantised model has these
+        if "diversity_loss" in forward_outputs:  # only quantised model has these
             objectives.update(
                 {
                     "diversity_loss": forward_outputs["diversity_loss"],
@@ -135,14 +131,10 @@ class W2V2Brain(sb.core.Brain):
                     device_type=torch.device(self.device).type,
                 ):
                     outputs = self.compute_forward(batch, Stage.TRAIN)
-                    objectives = self.compute_objectives(
-                        outputs, batch, Stage.TRAIN
-                    )
+                    objectives = self.compute_objectives(outputs, batch, Stage.TRAIN)
             else:
                 outputs = self.compute_forward(batch, Stage.TRAIN)
-                objectives = self.compute_objectives(
-                    outputs, batch, Stage.TRAIN
-                )
+                objectives = self.compute_objectives(outputs, batch, Stage.TRAIN)
 
             self.scaler.scale(
                 objectives["backprop_loss"] / self.grad_accumulation_factor
@@ -211,9 +203,7 @@ class W2V2Brain(sb.core.Brain):
             self.train_stats = stage_stats
 
         if stage == sb.Stage.VALID:
-            stage_stats["accuracy"] = sum(self.acc_metric) / len(
-                self.acc_metric
-            )
+            stage_stats["accuracy"] = sum(self.acc_metric) / len(self.acc_metric)
 
             self.hparams.train_stage_logger.log_stats(
                 stats_meta={

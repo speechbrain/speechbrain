@@ -90,9 +90,7 @@ class ST(sb.core.Brain):
         )
         is_test_search = stage == sb.Stage.TEST
         if is_valid_search:
-            hyps, _, _, _ = self.hparams.valid_search(
-                enc_out.detach(), wav_lens
-            )
+            hyps, _, _, _ = self.hparams.valid_search(enc_out.detach(), wav_lens)
         elif is_test_search:
             hyps, _, _, _ = self.hparams.test_search(enc_out.detach(), wav_lens)
 
@@ -147,8 +145,7 @@ class ST(sb.core.Brain):
             1 - self.hparams.ctc_weight
         ) * asr_attention_loss
         loss = (
-            (1 - self.hparams.asr_weight - self.hparams.mt_weight)
-            * attention_loss
+            (1 - self.hparams.asr_weight - self.hparams.mt_weight) * attention_loss
             + self.hparams.asr_weight * asr_loss
             + self.hparams.mt_weight * mt_loss
         )
@@ -182,10 +179,7 @@ class ST(sb.core.Brain):
                     targets.append(detokenized_translation)
 
                 self.bleu_metric.append(ids, predictions, targets)
-            elif (
-                current_epoch % valid_search_interval == 0
-                and stage == sb.Stage.VALID
-            ):
+            elif current_epoch % valid_search_interval == 0 and stage == sb.Stage.VALID:
                 predictions = [
                     en_detokenizer.detokenize(
                         hparams["tokenizer"].decode_ids(utt_seq).split(" ")
@@ -234,10 +228,7 @@ class ST(sb.core.Brain):
 
             if stage == sb.Stage.TEST:
                 stage_stats["BLEU"] = self.bleu_metric.summarize("BLEU")
-            elif (
-                current_epoch % valid_search_interval == 0
-                and stage == sb.Stage.VALID
-            ):
+            elif current_epoch % valid_search_interval == 0 and stage == sb.Stage.VALID:
                 stage_stats["BLEU"] = self.bleu_metric.summarize("BLEU")
 
         # log stats and save checkpoint at end-of-epoch
@@ -333,12 +324,8 @@ class ST(sb.core.Brain):
         """perform checkpoint average if needed"""
         super().on_evaluate_start()
 
-        ckpts = self.checkpointer.find_checkpoints(
-            max_key=max_key, min_key=min_key
-        )
-        ckpt = sb.utils.checkpoints.average_checkpoints(
-            ckpts, recoverable_name="model"
-        )
+        ckpts = self.checkpointer.find_checkpoints(max_key=max_key, min_key=min_key)
+        ckpt = sb.utils.checkpoints.average_checkpoints(ckpts, recoverable_name="model")
 
         self.hparams.model.load_state_dict(ckpt, strict=True)
         self.hparams.model.eval()
@@ -516,12 +503,8 @@ def dataio_prepare(hparams):
                 reverse=True,
             )
         else:
-            datasets["train"] = datasets["train"].filtered_sorted(
-                sort_key="duration"
-            )
-            datasets["valid"] = datasets["valid"].filtered_sorted(
-                sort_key="duration"
-            )
+            datasets["train"] = datasets["train"].filtered_sorted(sort_key="duration")
+            datasets["valid"] = datasets["valid"].filtered_sorted(sort_key="duration")
 
         hparams["train_dataloader_opts"]["shuffle"] = False
         hparams["valid_dataloader_opts"]["shuffle"] = False
@@ -565,9 +548,7 @@ def dataio_prepare(hparams):
 
         hparams["train_dataloader_opts"]["shuffle"] = True
     else:
-        raise NotImplementedError(
-            "sorting must be random, ascending or descending"
-        )
+        raise NotImplementedError("sorting must be random, ascending or descending")
 
     return datasets
 

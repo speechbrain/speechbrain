@@ -31,6 +31,7 @@ Authors
  * Mirco Ravanelli 2021
  * Artem Ploujnikov 2021
 """
+
 import os
 import sys
 
@@ -128,9 +129,7 @@ class SpkIdBrain(sb.Brain):
         loss = sb.nnet.losses.nll_loss(predictions, spkid, lens)
 
         # Append this batch of losses to the loss metric for easy
-        self.loss_metric.append(
-            batch.id, predictions, spkid, lens, reduction="batch"
-        )
+        self.loss_metric.append(batch.id, predictions, spkid, lens, reduction="batch")
 
         # Compute classification error at test time
         if stage != sb.Stage.TRAIN:
@@ -184,7 +183,6 @@ class SpkIdBrain(sb.Brain):
 
         # At the end of validation...
         if stage == sb.Stage.VALID:
-
             old_lr, new_lr = self.hparams.lr_annealing(epoch)
             sb.nnet.schedulers.update_learning_rate(self.optimizer, new_lr)
 
@@ -197,9 +195,7 @@ class SpkIdBrain(sb.Brain):
 
             # Save the current checkpoint and delete previous checkpoints,
             if self.hparams.ckpt_enable:
-                self.checkpointer.save_and_keep_only(
-                    meta=stats, min_keys=["error"]
-                )
+                self.checkpointer.save_and_keep_only(meta=stats, min_keys=["error"])
             hp.report_result(stats)
 
         # We also write statistics about test data to stdout and to the logfile.
@@ -284,9 +280,7 @@ def dataio_prep(hparams):
 
 # Recipe begins!
 if __name__ == "__main__":
-
     with hp.hyperparameter_optimization(objective_key="error") as hp_ctx:
-
         # Reading command line arguments
         hparams_file, run_opts, overrides = hp_ctx.parse_arguments(
             sys.argv[1:], pass_trial_id=False

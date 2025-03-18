@@ -1,4 +1,4 @@
-""" Specifies the inference interfaces for speech and audio encoders.
+"""Specifies the inference interfaces for speech and audio encoders.
 
 Authors:
  * Aku Rouhe 2021

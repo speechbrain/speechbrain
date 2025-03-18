@@ -12,6 +12,7 @@ Authors
  * Jianyuan Zhong 2021
  * Mirco Ravanelli 2021
 """
+
 import sys
 
 import torch
@@ -67,9 +68,7 @@ class LM(sb.core.Brain):
         """
         batch = batch.to(self.device)
         tokens_eos, tokens_len = batch.tokens_eos
-        loss = self.hparams.compute_cost(
-            predictions, tokens_eos, length=tokens_len
-        )
+        loss = self.hparams.compute_cost(predictions, tokens_eos, length=tokens_len)
         return loss
 
     def on_fit_batch_end(self, batch, outputs, loss, should_step):
@@ -108,7 +107,6 @@ class LM(sb.core.Brain):
 
         # At the end of validation, we can wrote
         if stage == sb.Stage.VALID:
-
             # Update learning rate
             old_lr, new_lr = self.hparams.lr_annealing(stage_loss)
             sb.nnet.schedulers.update_learning_rate(self.optimizer, new_lr)
@@ -203,7 +201,6 @@ def dataio_prepare(hparams):
 
 # Recipe begins!
 if __name__ == "__main__":
-
     # Reading command line arguments
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
 

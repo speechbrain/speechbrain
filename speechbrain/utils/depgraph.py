@@ -218,9 +218,7 @@ class DependencyGraph:
             if root_ind in visited:
                 raise CircularDependencyError(
                     "{cycle}".format(
-                        cycle=" -> ".join(
-                            str(self.digraph[i].key) for i in here
-                        )
+                        cycle=" -> ".join(str(self.digraph[i].key) for i in here)
                     )
                 )
             if root_ind in seen_ever:

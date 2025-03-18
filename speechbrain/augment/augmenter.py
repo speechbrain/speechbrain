@@ -245,9 +245,7 @@ class Augmenter(torch.nn.Module):
 
             # Check input arguments
             if self.require_lengths[augment_name]:
-                out = augment_fun(
-                    next_input[idx, ...], lengths=next_lengths[idx]
-                )
+                out = augment_fun(next_input[idx, ...], lengths=next_lengths[idx])
             else:
                 out = augment_fun(next_input[idx, ...])
 
@@ -270,9 +268,7 @@ class Augmenter(torch.nn.Module):
 
         if self.parallel_augment:
             # Concatenate all the augmented data
-            output, output_lengths = self.concatenate_outputs(
-                output, output_lengths
-            )
+            output, output_lengths = self.concatenate_outputs(output, output_lengths)
         else:
             # Take the last augmented signal of the pipeline
             output = out
@@ -351,9 +347,7 @@ class Augmenter(torch.nn.Module):
 
         # Select the portion of the input to augment and update lengths accordingly.
         x = x[self.augment_start_index : self.augment_end_index_batch]
-        lengths = lengths[
-            self.augment_start_index : self.augment_end_index_batch
-        ]
+        lengths = lengths[self.augment_start_index : self.augment_end_index_batch]
 
         # Lists to collect the outputs
         output_lst = []
@@ -362,7 +356,6 @@ class Augmenter(torch.nn.Module):
         # Concatenate the original signal if required
         self.skip_concat = not (self.concat_original)
         if self.concat_original:
-
             # Check start index
             if self.concat_start_index >= x_original.shape[0]:
                 self.skip_concat = True
@@ -377,30 +370,22 @@ class Augmenter(torch.nn.Module):
                 )
 
                 output_lst.append(
-                    x_original[
-                        self.concat_start_index : self.concat_end_index_batch
-                    ]
+                    x_original[self.concat_start_index : self.concat_end_index_batch]
                 )
                 output_len_lst.append(
-                    len_original[
-                        self.concat_start_index : self.concat_end_index_batch
-                    ]
+                    len_original[self.concat_start_index : self.concat_end_index_batch]
                 )
 
         # Perform augmentations
         for i in range(self.repeat_augment):
-            output, output_lengths = self.augment(
-                x, lengths, selected_augmentations
-            )
+            output, output_lengths = self.augment(x, lengths, selected_augmentations)
             output_lst.append(output)
             output_len_lst.append(output_lengths)
 
         # Concatenate the final outputs while handling scenarios where
         # different temporal dimensions may arise due to augmentations
         # like speed change.
-        output, output_lengths = self.concatenate_outputs(
-            output_lst, output_len_lst
-        )
+        output, output_lengths = self.concatenate_outputs(output_lst, output_len_lst)
 
         return output, output_lengths
 
@@ -443,8 +428,7 @@ class Augmenter(torch.nn.Module):
         # Pad sequences to match the maximum temporal dimension.
         # Note that some augmented batches, like those with speed changes, may have different temporal dimensions.
         augment_lst = [
-            F.pad(output, (0, max_len - output.shape[1]))
-            for output in augment_lst
+            F.pad(output, (0, max_len - output.shape[1])) for output in augment_lst
         ]
 
         # Concatenate the padded sequences and rescaled lengths
@@ -515,13 +499,9 @@ class Augmenter(torch.nn.Module):
         ]
 
         if self.parallel_augment:
-            selected_labels = torch.cat(
-                [selected_labels] * self.N_augment, dim=0
-            )
+            selected_labels = torch.cat([selected_labels] * self.N_augment, dim=0)
 
-        augmented_labels = (
-            augmented_labels + [selected_labels] * self.repeat_augment
-        )
+        augmented_labels = augmented_labels + [selected_labels] * self.repeat_augment
 
         augmented_labels = torch.cat(augmented_labels, dim=0)
 

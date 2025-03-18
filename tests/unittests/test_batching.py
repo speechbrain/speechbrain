@@ -14,8 +14,7 @@ def test_batch_pad_right_to(device):
     for b in batch_lens:
         rand_lens = [random.randint(10, 53) for x in range(b)]
         tensors = [
-            torch.ones((rand_lens[x], n_channels), device=device)
-            for x in range(b)
+            torch.ones((rand_lens[x], n_channels), device=device) for x in range(b)
         ]
         batched, lens = batch_pad_right(tensors)
         assert batched.shape[0] == b

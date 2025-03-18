@@ -58,22 +58,12 @@ class QuaternionLinearCustomBackward(torch.autograd.Function):
         The linearly transformed quaternions
         """
 
-        ctx.save_for_backward(
-            input, r_weight, i_weight, j_weight, k_weight, bias
-        )
+        ctx.save_for_backward(input, r_weight, i_weight, j_weight, k_weight, bias)
 
-        cat_kernels_4_r = torch.cat(
-            [r_weight, -i_weight, -j_weight, -k_weight], dim=0
-        )
-        cat_kernels_4_i = torch.cat(
-            [i_weight, r_weight, -k_weight, j_weight], dim=0
-        )
-        cat_kernels_4_j = torch.cat(
-            [j_weight, k_weight, r_weight, -i_weight], dim=0
-        )
-        cat_kernels_4_k = torch.cat(
-            [k_weight, -j_weight, i_weight, r_weight], dim=0
-        )
+        cat_kernels_4_r = torch.cat([r_weight, -i_weight, -j_weight, -k_weight], dim=0)
+        cat_kernels_4_i = torch.cat([i_weight, r_weight, -k_weight, j_weight], dim=0)
+        cat_kernels_4_j = torch.cat([j_weight, k_weight, r_weight, -i_weight], dim=0)
+        cat_kernels_4_k = torch.cat([k_weight, -j_weight, i_weight, r_weight], dim=0)
         cat_kernels_4_quaternion = torch.cat(
             [
                 cat_kernels_4_r,
@@ -109,18 +99,16 @@ class QuaternionLinearCustomBackward(torch.autograd.Function):
         The corresponding gradients of this op
         """
         input, r_weight, i_weight, j_weight, k_weight, bias = ctx.saved_tensors
-        grad_input = grad_weight_r = grad_weight_i = grad_weight_j = (
-            grad_weight_k
-        ) = grad_bias = None
+        grad_input = grad_weight_r = grad_weight_i = grad_weight_j = grad_weight_k = (
+            grad_bias
+        ) = None
 
         input_r = torch.cat([r_weight, -i_weight, -j_weight, -k_weight], dim=0)
         input_i = torch.cat([i_weight, r_weight, -k_weight, j_weight], dim=0)
         input_j = torch.cat([j_weight, k_weight, r_weight, -i_weight], dim=0)
         input_k = torch.cat([k_weight, -j_weight, i_weight, r_weight], dim=0)
         cat_kernels_4_quaternion_T = Variable(
-            torch.cat([input_r, input_i, input_j, input_k], dim=1).permute(
-                1, 0
-            ),
+            torch.cat([input_r, input_i, input_j, input_k], dim=1).permute(1, 0),
             requires_grad=False,
         )
 
@@ -208,18 +196,10 @@ def quaternion_linear_op(input, r_weight, i_weight, j_weight, k_weight, bias):
     The linearly transformed quaternions
     """
 
-    cat_kernels_4_r = torch.cat(
-        [r_weight, -i_weight, -j_weight, -k_weight], dim=0
-    )
-    cat_kernels_4_i = torch.cat(
-        [i_weight, r_weight, -k_weight, j_weight], dim=0
-    )
-    cat_kernels_4_j = torch.cat(
-        [j_weight, k_weight, r_weight, -i_weight], dim=0
-    )
-    cat_kernels_4_k = torch.cat(
-        [k_weight, -j_weight, i_weight, r_weight], dim=0
-    )
+    cat_kernels_4_r = torch.cat([r_weight, -i_weight, -j_weight, -k_weight], dim=0)
+    cat_kernels_4_i = torch.cat([i_weight, r_weight, -k_weight, j_weight], dim=0)
+    cat_kernels_4_j = torch.cat([j_weight, k_weight, r_weight, -i_weight], dim=0)
+    cat_kernels_4_k = torch.cat([k_weight, -j_weight, i_weight, r_weight], dim=0)
     cat_kernels_4_quaternion = torch.cat(
         [cat_kernels_4_r, cat_kernels_4_i, cat_kernels_4_j, cat_kernels_4_k],
         dim=1,
@@ -590,18 +570,10 @@ def quaternion_conv_op(
     The convolved quaternion inputs
     """
 
-    cat_kernels_4_r = torch.cat(
-        [r_weight, -i_weight, -j_weight, -k_weight], dim=1
-    )
-    cat_kernels_4_i = torch.cat(
-        [i_weight, r_weight, -k_weight, j_weight], dim=1
-    )
-    cat_kernels_4_j = torch.cat(
-        [j_weight, k_weight, r_weight, -i_weight], dim=1
-    )
-    cat_kernels_4_k = torch.cat(
-        [k_weight, -j_weight, i_weight, r_weight], dim=1
-    )
+    cat_kernels_4_r = torch.cat([r_weight, -i_weight, -j_weight, -k_weight], dim=1)
+    cat_kernels_4_i = torch.cat([i_weight, r_weight, -k_weight, j_weight], dim=1)
+    cat_kernels_4_j = torch.cat([j_weight, k_weight, r_weight, -i_weight], dim=1)
+    cat_kernels_4_k = torch.cat([k_weight, -j_weight, i_weight, r_weight], dim=1)
 
     cat_kernels_4_quaternion = torch.cat(
         [cat_kernels_4_r, cat_kernels_4_i, cat_kernels_4_j, cat_kernels_4_k],
@@ -630,9 +602,7 @@ def quaternion_conv_op(
         )
 
 
-def quaternion_init(
-    in_features, out_features, kernel_size=None, criterion="glorot"
-):
+def quaternion_init(in_features, out_features, kernel_size=None, criterion="glorot"):
     """Returns a matrix of quaternion numbers initialized with the method
     described in "Quaternion Recurrent Neural Network " - Parcollet T.
 
@@ -742,8 +712,7 @@ def unitary_init(in_features, out_features, kernel_size=None, criterion="he"):
     # Unitary quaternion
     for i in range(0, number_of_weights):
         norm = (
-            torch.sqrt(v_r[i] ** 2 + v_i[i] ** 2 + v_j[i] ** 2 + v_k[i] ** 2)
-            + 0.0001
+            torch.sqrt(v_r[i] ** 2 + v_i[i] ** 2 + v_j[i] ** 2 + v_k[i] ** 2) + 0.0001
         )
         v_r[i] /= norm
         v_i[i] /= norm
@@ -757,9 +726,7 @@ def unitary_init(in_features, out_features, kernel_size=None, criterion="he"):
     return (v_r, v_i, v_j, v_k)
 
 
-def affect_init(
-    r_weight, i_weight, j_weight, k_weight, init_func, init_criterion
-):
+def affect_init(r_weight, i_weight, j_weight, k_weight, init_func, init_criterion):
     """Applies the weight initialization function given to the parameters.
 
     Arguments
@@ -778,9 +745,7 @@ def affect_init(
         (glorot, he)
     """
 
-    r, i, j, k = init_func(
-        r_weight.size(0), r_weight.size(1), None, init_criterion
-    )
+    r, i, j, k = init_func(r_weight.size(0), r_weight.size(1), None, init_criterion)
 
     r_weight.data = r.type_as(r_weight.data)
     i_weight.data = i.type_as(i_weight.data)
@@ -855,9 +820,7 @@ def check_quaternion_input(input_shape):
         )
 
 
-def renorm_quaternion_weights_inplace(
-    r_weight, i_weight, j_weight, k_weight, max_norm
-):
+def renorm_quaternion_weights_inplace(r_weight, i_weight, j_weight, k_weight, max_norm):
     """Renorms the magnitude of the quaternion-valued weights.
 
     Arguments
@@ -870,10 +833,7 @@ def renorm_quaternion_weights_inplace(
         The maximum norm of the magnitude of the quaternion weights
     """
     weight_magnitude = torch.sqrt(
-        r_weight.data**2
-        + i_weight.data**2
-        + j_weight.data**2
-        + k_weight.data**2
+        r_weight.data**2 + i_weight.data**2 + j_weight.data**2 + k_weight.data**2
     )
     renormed_weight_magnitude = torch.renorm(
         weight_magnitude, p=2, dim=0, maxnorm=max_norm

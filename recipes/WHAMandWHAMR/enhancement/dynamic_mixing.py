@@ -124,9 +124,7 @@ def dynamic_mix_data_prep(
         This audio pipeline defines the compute graph for dynamic mixing
         """
 
-        speakers = np.random.choice(
-            spk_list, num_spks, replace=False, p=spk_weights
-        )
+        speakers = np.random.choice(spk_list, num_spks, replace=False, p=spk_weights)
 
         if "wham" in Path(data_root_folder).stem:
             noise_file = np.random.choice(noise_files, 1, replace=False)
@@ -139,8 +137,7 @@ def dynamic_mix_data_prep(
         first_lvl = None
 
         spk_files = [
-            np.random.choice(spk_hashtable[spk], 1, False)[0]
-            for spk in speakers
+            np.random.choice(spk_hashtable[spk], 1, False)[0] for spk in speakers
         ]
 
         minlen = min(
@@ -168,9 +165,7 @@ def dynamic_mix_data_prep(
                 tmp = rescale(tmp, torch.tensor(len(tmp)), gain, scale="dB")
                 first_lvl = gain
             else:
-                gain = np.clip(
-                    first_lvl + random.normalvariate(-2.51, 2.66), -45, 0
-                )
+                gain = np.clip(first_lvl + random.normalvariate(-2.51, 2.66), -45, 0)
                 tmp = rescale(tmp, torch.tensor(len(tmp)), gain, scale="dB")
             sources.append(tmp)
 

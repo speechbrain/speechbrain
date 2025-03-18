@@ -8,6 +8,7 @@ Authors
  * Mirco Ravanelli 2020
  * Artem Ploujnikov 2021
 """
+
 import os
 import random
 import sys
@@ -80,9 +81,7 @@ class G2PBrain(sb.Brain):
         super().__init__(*args, **kwargs)
         self.train_step_name = train_step_name
         self.train_step = next(
-            step
-            for step in self.hparams.train_steps
-            if step["name"] == train_step_name
+            step for step in self.hparams.train_steps if step["name"] == train_step_name
         )
         self.epoch_counter = self.train_step["epoch_counter"]
         self.mode = TrainMode(train_step.get("mode", TrainMode.NORMAL))
@@ -175,9 +174,7 @@ class G2PBrain(sb.Brain):
                     min_key=min_key, max_key=max_key
                 )
                 if result:
-                    logger.info(
-                        "Recovered checkpoint with metadata %s", result.meta
-                    )
+                    logger.info("Recovered checkpoint with metadata %s", result.meta)
                 else:
                     logger.info("No checkpoint found")
 
@@ -249,9 +246,7 @@ class G2PBrain(sb.Brain):
         """
         phns_eos, phn_lens_eos = batch.phn_encoded_eos
         phns, phn_lens = batch.phn_encoded
-        loss_seq = self.hparams.seq_cost(
-            predictions.p_seq, phns_eos, phn_lens_eos
-        )
+        loss_seq = self.hparams.seq_cost(predictions.p_seq, phns_eos, phn_lens_eos)
         if self.is_ctc_active(stage):
             seq_weight = 1 - self.hparams.ctc_weight
             loss_ctc = self.hparams.ctc_cost(
@@ -268,9 +263,7 @@ class G2PBrain(sb.Brain):
             # in the original phoneme space is not equal to the tokenized
             # words but the raw data only supplies non-tokenized information
             phns_base, phn_lens_base = (
-                batch.phn_raw_encoded
-                if self.hparams.phn_tokenize
-                else (None, None)
+                batch.phn_raw_encoded if self.hparams.phn_tokenize else (None, None)
             )
             homograph_loss = (
                 self.hparams.homograph_loss_weight
@@ -307,9 +300,7 @@ class G2PBrain(sb.Brain):
         """
         phns_eos, _ = batch.phn_encoded_eos
         phns, phn_lens = batch.phn_encoded
-        self.seq_metrics.append(
-            batch.sample_id, predictions.p_seq, phns_eos, phn_lens
-        )
+        self.seq_metrics.append(batch.sample_id, predictions.p_seq, phns_eos, phn_lens)
         self.per_metrics.append(
             batch.sample_id,
             predictions.hyps,
@@ -418,15 +409,11 @@ class G2PBrain(sb.Brain):
                 )
 
                 if stage != sb.Stage.TRAIN:
-                    self.per_metrics_homograph = (
-                        self.hparams.per_stats_homograph()
-                    )
+                    self.per_metrics_homograph = self.hparams.per_stats_homograph()
 
         if self.mode == TrainMode.HOMOGRAPH:
             self._set_word_separator()
-        self.grapheme_word_separator_idx = (
-            self.hparams.grapheme_encoder.lab2ind[" "]
-        )
+        self.grapheme_word_separator_idx = self.hparams.grapheme_encoder.lab2ind[" "]
         if self.hparams.use_word_emb:
             self.modules.word_emb = self.hparams.word_emb().to(self.device)
 
@@ -436,18 +423,14 @@ class G2PBrain(sb.Brain):
             word_separator_idx = self.hparams.token_space_index
             word_separator_base_idx = self.phoneme_encoder.lab2ind[" "]
         else:
-            word_separator_base_idx = word_separator_idx = (
-                self.phoneme_encoder.lab2ind[" "]
-            )
+            word_separator_base_idx = word_separator_idx = self.phoneme_encoder.lab2ind[
+                " "
+            ]
 
         self.hparams.homograph_cost.word_separator = word_separator_idx
-        self.hparams.homograph_cost.word_separator_base = (
-            word_separator_base_idx
-        )
+        self.hparams.homograph_cost.word_separator_base = word_separator_base_idx
         self.hparams.homograph_extractor.word_separator = word_separator_idx
-        self.hparams.homograph_extractor.word_separator_base = (
-            word_separator_base_idx
-        )
+        self.hparams.homograph_extractor.word_separator_base = word_separator_base_idx
 
     def on_stage_end(self, stage, stage_loss, epoch):
         """Gets called at the end of a epoch."""
@@ -492,9 +475,7 @@ class G2PBrain(sb.Brain):
                 )
 
                 if self.mode == TrainMode.HOMOGRAPH:
-                    per_homograph = self.per_metrics_homograph.summarize(
-                        "error_rate"
-                    )
+                    per_homograph = self.per_metrics_homograph.summarize("error_rate")
                     stats["valid_stats"].update(
                         {
                             "seq_loss_homograph": self.seq_metrics_homograph.summarize(
@@ -516,10 +497,7 @@ class G2PBrain(sb.Brain):
             if self.hparams.use_tensorboard:
                 self.hparams.tensorboard_train_logger.log_stats(**stats)
                 self.save_samples()
-            if (
-                self.hparams.ckpt_enable
-                and epoch % self.hparams.ckpt_frequency == 0
-            ):
+            if self.hparams.ckpt_enable and epoch % self.hparams.ckpt_frequency == 0:
                 ckpt_meta["step"] = self.train_step["name"]
                 self.checkpointer.save_and_keep_only(
                     meta=ckpt_meta,
@@ -672,9 +650,7 @@ class G2PBrain(sb.Brain):
         """
         prefix = self.train_step["name"]
         return {
-            stage: {
-                f"{prefix}_{key}": value for key, value in stage_stats.items()
-            }
+            stage: {f"{prefix}_{key}": value for key, value in stage_stats.items()}
             for stage, stage_stats in stats.items()
         }
 
@@ -707,9 +683,7 @@ class G2PBrain(sb.Brain):
         metrics_by_wer = sorted(
             self.per_metrics.scores, key=lambda item: item["WER"], reverse=True
         )
-        worst_sample = metrics_by_wer[
-            : self.hparams.eval_prediction_sample_size
-        ]
+        worst_sample = metrics_by_wer[: self.hparams.eval_prediction_sample_size]
         sample_size = min(
             self.hparams.eval_prediction_sample_size,
             len(self.per_metrics.scores),
@@ -734,14 +708,9 @@ class G2PBrain(sb.Brain):
         if attention.dim() > 2:
             attention = attention[0]
         alignments_max = (
-            attention.max(dim=-1)
-            .values.max(dim=-1)
-            .values.unsqueeze(-1)
-            .unsqueeze(-1)
+            attention.max(dim=-1).values.max(dim=-1).values.unsqueeze(-1).unsqueeze(-1)
         )
-        alignments_output = (
-            attention.T.flip(dims=(1,)) / alignments_max
-        ).unsqueeze(0)
+        alignments_output = (attention.T.flip(dims=(1,)) / alignments_max).unsqueeze(0)
         prefix = self.train_step["name"]
         self.tb_writer.add_image(
             f"valid/{prefix}_attention_alignments",
@@ -802,9 +771,7 @@ def sort_data(data, hparams, train_step):
         pass
 
     else:
-        raise NotImplementedError(
-            "sorting must be random, ascending or descending"
-        )
+        raise NotImplementedError("sorting must be random, ascending or descending")
 
     sample = train_step.get("sample")
     if sample:
@@ -867,14 +834,8 @@ def filter_homograph_positions(dataset):
 def validate_hparams(hparams):
     result = True
     supports_homograph = not (
-        (
-            hparams.get("char_tokenize")
-            and not hparams.get("char_token_wordwise")
-        )
-        or (
-            hparams.get("phn_tokenize")
-            and not hparams.get("phn_token_wordwise")
-        )
+        (hparams.get("char_tokenize") and not hparams.get("char_token_wordwise"))
+        or (hparams.get("phn_tokenize") and not hparams.get("phn_token_wordwise"))
     )
     if not supports_homograph and hparams.get("homograph_epochs", 0) > 0:
         logger.error(
@@ -952,12 +913,9 @@ def dataio_prep(hparams, train_step=None):
         pass
 
     else:
-        raise NotImplementedError(
-            "sorting must be random, ascending or descending"
-        )
+        raise NotImplementedError("sorting must be random, ascending or descending")
     is_homograph = (
-        TrainMode(train_step.get("mode", TrainMode.NORMAL))
-        == TrainMode.HOMOGRAPH
+        TrainMode(train_step.get("mode", TrainMode.NORMAL)) == TrainMode.HOMOGRAPH
     )
 
     train_data = sort_data(train_data, hparams, train_step)
@@ -1105,10 +1063,7 @@ def dataio_prep(hparams, train_step=None):
 
     if hparams.get("use_word_emb", False):
         output_keys.append("char")
-    if (
-        hparams.get("phn_tokenize", False)
-        and "phn_raw_encoded" not in output_keys
-    ):
+    if hparams.get("phn_tokenize", False) and "phn_raw_encoded" not in output_keys:
         output_keys.append("phn_raw_encoded")
 
     sb.dataio.dataset.set_output_keys(
@@ -1250,9 +1205,7 @@ if __name__ == "__main__":
 
             train_dataloader_opts = dataloader_opts
             if train_step.get("balance"):
-                sampler = BalancingDataSampler(
-                    train_data, train_step["balance_on"]
-                )
+                sampler = BalancingDataSampler(train_data, train_step["balance_on"])
                 train_dataloader_opts = dict(dataloader_opts, sampler=sampler)
             start_epoch = train_step["epoch_counter"].current
 
@@ -1278,6 +1231,4 @@ if __name__ == "__main__":
                 )
 
             if hparams.get("save_for_pretrained"):
-                save_for_pretrained(
-                    hparams, min_key=train_step.get("performance_key")
-                )
+                save_for_pretrained(hparams, min_key=train_step.get("performance_key"))

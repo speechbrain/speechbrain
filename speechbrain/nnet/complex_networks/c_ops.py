@@ -55,13 +55,9 @@ def get_real(input, input_type="linear", channels_axis=1):
     if input_type == "linear":
         nb_hidden = input.size()[-1]
         if input.dim() == 2:
-            return input.narrow(
-                1, 0, nb_hidden // 2
-            )  # input[:, :nb_hidden / 2]
+            return input.narrow(1, 0, nb_hidden // 2)  # input[:, :nb_hidden / 2]
         elif input.dim() == 3:
-            return input.narrow(
-                2, 0, nb_hidden // 2
-            )  # input[:, :, :nb_hidden / 2]
+            return input.narrow(2, 0, nb_hidden // 2)  # input[:, :, :nb_hidden / 2]
     else:
         nb_featmaps = input.size(channels_axis)
         return input.narrow(channels_axis, 0, nb_featmaps // 2)
@@ -200,9 +196,7 @@ def complex_conv_op(
     return convfunc(input, cat_complex, bias, stride, padding, dilation)
 
 
-def unitary_init(
-    in_features, out_features, kernel_size=None, criterion="glorot"
-):
+def unitary_init(in_features, out_features, kernel_size=None, criterion="glorot"):
     """Returns a matrix of unitary complex numbers.
 
     Arguments
@@ -245,9 +239,7 @@ def unitary_init(
     return (v_r, v_i)
 
 
-def complex_init(
-    in_features, out_features, kernel_size=None, criterion="glorot"
-):
+def complex_init(in_features, out_features, kernel_size=None, criterion="glorot"):
     """Returns a matrix of complex numbers initialized as described in:
     "Deep Complex Networks", Trabelsi C. et al.
 
@@ -313,9 +305,7 @@ def affect_init(real_weight, imag_weight, init_func, criterion):
     imag_weight.data = b.type_as(imag_weight.data)
 
 
-def affect_conv_init(
-    real_weight, imag_weight, kernel_size, init_func, criterion
-):
+def affect_conv_init(real_weight, imag_weight, kernel_size, init_func, criterion):
     """Applies the weight initialization function given to the parameters.
     This is specifically written for convolutional layers.
 

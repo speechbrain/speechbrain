@@ -71,9 +71,7 @@ class ASR(sb.Brain):
 
         # Upsample the inputs if they have been highly downsampled
         if hasattr(self.hparams, "upsampling") and self.hparams.upsampling:
-            logits = logits.view(
-                logits.shape[0], -1, self.hparams.output_neurons
-            )
+            logits = logits.view(logits.shape[0], -1, self.hparams.output_neurons)
 
         p_ctc = self.hparams.log_softmax(logits)
         paths = None
@@ -127,12 +125,8 @@ class ASR(sb.Brain):
 
                 predicted_words = [wrd.split(" ") for wrd in predicted_texts]
                 target_words = [wrd.split(" ") for wrd in batch.wrd]
-                self.wer_metrics[k].append(
-                    batch.id, predicted_words, target_words
-                )
-                self.cer_metrics[k].append(
-                    batch.id, predicted_words, target_words
-                )
+                self.wer_metrics[k].append(batch.id, predicted_words, target_words)
+                self.cer_metrics[k].append(batch.id, predicted_words, target_words)
             # For TEST and VALID stages, the loss value is not exact.
             # The <UNK> words have a target length (e.g., number of phones or characters) of 1.
             # As such, sentences with <UNK> have a higher loss during CTC loss 'mean' reduction mode.
@@ -178,9 +172,7 @@ class ASR(sb.Brain):
             old_lr_wav2vec, new_lr_wav2vec = self.hparams.lr_annealing_wav2vec(
                 stage_stats["loss"]
             )
-            sb.nnet.schedulers.update_learning_rate(
-                self.model_optimizer, new_lr_model
-            )
+            sb.nnet.schedulers.update_learning_rate(self.model_optimizer, new_lr_model)
             sb.nnet.schedulers.update_learning_rate(
                 self.wav2vec_optimizer, new_lr_wav2vec
             )
@@ -237,9 +229,7 @@ class ASR(sb.Brain):
             self.optimizers_dict["wav2vec_optimizer"] = self.wav2vec_optimizer
 
         if self.checkpointer is not None:
-            self.checkpointer.add_recoverable(
-                "wav2vec_opt", self.wav2vec_optimizer
-            )
+            self.checkpointer.add_recoverable("wav2vec_opt", self.wav2vec_optimizer)
             self.checkpointer.add_recoverable("modelopt", self.model_optimizer)
 
 
@@ -261,9 +251,7 @@ def dataio_prepare(hparams):
         hparams["train_dataloader_opts"]["shuffle"] = False
 
     elif hparams["sorting"] == "descending":
-        train_data = train_data.filtered_sorted(
-            sort_key="duration", reverse=True
-        )
+        train_data = train_data.filtered_sorted(sort_key="duration", reverse=True)
         # when sorting do not shuffle in dataloader ! otherwise is pointless
         hparams["train_dataloader_opts"]["shuffle"] = False
 
@@ -271,9 +259,7 @@ def dataio_prepare(hparams):
         pass
 
     else:
-        raise NotImplementedError(
-            "sorting must be random, ascending or descending"
-        )
+        raise NotImplementedError("sorting must be random, ascending or descending")
 
     valid_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
         csv_path=hparams["valid_csv"],
@@ -288,9 +274,7 @@ def dataio_prepare(hparams):
         test_datasets[name] = sb.dataio.dataset.DynamicItemDataset.from_csv(
             csv_path=csv_file, replacements={"data_root": data_folder}
         )
-        test_datasets[name] = test_datasets[name].filtered_sorted(
-            sort_key="duration"
-        )
+        test_datasets[name] = test_datasets[name].filtered_sorted(sort_key="duration")
 
     datasets = [train_data, valid_data] + [i for k, i in test_datasets.items()]
 
@@ -386,9 +370,7 @@ if __name__ == "__main__":
     )
 
     caching = (
-        {"cache": False}
-        if "caching" in hparams and hparams["caching"] is False
-        else {}
+        {"cache": False} if "caching" in hparams and hparams["caching"] is False else {}
     )
 
     # Create the lang directory for k2
@@ -403,8 +385,7 @@ if __name__ == "__main__":
 
     # OpenSLR ngram models
     if (
-        hparams["G_arpa"] + ".gz"
-        in librispeech_prepare.OPEN_SLR_11_NGRAM_MODELs
+        hparams["G_arpa"] + ".gz" in librispeech_prepare.OPEN_SLR_11_NGRAM_MODELs
         and hparams["G_rescoring_arpa"] + ".gz"
         in librispeech_prepare.OPEN_SLR_11_NGRAM_MODELs
         and (
@@ -414,9 +395,7 @@ if __name__ == "__main__":
     ):
         librispeech_prepare.download_openslr_librispeech_lm(
             destination=hparams["lm_dir"],
-            rescoring_lm=(
-                hparams["decoding_method"] == "whole-lattice-rescoring"
-            ),
+            rescoring_lm=(hparams["decoding_method"] == "whole-lattice-rescoring"),
         )
     # SB ngram models
     elif (
@@ -429,9 +408,7 @@ if __name__ == "__main__":
     ):
         librispeech_prepare.download_sb_librispeech_lm(
             destination=hparams["lm_dir"],
-            rescoring_lm=(
-                hparams["decoding_method"] == "whole-lattice-rescoring"
-            ),
+            rescoring_lm=(hparams["decoding_method"] == "whole-lattice-rescoring"),
         )
 
     # Trainer initialization

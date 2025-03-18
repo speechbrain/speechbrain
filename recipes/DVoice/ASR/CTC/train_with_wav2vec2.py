@@ -115,9 +115,7 @@ class ASR(sb.core.Brain):
             old_lr_wav2vec, new_lr_wav2vec = self.hparams.lr_annealing_wav2vec(
                 stage_stats["loss"]
             )
-            sb.nnet.schedulers.update_learning_rate(
-                self.model_optimizer, new_lr_model
-            )
+            sb.nnet.schedulers.update_learning_rate(self.model_optimizer, new_lr_model)
             if not self.hparams.wav2vec2.freeze:
                 sb.nnet.schedulers.update_learning_rate(
                     self.wav2vec_optimizer, new_lr_wav2vec
@@ -141,9 +139,7 @@ class ASR(sb.core.Brain):
                 test_stats=stage_stats,
             )
             if if_main_process():
-                with open(
-                    self.hparams.test_wer_file, "w", encoding="utf-8"
-                ) as w:
+                with open(self.hparams.test_wer_file, "w", encoding="utf-8") as w:
                     self.wer_metric.write_stats(w)
 
     def init_optimizers(self):
@@ -159,9 +155,7 @@ class ASR(sb.core.Brain):
                 self.modules.wav2vec2.parameters()
             )
             if self.checkpointer is not None:
-                self.checkpointer.add_recoverable(
-                    "wav2vec_opt", self.wav2vec_optimizer
-                )
+                self.checkpointer.add_recoverable("wav2vec_opt", self.wav2vec_optimizer)
             self.optimizers_dict = {
                 "wav2vec_optimizer": self.wav2vec_optimizer,
                 "model_optimizer": self.model_optimizer,
@@ -176,9 +170,7 @@ class ASR(sb.core.Brain):
         """Freezes the wav2vec2 optimizer according to the warmup steps"""
         valid_optimizers = {}
         if not self.hparams.wav2vec2.freeze:
-            valid_optimizers["wav2vec_optimizer"] = optimizers[
-                "wav2vec_optimizer"
-            ]
+            valid_optimizers["wav2vec_optimizer"] = optimizers["wav2vec_optimizer"]
         valid_optimizers["model_optimizer"] = optimizers["model_optimizer"]
         return valid_optimizers
 
@@ -219,9 +211,7 @@ def dataio_prepare(hparams, tokenizer):
         pass
 
     else:
-        raise NotImplementedError(
-            "sorting must be random, ascending or descending"
-        )
+        raise NotImplementedError("sorting must be random, ascending or descending")
 
     valid_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
         csv_path=hparams["valid_csv"],

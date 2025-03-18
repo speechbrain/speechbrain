@@ -13,12 +13,10 @@ TONE_HZ = 220
 
 @pytest.fixture
 def pure_tone():
-
     # Create 3-second pure tone wave with known f0
     duration = 3
     values = [
-        TONE_HZ * 2 * torch.pi * x / SAMPLE_RATE
-        for x in range(SAMPLE_RATE * duration)
+        TONE_HZ * 2 * torch.pi * x / SAMPLE_RATE for x in range(SAMPLE_RATE * duration)
     ]
     tone = torch.sin(torch.tensor(values)).unsqueeze(0)
 

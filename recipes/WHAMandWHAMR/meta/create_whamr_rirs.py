@@ -52,15 +52,11 @@ def create_rirs(output_dir, sr=8000):
                 save_filename=fl,
             )
 
-    FILELIST_STUB = os.path.join(
-        metafilesdir, "data", "mix_2_spk_filenames_{}.csv"
-    )
+    FILELIST_STUB = os.path.join(metafilesdir, "data", "mix_2_spk_filenames_{}.csv")
 
     SPLITS = ["tr"]
 
-    reverb_param_stub = os.path.join(
-        metafilesdir, "data", "reverb_params_{}.csv"
-    )
+    reverb_param_stub = os.path.join(metafilesdir, "data", "reverb_params_{}.csv")
 
     for split in SPLITS:
         wsjmix_path = FILELIST_STUB.format(split)
@@ -72,9 +68,7 @@ def create_rirs(output_dir, sr=8000):
         utt_ids = wsjmix_df.output_filename.values
 
         for output_name in tqdm(utt_ids):
-            utt_row = reverb_param_df[
-                reverb_param_df["utterance_id"] == output_name
-            ]
+            utt_row = reverb_param_df[reverb_param_df["utterance_id"] == output_name]
             room = WhamRoom(
                 [
                     utt_row["room_x"].iloc[0],
@@ -115,9 +109,7 @@ def create_rirs(output_dir, sr=8000):
                     h_torch = torch.from_numpy(h).float().unsqueeze(0)
 
                     torchaudio.save(
-                        os.path.join(
-                            output_dir, "{}_{}_".format(i, j) + output_name
-                        ),
+                        os.path.join(output_dir, "{}_{}_".format(i, j) + output_name),
                         h_torch,
                         sr,
                     )

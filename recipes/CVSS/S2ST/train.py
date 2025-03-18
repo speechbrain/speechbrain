@@ -1,12 +1,12 @@
 """
- Recipe for training the speech-to-unit translation (S2UT) model, the implementation is based on the following papers:
- - Direct speech-to-speech translation with discrete units: (https://arxiv.org/abs/2006.04558)
- - Enhanced Direct Speech-to-Speech Translation Using Self-supervised Pre-training and Data Augmentation: (https://arxiv.org/abs/2204.02967)
- To run this recipe, do the following:
- # python train.py hparams/train_fr-en.yaml --src_data_folder=/corpus/CommonVoice/fr --tgt_data_folder=/corpus/CVSS/fr
+Recipe for training the speech-to-unit translation (S2UT) model, the implementation is based on the following papers:
+- Direct speech-to-speech translation with discrete units: (https://arxiv.org/abs/2006.04558)
+- Enhanced Direct Speech-to-Speech Translation Using Self-supervised Pre-training and Data Augmentation: (https://arxiv.org/abs/2204.02967)
+To run this recipe, do the following:
+# python train.py hparams/train_fr-en.yaml --src_data_folder=/corpus/CommonVoice/fr --tgt_data_folder=/corpus/CVSS/fr
 
- Authors
- * Jarod Duret 2023
+Authors
+* Jarod Duret 2023
 """
 
 import pathlib as pl
@@ -75,8 +75,7 @@ class S2UT(sb.core.Brain):
         if stage != sb.Stage.TRAIN:
             if (
                 stage == sb.Stage.TEST
-                or self.hparams.epoch_counter.current
-                % self.hparams.evaluation_interval
+                or self.hparams.epoch_counter.current % self.hparams.evaluation_interval
                 == 0
             ):
                 ids = batch.id
@@ -103,12 +102,8 @@ class S2UT(sb.core.Brain):
                         wavs.append(torch.zeros(40000))  # on cpu device
                 if wavs:
                     wavs, wav_lens = sb.utils.data_utils.batch_pad_right(wavs)
-                    transcripts, _ = self.test_asr.transcribe_batch(
-                        wavs, wav_lens
-                    )
-                    transcripts = [
-                        transcript.lower() for transcript in transcripts
-                    ]
+                    transcripts, _ = self.test_asr.transcribe_batch(wavs, wav_lens)
+                    transcripts = [transcript.lower() for transcript in transcripts]
 
                     self.bleu_metric.append(ids, transcripts, [tgt_text])
 
@@ -143,8 +138,7 @@ class S2UT(sb.core.Brain):
         if stage != sb.Stage.TRAIN:
             if (
                 stage == sb.Stage.TEST
-                or self.hparams.epoch_counter.current
-                % self.hparams.evaluation_interval
+                or self.hparams.epoch_counter.current % self.hparams.evaluation_interval
                 == 0
             ):
                 # compute the accuracy of the one-step-forward prediction
@@ -171,9 +165,7 @@ class S2UT(sb.core.Brain):
             not self.hparams.wav2vec2_frozen
             and self.optimizer_step >= self.hparams.wav2vec2_freeze_steps
         ):
-            valid_optimizers["wav2vec_optimizer"] = optimizers[
-                "wav2vec_optimizer"
-            ]
+            valid_optimizers["wav2vec_optimizer"] = optimizers["wav2vec_optimizer"]
         valid_optimizers["model_optimizer"] = optimizers["model_optimizer"]
         return valid_optimizers
 
@@ -190,18 +182,14 @@ class S2UT(sb.core.Brain):
             )
             self.optimizers_dict["wav2vec_optimizer"] = self.wav2vec_optimizer
 
-        self.model_optimizer = self.hparams.opt_class(
-            self.hparams.model.parameters()
-        )
+        self.model_optimizer = self.hparams.opt_class(self.hparams.model.parameters())
         self.optimizers_dict["model_optimizer"] = self.model_optimizer
 
         if self.checkpointer is not None:
             self.checkpointer.add_recoverable(
                 "wav2vec_optimizer", self.wav2vec_optimizer
             )
-            self.checkpointer.add_recoverable(
-                "model_optimizer", self.model_optimizer
-            )
+            self.checkpointer.add_recoverable("model_optimizer", self.model_optimizer)
 
     def on_fit_batch_start(self, batch, should_step):
         """Called at the beginning of ``fit_batch()``.
@@ -294,10 +282,7 @@ class S2UT(sb.core.Brain):
             self.train_stats = stage_loss
 
         # At the end of validation, we can write
-        elif (
-            stage == sb.Stage.VALID
-            and epoch % self.hparams.evaluation_interval == 0
-        ):
+        elif stage == sb.Stage.VALID and epoch % self.hparams.evaluation_interval == 0:
             # delete vocoder and asr to free memory for next training epoch
             del self.test_vocoder
             del self.test_asr
@@ -356,9 +341,7 @@ class S2UT(sb.core.Brain):
                 test_stats=stage_stats,
             )
 
-            logger.info(
-                f"BLEU score: {round(self.bleu_metric.summarize('BLEU'), 2)}"
-            )
+            logger.info(f"BLEU score: {round(self.bleu_metric.summarize('BLEU'), 2)}")
             bleu_file = pl.Path(self.hparams.output_folder) / "bleu.txt"
             with open(bleu_file, "a+", encoding="utf-8") as w:
                 self.bleu_metric.write_stats(w)
@@ -400,14 +383,10 @@ class S2UT(sb.core.Brain):
             tgt_wav = tgt_wavs[i]
 
             sample_path = save_folder / f"{utt_id}_pred.wav"
-            sb.dataio.dataio.write_audio(
-                sample_path, wav, self.hparams.sample_rate
-            )
+            sb.dataio.dataio.write_audio(sample_path, wav, self.hparams.sample_rate)
 
             sample_path = save_folder / f"{utt_id}_ref.wav"
-            sb.dataio.dataio.write_audio(
-                sample_path, tgt_wav, self.hparams.sample_rate
-            )
+            sb.dataio.dataio.write_audio(sample_path, tgt_wav, self.hparams.sample_rate)
 
             sample_path = save_folder / f"{utt_id}.txt"
             with open(sample_path, "w", encoding="utf-8") as file:
@@ -422,9 +401,7 @@ class S2UT(sb.core.Brain):
 
         bleu_path = save_folder / "bleu.txt"
         with open(bleu_path, "w", encoding="utf-8") as file:
-            file.write(
-                f"BLEU score: {round(self.bleu_metric.summarize('BLEU'), 2)}\n"
-            )
+            file.write(f"BLEU score: {round(self.bleu_metric.summarize('BLEU'), 2)}\n")
 
 
 def dataio_prepare(hparams):
@@ -443,9 +420,9 @@ def dataio_prepare(hparams):
         """
         info = torchaudio.info(wav)
         sig = sb.dataio.dataio.read_audio(wav)
-        sig = torchaudio.transforms.Resample(
-            info.sample_rate, hparams["sample_rate"]
-        )(sig)
+        sig = torchaudio.transforms.Resample(info.sample_rate, hparams["sample_rate"])(
+            sig
+        )
         return sig
 
     @sb.utils.data_pipeline.takes("tgt_audio")
@@ -498,12 +475,8 @@ def dataio_prepare(hparams):
     # faster  because we minimize zero-padding. In most of the cases, this
     # does not harm the performance.
     if hparams["sorting"] == "ascending":
-        datasets["train"] = datasets["train"].filtered_sorted(
-            sort_key="duration"
-        )
-        datasets["valid"] = datasets["valid"].filtered_sorted(
-            sort_key="duration"
-        )
+        datasets["train"] = datasets["train"].filtered_sorted(sort_key="duration")
+        datasets["valid"] = datasets["valid"].filtered_sorted(sort_key="duration")
 
         hparams["train_dataloader_opts"]["shuffle"] = False
         hparams["valid_dataloader_opts"]["shuffle"] = False
@@ -524,9 +497,7 @@ def dataio_prepare(hparams):
         hparams["valid_dataloader_opts"]["shuffle"] = False
 
     else:
-        raise NotImplementedError(
-            "sorting must be random, ascending or descending"
-        )
+        raise NotImplementedError("sorting must be random, ascending or descending")
 
     # Dynamic Batching is used, we instantiate the needed samplers.
     train_batch_sampler = None

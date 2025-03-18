@@ -92,9 +92,7 @@ class MultiProcessLoggerAdapter(logging.LoggerAdapter):
             True if logging should be performed (based on the process and the flag),
             False otherwise.
         """
-        return not main_process_only or (
-            main_process_only and if_main_process()
-        )
+        return not main_process_only or (main_process_only and if_main_process())
 
     def log(self, level: int, msg: str, *args: tuple, **kwargs: dict):
         r"""

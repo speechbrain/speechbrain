@@ -98,13 +98,7 @@ def embedding_computation_loop(split, set_loader, stat_file):
             segset = segset + seg
 
             # Embedding computation.
-            emb = (
-                compute_embeddings(wavs, lens)
-                .contiguous()
-                .squeeze(1)
-                .cpu()
-                .numpy()
-            )
+            emb = compute_embeddings(wavs, lens).contiguous().squeeze(1).cpu().numpy()
             embeddings = np.concatenate((embeddings, emb), axis=0)
 
         modelset = np.array(modelset, dtype="|O")
@@ -197,15 +191,7 @@ def diarize_dataset(full_meta, split_type, n_lambdas, pval, n_neighbors=10):
     # Diarizing different recordings in a dataset.
     for rec_id in tqdm(all_rec_ids):
         # This tag will be displayed in the log.
-        tag = (
-            "["
-            + str(split_type)
-            + ": "
-            + str(i)
-            + "/"
-            + str(len(all_rec_ids))
-            + "]"
-        )
+        tag = "[" + str(split_type) + ": " + str(i) + "/" + str(len(all_rec_ids)) + "]"
         i = i + 1
 
         # Log message.
@@ -225,9 +211,7 @@ def diarize_dataset(full_meta, split_type, n_lambdas, pval, n_neighbors=10):
         # Prepare a metadata (json) for one recording. This is basically a subset of full_meta.
         # Lets keep this meta-info in embedding directory itself.
         json_file_name = rec_id + "." + params["mic_type"] + ".json"
-        meta_per_rec_file = os.path.join(
-            params["embedding_dir"], split, json_file_name
-        )
+        meta_per_rec_file = os.path.join(params["embedding_dir"], split, json_file_name)
 
         # Write subset (meta for one recording) json metadata.
         prepare_subset_json(full_meta, rec_id, meta_per_rec_file)
@@ -248,13 +232,7 @@ def diarize_dataset(full_meta, split_type, n_lambdas, pval, n_neighbors=10):
 
         # Adding tag for directory path.
         type_of_num_spkr = "oracle" if params["oracle_n_spkrs"] else "est"
-        tag = (
-            type_of_num_spkr
-            + "_"
-            + str(params["affinity"])
-            + "_"
-            + params["backend"]
-        )
+        tag = type_of_num_spkr + "_" + str(params["affinity"]) + "_" + params["backend"]
         out_rttm_dir = os.path.join(
             params["sys_rttm_dir"], params["mic_type"], split, tag
         )
@@ -276,9 +254,7 @@ def diarize_dataset(full_meta, split_type, n_lambdas, pval, n_neighbors=10):
                 num_spkrs = None
 
         if params["backend"] == "kmeans":
-            diar.do_kmeans_clustering(
-                diary_obj, out_rttm_file, rec_id, num_spkrs, pval
-            )
+            diar.do_kmeans_clustering(diary_obj, out_rttm_file, rec_id, num_spkrs, pval)
 
         if params["backend"] == "SC":
             # Go for Spectral Clustering (SC).
@@ -329,9 +305,7 @@ def dev_pval_tuner(full_meta, split_type):
     n_lambdas = None  # using it as flag later.
     for p_v in prange:
         # Process whole dataset for value of p_v.
-        concate_rttm_file = diarize_dataset(
-            full_meta, split_type, n_lambdas, p_v
-        )
+        concate_rttm_file = diarize_dataset(full_meta, split_type, n_lambdas, p_v)
 
         ref_rttm = os.path.join(params["ref_rttm_dir"], "fullref_ami_dev.rttm")
         sys_rttm = concate_rttm_file
@@ -366,9 +340,7 @@ def dev_ahc_threshold_tuner(full_meta, split_type):
     # Note: p_val is threshold in case of AHC.
     for p_v in prange:
         # Process whole dataset for value of p_v.
-        concate_rttm_file = diarize_dataset(
-            full_meta, split_type, n_lambdas, p_v
-        )
+        concate_rttm_file = diarize_dataset(full_meta, split_type, n_lambdas, p_v)
 
         ref_rttm = os.path.join(params["ref_rttm_dir"], "fullref_ami_dev.rttm")
         sys_rttm = concate_rttm_file
@@ -403,9 +375,7 @@ def dev_nn_tuner(full_meta, split_type):
 
     for nn in range(5, 15):
         # Process whole dataset for value of n_lambdas.
-        concate_rttm_file = diarize_dataset(
-            full_meta, split_type, n_lambdas, pval, nn
-        )
+        concate_rttm_file = diarize_dataset(full_meta, split_type, n_lambdas, pval, nn)
 
         ref_rttm = os.path.join(params["ref_rttm_dir"], "fullref_ami_dev.rttm")
         sys_rttm = concate_rttm_file
@@ -437,9 +407,7 @@ def dev_tuner(full_meta, split_type):
     pval = None
     for n_lambdas in range(1, params["max_num_spkrs"] + 1):
         # Process whole dataset for value of n_lambdas.
-        concate_rttm_file = diarize_dataset(
-            full_meta, split_type, n_lambdas, pval
-        )
+        concate_rttm_file = diarize_dataset(full_meta, split_type, n_lambdas, pval)
 
         ref_rttm = os.path.join(params["ref_rttm_dir"], "fullref_ami_dev.rttm")
         sys_rttm = concate_rttm_file
@@ -578,9 +546,7 @@ if __name__ == "__main__":  # noqa: C901
     ):
         # oracle num_spkrs or not, doesn't matter for kmeans and SC backends
         # cos: Tune for the best pval for SC /kmeans (for unknown num of spkrs)
-        logger.info(
-            "Tuning for p-value for SC (Multiple iterations over AMI Dev set)"
-        )
+        logger.info("Tuning for p-value for SC (Multiple iterations over AMI Dev set)")
         best_pval = dev_pval_tuner(full_meta, "dev")
 
     elif params["backend"] == "AHC":
@@ -605,13 +571,7 @@ if __name__ == "__main__":  # noqa: C901
 
     # Tag to be appended to final output DER files. Writing DER for individual files.
     type_of_num_spkr = "oracle" if params["oracle_n_spkrs"] else "est"
-    tag = (
-        type_of_num_spkr
-        + "_"
-        + str(params["affinity"])
-        + "."
-        + params["mic_type"]
-    )
+    tag = type_of_num_spkr + "_" + str(params["affinity"]) + "." + params["mic_type"]
 
     # Perform final diarization on 'dev' and 'eval' with best hyperparams.
     final_DERs = {}
@@ -654,11 +614,7 @@ if __name__ == "__main__":  # noqa: C901
         logger.info(msg)
         diar.write_ders_file(ref_rttm, DER_vals, out_der_file)
 
-        msg = (
-            "AMI "
-            + split_type
-            + " set DER = %s %%\n" % (str(round(DER_vals[-1], 2)))
-        )
+        msg = "AMI " + split_type + " set DER = %s %%\n" % (str(round(DER_vals[-1], 2)))
         logger.info(msg)
         final_DERs[split_type] = round(DER_vals[-1], 2)
 

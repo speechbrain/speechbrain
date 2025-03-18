@@ -126,9 +126,7 @@ class ConvolutionModule(nn.Module):
         self.layer_norm = nn.LayerNorm(input_size)
         self.bottleneck = nn.Sequential(
             # pointwise
-            nn.Conv1d(
-                input_size, 2 * input_size, kernel_size=1, stride=1, bias=bias
-            ),
+            nn.Conv1d(input_size, 2 * input_size, kernel_size=1, stride=1, bias=bias),
             nn.GLU(dim=1),
         )
         # depthwise
@@ -190,13 +188,13 @@ class ConvolutionModule(nn.Module):
         if dynchunktrain_config is not None:
             # chances are chunking+causal is unintended; i don't know where it
             # may make sense, but if it does to you, feel free to implement it.
-            assert (
-                not self.causal
-            ), "Chunked convolution not supported with causal padding"
+            assert not self.causal, (
+                "Chunked convolution not supported with causal padding"
+            )
 
-            assert (
-                self.dilation == 1
-            ), "Current DynChunkTrain logic does not support dilation != 1"
+            assert self.dilation == 1, (
+                "Current DynChunkTrain logic does not support dilation != 1"
+            )
 
             # in a causal convolution, which is not the case here, an output
             # frame would never be able to depend on a input frame from any
@@ -543,9 +541,7 @@ class ConformerEncoderLayer(nn.Module):
 
         # compute new MHA left context for the next call to our function
         if context.mha_left_context_size > 0:
-            context.mha_left_context = x[
-                ..., -context.mha_left_context_size :, :
-            ]
+            context.mha_left_context = x[..., -context.mha_left_context_size :, :]
 
         # multi-head attention module
         skip = x
@@ -569,9 +565,7 @@ class ConformerEncoderLayer(nn.Module):
             x = torch.cat((context.dcconv_left_context, x), dim=1)
 
         # compute new DCConv left context for the next call to our function
-        context.dcconv_left_context = x[
-            ..., -self.convolution_module.padding :, :
-        ]
+        context.dcconv_left_context = x[..., -self.convolution_module.padding :, :]
 
         # convolution module
         x = x + self.convolution_module(x)
@@ -802,10 +796,7 @@ class ConformerEncoder(nn.Module):
             The attention values.
         """
 
-        if (
-            self.attention_type == "RelPosMHAXL"
-            or self.attention_type == "RoPEMHA"
-        ):
+        if self.attention_type == "RelPosMHAXL" or self.attention_type == "RoPEMHA":
             if pos_embs is None:
                 raise ValueError(
                     f"The chosen attention type for the Conformer is {self.attention_type}. For this attention type, the positional embeddings are mandatory"

@@ -1,17 +1,18 @@
 # -*- coding: utf-8 -*-
 """
- Recipe for training the Zero-Shot Multi-Speaker Tacotron Text-To-Speech model, an end-to-end
- neural text-to-speech (TTS) system
+Recipe for training the Zero-Shot Multi-Speaker Tacotron Text-To-Speech model, an end-to-end
+neural text-to-speech (TTS) system
 
- To run this recipe, do the following:
- # python train.py --device=cuda:0 --max_grad_norm=1.0 --data_folder=/path_to_data_folder hparams/train.yaml
+To run this recipe, do the following:
+# python train.py --device=cuda:0 --max_grad_norm=1.0 --data_folder=/path_to_data_folder hparams/train.yaml
 
- Authors
- * Georges Abous-Rjeili 2021
- * Artem Ploujnikov 2021
- * Yingzhi Wang 2022
- * Pradnya Kandarkar 2023
+Authors
+* Georges Abous-Rjeili 2021
+* Artem Ploujnikov 2021
+* Yingzhi Wang 2022
+* Pradnya Kandarkar 2023
 """
+
 import os
 import sys
 
@@ -74,9 +75,7 @@ class Tacotron2Brain(sb.Brain):
 
         max_input_length = input_lengths.max().item()
 
-        return self.modules.model(
-            inputs, spk_embs, alignments_dim=max_input_length
-        )
+        return self.modules.model(inputs, spk_embs, alignments_dim=max_input_length)
 
     def fit_batch(self, batch):
         """Fits a single batch and applies annealing
@@ -241,9 +240,7 @@ class Tacotron2Brain(sb.Brain):
         mel_padded = mel_padded.to(self.device, non_blocking=True).float()
         gate_padded = gate_padded.to(self.device, non_blocking=True).float()
 
-        output_lengths = output_lengths.to(
-            self.device, non_blocking=True
-        ).long()
+        output_lengths = output_lengths.to(self.device, non_blocking=True).long()
         x = (text_padded, input_lengths, mel_padded, max_len, output_lengths)
         y = (mel_padded, gate_padded)
         len_x = torch.sum(output_lengths)
@@ -286,9 +283,7 @@ class Tacotron2Brain(sb.Brain):
         """
 
         # Logs training samples every 10 epochs
-        if stage == sb.Stage.TRAIN and (
-            self.hparams.epoch_counter.current % 10 == 0
-        ):
+        if stage == sb.Stage.TRAIN and (self.hparams.epoch_counter.current % 10 == 0):
             if self.last_batch is None:
                 return
 
@@ -390,8 +385,7 @@ class Tacotron2Brain(sb.Brain):
                 ckpt_predicate=(
                     (
                         lambda ckpt: (
-                            ckpt.meta["epoch"]
-                            % self.hparams.keep_checkpoint_interval
+                            ckpt.meta["epoch"] % self.hparams.keep_checkpoint_interval
                             != 0
                         )
                     )
@@ -495,9 +489,7 @@ class Tacotron2Brain(sb.Brain):
                     self.tensorboard_logger.log_figure(
                         f"{stage}/inf_mel_target", targets[0][0]
                     )
-                    self.tensorboard_logger.log_figure(
-                        f"{stage}/inf_mel_pred", mel_out
-                    )
+                    self.tensorboard_logger.log_figure(f"{stage}/inf_mel_pred", mel_out)
                 except Exception:
                     # This is to avoid the code from crashing in case of a mel-spectrogram with one frame
                     pass
@@ -509,9 +501,7 @@ def dataio_prepare(hparams):
     @sb.utils.data_pipeline.takes("wav", "label")
     @sb.utils.data_pipeline.provides("mel_text_pair")
     def audio_pipeline(wav, label):
-        text_seq = torch.IntTensor(
-            text_to_sequence(label, hparams["text_cleaners"])
-        )
+        text_seq = torch.IntTensor(text_to_sequence(label, hparams["text_cleaners"]))
 
         audio, sig_sr = torchaudio.load(wav)
         if sig_sr != hparams["sample_rate"]:
@@ -617,9 +607,7 @@ if __name__ == "__main__":
                 "power": hparams["power"],
                 "norm": hparams["norm"],
                 "mel_scale": hparams["mel_scale"],
-                "dynamic_range_compression": hparams[
-                    "dynamic_range_compression"
-                ],
+                "dynamic_range_compression": hparams["dynamic_range_compression"],
             },
             "device": run_opts["device"],
         },
@@ -638,18 +626,12 @@ if __name__ == "__main__":
 
     # Load pretrained model if pretrained_separator is present in the yaml
     if "pretrained_separator" in hparams:
-        sb.utils.distributed.run_on_main(
-            hparams["pretrained_separator"].collect_files
-        )
-        hparams["pretrained_separator"].load_collected(
-            device=run_opts["device"]
-        )
+        sb.utils.distributed.run_on_main(hparams["pretrained_separator"].collect_files)
+        hparams["pretrained_separator"].load_collected(device=run_opts["device"])
 
     if hparams["use_tensorboard"]:
-        tacotron2_brain.tensorboard_logger = (
-            sb.utils.train_logger.TensorboardLogger(
-                save_dir=hparams["output_folder"] + "/tensorboard"
-            )
+        tacotron2_brain.tensorboard_logger = sb.utils.train_logger.TensorboardLogger(
+            save_dir=hparams["output_folder"] + "/tensorboard"
         )
 
     # Training

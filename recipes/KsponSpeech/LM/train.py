@@ -12,6 +12,7 @@ Authors
  * Ju-Chieh Chou 2020
  * Dongwon Kim, Dongwoo Kim 2023
 """
+
 import sys
 from pathlib import Path
 
@@ -39,9 +40,7 @@ class LM(sb.core.Brain):
         """Computes the loss given predictions and targets."""
         batch = batch.to(self.device)
         tokens_eos, tokens_len = batch.tokens_eos
-        loss = self.hparams.compute_cost(
-            predictions, tokens_eos, length=tokens_len
-        )
+        loss = self.hparams.compute_cost(predictions, tokens_eos, length=tokens_len)
         return loss
 
     def on_fit_batch_end(self, batch, outputs, loss, should_step):
@@ -71,9 +70,7 @@ class LM(sb.core.Brain):
 
         if stage == sb.Stage.VALID:
             if not (
-                isinstance(
-                    self.hparams.lr_annealing, sb.nnet.schedulers.NoamScheduler
-                )
+                isinstance(self.hparams.lr_annealing, sb.nnet.schedulers.NoamScheduler)
                 or isinstance(
                     self.hparams.lr_annealing,
                     sb.nnet.schedulers.CyclicCosineScheduler,

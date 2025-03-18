@@ -45,9 +45,7 @@ class InterpreterBrain(sb.core.Brain):
     def preprocess(self, wavs):
         """Pre-process wavs."""
         X_stft = self.modules.compute_stft(wavs)
-        X_stft_power = sb.processing.features.spectral_magnitude(
-            X_stft, power=0.5
-        )
+        X_stft_power = sb.processing.features.spectral_magnitude(X_stft, power=0.5)
 
         X_mel, X_mel_log1p = [None] * 2
         if self.hparams.use_melspectra_log1p:
@@ -86,9 +84,7 @@ class InterpreterBrain(sb.core.Brain):
                     self.hparams.embedding_model.config.image_size
                     // self.hparams.embedding_model.config.patch_size
                 )
-                hcat = hcat[..., 1:].reshape(
-                    len(hcat), -1, num_patches, num_patches
-                )
+                hcat = hcat[..., 1:].reshape(len(hcat), -1, num_patches, num_patches)
             else:
                 raise NotImplementedError
         else:
@@ -137,7 +133,7 @@ class InterpreterBrain(sb.core.Brain):
 
         out_folder = os.path.join(
             self.hparams.output_folder,
-            "interpretations/" f"{batch.id[0]}",
+            f"interpretations/{batch.id[0]}",
         )
         os.makedirs(
             out_folder,
@@ -189,16 +185,14 @@ class InterpreterBrain(sb.core.Brain):
             pred_cl = predictions.argmax(dim=1, keepdim=True)
 
             # get the corresponding output probabilities
-            predictions_selected = torch.gather(
-                predictions, dim=1, index=pred_cl
-            )
+            predictions_selected = torch.gather(predictions, dim=1, index=pred_cl)
             predictions_masked_selected = torch.gather(
                 predictions_masked, dim=1, index=pred_cl
             )
 
-            faithfulness = (
-                predictions_selected - predictions_masked_selected
-            ).squeeze(dim=1)
+            faithfulness = (predictions_selected - predictions_masked_selected).squeeze(
+                dim=1
+            )
 
             return faithfulness
 
@@ -253,9 +247,7 @@ class InterpreterBrain(sb.core.Brain):
         @torch.no_grad()
         def compute_sparseness(wavs, X, y):
             """Computes the SPS metric used in the L-MAC paper."""
-            self.sparseness = quantus.Sparseness(
-                return_aggregate=True, abs=True
-            )
+            self.sparseness = quantus.Sparseness(return_aggregate=True, abs=True)
             device = X.device
             attr = (
                 self.interpret_computation_steps(wavs)[1]
@@ -288,9 +280,7 @@ class InterpreterBrain(sb.core.Brain):
         @torch.no_grad()
         def compute_complexity(wavs, X, y):
             """Computes the COMP metric used in L-MAC paper"""
-            self.complexity = quantus.Complexity(
-                return_aggregate=True, abs=True
-            )
+            self.complexity = quantus.Complexity(return_aggregate=True, abs=True)
             device = X.device
             attr = (
                 self.interpret_computation_steps(wavs)[1]
@@ -387,9 +377,7 @@ class InterpreterBrain(sb.core.Brain):
                 "AI": torch.Tensor(self.AI.scores).mean(),
                 "AD": torch.Tensor(self.AD.scores).mean(),
                 "AG": torch.Tensor(self.AG.scores).mean(),
-                "faithfulness_mean": torch.Tensor(
-                    self.faithfulness.scores
-                ).mean(),
+                "faithfulness_mean": torch.Tensor(self.faithfulness.scores).mean(),
             }
             valid_stats.update(extra_m)
             valid_stats.update(quantus_metrics)
@@ -415,9 +403,7 @@ class InterpreterBrain(sb.core.Brain):
                 "AI": torch.Tensor(self.AI.scores).mean(),
                 "AD": torch.Tensor(self.AD.scores).mean(),
                 "AG": torch.Tensor(self.AG.scores).mean(),
-                "faithfulness_mean": torch.Tensor(
-                    self.faithfulness.scores
-                ).mean(),
+                "faithfulness_mean": torch.Tensor(self.faithfulness.scores).mean(),
             }
             test_stats.update(extra_m)
             test_stats.update(quantus_metrics)

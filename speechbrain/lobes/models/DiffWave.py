@@ -219,12 +219,8 @@ class SpectrogramUpsampler(nn.Module):
 
     def __init__(self):
         super().__init__()
-        self.conv1 = ConvTranspose2d(
-            1, 1, [3, 32], stride=[1, 16], padding=[1, 8]
-        )
-        self.conv2 = ConvTranspose2d(
-            1, 1, [3, 32], stride=[1, 16], padding=[1, 8]
-        )
+        self.conv1 = ConvTranspose2d(1, 1, [3, 32], stride=[1, 16], padding=[1, 8])
+        self.conv2 = ConvTranspose2d(1, 1, [3, 32], stride=[1, 16], padding=[1, 8])
 
     def forward(self, x):
         """Upsamples spectrograms 256 times to match the length of audios
@@ -286,9 +282,7 @@ class ResidualBlock(nn.Module):
             padding="same",
             conv_init="kaiming",
         )
-        self.diffusion_projection = Linear(
-            input_size=512, n_neurons=residual_channels
-        )
+        self.diffusion_projection = Linear(input_size=512, n_neurons=residual_channels)
 
         # conditional model
         if not uncond:
@@ -330,9 +324,7 @@ class ResidualBlock(nn.Module):
         residual output [bs, residual_channels, time]
         a skip of residual branch [bs, residual_channels, time]
         """
-        assert (
-            conditioner is None and self.conditioner_projection is None
-        ) or (
+        assert (conditioner is None and self.conditioner_projection is None) or (
             conditioner is not None and self.conditioner_projection is not None
         )
 
@@ -653,8 +645,7 @@ class DiffWaveDiffusion(DenoisingDiffusion):
                     <= self.alphas_cumprod[t]
                 ):
                     twiddle = (
-                        self.alphas_cumprod[t] ** 0.5
-                        - inference_alpha_cum[s] ** 0.5
+                        self.alphas_cumprod[t] ** 0.5 - inference_alpha_cum[s] ** 0.5
                     ) / (
                         self.alphas_cumprod[t] ** 0.5
                         - self.alphas_cumprod[t + 1] ** 0.5
@@ -676,10 +667,7 @@ class DiffWaveDiffusion(DenoisingDiffusion):
 
         for n in range(len(inference_alphas) - 1, -1, -1):
             c1 = 1 / inference_alphas[n] ** 0.5
-            c2 = (
-                inference_noise_schedule[n]
-                / (1 - inference_alpha_cum[n]) ** 0.5
-            )
+            c2 = inference_noise_schedule[n] / (1 - inference_alpha_cum[n]) ** 0.5
             # predict noise
             noise_pred = self.model(
                 audio,

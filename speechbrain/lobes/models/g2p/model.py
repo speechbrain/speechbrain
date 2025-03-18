@@ -124,9 +124,7 @@ class AttentionSeq2Seq(nn.Module):
         result: torch.Tensor
             the concatenation of the tensor"""
         word_emb_enc = (
-            self.word_emb_enc(word_emb)
-            if self.word_emb_enc is not None
-            else word_emb
+            self.word_emb_enc(word_emb) if self.word_emb_enc is not None else word_emb
         )
         return torch.cat([emb_char, word_emb_enc], dim=-1)
 
@@ -148,9 +146,7 @@ class WordEmbeddingEncoder(nn.Module):
         the type of normalization to be used
     """
 
-    def __init__(
-        self, word_emb_dim, word_emb_enc_dim, norm=None, norm_type=None
-    ):
+    def __init__(self, word_emb_dim, word_emb_enc_dim, norm=None, norm_type=None):
         super().__init__()
         self.word_emb_dim = word_emb_dim
         self.word_emb_enc_dim = word_emb_enc_dim
@@ -466,8 +462,7 @@ class TransformerG2P(TransformerInterface):
         if src_len is not None:
             abs_len = torch.round(src_len * src.shape[1])
             src_key_padding_mask = (
-                torch.arange(src.shape[1])[None, :].to(abs_len)
-                > abs_len[:, None]
+                torch.arange(src.shape[1])[None, :].to(abs_len) > abs_len[:, None]
             )
 
         tgt_key_padding_mask = get_key_padding_mask(tgt, pad_idx=pad_idx)
@@ -502,9 +497,7 @@ class TransformerG2P(TransformerInterface):
         if self.attention_type == "RelPosMHAXL":
             # we use fixed positional encodings in the decoder
             tgt = tgt + self.positional_encoding_decoder(tgt)
-            encoder_out = encoder_out + self.positional_encoding_decoder(
-                encoder_out
-            )
+            encoder_out = encoder_out + self.positional_encoding_decoder(encoder_out)
         elif self.positional_encoding_type == "fixed_abs_sine":
             tgt = tgt + self.positional_encoding(tgt)  # add the encodings here
         prediction, self_attns, multihead_attns = self.decoder(
@@ -558,9 +551,7 @@ def _apply_word_emb(word_emb_enc, emb_char, word_emb):
         the resulting (concatenated) tensor
     """
     word_emb_enc = (
-        word_emb_enc(word_emb.data)
-        if word_emb_enc is not None
-        else word_emb.data
+        word_emb_enc(word_emb.data) if word_emb_enc is not None else word_emb.data
     )
     return torch.cat([emb_char, word_emb_enc], dim=-1)
 

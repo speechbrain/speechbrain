@@ -9,6 +9,7 @@ Authors
     * Francesco Paissan 2024
     * Cem Subakan 2024
 """
+
 import os
 import random
 import sys
@@ -72,9 +73,7 @@ class ESCContaminated(torch.utils.data.Dataset):
         one of "mixtures" or "LJSpeech" or "white_noise"
     """
 
-    def __init__(
-        self, esc50_ds, cont_d, overlap_multiplier=2, overlap_type="mixtures"
-    ):
+    def __init__(self, esc50_ds, cont_d, overlap_multiplier=2, overlap_type="mixtures"):
         super().__init__()
 
         self.esc50_ds = esc50_ds
@@ -104,8 +103,7 @@ class ESCContaminated(torch.utils.data.Dataset):
         indices = random.sample(pool, self.overlap_multiplier)
 
         samples = [
-            {k: v for k, v in sample.items()}
-            for _ in range(self.overlap_multiplier)
+            {k: v for k, v in sample.items()} for _ in range(self.overlap_multiplier)
         ]
         for i, idx in enumerate(indices):
             if self.overlap_type == "mixtures":
@@ -162,9 +160,9 @@ if __name__ == "__main__":
         )
 
     if hparams["overlap_type"] == "LJSpeech":
-        assert (
-            ljspeech_tr is not None
-        ), "Specify a path if you want to generate OOD with LJSpeech."
+        assert ljspeech_tr is not None, (
+            "Specify a path if you want to generate OOD with LJSpeech."
+        )
 
     run_on_main(
         prepare_esc50,
@@ -226,9 +224,9 @@ if __name__ == "__main__":
     if hparams["add_wham_noise"]:
         ood_dataset = datasets["valid"]
 
-    assert (
-        hparams["pretrained_interpreter"] is not None
-    ), "You need to specify a path for the pretrained_interpreter!"
+    assert hparams["pretrained_interpreter"] is not None, (
+        "You need to specify a path for the pretrained_interpreter!"
+    )
     hparams["psi_model"].load_state_dict(
         torch.load(hparams["pretrained_interpreter"], map_location="cpu")
     )
@@ -271,8 +269,8 @@ if __name__ == "__main__":
         wav = T.Resample(sr, hparams["sample_rate"])(wav).to(run_opts["device"])
 
         with torch.no_grad():
-            X_int, _, X_stft_phase, X_orig = (
-                Interpreter.interpret_computation_steps(wav)
+            X_int, _, X_stft_phase, X_orig = Interpreter.interpret_computation_steps(
+                wav
             )
 
         # make sure shapes are ok
@@ -293,8 +291,7 @@ if __name__ == "__main__":
             )
             plt.axis("off")
             plt.savefig(
-                ".".join(hparams["single_sample"].split(".")[:-1])
-                + f"_{suffix}.pdf"
+                ".".join(hparams["single_sample"].split(".")[:-1]) + f"_{suffix}.pdf"
             )
 
         plot_spec(X_int, "int")

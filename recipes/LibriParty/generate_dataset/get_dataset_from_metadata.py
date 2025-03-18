@@ -17,9 +17,7 @@ from tqdm import tqdm
 import speechbrain as sb
 from speechbrain.utils.data_utils import download_file
 
-URL_METADATA = (
-    "https://www.dropbox.com/s/0u6x6ndyedb4rl7/LibriParty_metadata.zip?dl=1"
-)
+URL_METADATA = "https://www.dropbox.com/s/0u6x6ndyedb4rl7/LibriParty_metadata.zip?dl=1"
 
 # Load hyperparameters file with command-line overrides
 params_file, run_opts, overrides = sb.core.parse_arguments(sys.argv[1:])

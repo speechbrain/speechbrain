@@ -21,6 +21,7 @@ Authors
  * Samuele Cornell 2020
  * Adel Moumen 2023
 """
+
 import os
 import sys
 from pathlib import Path
@@ -70,9 +71,7 @@ class ASR(sb.Brain):
 
         # Upsample the inputs if they have been highly downsampled
         if hasattr(self.hparams, "upsampling") and self.hparams.upsampling:
-            logits = logits.view(
-                logits.shape[0], -1, self.hparams.output_neurons
-            )
+            logits = logits.view(logits.shape[0], -1, self.hparams.output_neurons)
 
         p_ctc = self.hparams.log_softmax(logits)
 
@@ -109,9 +108,7 @@ class ASR(sb.Brain):
             (
                 tokens,
                 tokens_lens,
-            ) = self.hparams.wav_augment.replicate_multiple_labels(
-                tokens, tokens_lens
-            )
+            ) = self.hparams.wav_augment.replicate_multiple_labels(tokens, tokens_lens)
 
         loss_ctc = self.hparams.ctc_cost(p_ctc, tokens, wav_lens, tokens_lens)
         loss = loss_ctc
@@ -124,13 +121,9 @@ class ASR(sb.Brain):
             ]
         elif stage == sb.Stage.TEST:
             if hasattr(self.hparams, "rescorer"):
-                predicted_words = [
-                    hyp[0].split(" ") for hyp in predicted_tokens
-                ]
+                predicted_words = [hyp[0].split(" ") for hyp in predicted_tokens]
             else:
-                predicted_words = [
-                    hyp[0].text.split(" ") for hyp in predicted_tokens
-                ]
+                predicted_words = [hyp[0].text.split(" ") for hyp in predicted_tokens]
 
         if stage != sb.Stage.TRAIN:
             target_words = [wrd.split(" ") for wrd in batch.wrd]
@@ -167,9 +160,7 @@ class ASR(sb.Brain):
             old_lr_wav2vec, new_lr_wav2vec = self.hparams.lr_annealing_wav2vec(
                 stage_stats["loss"]
             )
-            sb.nnet.schedulers.update_learning_rate(
-                self.model_optimizer, new_lr_model
-            )
+            sb.nnet.schedulers.update_learning_rate(self.model_optimizer, new_lr_model)
             sb.nnet.schedulers.update_learning_rate(
                 self.wav2vec_optimizer, new_lr_wav2vec
             )
@@ -192,9 +183,7 @@ class ASR(sb.Brain):
                 test_stats=stage_stats,
             )
             if if_main_process():
-                with open(
-                    self.hparams.test_wer_file, "w", encoding="utf-8"
-                ) as w:
+                with open(self.hparams.test_wer_file, "w", encoding="utf-8") as w:
                     self.wer_metric.write_stats(w)
 
     def init_optimizers(self):
@@ -223,9 +212,7 @@ class ASR(sb.Brain):
             self.optimizers_dict["wav2vec_optimizer"] = self.wav2vec_optimizer
 
         if self.checkpointer is not None:
-            self.checkpointer.add_recoverable(
-                "wav2vec_opt", self.wav2vec_optimizer
-            )
+            self.checkpointer.add_recoverable("wav2vec_opt", self.wav2vec_optimizer)
             self.checkpointer.add_recoverable("modelopt", self.model_optimizer)
 
 
@@ -247,9 +234,7 @@ def dataio_prepare(hparams):
         hparams["train_dataloader_opts"]["shuffle"] = False
 
     elif hparams["sorting"] == "descending":
-        train_data = train_data.filtered_sorted(
-            sort_key="duration", reverse=True
-        )
+        train_data = train_data.filtered_sorted(sort_key="duration", reverse=True)
         # when sorting do not shuffle in dataloader ! otherwise is pointless
         hparams["train_dataloader_opts"]["shuffle"] = False
 
@@ -257,9 +242,7 @@ def dataio_prepare(hparams):
         pass
 
     else:
-        raise NotImplementedError(
-            "sorting must be random, ascending or descending"
-        )
+        raise NotImplementedError("sorting must be random, ascending or descending")
 
     valid_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
         csv_path=hparams["valid_csv"],
@@ -274,9 +257,7 @@ def dataio_prepare(hparams):
         test_datasets[name] = sb.dataio.dataset.DynamicItemDataset.from_csv(
             csv_path=csv_file, replacements={"data_root": data_folder}
         )
-        test_datasets[name] = test_datasets[name].filtered_sorted(
-            sort_key="duration"
-        )
+        test_datasets[name] = test_datasets[name].filtered_sorted(sort_key="duration")
 
     datasets = [train_data, valid_data] + [i for k, i in test_datasets.items()]
 
@@ -292,9 +273,7 @@ def dataio_prepare(hparams):
 
     # 3. Define text pipeline:
     @sb.utils.data_pipeline.takes("wrd")
-    @sb.utils.data_pipeline.provides(
-        "wrd", "char_list", "tokens_list", "tokens"
-    )
+    @sb.utils.data_pipeline.provides("wrd", "char_list", "tokens_list", "tokens")
     def text_pipeline(wrd):
         yield wrd
         char_list = list(wrd)
@@ -363,9 +342,7 @@ if __name__ == "__main__":
     )
 
     # here we create the datasets objects as well as tokenization and encoding
-    train_data, valid_data, test_datasets, label_encoder = dataio_prepare(
-        hparams
-    )
+    train_data, valid_data, test_datasets, label_encoder = dataio_prepare(hparams)
 
     # Trainer initialization
     asr_brain = ASR(

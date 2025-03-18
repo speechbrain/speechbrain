@@ -69,15 +69,12 @@ def resample_folder(input_folder, output_folder, fs, regex):
 
         relative_path = os.path.join(
             Path(f).relative_to(Path(input_folder)).parent,
-            Path(f).relative_to(Path(input_folder)).stem
-            + "_peak_{}.wav".format(peak),
+            Path(f).relative_to(Path(input_folder)).stem + "_peak_{}.wav".format(peak),
         )
 
         os.makedirs(
             Path(
-                os.path.join(
-                    output_folder, Path(f).relative_to(Path(input_folder))
-                )
+                os.path.join(output_folder, Path(f).relative_to(Path(input_folder)))
             ).parent,
             exist_ok=True,
         )
@@ -91,6 +88,4 @@ def resample_folder(input_folder, output_folder, fs, regex):
 
 if __name__ == "__main__":
     args = parser.parse_args()
-    resample_folder(
-        args.input_folder, args.output_folder, int(args.fs), args.regex
-    )
+    resample_folder(args.input_folder, args.output_folder, int(args.fs), args.regex)

@@ -7,6 +7,7 @@ the output probabilities to detect the final sequence of phonemes. Given the
 tiny dataset, the expected behavior is to overfit the training dataset
 (with a validation performance that stays high).
 """
+
 import pathlib
 
 from hyperpyyaml import load_hyperpyyaml
@@ -99,9 +100,7 @@ def data_prep(data_folder, hparams):
 
     # 4. Define char pipeline:
     @sb.utils.data_pipeline.takes("phn")
-    @sb.utils.data_pipeline.provides(
-        "phn_list", "phn_encoded_bos", "phn_encoded_eos"
-    )
+    @sb.utils.data_pipeline.provides("phn_list", "phn_encoded_bos", "phn_encoded_eos")
     def phn_pipeline(phn):
         phn_list = phn.strip().split()
         yield phn_list

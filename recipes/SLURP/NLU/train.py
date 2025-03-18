@@ -86,12 +86,8 @@ class SLU(sb.Brain):
             self.log_outputs(predicted_semantics, target_semantics)
 
             if stage != sb.Stage.TRAIN:
-                self.wer_metric.append(
-                    ids, predicted_semantics, target_semantics
-                )
-                self.cer_metric.append(
-                    ids, predicted_semantics, target_semantics
-                )
+                self.wer_metric.append(ids, predicted_semantics, target_semantics)
+                self.cer_metric.append(ids, predicted_semantics, target_semantics)
 
             if stage == sb.Stage.TEST:
                 # write to "predictions.jsonl"
@@ -101,9 +97,7 @@ class SLU(sb.Brain):
                     for i in range(len(predicted_semantics)):
                         try:
                             dict = ast.literal_eval(
-                                " ".join(predicted_semantics[i]).replace(
-                                    "|", ","
-                                )
+                                " ".join(predicted_semantics[i]).replace("|", ",")
                             )
                         # need this if the output is not a valid dictionary
                         except SyntaxError:
@@ -160,9 +154,7 @@ class SLU(sb.Brain):
                 test_stats=stage_stats,
             )
             if if_main_process():
-                with open(
-                    self.hparams.test_wer_file, "w", encoding="utf-8"
-                ) as w:
+                with open(self.hparams.test_wer_file, "w", encoding="utf-8") as w:
                     self.wer_metric.write_stats(w)
 
 
@@ -185,9 +177,7 @@ def dataio_prepare(hparams):
         hparams["dataloader_opts"]["shuffle"] = False
 
     elif hparams["sorting"] == "descending":
-        train_data = train_data.filtered_sorted(
-            sort_key="duration", reverse=True
-        )
+        train_data = train_data.filtered_sorted(sort_key="duration", reverse=True)
         # when sorting do not shuffle in dataloader ! otherwise is pointless
         hparams["dataloader_opts"]["shuffle"] = False
 
@@ -195,9 +185,7 @@ def dataio_prepare(hparams):
         pass
 
     else:
-        raise NotImplementedError(
-            "sorting must be random, ascending or descending"
-        )
+        raise NotImplementedError("sorting must be random, ascending or descending")
 
     valid_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
         csv_path=hparams["csv_valid"],

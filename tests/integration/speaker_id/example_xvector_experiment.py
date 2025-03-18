@@ -48,9 +48,7 @@ class XvectorBrain(sb.Brain):
             print("Train loss: %.2f" % self.train_loss)
         if stage != sb.Stage.TRAIN:
             print(stage, "loss: %.2f" % stage_loss)
-            print(
-                stage, "error: %.2f" % self.error_metrics.summarize("average")
-            )
+            print(stage, "error: %.2f" % self.error_metrics.summarize("average"))
 
 
 def data_prep(data_folder, hparams):

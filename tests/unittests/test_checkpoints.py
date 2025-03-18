@@ -147,9 +147,7 @@ def test_checkpoint_deletion(tmpdir, device):
     class Recoverable(torch.nn.Module):
         def __init__(self, param):
             super().__init__()
-            self.param = torch.nn.Parameter(
-                torch.tensor([param], device=device)
-            )
+            self.param = torch.nn.Parameter(torch.tensor([param], device=device))
 
         def forward(self, x):
             return x * self.param
@@ -247,9 +245,7 @@ def test_multiple_ckpts_and_criteria(tmpdir):
     assert found_ckpt == fourth_ckpt
     fifth_ckpt = recoverer.save_checkpoint(meta={"error": 5})
     # Similarly for getting multiple checkpoints:
-    found_ckpts = recoverer.find_checkpoints(
-        min_key="error", max_num_checkpoints=2
-    )
+    found_ckpts = recoverer.find_checkpoints(min_key="error", max_num_checkpoints=2)
     assert found_ckpts == [fifth_ckpt, fourth_ckpt]
 
 
@@ -302,9 +298,7 @@ def test_torch_meta(tmpdir, device):
     class Recoverable(torch.nn.Module):
         def __init__(self, param):
             super().__init__()
-            self.param = torch.nn.Parameter(
-                torch.tensor([param], device=device)
-            )
+            self.param = torch.nn.Parameter(torch.tensor([param], device=device))
 
         def forward(self, x):
             return x * self.param

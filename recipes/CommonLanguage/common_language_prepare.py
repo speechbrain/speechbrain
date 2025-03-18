@@ -317,5 +317,7 @@ def check_common_language_folder(data_folder):
 
     # Checking if at least two languages are present in the data
     if len(set(os.listdir(data_folder)) & set(LANGUAGES)) < 2:
-        err_msg = f"{data_folder} must have at least two languages from CommonLanguage in it."
+        err_msg = (
+            f"{data_folder} must have at least two languages from CommonLanguage in it."
+        )
         raise FileNotFoundError(err_msg)

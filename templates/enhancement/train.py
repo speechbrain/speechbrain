@@ -18,6 +18,7 @@ Authors
  * Chien-Feng Liao 2020
  * Peter Plantinga 2021
 """
+
 import sys
 
 import torch
@@ -51,9 +52,7 @@ class SEBrain(sb.Brain):
         batch = batch.to(self.device)
         self.clean_wavs, self.lens = batch.clean_sig
 
-        noisy_wavs, self.lens = self.hparams.wav_augment(
-            self.clean_wavs, self.lens
-        )
+        noisy_wavs, self.lens = self.hparams.wav_augment(self.clean_wavs, self.lens)
 
         noisy_feats = self.compute_feats(noisy_wavs)
 
@@ -64,9 +63,7 @@ class SEBrain(sb.Brain):
 
         # Also return predicted wav, for evaluation. Note that this could
         # also be used for a time-domain loss term.
-        predict_wav = self.hparams.resynth(
-            torch.expm1(predict_spec), noisy_wavs
-        )
+        predict_wav = self.hparams.resynth(torch.expm1(predict_spec), noisy_wavs)
 
         # Return a dictionary so we don't have to remember the order
         return {"spec": predict_spec, "wav": predict_wav}
@@ -114,9 +111,7 @@ class SEBrain(sb.Brain):
         clean_spec = self.compute_feats(self.clean_wavs)
 
         # Directly compare the masked spectrograms with the clean targets
-        loss = sb.nnet.losses.mse_loss(
-            predictions["spec"], clean_spec, self.lens
-        )
+        loss = sb.nnet.losses.mse_loss(predictions["spec"], clean_spec, self.lens)
 
         # Append this batch of losses to the loss metric for easy
         self.loss_metric.append(
@@ -130,7 +125,6 @@ class SEBrain(sb.Brain):
         # Some evaluations are slower, and we only want to perform them
         # on the validation set.
         if stage != sb.Stage.TRAIN:
-
             # Evaluate speech intelligibility as an additional metric
             self.stoi_metric.append(
                 batch.id,
@@ -260,7 +254,6 @@ def dataio_prep(hparams):
 
 # Recipe begins!
 if __name__ == "__main__":
-
     # Reading command line arguments
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
 

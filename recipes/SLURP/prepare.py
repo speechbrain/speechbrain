@@ -9,16 +9,12 @@ from speechbrain.utils.data_utils import download_file
 try:
     import pandas as pd
 except ImportError:
-    err_msg = (
-        "The optional dependency pandas must be installed to run this recipe.\n"
-    )
+    err_msg = "The optional dependency pandas must be installed to run this recipe.\n"
     err_msg += "Install using `pip install pandas`.\n"
     raise ImportError(err_msg)
 
 
-def prepare_SLURP(
-    data_folder, save_folder, slu_type, train_splits, skip_prep=False
-):
+def prepare_SLURP(data_folder, save_folder, slu_type, train_splits, skip_prep=False):
     """
     This function prepares the SLURP dataset.
     If the folder does not exist, the zip file will be extracted. If the zip file does not exist, it will be downloaded.
@@ -41,7 +37,9 @@ def prepare_SLURP(
         # Check for zip file and download if it doesn't exist
         zip_location = os.path.join(data_folder, "slurp_synth.tar.gz")
         if not os.path.exists(zip_location):
-            url = "https://zenodo.org/record/4274930/files/slurp_synth.tar.gz?download=1"
+            url = (
+                "https://zenodo.org/record/4274930/files/slurp_synth.tar.gz?download=1"
+            )
             download_file(url, zip_location, unpack=True)
         else:
             print("Extracting slurp_synth...")
@@ -65,9 +63,7 @@ def prepare_SLURP(
     ]
     id = 0
     for split in splits:
-        new_filename = (
-            os.path.join(save_folder, split) + "-type=%s.csv" % slu_type
-        )
+        new_filename = os.path.join(save_folder, split) + "-type=%s.csv" % slu_type
         if os.path.exists(new_filename):
             continue
         print("Preparing %s..." % new_filename)
@@ -127,9 +123,7 @@ def prepare_SLURP(
                         audio_folder = "slurp_synth/"
                     else:
                         audio_folder = "slurp_real/"
-                    path = os.path.join(
-                        data_folder, audio_folder, recording["file"]
-                    )
+                    path = os.path.join(data_folder, audio_folder, recording["file"])
                     signal = read_audio(path)
                     duration.append(signal.shape[0] / 16000)
 
@@ -149,7 +143,9 @@ def prepare_SLURP(
                         "action": action,
                         "entities": entities,
                     }
-                    semantics_ = str(semantics_dict).replace(
+                    semantics_ = str(
+                        semantics_dict
+                    ).replace(
                         ",", "|"
                     )  # Commas in dict will make using csv files tricky; replace with pipe.
                     semantics.append(semantics_)

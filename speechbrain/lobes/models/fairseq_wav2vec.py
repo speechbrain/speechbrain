@@ -198,9 +198,9 @@ class FairseqWav2Vec2(nn.Module):
             wav = F.layer_norm(wav, wav.shape[1:])
 
         # Extract wav2vec output
-        out = self.model.extract_features(
-            wav, padding_mask=padding_mask, mask=False
-        )["x"]
+        out = self.model.extract_features(wav, padding_mask=padding_mask, mask=False)[
+            "x"
+        ]
 
         # We normalize the output if required
         if self.output_norm:
@@ -298,9 +298,7 @@ class FairseqWav2Vec1(nn.Module):
             model,
             cfg,
             task,
-        ) = fairseq.checkpoint_utils.load_model_ensemble_and_task(
-            [pretrained_path]
-        )
+        ) = fairseq.checkpoint_utils.load_model_ensemble_and_task([pretrained_path])
 
         self.model = model
         self.model = self.model[0]

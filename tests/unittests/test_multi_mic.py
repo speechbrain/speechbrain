@@ -2,7 +2,6 @@ import torch
 
 
 def test_gccphat(device):
-
     from speechbrain.processing.features import STFT
     from speechbrain.processing.multi_mic import Covariance, GccPhat
 

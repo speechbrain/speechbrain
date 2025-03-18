@@ -8,14 +8,12 @@ def test_QLinear(device):
     inputs = torch.rand((1, 2, 4), device=device)
 
     # Test bias is correctly zeroed
-    qlin_no_bias = QLinear(
-        n_neurons=1, input_shape=inputs.shape, bias=False
-    ).to(device)
+    qlin_no_bias = QLinear(n_neurons=1, input_shape=inputs.shape, bias=False).to(device)
     assert (qlin_no_bias.bias == 0).all().item()
 
-    qlin_with_bias = QLinear(
-        n_neurons=4, input_shape=inputs.shape, bias=True
-    ).to(device)
+    qlin_with_bias = QLinear(n_neurons=4, input_shape=inputs.shape, bias=True).to(
+        device
+    )
     assert (qlin_with_bias.bias == 0).all().item()
 
     # Test output shape is correct
@@ -64,9 +62,7 @@ def test_QPooling2d(device):
 
     pool = QPooling2d("max", (1, 3)).to(device)
     output = pool(input)
-    assert torch.all(
-        torch.eq(output, input[:, :, [2]])
-    )  # [0,0,3,0] and [0,5,0,0]
+    assert torch.all(torch.eq(output, input[:, :, [2]]))  # [0,0,3,0] and [0,5,0,0]
     assert output.shape == (1, 2, 1, 4)
 
     pool = QPooling2d("avg", (2, 3)).to(device)

@@ -197,9 +197,7 @@ def dataio_prepare(hparams):
         )
 
     else:
-        raise NotImplementedError(
-            "sorting must be random, ascending or descending"
-        )
+        raise NotImplementedError("sorting must be random, ascending or descending")
 
     # We also sort the validation data so it is faster to validate.
     valid_data = sb.dataio.dataset.DynamicItemDataset.from_csv(

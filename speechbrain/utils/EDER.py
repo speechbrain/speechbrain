@@ -193,9 +193,9 @@ def reference_to_lol(id, duration, emotion):
     >>> reference_to_lol(id, duration, emotion)
     [['u1', 0, 1.016, 'n'], ['u1', 1.016, 6.336, 'a'], ['u1', 6.336, 8.0, 'n']]
     """
-    assert (
-        len(emotion) == 1
-    ), "NotImplementedError: The solution is only implemented for one-emotion utterance for now."
+    assert len(emotion) == 1, (
+        "NotImplementedError: The solution is only implemented for one-emotion utterance for now."
+    )
     lol = []
 
     start = emotion[0]["start"]
@@ -248,7 +248,6 @@ def distribute_overlap(lol):
         # This is because similar emotion's adjacent sub-segments are already merged by "merge_ssegs_same_emotion()"
 
         if is_overlapped(sseg[2], next_sseg[1]):
-
             # Get overlap duration.
             # Now this overlap will be divided equally between adjacent segments.
             overlap = sseg[2] - next_sseg[1]

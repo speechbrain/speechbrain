@@ -63,9 +63,7 @@ def emb_computation_loop(split, set_loader, stat_file):
     """Computes the embeddings and saves the in a stat file"""
     # Extract embeddings (skip if already done)
     if not os.path.isfile(stat_file):
-        embeddings = numpy.empty(
-            shape=[0, params["emb_dim"]], dtype=numpy.float64
-        )
+        embeddings = numpy.empty(shape=[0, params["emb_dim"]], dtype=numpy.float64)
         modelset = []
         segset = []
         with tqdm(set_loader, dynamic_ncols=True) as t:
@@ -141,9 +139,7 @@ def verification_performance(scores_plda):
 
     # Final EER computation
     eer, th = EER(torch.tensor(positive_scores), torch.tensor(negative_scores))
-    min_dcf, th = minDCF(
-        torch.tensor(positive_scores), torch.tensor(negative_scores)
-    )
+    min_dcf, th = minDCF(torch.tensor(positive_scores), torch.tensor(negative_scores))
     return eer, min_dcf
 
 
@@ -194,9 +190,7 @@ def dataio_prep(params):
         start = int(start)
         stop = int(stop)
         num_frames = stop - start
-        sig, fs = torchaudio.load(
-            wav, num_frames=num_frames, frame_offset=start
-        )
+        sig, fs = torchaudio.load(wav, num_frames=num_frames, frame_offset=start)
         sig = sig.transpose(0, 1).squeeze(1)
         return sig
 
@@ -322,9 +316,7 @@ if __name__ == "__main__":
     else:
         # Load the saved stat object for train embedding
         logger.info("Skipping embedding Extraction for training set")
-        logger.info(
-            "Loading previously saved stat_object for train embeddings.."
-        )
+        logger.info("Loading previously saved stat_object for train embeddings..")
         with open(xv_file, "rb") as input:
             embeddings_stat = pickle.load(input)
 

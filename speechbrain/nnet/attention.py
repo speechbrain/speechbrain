@@ -98,9 +98,7 @@ class ContentBasedAttention(nn.Module):
             )
 
         dec_h = self.mlp_dec(dec_states.unsqueeze(1))
-        attn = self.mlp_attn(
-            torch.tanh(self.precomputed_enc_h + dec_h)
-        ).squeeze(-1)
+        attn = self.mlp_attn(torch.tanh(self.precomputed_enc_h + dec_h)).squeeze(-1)
 
         # mask the padded frames
         attn = attn.masked_fill(self.mask == 0, -np.inf)
@@ -472,22 +470,18 @@ class RelPosMHAXL(nn.Module):
         self.head_dim = embed_dim // num_heads
         self.vhead_dim = self.vdim // num_heads
 
-        assert (
-            self.head_dim * num_heads == self.embed_dim
-        ), "embed_dim must be divisible by num_heads"
-        assert (
-            self.vhead_dim * num_heads == self.vdim
-        ), "vdim must be divisible by num_heads"
+        assert self.head_dim * num_heads == self.embed_dim, (
+            "embed_dim must be divisible by num_heads"
+        )
+        assert self.vhead_dim * num_heads == self.vdim, (
+            "vdim must be divisible by num_heads"
+        )
 
         if self._qkv_same_embed_dim is False:
-            self.qk_proj_weight = nn.Parameter(
-                torch.empty(2 * embed_dim, embed_dim)
-            )
+            self.qk_proj_weight = nn.Parameter(torch.empty(2 * embed_dim, embed_dim))
             self.v_proj_weight = nn.Parameter(torch.empty(self.vdim, embed_dim))
         else:
-            self.in_proj_weight = nn.Parameter(
-                torch.empty(3 * embed_dim, embed_dim)
-            )
+            self.in_proj_weight = nn.Parameter(torch.empty(3 * embed_dim, embed_dim))
 
         if vbias:
             self.value_bias_weight = nn.Parameter(torch.empty(self.vdim))
@@ -499,12 +493,8 @@ class RelPosMHAXL(nn.Module):
 
         self.linear_pos = nn.Linear(embed_dim, embed_dim, bias=False)
 
-        self.pos_bias_u = nn.Parameter(
-            torch.empty(self.head_dim, self.num_heads)
-        )
-        self.pos_bias_v = nn.Parameter(
-            torch.empty(self.head_dim, self.num_heads)
-        )
+        self.pos_bias_u = nn.Parameter(torch.empty(self.head_dim, self.num_heads))
+        self.pos_bias_v = nn.Parameter(torch.empty(self.head_dim, self.num_heads))
 
         if next(self.parameters()).dtype == torch.float16:
             self.attn_fill_value = -65000
@@ -645,9 +635,7 @@ class RelPosMHAXL(nn.Module):
                 1, 1, self.num_heads, self.vhead_dim
             )
 
-        p_k = self.linear_pos(pos_embs).view(
-            1, -1, self.num_heads, self.head_dim
-        )
+        p_k = self.linear_pos(pos_embs).view(1, -1, self.num_heads, self.head_dim)
         # (batch, head, klen, d_k)
 
         q_with_bias_u = (
@@ -666,13 +654,9 @@ class RelPosMHAXL(nn.Module):
         # https://asherliu.github.io/docs/sc21a.pdf
 
         # (batch, head, qlen, klen)
-        matrix_ac = torch.matmul(
-            q_with_bias_u * self.scale, key.permute(0, 2, 3, 1)
-        )
+        matrix_ac = torch.matmul(q_with_bias_u * self.scale, key.permute(0, 2, 3, 1))
         # (batch, num_heads, klen, 2*klen-1)
-        matrix_bd = torch.matmul(
-            q_with_bias_v * self.scale, p_k.permute(0, 2, 3, 1)
-        )
+        matrix_bd = torch.matmul(q_with_bias_v * self.scale, p_k.permute(0, 2, 3, 1))
         matrix_bd = self.rel_shift(matrix_bd)  # shifting trick
 
         # if klen != qlen:
@@ -689,9 +673,7 @@ class RelPosMHAXL(nn.Module):
                 attn_mask = attn_mask.view(-1, self.num_heads, qlen, klen)
 
             if attn_mask.dtype == torch.bool:
-                attn_score = attn_score.masked_fill(
-                    attn_mask, self.attn_fill_value
-                )
+                attn_score = attn_score.masked_fill(attn_mask, self.attn_fill_value)
             else:
                 attn_score += attn_mask
 
@@ -721,9 +703,7 @@ class RelPosMHAXL(nn.Module):
                 0.0,
             )
 
-        x = torch.matmul(
-            attn_score, value.transpose(1, 2)
-        )  # (batch, head, time1, d_k)
+        x = torch.matmul(attn_score, value.transpose(1, 2))  # (batch, head, time1, d_k)
         x = (
             x.transpose(1, 2)
             .contiguous()
@@ -992,9 +972,7 @@ class PrecomputedRoPESinusoids(nn.Module):
 
         # To precompute the values, use at least float32, because
         # otherwise final accuracy is unnecessarily dreadful.
-        internal_dtype = (
-            torch.float64 if dtype == torch.float64 else torch.float32
-        )
+        internal_dtype = torch.float64 if dtype == torch.float64 else torch.float32
 
         assert (input_size % 2) == 0
 
@@ -1030,17 +1008,16 @@ class PrecomputedRoPESinusoids(nn.Module):
         ).reshape(max_length, input_size)
 
         sines = (
-            (-1)
-            ** torch.arange(input_size, dtype=internal_dtype, device=device)
+            (-1) ** torch.arange(input_size, dtype=internal_dtype, device=device)
         ) * -unsigned_repeated_sines
 
         # To perform a 2-d rotation of every pair of dimensions, a vector will
         # need to be created with every pair swapped with each other.
         # To make this easy, swap every pair of indices:
         # [1, 0, 3, 2, 5, 4, 7, 6, ...]
-        index_swap = torch.stack(
-            [dimensions[1::2], dimensions[::2]], dim=-1
-        ).reshape(-1)
+        index_swap = torch.stack([dimensions[1::2], dimensions[::2]], dim=-1).reshape(
+            -1
+        )
 
         self.register_buffer("cosines", cosines.to(dtype))
         self.register_buffer("sines", sines.to(dtype))
@@ -1079,7 +1056,7 @@ class MemoiseAtLeastSize:
 
 
 def memoise_at_least(
-    round_up: Callable[[Any], Any]
+    round_up: Callable[[Any], Any],
 ) -> Callable[[Callable], MemoiseAtLeastSize]:
     """
     Decorator that memoises a function which has as its first argument a value
@@ -1230,22 +1207,18 @@ class RoPEMHA(nn.Module):
         self.head_dim = embed_dim // num_heads
         self.vhead_dim = self.vdim // num_heads
 
-        assert (
-            self.head_dim * num_heads == self.embed_dim
-        ), "embed_dim must be divisible by num_heads"
-        assert (
-            self.vhead_dim * num_heads == self.vdim
-        ), "vdim must be divisible by num_heads"
+        assert self.head_dim * num_heads == self.embed_dim, (
+            "embed_dim must be divisible by num_heads"
+        )
+        assert self.vhead_dim * num_heads == self.vdim, (
+            "vdim must be divisible by num_heads"
+        )
 
         if self._qkv_same_embed_dim is False:
-            self.qk_proj_weight = nn.Parameter(
-                torch.empty(2 * embed_dim, embed_dim)
-            )
+            self.qk_proj_weight = nn.Parameter(torch.empty(2 * embed_dim, embed_dim))
             self.v_proj_weight = nn.Parameter(torch.empty(self.vdim, embed_dim))
         else:
-            self.in_proj_weight = nn.Parameter(
-                torch.empty(3 * embed_dim, embed_dim)
-            )
+            self.in_proj_weight = nn.Parameter(torch.empty(3 * embed_dim, embed_dim))
 
         if vbias:
             self.value_bias_weight = nn.Parameter(torch.empty(self.vdim))
@@ -1419,9 +1392,7 @@ def masks_union(bsz, klen, num_heads, attn_mask, key_padding_mask):
         final_mask = key_padding_mask
 
     if attn_mask is not None:
-        attn_mask = attn_mask.view(1, 1, klen, klen).expand(
-            bsz, num_heads, klen, klen
-        )
+        attn_mask = attn_mask.view(1, 1, klen, klen).expand(bsz, num_heads, klen, klen)
         final_mask = attn_mask
 
     if attn_mask is not None and key_padding_mask is not None:

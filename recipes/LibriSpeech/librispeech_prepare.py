@@ -130,9 +130,7 @@ def prepare_librispeech(
     for split_index in range(len(splits)):
         split = splits[split_index]
 
-        wav_lst = get_all_files(
-            os.path.join(data_folder, split), match_and=[".flac"]
-        )
+        wav_lst = get_all_files(os.path.join(data_folder, split), match_and=[".flac"])
 
         text_lst = get_all_files(
             os.path.join(data_folder, split), match_and=["trans.txt"]
@@ -151,9 +149,7 @@ def prepare_librispeech(
     # Merging csv file if needed
     if merge_lst and merge_name is not None:
         merge_files = [split_libri + ".csv" for split_libri in merge_lst]
-        merge_csvs(
-            data_folder=save_folder, csv_lst=merge_files, merged_csv=merge_name
-        )
+        merge_csvs(data_folder=save_folder, csv_lst=merge_files, merged_csv=merge_name)
 
     # Create lexicon.csv and oov.csv
     if create_lexicon:
@@ -180,9 +176,7 @@ def create_lexicon_and_oov_csv(all_texts, save_folder):
     lexicon_path = os.path.join(save_folder, "librispeech-lexicon.txt")
 
     if not os.path.isfile(lexicon_path):
-        logger.info(
-            "Lexicon file not found. Downloading from %s." % lexicon_url
-        )
+        logger.info("Lexicon file not found. Downloading from %s." % lexicon_url)
         download_file(lexicon_url, lexicon_path)
 
     # Get list of all words in the transcripts
@@ -214,9 +208,7 @@ def create_lexicon_and_oov_csv(all_texts, save_folder):
                 p.strip("0123456789") for p in lexicon_pronunciations[idx]
             ]
             phonemes = " ".join(pronunciation_no_numbers)
-            line = (
-                ",".join([str(idx), str(duration), graphemes, phonemes]) + "\n"
-            )
+            line = ",".join([str(idx), str(duration), graphemes, phonemes]) + "\n"
             f.write(line)
     logger.info("Lexicon written to %s." % lexicon_csv_path)
 

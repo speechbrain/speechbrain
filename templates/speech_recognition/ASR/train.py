@@ -107,9 +107,7 @@ class ASR(sb.Brain):
                     encoded_signal, self.feat_lens
                 )
             elif stage == sb.Stage.TEST:
-                hyps, _, _, _ = self.hparams.test_search(
-                    encoded_signal, self.feat_lens
-                )
+                hyps, _, _, _ = self.hparams.test_search(encoded_signal, self.feat_lens)
 
             predictions["tokens"] = hyps
 
@@ -188,14 +186,10 @@ class ASR(sb.Brain):
         if stage == sb.Stage.TRAIN:
             if hasattr(self.hparams, "wav_augment"):
                 tokens = self.hparams.wav_augment.replicate_labels(tokens)
-                token_lens = self.hparams.wav_augment.replicate_labels(
-                    token_lens
-                )
+                token_lens = self.hparams.wav_augment.replicate_labels(token_lens)
             if hasattr(self.hparams, "fea_augment"):
                 tokens = self.hparams.fea_augment.replicate_labels(tokens)
-                token_lens = self.hparams.fea_augment.replicate_labels(
-                    token_lens
-                )
+                token_lens = self.hparams.fea_augment.replicate_labels(token_lens)
         return tokens, token_lens
 
     def compute_objectives(self, predictions, batch, stage):
@@ -218,9 +212,7 @@ class ASR(sb.Brain):
             A one-element tensor used for backpropagating the gradient.
         """
         # Compute sequence loss against targets with EOS
-        tokens_eos, tokens_eos_lens = self.prepare_tokens(
-            stage, batch.tokens_eos
-        )
+        tokens_eos, tokens_eos_lens = self.prepare_tokens(stage, batch.tokens_eos)
         loss = sb.nnet.losses.nll_loss(
             log_probabilities=predictions["seq_logprobs"],
             targets=tokens_eos,
@@ -297,7 +289,6 @@ class ASR(sb.Brain):
 
         # Perform end-of-iteration things, like annealing, logging, etc.
         if stage == sb.Stage.VALID:
-
             # Update learning rate
             old_lr, new_lr = self.hparams.lr_annealing(stage_stats["WER"])
             sb.nnet.schedulers.update_learning_rate(self.optimizer, new_lr)
@@ -424,14 +415,11 @@ def dataio_prepare(hparams):
         pass
 
     else:
-        raise NotImplementedError(
-            "sorting must be random, ascending or descending"
-        )
+        raise NotImplementedError("sorting must be random, ascending or descending")
     return datasets
 
 
 if __name__ == "__main__":
-
     # Reading command line arguments
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
 

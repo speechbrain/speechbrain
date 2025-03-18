@@ -34,19 +34,14 @@ def test_yaml_script_consistency(recipe_folder="tests/recipes"):
             newline="",
             encoding="utf-8",
         ) as csvfile:
-            reader = csv.DictReader(
-                csvfile, delimiter=",", skipinitialspace=True
-            )
+            reader = csv.DictReader(csvfile, delimiter=",", skipinitialspace=True)
             for row in reader:
-
                 # Avoid checks
                 if row["Hparam_file"] in avoid_check:
                     continue
 
                 # Check yaml-script consistency
-                if not (
-                    check_yaml_vs_script(row["Hparam_file"], row["Script_file"])
-                ):
+                if not (check_yaml_vs_script(row["Hparam_file"], row["Script_file"])):
                     check = False
 
                 # Check module variables

@@ -70,9 +70,7 @@ class BEATs(nn.Module):
         cfg, checkpoint = None, None
         if ckp_path:
             if not os.path.exists(ckp_path):
-                raise FileNotFoundError(
-                    f"Checkpoint file '{ckp_path}' does not exist."
-                )
+                raise FileNotFoundError(f"Checkpoint file '{ckp_path}' does not exist.")
             checkpoint = torch.load(ckp_path)
             cfg = checkpoint.get("cfg", None)
 
@@ -102,9 +100,9 @@ class BEATs(nn.Module):
         self.dropout_input = nn.Dropout(self.cfg.dropout_input)
 
         # Configuration checks
-        assert not (
-            self.cfg.deep_norm and self.cfg.layer_norm_first
-        ), "Configuration error: 'deep_norm' and 'layer_norm_first' cannot both be True."
+        assert not (self.cfg.deep_norm and self.cfg.layer_norm_first), (
+            "Configuration error: 'deep_norm' and 'layer_norm_first' cannot both be True."
+        )
 
         # Initialize encoder and layer normalization
         self.encoder = TransformerEncoder(self.cfg)
@@ -148,9 +146,7 @@ class BEATs(nn.Module):
         extra = padding_mask.size(1) % features.size(1)
         if extra > 0:
             padding_mask = padding_mask[:, :-extra]
-        padding_mask = padding_mask.view(
-            padding_mask.size(0), features.size(1), -1
-        )
+        padding_mask = padding_mask.view(padding_mask.size(0), features.size(1), -1)
         return padding_mask.all(-1)
 
     def preprocess(
@@ -218,9 +214,7 @@ class BEATs(nn.Module):
         # If we freeze, we simply remove all grads from the graph.
         if self.freeze:
             with torch.no_grad():
-                return self.extract_features(
-                    wav, wav_lens, fbank_mean, fbank_std
-                )
+                return self.extract_features(wav, wav_lens, fbank_mean, fbank_std)
 
         return self.extract_features(wav, wav_lens, fbank_mean, fbank_std)
 
@@ -263,9 +257,9 @@ class BEATs(nn.Module):
 
         fbank = fbank.unsqueeze(1)
         features = self.patch_embedding(fbank)
-        features = features.reshape(
-            features.shape[0], features.shape[1], -1
-        ).transpose(1, 2)
+        features = features.reshape(features.shape[0], features.shape[1], -1).transpose(
+            1, 2
+        )
         features = self.layer_norm(features)
 
         if padding_mask is not None:
@@ -289,9 +283,9 @@ class BEATs(nn.Module):
             if padding_mask is not None and padding_mask.any():
                 logits[padding_mask] = 0
                 logits = logits.sum(dim=1)
-                logits = logits / (~padding_mask).sum(dim=1).unsqueeze(
-                    -1
-                ).expand_as(logits)
+                logits = logits / (~padding_mask).sum(dim=1).unsqueeze(-1).expand_as(
+                    logits
+                )
             else:
                 logits = logits.mean(dim=1)
 
@@ -325,9 +319,7 @@ def gelu_accurate(x):
     if not hasattr(gelu_accurate, "_a"):
         gelu_accurate._a = math.sqrt(2 / math.pi)
     return (
-        0.5
-        * x
-        * (1 + torch.tanh(gelu_accurate._a * (x + 0.044715 * torch.pow(x, 3))))
+        0.5 * x * (1 + torch.tanh(gelu_accurate._a * (x + 0.044715 * torch.pow(x, 3))))
     )
 
 
@@ -380,9 +372,7 @@ def get_activation_fn(activation: str):
     elif activation == "gelu":
         return gelu
     elif activation == "gelu_fast":
-        logger.warn(
-            "--activation-fn=gelu_fast has been renamed to gelu_accurate"
-        )
+        logger.warn("--activation-fn=gelu_fast has been renamed to gelu_accurate")
         return gelu_accurate
     elif activation == "gelu_accurate":
         return gelu_accurate
@@ -393,9 +383,7 @@ def get_activation_fn(activation: str):
     elif activation == "glu":
         return lambda x: x
     else:
-        raise RuntimeError(
-            "--activation-fn {} not supported".format(activation)
-        )
+        raise RuntimeError("--activation-fn {} not supported".format(activation))
 
 
 class SamePad(nn.Module):
@@ -500,9 +488,7 @@ class GLU_Linear(nn.Module):
 
     """
 
-    def __init__(
-        self, input_dim, output_dim, glu_type="sigmoid", bias_in_glu=True
-    ):
+    def __init__(self, input_dim, output_dim, glu_type="sigmoid", bias_in_glu=True):
         super(GLU_Linear, self).__init__()
 
         self.glu_type = glu_type
@@ -614,23 +600,21 @@ def quant_noise(module, p, block_size):
 
     # 2D matrix
     if not is_conv:
-        assert (
-            module.weight.size(1) % block_size == 0
-        ), "Input features must be a multiple of block sizes"
+        assert module.weight.size(1) % block_size == 0, (
+            "Input features must be a multiple of block sizes"
+        )
 
     # 4D matrix
     else:
         # 1x1 convolutions
         if module.kernel_size == (1, 1):
-            assert (
-                module.in_channels % block_size == 0
-            ), "Input channels must be a multiple of block sizes"
+            assert module.in_channels % block_size == 0, (
+                "Input channels must be a multiple of block sizes"
+            )
         # regular convolutions
         else:
             k = module.kernel_size[0] * module.kernel_size[1]
-            assert (
-                k % block_size == 0
-            ), "Kernel size must be a multiple of block size"
+            assert k % block_size == 0, "Kernel size must be a multiple of block size"
 
 
 class TransformerEncoder(nn.Module):
@@ -658,18 +642,12 @@ class TransformerEncoder(nn.Module):
             groups=args.conv_pos_groups,
         )
         dropout = 0
-        std = math.sqrt(
-            (4 * (1.0 - dropout)) / (args.conv_pos * self.embedding_dim)
-        )
+        std = math.sqrt((4 * (1.0 - dropout)) / (args.conv_pos * self.embedding_dim))
         nn.init.normal_(self.pos_conv.weight, mean=0, std=std)
         nn.init.constant_(self.pos_conv.bias, 0)
 
-        self.pos_conv = nn.utils.weight_norm(
-            self.pos_conv, name="weight", dim=2
-        )
-        self.pos_conv = nn.Sequential(
-            self.pos_conv, SamePad(args.conv_pos), nn.GELU()
-        )
+        self.pos_conv = nn.utils.weight_norm(self.pos_conv, name="weight", dim=2)
+        self.pos_conv = nn.Sequential(self.pos_conv, SamePad(args.conv_pos), nn.GELU())
 
         if hasattr(args, "relative_position_embedding"):
             self.relative_position_embedding = args.relative_position_embedding
@@ -717,25 +695,17 @@ class TransformerEncoder(nn.Module):
         if args.deep_norm:
             deep_norm_beta = math.pow(8 * args.encoder_layers, -1 / 4)
             for i in range(args.encoder_layers):
-                nn.init.xavier_normal_(
-                    self.layers[i].self_attn.k_proj.weight, gain=1
-                )
+                nn.init.xavier_normal_(self.layers[i].self_attn.k_proj.weight, gain=1)
                 nn.init.xavier_normal_(
                     self.layers[i].self_attn.v_proj.weight, gain=deep_norm_beta
                 )
-                nn.init.xavier_normal_(
-                    self.layers[i].self_attn.q_proj.weight, gain=1
-                )
+                nn.init.xavier_normal_(self.layers[i].self_attn.q_proj.weight, gain=1)
                 nn.init.xavier_normal_(
                     self.layers[i].self_attn.out_proj.weight,
                     gain=deep_norm_beta,
                 )
-                nn.init.xavier_normal_(
-                    self.layers[i].fc1.weight, gain=deep_norm_beta
-                )
-                nn.init.xavier_normal_(
-                    self.layers[i].fc2.weight, gain=deep_norm_beta
-                )
+                nn.init.xavier_normal_(self.layers[i].fc1.weight, gain=deep_norm_beta)
+                nn.init.xavier_normal_(self.layers[i].fc2.weight, gain=deep_norm_beta)
 
         self.layer_wise_gradient_decay_ratio = getattr(
             args, "layer_wise_gradient_decay_ratio", 1
@@ -764,9 +734,7 @@ class TransformerEncoder(nn.Module):
         Tuple[torch.Tensor, List[torch.Tensor]]
             - The final output tensor of shape `(seq_len, batch_size, embed_dim)`.
         """
-        x, layer_results = self.extract_features(
-            x, padding_mask, output_all_hiddens
-        )
+        x, layer_results = self.extract_features(x, padding_mask, output_all_hiddens)
 
         if self.layer_norm_first and output_all_hiddens:
             x = self.layer_norm(x)
@@ -896,7 +864,6 @@ class TransformerSentenceEncoderLayer(nn.Module):
         gru_rel_pos: bool = False,
         encoder_layers: int = 0,
     ) -> None:
-
         super().__init__()
         self.embedding_dim = embedding_dim
         self.dropout = dropout
@@ -925,9 +892,7 @@ class TransformerSentenceEncoderLayer(nn.Module):
         self.self_attn_layer_norm = LayerNorm(self.embedding_dim)
 
         if self.activation_name == "glu":
-            self.fc1 = GLU_Linear(
-                self.embedding_dim, ffn_embedding_dim, "swish"
-            )
+            self.fc1 = GLU_Linear(self.embedding_dim, ffn_embedding_dim, "swish")
         else:
             self.fc1 = nn.Linear(self.embedding_dim, ffn_embedding_dim)
         self.fc2 = nn.Linear(ffn_embedding_dim, self.embedding_dim)
@@ -1115,18 +1080,18 @@ class MultiheadAttention(nn.Module):
         self.q_head_dim = self.head_dim
         self.k_head_dim = self.head_dim
 
-        assert (
-            self.head_dim * num_heads == self.embed_dim
-        ), "embed_dim must be divisible by num_heads"
+        assert self.head_dim * num_heads == self.embed_dim, (
+            "embed_dim must be divisible by num_heads"
+        )
         self.scaling = self.head_dim**-0.5
 
         # Self-attention and encoder-decoder attention flags
         self.self_attention = self_attention
         self.encoder_decoder_attention = encoder_decoder_attention
 
-        assert (
-            not self.self_attention or self.qkv_same_dim
-        ), "Self-attention requires query, key, and value to be of the same size."
+        assert not self.self_attention or self.qkv_same_dim, (
+            "Self-attention requires query, key, and value to be of the same size."
+        )
 
         # Initialize projection layers with optional quantization noise
         self.k_proj = quant_noise(
@@ -1186,9 +1151,7 @@ class MultiheadAttention(nn.Module):
         if self.has_relative_attention_bias:
             nn.init.xavier_normal_(self.relative_attention_bias.weight)
 
-    def _relative_positions_bucket(
-        self, relative_positions, bidirectional=True
-    ):
+    def _relative_positions_bucket(self, relative_positions, bidirectional=True):
         """Computes bucket indices for relative positions for relative attention bias.
 
         Arguments
@@ -1212,9 +1175,7 @@ class MultiheadAttention(nn.Module):
         if bidirectional:
             # Halve buckets for bidirectional attention
             num_buckets = num_buckets // 2
-            relative_buckets += (relative_positions > 0).to(
-                torch.long
-            ) * num_buckets
+            relative_buckets += (relative_positions > 0).to(torch.long) * num_buckets
             relative_positions = torch.abs(relative_positions)
         else:
             relative_positions = -torch.min(
@@ -1288,9 +1249,7 @@ class MultiheadAttention(nn.Module):
         key: Optional[Tensor],
         value: Optional[Tensor],
         key_padding_mask: Optional[Tensor] = None,
-        incremental_state: Optional[
-            Dict[str, Dict[str, Optional[Tensor]]]
-        ] = None,
+        incremental_state: Optional[Dict[str, Dict[str, Optional[Tensor]]]] = None,
         need_weights: bool = True,
         static_kv: bool = False,
         attn_mask: Optional[Tensor] = None,
@@ -1374,10 +1333,7 @@ class MultiheadAttention(nn.Module):
                 # previous time steps are cached - no need to recompute
                 # key and value if they are static
                 if static_kv:
-                    assert (
-                        self.encoder_decoder_attention
-                        and not self.self_attention
-                    )
+                    assert self.encoder_decoder_attention and not self.self_attention
                     key = value = None
         else:
             saved_state = None
@@ -1399,9 +1355,7 @@ class MultiheadAttention(nn.Module):
             if "prev_key" in saved_state:
                 _prev_key = saved_state["prev_key"]
                 assert _prev_key is not None
-                prev_key = _prev_key.view(
-                    bsz * self.num_heads, -1, self.head_dim
-                )
+                prev_key = _prev_key.view(bsz * self.num_heads, -1, self.head_dim)
                 if static_kv:
                     k = prev_key
                 else:
@@ -1411,9 +1365,7 @@ class MultiheadAttention(nn.Module):
             if "prev_value" in saved_state:
                 _prev_value = saved_state["prev_value"]
                 assert _prev_value is not None
-                prev_value = _prev_value.view(
-                    bsz * self.num_heads, -1, self.head_dim
-                )
+                prev_value = _prev_value.view(bsz * self.num_heads, -1, self.head_dim)
                 if static_kv:
                     v = prev_value
                 else:
@@ -1431,18 +1383,12 @@ class MultiheadAttention(nn.Module):
                 static_kv=static_kv,
             )
 
-            saved_state["prev_key"] = k.view(
-                bsz, self.num_heads, -1, self.head_dim
-            )
-            saved_state["prev_value"] = v.view(
-                bsz, self.num_heads, -1, self.head_dim
-            )
+            saved_state["prev_key"] = k.view(bsz, self.num_heads, -1, self.head_dim)
+            saved_state["prev_value"] = v.view(bsz, self.num_heads, -1, self.head_dim)
             saved_state["prev_key_padding_mask"] = key_padding_mask
             # In this branch incremental_state is never None
             assert incremental_state is not None
-            incremental_state = self._set_input_buffer(
-                incremental_state, saved_state
-            )
+            incremental_state = self._set_input_buffer(incremental_state, saved_state)
         assert k is not None
         assert k.size(1) == src_len
 
@@ -1534,8 +1480,7 @@ class MultiheadAttention(nn.Module):
                 ).chunk(2, dim=-1)
                 gate_a_1 = gate_a * (gate_b * self.grep_a - 1.0) + 2.0
                 attn_mask_rel_pos = (
-                    gate_a_1.view(bsz * self.num_heads, tgt_len, 1)
-                    * position_bias
+                    gate_a_1.view(bsz * self.num_heads, tgt_len, 1) * position_bias
                 )
 
             attn_mask_rel_pos = attn_mask_rel_pos.view(attn_weights.size())
@@ -1617,12 +1562,8 @@ class MultiheadAttention(nn.Module):
         if self.add_zero_attn:
             assert v is not None
             src_len += 1
-            k = torch.cat(
-                [k, k.new_zeros((k.size(0), 1) + k.size()[2:])], dim=1
-            )
-            v = torch.cat(
-                [v, v.new_zeros((v.size(0), 1) + v.size()[2:])], dim=1
-            )
+            k = torch.cat([k, k.new_zeros((k.size(0), 1) + k.size()[2:])], dim=1)
+            v = torch.cat([v, v.new_zeros((v.size(0), 1) + v.size()[2:])], dim=1)
             if attn_mask is not None:
                 attn_mask = torch.cat(
                     [attn_mask, attn_mask.new_zeros(attn_mask.size(0), 1)],
@@ -1644,9 +1585,7 @@ class MultiheadAttention(nn.Module):
         attn_weights = (
             attn_weights - attn_weights.max(dim=-1, keepdim=True)[0]
         ) * alpha
-        attn_weights = self.apply_sparse_mask(
-            attn_weights, tgt_len, src_len, bsz
-        )
+        attn_weights = self.apply_sparse_mask(attn_weights, tgt_len, src_len, bsz)
 
         # Validate attention weights dimensions
         assert list(attn_weights.size()) == [
@@ -1662,9 +1601,7 @@ class MultiheadAttention(nn.Module):
 
         # Apply key padding mask
         if key_padding_mask is not None:
-            attn_weights = attn_weights.view(
-                bsz, self.num_heads, tgt_len, src_len
-            )
+            attn_weights = attn_weights.view(bsz, self.num_heads, tgt_len, src_len)
             if not is_tpu:
                 attn_weights = attn_weights.masked_fill(
                     key_padding_mask.unsqueeze(1).unsqueeze(2).to(torch.bool),
@@ -1672,13 +1609,9 @@ class MultiheadAttention(nn.Module):
                 )
             else:
                 attn_weights = attn_weights.transpose(0, 2)
-                attn_weights = attn_weights.masked_fill(
-                    key_padding_mask, float("-inf")
-                )
+                attn_weights = attn_weights.masked_fill(key_padding_mask, float("-inf"))
                 attn_weights = attn_weights.transpose(0, 2)
-            attn_weights = attn_weights.view(
-                bsz * self.num_heads, tgt_len, src_len
-            )
+            attn_weights = attn_weights.view(bsz * self.num_heads, tgt_len, src_len)
 
         return attn_weights, attn_mask
 
@@ -1706,9 +1639,7 @@ class MultiheadAttention(nn.Module):
             attention mask, and key padding mask.
         """
         if self.bias_k is not None:
-            assert (
-                self.bias_v is not None
-            ), "bias_k and bias_v must both be provided."
+            assert self.bias_v is not None, "bias_k and bias_v must both be provided."
 
             # Apply biases to key and value
             k = torch.cat([k, self.bias_k.repeat(1, bsz, 1)], dim=0)
@@ -1931,13 +1862,9 @@ class MultiheadAttention(nn.Module):
         -------
         None
         """
-        return self.set_incremental_state(
-            incremental_state, "attn_state", buffer
-        )
+        return self.set_incremental_state(incremental_state, "attn_state", buffer)
 
-    def apply_sparse_mask(
-        self, attn_weights, tgt_len: int, src_len: int, bsz: int
-    ):
+    def apply_sparse_mask(self, attn_weights, tgt_len: int, src_len: int, bsz: int):
         """
         Applies a sparse mask to the attention weights.
 
@@ -2024,25 +1951,19 @@ class BEATsConfig:
 
         self.encoder_layers: int = 12  # num encoder layers in the transformer
         self.encoder_embed_dim: int = 768  # encoder embedding dimension
-        self.encoder_ffn_embed_dim: int = (
-            3072  # encoder embedding dimension for FFN
-        )
+        self.encoder_ffn_embed_dim: int = 3072  # encoder embedding dimension for FFN
         self.encoder_attention_heads: int = 12  # num encoder attention heads
         self.activation_fn: str = "gelu"  # activation function to use
 
         self.layer_wise_gradient_decay_ratio: float = (
             1.0  # ratio for layer-wise gradient decay
         )
-        self.layer_norm_first: bool = (
-            False  # apply layernorm first in the transformer
-        )
+        self.layer_norm_first: bool = False  # apply layernorm first in the transformer
         self.deep_norm: bool = False  # apply deep_norm first in the transformer
 
         # dropouts
         self.dropout: float = 0.1  # dropout probability for the transformer
-        self.attention_dropout: float = (
-            0.1  # dropout probability for attention weights
-        )
+        self.attention_dropout: float = 0.1  # dropout probability for attention weights
         self.activation_dropout: float = (
             0.0  # dropout probability after activation in FFN
         )
@@ -2065,23 +1986,15 @@ class BEATsConfig:
         self.relative_position_embedding: bool = (
             False  # apply relative position embedding
         )
-        self.num_buckets: int = (
-            320  # number of buckets for relative position embedding
-        )
+        self.num_buckets: int = 320  # number of buckets for relative position embedding
         self.max_distance: int = (
             1280  # maximum distance for relative position embedding
         )
-        self.gru_rel_pos: bool = (
-            False  # apply gated relative position embedding
-        )
+        self.gru_rel_pos: bool = False  # apply gated relative position embedding
 
         # label predictor
-        self.finetuned_model: bool = (
-            False  # whether the model is a fine-tuned model.
-        )
-        self.predictor_dropout: float = (
-            0.1  # dropout probability for the predictor
-        )
+        self.finetuned_model: bool = False  # whether the model is a fine-tuned model.
+        self.predictor_dropout: float = 0.1  # dropout probability for the predictor
         self.predictor_class: int = 527  # target class number for the predictor
 
         if cfg is not None:

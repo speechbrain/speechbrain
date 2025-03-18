@@ -210,9 +210,7 @@ def find_imports(file_path: str, find_subpackages: bool = False) -> List[str]:
         if filename.endswith(".py"):
             imports.append(filename[:-3])
 
-        if find_subpackages and os.path.isdir(
-            os.path.join(module_dir, filename)
-        ):
+        if find_subpackages and os.path.isdir(os.path.join(module_dir, filename)):
             imports.append(filename)
 
     return imports
@@ -262,9 +260,7 @@ def lazy_export_all(
         directly as well.
     """
 
-    for name in find_imports(
-        init_file_path, find_subpackages=export_subpackages
-    ):
+    for name in find_imports(init_file_path, find_subpackages=export_subpackages):
         lazy_export(name, package)
 
 

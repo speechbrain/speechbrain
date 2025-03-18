@@ -108,9 +108,7 @@ def prepare_ksponspeech(
         dirlist = split2dirs(split)
         wav_lst = []
         for dir in dirlist:
-            wav_lst += get_all_files(
-                os.path.join(data_folder, dir), match_and=[".wav"]
-            )
+            wav_lst += get_all_files(os.path.join(data_folder, dir), match_and=[".wav"])
 
         trnpath = os.path.join(data_folder, split + ".trn")
         text_dict = text_to_dict(trnpath)
@@ -126,9 +124,7 @@ def prepare_ksponspeech(
     # Merging csv file if needed
     if merge_lst and merge_name is not None:
         merge_files = [split_kspon + ".csv" for split_kspon in merge_lst]
-        merge_csvs(
-            data_folder=save_folder, csv_lst=merge_files, merged_csv=merge_name
-        )
+        merge_csvs(data_folder=save_folder, csv_lst=merge_files, merged_csv=merge_name)
 
     # saving options
     save_pkl(conf, save_opt)

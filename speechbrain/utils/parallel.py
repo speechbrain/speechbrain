@@ -85,9 +85,7 @@ class _ParallelMapper:
             else:
                 # start and shut down a process pool executor -- ok for
                 # long-running tasks
-                with ProcessPoolExecutor(
-                    max_workers=self.process_count
-                ) as pool:
+                with ProcessPoolExecutor(max_workers=self.process_count) as pool:
                     self.executor = pool
                     yield from self._map_all()
 

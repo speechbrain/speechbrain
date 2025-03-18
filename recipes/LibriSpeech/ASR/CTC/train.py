@@ -50,9 +50,7 @@ class ASR(sb.core.Brain):
         # forward modules
         src = self.modules.CNN(feats)
 
-        enc_out, pred = self.modules.Transformer(
-            src, tgt=None, wav_len=wav_lens
-        )
+        enc_out, pred = self.modules.Transformer(src, tgt=None, wav_len=wav_lens)
 
         # output layer for ctc log-probabilities
         logits = self.modules.ctc_lin(enc_out)
@@ -85,13 +83,9 @@ class ASR(sb.core.Brain):
 
         if stage == sb.Stage.VALID:
             # Decode token terms to words
-            predicted_words = self.tokenizer(
-                predicted_tokens, task="decode_from_list"
-            )
+            predicted_words = self.tokenizer(predicted_tokens, task="decode_from_list")
         elif stage == sb.Stage.TEST:
-            predicted_words = [
-                hyp[0].text.split(" ") for hyp in predicted_tokens
-            ]
+            predicted_words = [hyp[0].text.split(" ") for hyp in predicted_tokens]
 
         if stage != sb.Stage.TRAIN:
             target_words = [wrd.split(" ") for wrd in batch.wrd]
@@ -104,9 +98,7 @@ class ASR(sb.core.Brain):
         """perform checkpoint averge if needed"""
         super().on_evaluate_start()
 
-        ckpts = self.checkpointer.find_checkpoints(
-            max_key=max_key, min_key=min_key
-        )
+        ckpts = self.checkpointer.find_checkpoints(max_key=max_key, min_key=min_key)
         ckpt = sb.utils.checkpoints.average_checkpoints(
             ckpts,
             recoverable_name="model",
@@ -133,15 +125,11 @@ class ASR(sb.core.Brain):
             stage_stats["WER"] = self.wer_metric.summarize("error_rate")
             current_epoch = self.hparams.epoch_counter.current
             valid_search_interval = self.hparams.valid_search_interval
-            if (
-                current_epoch % valid_search_interval == 0
-                or stage == sb.Stage.TEST
-            ):
+            if current_epoch % valid_search_interval == 0 or stage == sb.Stage.TEST:
                 stage_stats["WER"] = self.wer_metric.summarize("error_rate")
 
         # log stats and save checkpoint at end-of-epoch
         if stage == sb.Stage.VALID:
-
             lr = self.hparams.noam_annealing.current_lr
             steps = self.optimizer_step
             optimizer = self.optimizer.__class__.__name__
@@ -195,9 +183,7 @@ def dataio_prepare(hparams, tokenizer):
         hparams["train_dataloader_opts"]["shuffle"] = False
 
     elif hparams["sorting"] == "descending":
-        train_data = train_data.filtered_sorted(
-            sort_key="duration", reverse=True
-        )
+        train_data = train_data.filtered_sorted(sort_key="duration", reverse=True)
         # when sorting do not shuffle in dataloader ! otherwise is pointless
         hparams["train_dataloader_opts"]["shuffle"] = False
 
@@ -205,9 +191,7 @@ def dataio_prepare(hparams, tokenizer):
         pass
 
     else:
-        raise NotImplementedError(
-            "sorting must be random, ascending or descending"
-        )
+        raise NotImplementedError("sorting must be random, ascending or descending")
     valid_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
         csv_path=hparams["valid_csv"],
         replacements={"data_root": data_folder},
@@ -221,9 +205,7 @@ def dataio_prepare(hparams, tokenizer):
         test_datasets[name] = sb.dataio.dataset.DynamicItemDataset.from_csv(
             csv_path=csv_file, replacements={"data_root": data_folder}
         )
-        test_datasets[name] = test_datasets[name].filtered_sorted(
-            sort_key="duration"
-        )
+        test_datasets[name] = test_datasets[name].filtered_sorted(sort_key="duration")
 
     datasets = [train_data, valid_data] + [i for k, i in test_datasets.items()]
     valtest_datasets = [valid_data] + [i for k, i in test_datasets.items()]
@@ -254,9 +236,7 @@ def dataio_prepare(hparams, tokenizer):
 
     # 3. Define text pipeline:
     @sb.utils.data_pipeline.takes("wrd")
-    @sb.utils.data_pipeline.provides(
-        "wrd", "char_list", "tokens_list", "tokens"
-    )
+    @sb.utils.data_pipeline.provides("wrd", "char_list", "tokens_list", "tokens")
     def text_pipeline(wrd):
         yield wrd
         char_list = list(wrd)
@@ -371,9 +351,7 @@ if __name__ == "__main__":
 
     # Adding objects to trainer.
     asr_brain.tokenizer = tokenizer
-    vocab_list = [
-        tokenizer.sp.id_to_piece(i) for i in range(tokenizer.sp.vocab_size())
-    ]
+    vocab_list = [tokenizer.sp.id_to_piece(i) for i in range(tokenizer.sp.vocab_size())]
 
     from speechbrain.decoders.ctc import CTCBeamSearcher
 

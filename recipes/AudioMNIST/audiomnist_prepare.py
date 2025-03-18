@@ -260,8 +260,7 @@ def get_splits(metadata_folder, splits):
         split: os.path.join(metadata_folder, f"{split}.txt") for split in splits
     }
     return {
-        split: read_file_list(file_path)
-        for split, file_path in split_files.items()
+        split: read_file_list(file_path) for split, file_path in split_files.items()
     }
 
 
@@ -424,8 +423,7 @@ def convert_speaker_meta_keys(speaker_meta):
         Mapped metadata
     """
     return {
-        SPEAKER_META_MAP.get(key, key): value
-        for key, value in speaker_meta.items()
+        SPEAKER_META_MAP.get(key, key): value for key, value in speaker_meta.items()
     }
 
 
@@ -502,16 +500,12 @@ def process_files(wav_files, process_audio, sample_rate):
     result: dict
         extra metadata
     """
-    folders = set(
-        os.path.dirname(tgt_file_name) for _, tgt_file_name in wav_files
-    )
+    folders = set(os.path.dirname(tgt_file_name) for _, tgt_file_name in wav_files)
     for folder in folders:
         if not os.path.exists(folder):
             os.makedirs(folder)
     for src_file_name, tgt_file_name in tqdm(wav_files):
-        result = process_file(
-            src_file_name, tgt_file_name, process_audio, sample_rate
-        )
+        result = process_file(src_file_name, tgt_file_name, process_audio, sample_rate)
         yield tgt_file_name, result
 
 
@@ -557,9 +551,7 @@ def get_item_id(file_name):
     """
     _, file_name = os.path.split(file_name)
     file_base_name = os.path.basename(file_name)
-    file_base_name_noext, _ = os.path.splitext(
-        file_base_name
-    )  # cspell:ignore noext
+    file_base_name_noext, _ = os.path.splitext(file_base_name)  # cspell:ignore noext
     return file_base_name_noext
 
 
@@ -639,15 +631,13 @@ def convert_split(
     wav_files = [
         (
             os.path.join(src, file_name),
-            os.path.join(
-                tgt, metadata[get_item_id(file_name)]["file_name"]
-            ).replace("{data_root}", ""),
+            os.path.join(tgt, metadata[get_item_id(file_name)]["file_name"]).replace(
+                "{data_root}", ""
+            ),
         )
         for file_name in file_list
     ]
-    for file_path, process_meta in process_files(
-        wav_files, process_audio, sample_rate
-    ):
+    for file_path, process_meta in process_files(wav_files, process_audio, sample_rate):
         item_id = get_item_id(file_path)
         metadata[item_id].update(process_meta)
 
@@ -656,9 +646,7 @@ def convert_split(
         json.dump(metadata, metadata_file, indent=2)
 
 
-def convert_dataset(
-    src, tgt, splits, json_files, lookup, process_audio, sample_rate
-):
+def convert_dataset(src, tgt, splits, json_files, lookup, process_audio, sample_rate):
     """Converts the dataset from the original format to the SpeechBrain-friendly
     format
 

@@ -131,9 +131,7 @@ class GraphCompiler(abc.ABC):
 
         return HL
 
-    def compile_HLG(
-        self, G, cache_dir: Optional[str] = None, cache: bool = False
-    ):
+    def compile_HLG(self, G, cache_dir: Optional[str] = None, cache: bool = False):
         """
         Compile the decoding graph by composing H with LG.
         This is for decoding with small language model.
@@ -159,9 +157,7 @@ class GraphCompiler(abc.ABC):
         H = self.topo.to("cpu")
 
         file_hash = (
-            str(hash(H.shape[0]))
-            + str(hash(L.shape[0]))
-            + str(hash(G.shape[0]))
+            str(hash(H.shape[0])) + str(hash(L.shape[0])) + str(hash(G.shape[0]))
         )
         if cache and cache_dir is not None:
             path = cache_dir + "/.HLG_" + file_hash + ".pt"
@@ -345,9 +341,7 @@ class CtcGraphCompiler(GraphCompiler):
         )
         sentence_ids = [sum(inner, []) for inner in word2tids]
 
-        target_lens = torch.tensor(
-            [len(t) for t in sentence_ids], dtype=torch.long
-        )
+        target_lens = torch.tensor([len(t) for t in sentence_ids], dtype=torch.long)
 
         word_fsa_with_self_loops = k2.add_epsilon_self_loops(
             k2.linear_fsa(word_idx, self.device)
@@ -365,9 +359,7 @@ class CtcGraphCompiler(GraphCompiler):
 
         # NOTE: k2.compose runs on CUDA only when treat_epsilons_specially
         # is False, so we add epsilon self-loops here
-        fsa_with_self_loops = k2.remove_epsilon_and_add_self_loops(
-            transcript_fsa
-        )
+        fsa_with_self_loops = k2.remove_epsilon_and_add_self_loops(transcript_fsa)
 
         fsa_with_self_loops = k2.arc_sort(fsa_with_self_loops)
 

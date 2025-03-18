@@ -92,9 +92,7 @@ class EnhanceGanBrain(sb.Brain):
 
     def init_optimizers(self):
         """Initializes the generator and discriminator optimizers"""
-        self.g_optimizer = self.hparams.g_opt_class(
-            self.modules.generator.parameters()
-        )
+        self.g_optimizer = self.hparams.g_opt_class(self.modules.generator.parameters())
         self.d_optimizer = self.hparams.d_opt_class(
             self.modules.discriminator.parameters()
         )

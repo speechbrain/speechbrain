@@ -8,6 +8,7 @@ Authors
     * Cem Subakan 2022, 2023
     * Francesco Paissan 2022, 2023, 2024
 """
+
 import sys
 
 import torch
@@ -53,9 +54,7 @@ class L2I(InterpreterBrain):
             # get the classifier embeddings
             temp = self.hparams.embedding_model(net_input)
 
-            if isinstance(
-                temp, tuple
-            ):  # if embeddings are not used for interpretation
+            if isinstance(temp, tuple):  # if embeddings are not used for interpretation
                 embeddings, f_I = temp
             else:
                 embeddings, f_I = temp, temp
@@ -164,8 +163,7 @@ class L2I(InterpreterBrain):
         if stage == sb.Stage.VALID:
             # save some samples
             if (
-                self.hparams.epoch_counter.current
-                % self.hparams.interpret_period
+                self.hparams.epoch_counter.current % self.hparams.interpret_period
             ) == 0 and self.hparams.save_interpretations:
                 self.viz_ints(X_stft, net_input, batch, wavs)
 
@@ -197,9 +195,7 @@ class L2I(InterpreterBrain):
         X_stft_logpower = torch.log1p(X_stft_power)
 
         with torch.no_grad():
-            tmp, _, _, _ = self.interpret_computation_steps(
-                wavs
-            )  # returns log1p
+            tmp, _, _, _ = self.interpret_computation_steps(wavs)  # returns log1p
             interpretations = torch.expm1(tmp).transpose(2, 1)
 
             if self.hparams.use_melspectra_log1p:
@@ -216,18 +212,14 @@ class L2I(InterpreterBrain):
             if embeddings.ndim == 4:
                 embeddings = embeddings.mean((-1, -2))
 
-            maskin_preds = (
-                self.hparams.classifier(embeddings).squeeze(1).softmax(1)
-            )
+            maskin_preds = self.hparams.classifier(embeddings).squeeze(1).softmax(1)
 
             X_stft_logpower = X_stft_logpower[:, : interpretations.shape[-2], :]
             if self.hparams.use_melspectra_log1p:
                 xx_temp = torch.log1p(self.hparams.compute_fbank(X_stft_power))
                 temp = self.hparams.embedding_model(xx_temp - interpretations)
             else:
-                temp = self.hparams.embedding_model(
-                    X_stft_logpower - interpretations
-                )
+                temp = self.hparams.embedding_model(X_stft_logpower - interpretations)
 
             if isinstance(temp, tuple):
                 embeddings, _ = temp
@@ -237,9 +229,7 @@ class L2I(InterpreterBrain):
             if embeddings.ndim == 4:
                 embeddings = embeddings.mean((-1, -2))
 
-            maskout_preds = (
-                self.hparams.classifier(embeddings).squeeze(1).softmax(1)
-            )
+            maskout_preds = self.hparams.classifier(embeddings).squeeze(1).softmax(1)
         self.l2i_fid.append(uttid, theta_out, classid)
         self.inp_fid.append(uttid, maskin_preds, classid)
 
@@ -331,13 +321,10 @@ class L2I(InterpreterBrain):
 
     def pretrained_interpreter(self):
         """This function enables us to use hparams.pretrained_interpreter inside train.py"""
-        print(
-            f"pretrained_interpreter path {self.hparams.pretrained_interpreter}"
-        )
+        print(f"pretrained_interpreter path {self.hparams.pretrained_interpreter}")
 
 
 if __name__ == "__main__":
-
     # CLI:
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
 

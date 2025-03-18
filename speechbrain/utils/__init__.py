@@ -1,5 +1,4 @@
-"""Package containing various tools (accuracy, checkpoints ...)
-"""
+"""Package containing various tools (accuracy, checkpoints ...)"""
 
 from speechbrain.utils.importutils import lazy_export_all
 

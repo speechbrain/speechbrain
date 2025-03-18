@@ -115,9 +115,7 @@ class SEBrain(sb.Brain):
                 lens = lens * clean_wavs.shape[1]
                 for name, pred_wav, length in zip(batch.id, predict_wavs, lens):
                     name += ".wav"
-                    enhance_path = os.path.join(
-                        self.hparams.enhanced_folder, name
-                    )
+                    enhance_path = os.path.join(self.hparams.enhanced_folder, name)
                     print(enhance_path)
 
                     pred_wav = pred_wav / torch.max(torch.abs(pred_wav)) * 0.99
@@ -168,9 +166,7 @@ class SEBrain(sb.Brain):
         out_d1 = self.compute_forward_d(noisy_wavs, clean_wavs)
         loss_d1 = self.compute_objectives_d1(out_d1, batch)
         loss_d1.backward()
-        torch.nn.utils.clip_grad_norm_(
-            self.modules.parameters(), self.max_grad_norm
-        )
+        torch.nn.utils.clip_grad_norm_(self.modules.parameters(), self.max_grad_norm)
         self.optimizer_d.step()
         self.optimizer_d.zero_grad()
 
@@ -184,9 +180,7 @@ class SEBrain(sb.Brain):
         out_d2 = self.compute_forward_d(out_g2, clean_wavs)
         loss_d2 = self.compute_objectives_d2(out_d2, batch)
         loss_d2.backward(retain_graph=True)
-        torch.nn.utils.clip_grad_norm_(
-            self.modules.parameters(), self.max_grad_norm
-        )
+        torch.nn.utils.clip_grad_norm_(self.modules.parameters(), self.max_grad_norm)
         self.optimizer_d.step()
         self.optimizer_d.zero_grad()
 
@@ -203,9 +197,7 @@ class SEBrain(sb.Brain):
             z_logvar=z_logvar,
         )
         loss_g3.backward()
-        torch.nn.utils.clip_grad_norm_(
-            self.modules.parameters(), self.max_grad_norm
-        )
+        torch.nn.utils.clip_grad_norm_(self.modules.parameters(), self.max_grad_norm)
         self.optimizer_g.step()
         self.optimizer_g.zero_grad()
         self.optimizer_d.zero_grad()
@@ -302,20 +294,12 @@ class SEBrain(sb.Brain):
         Override this class if there are multiple optimizers.
         """
         if self.opt_class is not None:
-            self.optimizer_d = self.opt_class(
-                self.modules["model_d"].parameters()
-            )
-            self.optimizer_g = self.opt_class(
-                self.modules["model_g"].parameters()
-            )
+            self.optimizer_d = self.opt_class(self.modules["model_d"].parameters())
+            self.optimizer_g = self.opt_class(self.modules["model_g"].parameters())
 
             if self.checkpointer is not None:
-                self.checkpointer.add_recoverable(
-                    "optimizer_g", self.optimizer_g
-                )
-                self.checkpointer.add_recoverable(
-                    "optimizer_d", self.optimizer_d
-                )
+                self.checkpointer.add_recoverable("optimizer_g", self.optimizer_g)
+                self.checkpointer.add_recoverable("optimizer_d", self.optimizer_d)
 
     def zero_grad(self, set_to_none=False):
         self.optimizer_d.zero_grad(set_to_none)
@@ -323,15 +307,9 @@ class SEBrain(sb.Brain):
 
     def on_stage_start(self, stage, epoch=None):
         """Gets called at the beginning of each epoch"""
-        self.loss_metric_d1 = MetricStats(
-            metric=self.hparams.compute_cost["d1"]
-        )
-        self.loss_metric_d2 = MetricStats(
-            metric=self.hparams.compute_cost["d2"]
-        )
-        self.loss_metric_g3 = MetricStats(
-            metric=self.hparams.compute_cost["g3"]
-        )
+        self.loss_metric_d1 = MetricStats(metric=self.hparams.compute_cost["d1"])
+        self.loss_metric_d2 = MetricStats(metric=self.hparams.compute_cost["d2"])
+        self.loss_metric_g3 = MetricStats(metric=self.hparams.compute_cost["g3"])
         self.stoi_metric = MetricStats(metric=stoi_loss)
 
         # Define function taking (prediction, target) for parallel eval
@@ -345,9 +323,7 @@ class SEBrain(sb.Brain):
             )
 
         if stage != sb.Stage.TRAIN:
-            self.pesq_metric = MetricStats(
-                metric=pesq_eval, batch_eval=False, n_jobs=1
-            )
+            self.pesq_metric = MetricStats(metric=pesq_eval, batch_eval=False, n_jobs=1)
 
     def on_stage_end(self, stage, stage_loss, epoch=None):
         """Gets called at the end of an epoch."""
@@ -441,9 +417,7 @@ def dataio_prep(hparams):
         )
         hparams["train_dataloader_opts"]["shuffle"] = False
     elif hparams["sorting"] != "random":
-        raise NotImplementedError(
-            "Sorting must be random, ascending, or descending"
-        )
+        raise NotImplementedError("Sorting must be random, ascending, or descending")
 
     return datasets
 

@@ -67,9 +67,7 @@ class S2SBaseSearcher(torch.nn.Module):
         The ratio of maximum decoding steps to the length of encoder states.
     """
 
-    def __init__(
-        self, bos_index, eos_index, min_decode_ratio, max_decode_ratio
-    ):
+    def __init__(self, bos_index, eos_index, min_decode_ratio, max_decode_ratio):
         super().__init__()
         self.bos_index = bos_index
         self.eos_index = eos_index
@@ -206,9 +204,7 @@ class S2SGreedySearcher(S2SBaseSearcher):
         memory = self.reset_mem(batch_size, device=device)
 
         # Using bos as the first input
-        inp_tokens = (
-            enc_states.new_zeros(batch_size).fill_(self.bos_index).long()
-        )
+        inp_tokens = enc_states.new_zeros(batch_size).fill_(self.bos_index).long()
 
         log_probs_lst = []
         min_decode_steps = int(enc_states.shape[1] * self.min_decode_ratio)
@@ -227,9 +223,7 @@ class S2SGreedySearcher(S2SBaseSearcher):
             if self.temperature == 0:
                 inp_tokens = logits.argmax(dim=-1)
             else:
-                inp_tokens = Categorical(
-                    logits=logits / self.temperature
-                ).sample()
+                inp_tokens = Categorical(logits=logits / self.temperature).sample()
             log_probs = torch.nn.functional.log_softmax(logits.float(), dim=-1)
             log_probs_lst.append(log_probs)
 
@@ -293,9 +287,7 @@ class S2SGreedySearcher(S2SBaseSearcher):
             if len(pred_length) > 0:
                 top_lengths[pred_index] = pred_length[0].item()
         # Convert lists to tensors
-        top_lengths = torch.tensor(
-            top_lengths, dtype=torch.float, device=hyps.device
-        )
+        top_lengths = torch.tensor(top_lengths, dtype=torch.float, device=hyps.device)
 
         # Pick top log probabilities
         top_log_probs = log_probs
@@ -451,9 +443,7 @@ class S2SWhisperGreedySearcher(S2SGreedySearcher):
         elif suppress_tokens is None or len(suppress_tokens) == 0:
             suppress_tokens = []  # interpret empty string as an empty list
         else:
-            assert isinstance(
-                suppress_tokens, list
-            ), "suppress_tokens must be a list"
+            assert isinstance(suppress_tokens, list), "suppress_tokens must be a list"
 
         suppress_tokens.extend(
             [
@@ -512,9 +502,7 @@ class S2SWhisperGreedySearcher(S2SGreedySearcher):
         memory_tokens = self.initial_tokens[:-1]
         mem = torch.tensor([memory_tokens] * batch_size).to(device)
         if self.lang_tokens is not None:
-            mem[:, self.initial_tokens.index(self.model.bos) + 1] = (
-                self.lang_tokens
-            )
+            mem[:, self.initial_tokens.index(self.model.bos) + 1] = self.lang_tokens
             # after using it, reset it.
             self.lang_token = None
         return mem
@@ -533,9 +521,7 @@ class S2SWhisperGreedySearcher(S2SGreedySearcher):
                 .float()
                 .softmax(dim=-1)
             )
-            self.no_speech_probs = probs_at_bos[
-                :, self.model.no_speech
-            ].tolist()
+            self.no_speech_probs = probs_at_bos[:, self.model.no_speech].tolist()
 
         logits = logits[:, -1]
 
@@ -628,9 +614,7 @@ class S2SRNNGreedySearcher(S2SGreedySearcher):
         """Performs a step in the implemented beamsearcher."""
         hs, c = memory
         e = self.emb(inp_tokens)
-        dec_out, hs, c, w = self.dec.forward_step(
-            e, hs, c, enc_states, enc_lens
-        )
+        dec_out, hs, c, w = self.dec.forward_step(e, hs, c, enc_states, enc_lens)
         logits = self.fc(dec_out)
         return logits, (hs, c), w
 
@@ -693,9 +677,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
         max_attn_shift=60,
         minus_inf=-1e20,
     ):
-        super().__init__(
-            bos_index, eos_index, min_decode_ratio, max_decode_ratio
-        )
+        super().__init__(bos_index, eos_index, min_decode_ratio, max_decode_ratio)
         self.beam_size = beam_size
         self.scorer = scorer
         self.return_topk = return_topk
@@ -869,9 +851,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
         """
         if self.using_max_attn_shift:
             cond, prev_attn_peak = self._check_attn_shift(attn, prev_attn_peak)
-            log_probs = mask_by_condition(
-                log_probs, cond, fill_value=self.minus_inf
-            )
+            log_probs = mask_by_condition(log_probs, cond, fill_value=self.minus_inf)
         return log_probs, prev_attn_peak
 
     def _scorer_step(self, inp_tokens, scorer_memory, attn, log_probs):
@@ -964,9 +944,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
             memory = self.permute_mem(memory, index=predecessors)
         return memory
 
-    def _scorer_permute_memory_step(
-        self, scorer_memory, predecessors, candidates
-    ):
+    def _scorer_permute_memory_step(self, scorer_memory, predecessors, candidates):
         """This method permute the scorer_memory if scorer is not None.
 
         Arguments
@@ -1102,9 +1080,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
         # Update alived_seq
         alived_hyps.alived_seq = torch.cat(
             [
-                torch.index_select(
-                    alived_hyps.alived_seq, dim=0, index=predecessors
-                ),
+                torch.index_select(alived_hyps.alived_seq, dim=0, index=predecessors),
                 inp_tokens.unsqueeze(1),
             ],
             dim=-1,
@@ -1173,9 +1149,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
 
         # recover the length normalization
         if self.length_normalization:
-            alived_hyps.sequence_scores = alived_hyps.sequence_scores * (
-                step + 1
-            )
+            alived_hyps.sequence_scores = alived_hyps.sequence_scores * (step + 1)
 
         # The index of which beam the current top-K output came from in (t-1) steps.
         predecessors = (
@@ -1240,9 +1214,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
 
         # Using bos as the first input
         inp_tokens = (
-            torch.zeros(self.n_bh, device=self.device)
-            .fill_(self.bos_index)
-            .long()
+            torch.zeros(self.n_bh, device=self.device).fill_(self.bos_index).long()
         )
 
         # The first index of each sentence.
@@ -1325,13 +1297,8 @@ class S2SBeamSearcher(S2SBaseSearcher):
             for index in eos_indices:
                 # convert to int
                 index = index.item()
-                batch_id = torch.div(
-                    index, self.beam_size, rounding_mode="floor"
-                )
-                if (
-                    len(eos_hyps_and_log_probs_scores[batch_id])
-                    == self.beam_size
-                ):
+                batch_id = torch.div(index, self.beam_size, rounding_mode="floor")
+                if len(eos_hyps_and_log_probs_scores[batch_id]) == self.beam_size:
                     continue
                 hyp = alived_hyps.alived_seq[index, :]
                 log_probs = alived_hyps.alived_log_probs[index, :]
@@ -1389,9 +1356,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
 
         # Get topk indices
         topk_scores, indices = top_scores.topk(self.topk, dim=-1)
-        indices = (indices + self.beam_offset.unsqueeze(1)).view(
-            batch_size * self.topk
-        )
+        indices = (indices + self.beam_offset.unsqueeze(1)).view(batch_size * self.topk)
         # Select topk hypotheses
         topk_hyps = torch.index_select(top_hyps, dim=0, index=indices)
         topk_hyps = topk_hyps.view(batch_size, self.topk, -1)
@@ -1477,9 +1442,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
             attn, prev_attn_peak, log_probs
         )
 
-        log_probs = self._set_eos_minus_inf_step(
-            log_probs, step, self.min_decode_steps
-        )
+        log_probs = self._set_eos_minus_inf_step(log_probs, step, self.min_decode_steps)
 
         log_probs = self._eos_threshold_step(log_probs)
 
@@ -1493,9 +1456,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
             predecessors,
             inp_tokens,
             alived_hyps,
-        ) = self._compute_scores_and_next_inp_tokens(
-            alived_hyps, log_probs, step
-        )
+        ) = self._compute_scores_and_next_inp_tokens(alived_hyps, log_probs, step)
 
         memory, scorer_memory, prev_attn_peak = self._update_permute_memory(
             memory, scorer_memory, predecessors, candidates, prev_attn_peak
@@ -1546,9 +1507,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
         if not self._check_full_beams(eos_hyps_and_log_probs_scores):
             # Using all eos to fill-up the hyps.
             inp_tokens = (
-                torch.zeros(self.n_bh, device=self.device)
-                .fill_(self.eos_index)
-                .long()
+                torch.zeros(self.n_bh, device=self.device).fill_(self.eos_index).long()
             )
             self._update_hyps_and_scores_if_eos_token(
                 inp_tokens, alived_hyps, eos_hyps_and_log_probs_scores, scores
@@ -1622,10 +1581,8 @@ class S2SBeamSearcher(S2SBaseSearcher):
             if self._check_end_condition(alived_hyps):
                 break
 
-        finals_hyps_and_log_probs_scores = (
-            self._fill_alived_hyps_with_eos_token(
-                alived_hyps, eos_hyps_and_log_probs_scores, scores
-            )
+        finals_hyps_and_log_probs_scores = self._fill_alived_hyps_with_eos_token(
+            alived_hyps, eos_hyps_and_log_probs_scores, scores
         )
 
         (
@@ -1748,9 +1705,7 @@ class S2SRNNBeamSearcher(S2SBeamSearcher):
         with torch.no_grad():
             hs, c = memory
             e = self.emb(inp_tokens)
-            dec_out, hs, c, w = self.dec.forward_step(
-                e, hs, c, enc_states, enc_lens
-            )
+            dec_out, hs, c, w = self.dec.forward_step(e, hs, c, enc_states, enc_lens)
             log_probs = self.softmax(self.fc(dec_out) / self.temperature)
             # average attn weight of heads when attn_type is multiheadlocation
             if self.dec.attn_type == "multiheadlocation":
@@ -1959,9 +1914,7 @@ class S2SWhisperBeamSearcher(S2SBeamSearcher):
         elif suppress_tokens is None or len(suppress_tokens) == 0:
             suppress_tokens = []  # interpret empty string as an empty list
         else:
-            assert isinstance(
-                suppress_tokens, list
-            ), "suppress_tokens must be a list"
+            assert isinstance(suppress_tokens, list), "suppress_tokens must be a list"
 
         suppress_tokens.extend(
             [
@@ -2021,9 +1974,7 @@ class S2SWhisperBeamSearcher(S2SBeamSearcher):
         memory_tokens = self.initial_tokens[:-1]
         mem = torch.tensor([memory_tokens] * batch_size).to(device)
         if self.lang_tokens is not None:
-            mem[:, self.initial_tokens.index(self.model.bos) + 1] = (
-                self.lang_tokens
-            )
+            mem[:, self.initial_tokens.index(self.model.bos) + 1] = self.lang_tokens
             # after using it, reset it.
             self.lang_token = None
         return mem
@@ -2054,8 +2005,7 @@ class S2SWhisperBeamSearcher(S2SBeamSearcher):
         for layer_past in past_key_values:
             reordered_past += (
                 tuple(
-                    past_state.index_select(0, beam_idx)
-                    for past_state in layer_past
+                    past_state.index_select(0, beam_idx) for past_state in layer_past
                 ),
             )
         return reordered_past
@@ -2078,9 +2028,7 @@ class S2SWhisperBeamSearcher(S2SBeamSearcher):
                 .float()
                 .softmax(dim=-1)
             )
-            self.no_speech_probs = probs_at_bos[
-                :, self.model.no_speech
-            ].tolist()
+            self.no_speech_probs = probs_at_bos[:, self.model.no_speech].tolist()
 
         logits = logits[:, -1]
 
@@ -2103,8 +2051,7 @@ class S2SWhisperBeamSearcher(S2SBeamSearcher):
             logits[:, list(tokens_to_suppress)] = -torch.inf
 
         log_probs = (
-            torch.nn.functional.log_softmax(logits.float(), dim=-1)
-            / self.temperature
+            torch.nn.functional.log_softmax(logits.float(), dim=-1) / self.temperature
         )
 
         return log_probs, tokens, attn
@@ -2112,8 +2059,7 @@ class S2SWhisperBeamSearcher(S2SBeamSearcher):
     def _check_end_condition(self, alived_hyps):
         """This method checks if the max length is reached."""
         return (
-            alived_hyps.alived_seq.shape[1]
-            >= self.max_attn_tokens - self.sample_begin
+            alived_hyps.alived_seq.shape[1] >= self.max_attn_tokens - self.sample_begin
         )
 
 

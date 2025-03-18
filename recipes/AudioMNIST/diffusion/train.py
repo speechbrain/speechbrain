@@ -12,6 +12,7 @@ for each batch during training.
 Authors
  * Artem Ploujnikov 2022
 """
+
 import os
 import sys
 from collections import namedtuple
@@ -115,9 +116,7 @@ class DiffusionBrain(sb.Brain):
                 self.modules.done_detector.parameters()
             )
             if self.checkpointer is not None:
-                self.checkpointer.add_recoverable(
-                    "optimizer_done", self.optimizer
-                )
+                self.checkpointer.add_recoverable("optimizer_done", self.optimizer)
             self.optimizers_dict["opt_class_done"] = self.optimizer_done
 
         if self.diffusion_mode == DiffusionMode.LATENT:
@@ -128,9 +127,7 @@ class DiffusionBrain(sb.Brain):
                 self.checkpointer.add_recoverable(
                     "autoencoder_optimizer", self.autoencoder_optimizer
                 )
-            self.optimizers_dict["opt_class_autoencoder"] = (
-                self.autoencoder_optimizer
-            )
+            self.optimizers_dict["opt_class_autoencoder"] = self.autoencoder_optimizer
 
     def compute_forward(self, batch, stage):
         """Runs all the computation of that transforms the input into the
@@ -161,9 +158,7 @@ class DiffusionBrain(sb.Brain):
             cond_labels = self.get_cond_labels(batch)
             cond_emb = self.compute_cond_emb(cond_labels)
         if self.diffusion_mode == DiffusionMode.LATENT:
-            mask_value = self.modules.global_norm.normalize(
-                self.mask_value_norm
-            )
+            mask_value = self.modules.global_norm.normalize(self.mask_value_norm)
             latent_mask_value = self.get_latent_mask_value(mask_value)
             (
                 train_sample_diffusion,
@@ -183,12 +178,8 @@ class DiffusionBrain(sb.Brain):
 
         pred_done, feats_done, lens_done = None, None, None
         if self.use_done_detector:
-            feats_done, lens_done = self.prepare_features_done(
-                batch, feats, lens
-            )
-            pred_done = self.modules.done_detector(
-                feats_done.squeeze(1), lens_done
-            )
+            feats_done, lens_done = self.prepare_features_done(batch, feats, lens)
+            pred_done = self.modules.done_detector(feats_done.squeeze(1), lens_done)
 
         # NOTE: lens can change because of the additional padding needed to account
         # NOTE: for downsampling
@@ -310,15 +301,11 @@ class DiffusionBrain(sb.Brain):
         )
         if self.train_diffusion:
             with self.no_sync(not should_step):
-                (loss / self.grad_accumulation_factor).backward(
-                    retain_graph=True
-                )
+                (loss / self.grad_accumulation_factor).backward(retain_graph=True)
         # Done loss - iff applicable
         if self.use_done_detector:
             with self.no_sync(not should_step):
-                (loss_done / self.grad_accumulation_factor).backward(
-                    retain_graph=True
-                )
+                (loss_done / self.grad_accumulation_factor).backward(retain_graph=True)
 
         if should_step:
             if self.train_diffusion:
@@ -330,10 +317,7 @@ class DiffusionBrain(sb.Brain):
                 self.optimizer_done.zero_grad()
 
         # Latent diffusion: Step through the autoencoder
-        if (
-            self.diffusion_mode == DiffusionMode.LATENT
-            and loss_autoencoder is not None
-        ):
+        if self.diffusion_mode == DiffusionMode.LATENT and loss_autoencoder is not None:
             with self.no_sync(not should_step):
                 (loss_autoencoder / self.grad_accumulation_factor).backward()
             if should_step:
@@ -352,10 +336,7 @@ class DiffusionBrain(sb.Brain):
         if (
             self.hparams.enable_train_metrics
             and self.hparams.use_tensorboard
-            and (
-                self.step == 1
-                or self.step % self.hparams.train_log_interval == 0
-            )
+            and (self.step == 1 or self.step % self.hparams.train_log_interval == 0)
         ):
             self.log_batch(outputs)
         return loss
@@ -403,28 +384,17 @@ class DiffusionBrain(sb.Brain):
             self.extract_dist_stats(self.data_dist_stats_metric, prefix="data")
         )
         if self.use_done_detector:
-            stats["done_loss"] = self.done_loss_metric.summarize(
-                field="average"
-            )
+            stats["done_loss"] = self.done_loss_metric.summarize(field="average")
 
-        if (
-            self.diffusion_mode == DiffusionMode.LATENT
-            and self.train_autoencoder
-        ):
-            stats.update(
-                self.autoencoder_loss_metric.summarize(field="average")
-            )
+        if self.diffusion_mode == DiffusionMode.LATENT and self.train_autoencoder:
+            stats.update(self.autoencoder_loss_metric.summarize(field="average"))
             stats["laplacian_loss"] = (
-                self.autoencoder_laplacian_loss_stats_metric.summarize(
-                    field="average"
-                )
+                self.autoencoder_laplacian_loss_stats_metric.summarize(field="average")
             )
             stats["weighted_laplacian_loss"] = (
                 self.hparams.loss_laplacian_weight * stats["laplacian_loss"]
             )
-            stats["lr_autoencoder"] = self.autoencoder_optimizer.param_groups[
-                0
-            ]["lr"]
+            stats["lr_autoencoder"] = self.autoencoder_optimizer.param_groups[0]["lr"]
             stats.update(
                 self.extract_dist_stats(
                     self.autoencoder_rec_dist_stats_metric,
@@ -452,12 +422,8 @@ class DiffusionBrain(sb.Brain):
                 "train_rec_spectrogram", predictions.autoencoder_output.rec[0]
             )
             latent = predictions.autoencoder_output.latent[0]
-            latent = latent.view(
-                latent.size(0) * latent.size(1), latent.size(2)
-            )
-            self.hparams.tensorboard_train_logger.log_figure(
-                "train_rec_latent", latent
-            )
+            latent = latent.view(latent.size(0) * latent.size(1), latent.size(2))
+            self.hparams.tensorboard_train_logger.log_figure("train_rec_latent", latent)
 
     def extract_dist_stats(self, dist_stats_metric, prefix):
         """Extracts stats from a MultiMetricStats instance with a dist_stats metric
@@ -535,12 +501,8 @@ class DiffusionBrain(sb.Brain):
         # Compute metrics
         if self.hparams.enable_train_metrics:
             max_len = feats.size(2)
-            mask = length_to_mask(lens * max_len, max_len)[
-                :, None, :, None
-            ].bool()
-            self.data_dist_stats_metric.append(
-                batch.file_name, feats_raw, mask=mask
-            )
+            mask = length_to_mask(lens * max_len, max_len)[:, None, :, None].bool()
+            self.data_dist_stats_metric.append(batch.file_name, feats_raw, mask=mask)
 
         return feats, lens
 
@@ -611,9 +573,7 @@ class DiffusionBrain(sb.Brain):
 
         """
         wavs_random, lens_random = batch.sig_random
-        feats_random, _, lens_random = self.sig_to_feats(
-            wavs_random, lens_random
-        )
+        feats_random, _, lens_random = self.sig_to_feats(wavs_random, lens_random)
         feats_done, lens_done = data_utils.concat_padded_features(
             feats=[feats, feats_random],
             lens=[lens, lens_random],
@@ -668,9 +628,7 @@ class DiffusionBrain(sb.Brain):
             loss = torch.tensor(0.0, device=self.device)
 
         # Append this batch of losses to the loss metric for easy
-        self.loss_metric.append(
-            batch.file_name, preds, noise, lens, reduction="batch"
-        )
+        self.loss_metric.append(batch.file_name, preds, noise, lens, reduction="batch")
 
         if self.use_done_detector:
             max_len = feats.size(2)
@@ -689,10 +647,7 @@ class DiffusionBrain(sb.Brain):
             loss_done = None
 
         loss_autoencoder = None
-        if (
-            self.diffusion_mode == DiffusionMode.LATENT
-            and self.train_autoencoder
-        ):
+        if self.diffusion_mode == DiffusionMode.LATENT and self.train_autoencoder:
             loss_autoencoder = self.hparams.compute_cost_autoencoder(
                 autoencoder_out, feats, length=lens
             )
@@ -714,16 +669,12 @@ class DiffusionBrain(sb.Brain):
                 reduction="batch",
             )
 
-            loss_autoencoder += (
-                self.hparams.loss_laplacian_weight * loss_laplacian
-            )
+            loss_autoencoder += self.hparams.loss_laplacian_weight * loss_laplacian
 
             max_len = autoencoder_out.rec.size(2)
             rec_mask = length_to_mask(lens * max_len, max_len).unsqueeze(1)
             rec_mask = match_shape(rec_mask, autoencoder_out.rec)
-            rec_denorm = self.modules.global_norm.denormalize(
-                autoencoder_out.rec
-            )
+            rec_denorm = self.modules.global_norm.denormalize(autoencoder_out.rec)
             self.autoencoder_rec_dist_stats_metric.append(
                 batch.file_name, rec_denorm, mask=rec_mask
             )
@@ -780,9 +731,7 @@ class DiffusionBrain(sb.Brain):
             sample[:, :length, :] for sample, length in zip(samples, lens_pred)
         ]
         wav_lens_pred = (lens_pred / samples.size(2) * wav.size(-1)).int()
-        wav_cut = [
-            sample[:length] for sample, length in zip(wav, wav_lens_pred)
-        ]
+        wav_cut = [sample[:length] for sample, length in zip(wav, wav_lens_pred)]
         return samples_cut, wav_cut
 
     def generate_spectrograms(self):
@@ -815,13 +764,9 @@ class DiffusionBrain(sb.Brain):
         samples = [
             (label, idx, sample)
             for label in sample_labels
-            for idx, sample in enumerate(
-                self.generate_spectrograms_for_label(label)
-            )
+            for idx, sample in enumerate(self.generate_spectrograms_for_label(label))
         ]
-        labels = [
-            self.get_sample_label(label, idx) for label, idx, _ in samples
-        ]
+        labels = [self.get_sample_label(label, idx) for label, idx, _ in samples]
         samples = [sample for _, _, sample in samples]
         return labels, samples
 
@@ -841,9 +786,9 @@ class DiffusionBrain(sb.Brain):
             if sample_count is None:
                 sample = torch.arange(cond_config["count"], device=self.device)
             else:
-                sample = torch.randperm(
-                    cond_config["count"], device=self.device
-                )[:sample_count]
+                sample = torch.randperm(cond_config["count"], device=self.device)[
+                    :sample_count
+                ]
             label_samples[key] = sample
 
         samples = dict_value_combinations(label_samples)
@@ -878,9 +823,7 @@ class DiffusionBrain(sb.Brain):
         sample: torch.tensor
             a batch of spectrograms
         """
-        label_msg = ", ".join(
-            f"{key} = {value.item()}" for key, value in label.items()
-        )
+        label_msg = ", ".join(f"{key} = {value.item()}" for key, value in label.items())
         logger.info("Generating samples for labels %s", label_msg)
         cond_emb = self.compute_cond_emb(label)
         sample = self.modules.diffusion_sample.sample(
@@ -961,9 +904,7 @@ class DiffusionBrain(sb.Brain):
             The data to save
         """
         file_name = os.path.join(path, "raw.pt")
-        data = {
-            key: value for key, value in kwargs.items() if value is not None
-        }
+        data = {key: value for key, value in kwargs.items() if value is not None}
         torch.save(data, file_name)
 
     def save_spectrogram_sample(self, sample, file_name, label=None):
@@ -1003,9 +944,7 @@ class DiffusionBrain(sb.Brain):
             samples = torch.stack(samples)
         samples = samples[:, :, :, : self.hparams.spec_n_mels]
         samples = self.modules.min_level_norm.denormalize(samples)
-        samples = AF.DB_to_amplitude(
-            samples, ref=self.hparams.spec_ref, power=1.0
-        )
+        samples = AF.DB_to_amplitude(samples, ref=self.hparams.spec_ref, power=1.0)
         samples = self.modules.dynamic_range_compression(samples)
         return samples
 
@@ -1079,9 +1018,7 @@ class DiffusionBrain(sb.Brain):
         file_name: str
             the file name to save
         """
-        write_audio(
-            file_name, sample, self.hparams.data_prepare_sample_rate_tgt
-        )
+        write_audio(file_name, sample, self.hparams.data_prepare_sample_rate_tgt)
 
     def on_stage_start(self, stage, epoch=None):
         """Gets called at the beginning of each epoch.
@@ -1118,18 +1055,14 @@ class DiffusionBrain(sb.Brain):
         )
 
         if self.hparams.enable_train_metrics:
-            self.data_dist_stats_metric = (
-                sb.utils.metric_stats.MultiMetricStats(
-                    metric=dist_stats, batch_eval=True
-                )
+            self.data_dist_stats_metric = sb.utils.metric_stats.MultiMetricStats(
+                metric=dist_stats, batch_eval=True
             )
 
         if self.diffusion_mode == DiffusionMode.LATENT:
-            self.autoencoder_loss_metric = (
-                sb.utils.metric_stats.MultiMetricStats(
-                    metric=self.hparams.compute_cost_autoencoder.details,
-                    batch_eval=True,
-                )
+            self.autoencoder_loss_metric = sb.utils.metric_stats.MultiMetricStats(
+                metric=self.hparams.compute_cost_autoencoder.details,
+                batch_eval=True,
             )
             self.autoencoder_rec_dist_stats_metric = (
                 sb.utils.metric_stats.MultiMetricStats(
@@ -1147,18 +1080,10 @@ class DiffusionBrain(sb.Brain):
                 )
             )
 
-        self.sample_mean_metric = sb.utils.metric_stats.MetricStats(
-            metric=masked_mean
-        )
-        self.sample_std_metric = sb.utils.metric_stats.MetricStats(
-            metric=masked_std
-        )
-        self.sample_min_metric = sb.utils.metric_stats.MetricStats(
-            metric=masked_min
-        )
-        self.sample_max_metric = sb.utils.metric_stats.MetricStats(
-            metric=masked_max
-        )
+        self.sample_mean_metric = sb.utils.metric_stats.MetricStats(metric=masked_mean)
+        self.sample_std_metric = sb.utils.metric_stats.MetricStats(metric=masked_std)
+        self.sample_min_metric = sb.utils.metric_stats.MetricStats(metric=masked_min)
+        self.sample_max_metric = sb.utils.metric_stats.MetricStats(metric=masked_max)
         self.sample_metrics = [
             self.sample_mean_metric,
             self.sample_std_metric,
@@ -1314,9 +1239,7 @@ class DiffusionBrain(sb.Brain):
         if wav is not None:
             self.save_audio(wav_log, epoch_sample_path, labels=labels)
         if self.diffusion_mode == DiffusionMode.LATENT:
-            self.save_spectrograms(
-                samples_rec, epoch_sample_path, folder="spec_rec"
-            )
+            self.save_spectrograms(samples_rec, epoch_sample_path, folder="spec_rec")
             if wav_rec is not None:
                 self.save_audio(wav_rec, epoch_sample_path, folder="wav_rec")
 
@@ -1347,9 +1270,7 @@ class DiffusionBrain(sb.Brain):
             self.hparams.tensorboard_train_logger.log_stats(
                 stats_meta={"step": self.step}, **stats_args
             )
-            self.log_samples(
-                spectrogram_samples=samples_log, wav_samples=wav_log
-            )
+            self.log_samples(spectrogram_samples=samples_log, wav_samples=wav_log)
             if self.diffusion_mode == DiffusionMode.LATENT:
                 self.log_samples(
                     spectrogram_samples=samples_rec,
@@ -1534,9 +1455,9 @@ def read_audio(wav, hparams):
 
     # To Support random amplitude
     if hparams["rand_amplitude"]:
-        rand_amp = (hparams["max_amp"] - hparams["min_amp"]) * torch.rand(
-            1
-        ) + hparams["min_amp"]
+        rand_amp = (hparams["max_amp"] - hparams["min_amp"]) * torch.rand(1) + hparams[
+            "min_amp"
+        ]
         sig = sig / sig.abs().max()
         sig = sig * rand_amp
     return sig

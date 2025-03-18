@@ -99,9 +99,7 @@ class Separation(sb.Brain):
         # normalize the separation results
         if hasattr(self.hparams, "separation_norm_type"):
             if self.hparams.separation_norm_type == "max":
-                predictions = (
-                    predictions / predictions.max(dim=1, keepdim=True)[0]
-                )
+                predictions = predictions / predictions.max(dim=1, keepdim=True)[0]
                 mix = mix / mix.max(dim=1, keepdim=True)[0]
 
             elif self.hparams.separation_norm_type == "stnorm":
@@ -190,16 +188,13 @@ class Separation(sb.Brain):
                         snrhat,
                         snr,
                         snr_compressed,
-                    ) = self.compute_forward(
-                        mixture, targets, sb.Stage.TRAIN, noise
-                    )
+                    ) = self.compute_forward(mixture, targets, sb.Stage.TRAIN, noise)
 
                     snr = snr.reshape(-1)
                     loss = ((snr_compressed - snrhat).abs()).mean()
 
                     if (
-                        loss.nelement() > 0
-                        and loss < self.hparams.loss_upper_lim
+                        loss.nelement() > 0 and loss < self.hparams.loss_upper_lim
                     ):  # the fix for computational problems
                         self.scaler.scale(loss).backward()
                         if self.hparams.clip_grad_norm >= 0:
@@ -286,9 +281,7 @@ class Separation(sb.Brain):
         # Perform end-of-iteration things, like annealing, logging, etc.
         if stage == sb.Stage.VALID:
             # Learning rate annealing
-            if isinstance(
-                self.hparams.lr_scheduler, schedulers.ReduceLROnPlateau
-            ):
+            if isinstance(self.hparams.lr_scheduler, schedulers.ReduceLROnPlateau):
                 current_lr, next_lr = self.hparams.lr_scheduler(
                     [self.optimizer], epoch, stage_loss
                 )
@@ -371,9 +364,7 @@ class Separation(sb.Brain):
         targets = targets[
             :, randstart : randstart + self.hparams.training_signal_len, :
         ]
-        mixture = mixture[
-            :, randstart : randstart + self.hparams.training_signal_len
-        ]
+        mixture = mixture[:, randstart : randstart + self.hparams.training_signal_len]
         return mixture, targets
 
     def reset_layer_recursively(self, layer):
@@ -390,9 +381,7 @@ class Separation(sb.Brain):
         """
 
         # Create folders where to store audio
-        save_file = os.path.join(
-            self.hparams.output_folder, "test_results_wsj.csv"
-        )
+        save_file = os.path.join(self.hparams.output_folder, "test_results_wsj.csv")
 
         # Variable init
         all_sisnr1s = []
@@ -467,17 +456,13 @@ class Separation(sb.Brain):
             "Mean SISNR for source 1 is {}".format(np.array(all_sisnr1s).mean())
         )
         logger.info(
-            "Mean SISNR hat for source 1 is {}".format(
-                np.array(all_sisnr1_hats).mean()
-            )
+            "Mean SISNR hat for source 1 is {}".format(np.array(all_sisnr1_hats).mean())
         )
         logger.info(
             "Mean SISNR for source 2 is {}".format(np.array(all_sisnr2s).mean())
         )
         logger.info(
-            "Mean SISNR hat for source 2 is {}".format(
-                np.array(all_sisnr2_hats).mean()
-            )
+            "Mean SISNR hat for source 2 is {}".format(np.array(all_sisnr2_hats).mean())
         )
 
 
@@ -589,9 +574,7 @@ if __name__ == "__main__":
     )
 
     # Check if wsj0_tr is set with dynamic mixing
-    if hparams["dynamic_mixing"] and not os.path.exists(
-        hparams["base_folder_dm"]
-    ):
+    if hparams["dynamic_mixing"] and not os.path.exists(hparams["base_folder_dm"]):
         raise ValueError(
             "Please, specify a valid base_folder_dm folder when using dynamic mixing"
         )
@@ -671,8 +654,7 @@ if __name__ == "__main__":
                 # if the processed folder does not exist for whamr dynamic mixing, we do the necessary preprocessing
 
                 if not os.path.exists(
-                    os.path.normpath(hparams["base_folder_dm_whamr"])
-                    + "_processed"
+                    os.path.normpath(hparams["base_folder_dm_whamr"]) + "_processed"
                 ):
                     from preprocess_dynamic_mixing_wham import resample_folder
 
@@ -691,16 +673,14 @@ if __name__ == "__main__":
                     )
                     # adjust the base_folder_dm path
                     hparams["base_folder_dm_whamr"] = (
-                        os.path.normpath(hparams["base_folder_dm_whamr"])
-                        + "_processed"
+                        os.path.normpath(hparams["base_folder_dm_whamr"]) + "_processed"
                     )
                 else:
                     print(
                         "Using the existing processed folder on the same directory as base_folder_dm"
                     )
                     hparams["base_folder_dm_whamr"] = (
-                        os.path.normpath(hparams["base_folder_dm_whamr"])
-                        + "_processed"
+                        os.path.normpath(hparams["base_folder_dm_whamr"]) + "_processed"
                     )
 
             train_data_whamr = dynamic_mix_data_prep_whamr(
@@ -728,9 +708,7 @@ if __name__ == "__main__":
                     resample_folder,
                     kwargs={
                         "input_folder": hparams["base_folder_dm"],
-                        "output_folder": os.path.normpath(
-                            hparams["base_folder_dm"]
-                        )
+                        "output_folder": os.path.normpath(hparams["base_folder_dm"])
                         + "_processed",
                         "fs": hparams["sample_rate"],
                         "regex": "**/*.flac",

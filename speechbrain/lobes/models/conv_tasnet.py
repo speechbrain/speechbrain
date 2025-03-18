@@ -1,5 +1,4 @@
-""" Implementation of a popular speech separation model.
-"""
+"""Implementation of a popular speech separation model."""
 
 import torch
 import torch.nn as nn
@@ -111,8 +110,7 @@ class Decoder(nn.Module):
         """
         # D = W * M
         source_w = (
-            torch.unsqueeze(mixture_w, 2).repeat(1, 1, est_mask.size(2), 1)
-            * est_mask
+            torch.unsqueeze(mixture_w, 2).repeat(1, 1, est_mask.size(2), 1) * est_mask
         )  # [M, K, C, N]
         source_w = source_w.permute(0, 2, 1, 3)  # [M, C, K, N]
         # S = DV
@@ -344,9 +342,7 @@ class TemporalBlock(torch.nn.Module):
             layer_name="conv",
         )
         self.layers.append(nn.PReLU(), layer_name="act")
-        self.layers.append(
-            choose_norm(norm_type, out_channels), layer_name="norm"
-        )
+        self.layers.append(choose_norm(norm_type, out_channels), layer_name="norm")
 
         # [M, K, H] -> [M, K, B]
         self.layers.append(
@@ -611,13 +607,9 @@ class GlobalLayerNorm(nn.Module):
         gLN_y : torch.Tensor
             Tensor shape [M, K. N]
         """
-        mean = y.mean(dim=1, keepdim=True).mean(
-            dim=2, keepdim=True
-        )  # [M, 1, 1]
+        mean = y.mean(dim=1, keepdim=True).mean(dim=2, keepdim=True)  # [M, 1, 1]
         var = (
-            (torch.pow(y - mean, 2))
-            .mean(dim=1, keepdim=True)
-            .mean(dim=2, keepdim=True)
+            (torch.pow(y - mean, 2)).mean(dim=1, keepdim=True).mean(dim=2, keepdim=True)
         )
         gLN_y = self.gamma * (y - mean) / torch.pow(var + EPS, 0.5) + self.beta
         return gLN_y

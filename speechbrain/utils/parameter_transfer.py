@@ -235,9 +235,7 @@ class Pretrainer:
                     "Requested Pretrainer collection using symlinks on Windows. This might not work; see `LocalStrategy` documentation. Consider unsetting `collect_in` in Pretrainer to avoid symlinking altogether."
                 )
         else:
-            logger.debug(
-                "Fetching files for pretraining (no collection directory set)"
-            )
+            logger.debug("Fetching files for pretraining (no collection directory set)")
 
         loadable_paths = {}
         for name in self.loadables:
@@ -251,8 +249,7 @@ class Pretrainer:
                 source = default_source
             else:
                 raise ValueError(
-                    f"Path not specified for '{name}', "
-                    "and no default_source given!"
+                    f"Path not specified for '{name}', and no default_source given!"
                 )
 
             fetch_kwargs = {
@@ -326,9 +323,7 @@ class Pretrainer:
 
     def load_collected(self):
         """Loads the files that have been collected."""
-        logger.info(
-            f"Loading pretrained files for: {', '.join(self.loadables)}"
-        )
+        logger.info(f"Loading pretrained files for: {', '.join(self.loadables)}")
         paramfiles = {}
         for name in self.loadables:
             if not self.is_loadable(name):

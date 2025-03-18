@@ -7,6 +7,7 @@ Does the following feature set work out together on some environment?
 Authors:
     * Andreas Nautsch 2023
 """
+
 import os
 import sys
 from copy import deepcopy
@@ -47,19 +48,17 @@ def eval_reporting(reports, single_node=False):
     for log_metric, specs in reports.items():
         if not single_node:
             print(
-                f'{log_metric} on DDP rank {int(os.environ["RANK"])}: {specs["tracker"].summarize()}'
+                f"{log_metric} on DDP rank {int(os.environ['RANK'])}: {specs['tracker'].summarize()}"
             )
             result_list = [None for _ in range(int(os.environ["WORLD_SIZE"]))]
             # WARNING: https://pytorch.org/docs/stable/distributed.html - underlying `pickle` module is known to be insecure
-            torch.distributed.all_gather_object(
-                result_list, specs["tracker"].scores
-            )
+            torch.distributed.all_gather_object(result_list, specs["tracker"].scores)
             specs["tracker"].scores = list()
             for r in result_list:
                 specs["tracker"].scores.extend(r)
         summary = specs["tracker"].summarize()
         print(f"\tSummary: {summary}")
-        logger.info(f'{log_metric}: {summary[specs["field"]]}\n')
+        logger.info(f"{log_metric}: {summary[specs['field']]}\n")
 
 
 def eval_test_use_recipe_dataio(
@@ -82,9 +81,7 @@ def eval_test_use_recipe_dataio(
     """
     if "ckpt_prefix" in test_kwargs:
         del test_kwargs["ckpt_prefix"]
-    if not (
-        isinstance(test_set, DataLoader) or isinstance(test_set, LoopedLoader)
-    ):
+    if not (isinstance(test_set, DataLoader) or isinstance(test_set, LoopedLoader)):
         test_set = make_dataloader(test_set, **test_kwargs)
 
     with torch.no_grad():
@@ -129,9 +126,7 @@ def eval_test_batch_from_scratch(
     """
     if "ckpt_prefix" in test_kwargs:
         del test_kwargs["ckpt_prefix"]
-    if not (
-        isinstance(test_set, DataLoader) or isinstance(test_set, LoopedLoader)
-    ):
+    if not (isinstance(test_set, DataLoader) or isinstance(test_set, LoopedLoader)):
         test_set = make_dataloader(test_set, **test_kwargs)
 
     with torch.no_grad():
@@ -146,9 +141,7 @@ def eval_test_batch_from_scratch(
                         )
                     )
                 else:
-                    wavs.append(
-                        read_audio(audio_path).to(encoder_decoder_asr.device)
-                    )
+                    wavs.append(read_audio(audio_path).to(encoder_decoder_asr.device))
             wavs, wav_lens = batch_pad_right(wavs)
             predictions = encoder_decoder_asr(wavs, wav_lens)
 
@@ -249,12 +242,8 @@ if __name__ == "__main__":
         run_opts=deepcopy(run_opts),
         checkpointer=hparams["checkpointer"],
     )
-    asr_brain.hparams.valid_search = asr_brain.hparams.valid_search.to(
-        asr_brain.device
-    )
-    asr_brain.hparams.test_search = asr_brain.hparams.test_search.to(
-        asr_brain.device
-    )
+    asr_brain.hparams.valid_search = asr_brain.hparams.valid_search.to(asr_brain.device)
+    asr_brain.hparams.test_search = asr_brain.hparams.test_search.to(asr_brain.device)
     asr_brain.cer_metric = deepcopy(reporting["CER"]["tracker"])
     asr_brain.wer_metric = deepcopy(reporting["WER"]["tracker"])
 
@@ -285,9 +274,7 @@ if __name__ == "__main__":
     # Save, so it can be found as pre-trained model source
     if not os.path.exists(f"{hparams['save_folder']}/CKPT+latest"):
         ddp_barrier()  # just to be sure
-        run_on_main(
-            asr_brain.checkpointer.save_checkpoint, kwargs={"name": "latest"}
-        )
+        run_on_main(asr_brain.checkpointer.save_checkpoint, kwargs={"name": "latest"})
 
     # Clean-up memory (for using EncoderDecoderASR interface only) but preserve testing-relevant objects
     test_datasets = deepcopy(datasets["test"])

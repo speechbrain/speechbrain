@@ -103,9 +103,7 @@ def audiowrite(
 def add_reverb(sasxExe, input_wav, filter_file, output_wav):
     """Function to add reverb"""
     command_sasx_apply_reverb = "{0} -r {1} \
-        -f {2} -o {3}".format(
-        sasxExe, input_wav, filter_file, output_wav
-    )
+        -f {2} -o {3}".format(sasxExe, input_wav, filter_file, output_wav)
 
     subprocess.call(command_sasx_apply_reverb)
     return output_wav
@@ -119,19 +117,19 @@ def add_clipping(audio, max_thresh_perc=0.8):
 
 
 def adsp_filter(Adspvqe, nearEndInput, nearEndOutput, farEndInput):
-    command_adsp_clean = "{0} --breakOnErrors 0 --sampleRate 16000 --useEchoCancellation 0 \
+    command_adsp_clean = (
+        "{0} --breakOnErrors 0 --sampleRate 16000 --useEchoCancellation 0 \
                     --operatingMode 2 --useDigitalAgcNearend 0 --useDigitalAgcFarend 0 \
                     --useVirtualAGC 0 --useComfortNoiseGenerator 0 --useAnalogAutomaticGainControl 0 \
                     --useNoiseReduction 0 --loopbackInputFile {1} --farEndInputFile {2} \
                     --nearEndInputFile {3} --nearEndOutputFile {4}".format(
-        Adspvqe, farEndInput, farEndInput, nearEndInput, nearEndOutput
+            Adspvqe, farEndInput, farEndInput, nearEndInput, nearEndOutput
+        )
     )
     subprocess.call(command_adsp_clean)
 
 
-def snr_mixer(
-    params, clean, noise, snr, target_level=-25, clipping_threshold=0.99
-):
+def snr_mixer(params, clean, noise, snr, target_level=-25, clipping_threshold=0.99):
     """Function to mix clean speech and noise at various SNR levels"""
     # cfg = params['cfg']
     if len(clean) > len(noise):
@@ -168,15 +166,12 @@ def snr_mixer(
 
     # Final check to see if there are any amplitudes exceeding +/- 1. If so, normalize all the signals accordingly
     if is_clipped(noisyspeech):
-        noisyspeech_maxamplevel = max(abs(noisyspeech)) / (
-            clipping_threshold - EPS
-        )
+        noisyspeech_maxamplevel = max(abs(noisyspeech)) / (clipping_threshold - EPS)
         noisyspeech = noisyspeech / noisyspeech_maxamplevel
         clean = clean / noisyspeech_maxamplevel
         noisenewlevel = noisenewlevel / noisyspeech_maxamplevel
         noisy_rms_level = int(
-            20
-            * np.log10(scalarnoisy / noisyspeech_maxamplevel * (rmsnoisy + EPS))
+            20 * np.log10(scalarnoisy / noisyspeech_maxamplevel * (rmsnoisy + EPS))
         )
 
     return clean, noisenewlevel, noisyspeech, noisy_rms_level
@@ -194,12 +189,8 @@ def segmental_snr_mixer(
     clean = clean / (max(abs(clean)) + EPS)
     noise = noise / (max(abs(noise)) + EPS)
     rmsclean, rmsnoise = active_rms(clean=clean, noise=noise)
-    clean = normalize_segmental_rms(
-        clean, rms=rmsclean, target_level=target_level
-    )
-    noise = normalize_segmental_rms(
-        noise, rms=rmsnoise, target_level=target_level
-    )
+    clean = normalize_segmental_rms(clean, rms=rmsclean, target_level=target_level)
+    noise = normalize_segmental_rms(noise, rms=rmsnoise, target_level=target_level)
     # Set the noise level for a given SNR
     noisescalar = rmsclean / (10 ** (snr / 20)) / (rmsnoise + EPS)
     noisenewlevel = noise * noisescalar
@@ -218,15 +209,12 @@ def segmental_snr_mixer(
     noisenewlevel = noisenewlevel * scalarnoisy
     # Final check to see if there are any amplitudes exceeding +/- 1. If so, normalize all the signals accordingly
     if is_clipped(noisyspeech):
-        noisyspeech_maxamplevel = max(abs(noisyspeech)) / (
-            clipping_threshold - EPS
-        )
+        noisyspeech_maxamplevel = max(abs(noisyspeech)) / (clipping_threshold - EPS)
         noisyspeech = noisyspeech / noisyspeech_maxamplevel
         clean = clean / noisyspeech_maxamplevel
         noisenewlevel = noisenewlevel / noisyspeech_maxamplevel
         noisy_rms_level = int(
-            20
-            * np.log10(scalarnoisy / noisyspeech_maxamplevel * (rmsnoisy + EPS))
+            20 * np.log10(scalarnoisy / noisyspeech_maxamplevel * (rmsnoisy + EPS))
         )
 
     return clean, noisenewlevel, noisyspeech, noisy_rms_level
@@ -287,14 +275,12 @@ def activitydetector(audio, fs=16000, energy_thresh=0.13, target_level=-25):
         frame_energy_prob = 1.0 / (1 + np.exp(-(a + b * frame_rms)))
 
         if frame_energy_prob > prev_energy_prob:
-            smoothed_energy_prob = (
-                frame_energy_prob * alpha_att
-                + prev_energy_prob * (1 - alpha_att)
+            smoothed_energy_prob = frame_energy_prob * alpha_att + prev_energy_prob * (
+                1 - alpha_att
             )
         else:
-            smoothed_energy_prob = (
-                frame_energy_prob * alpha_rel
-                + prev_energy_prob * (1 - alpha_rel)
+            smoothed_energy_prob = frame_energy_prob * alpha_rel + prev_energy_prob * (
+                1 - alpha_rel
             )
 
         if smoothed_energy_prob > energy_thresh:
@@ -326,10 +312,7 @@ def audio_segmenter(input_dir, dest_dir, segment_len=10, ext="*.wav"):
     for i in range(len(files)):
         audio, fs = audioread(files[i])
 
-        if (
-            len(audio) > (segment_len * fs)
-            and len(audio) % (segment_len * fs) != 0
-        ):
+        if len(audio) > (segment_len * fs) and len(audio) % (segment_len * fs) != 0:
             audio = np.append(
                 audio,
                 audio[0 : segment_len * fs - (len(audio) % (segment_len * fs))],

@@ -31,10 +31,7 @@ def build_spk_hashtable_aishell1mix(hparams):
     spk_hashtable = {}
 
     # just for one file check if the sample rate is correct
-    assert (
-        torchaudio.info(aishell1_utterances[0]).sample_rate
-        == hparams["sample_rate"]
-    )
+    assert torchaudio.info(aishell1_utterances[0]).sample_rate == hparams["sample_rate"]
     for utt in tqdm(aishell1_utterances):
         path = os.path.normpath(utt)
         path_list = path.split(os.sep)
@@ -70,9 +67,7 @@ def get_wham_noise_filenames(hparams):
         else:
             raise ValueError("Unsupported Sampling Rate")
 
-    noise_files = glob.glob(
-        os.path.join(hparams["data_folder"], noise_path, "*.wav")
-    )
+    noise_files = glob.glob(os.path.join(hparams["data_folder"], noise_path, "*.wav"))
     return noise_files
 
 
@@ -123,8 +118,7 @@ def dynamic_mix_data_prep_aishell1mix(hparams):
         # select two speakers randomly
         sources = []
         spk_files = [
-            np.random.choice(spk_hashtable[spk], 1, False)[0]
-            for spk in speakers
+            np.random.choice(spk_hashtable[spk], 1, False)[0] for spk in speakers
         ]
 
         minlen = min(
@@ -146,9 +140,7 @@ def dynamic_mix_data_prep_aishell1mix(hparams):
                 warnings.simplefilter("ignore")
                 c_loudness = meter.integrated_loudness(signal)
                 if is_noise:
-                    target_loudness = random.uniform(
-                        MIN_LOUDNESS - 5, MAX_LOUDNESS - 5
-                    )
+                    target_loudness = random.uniform(MIN_LOUDNESS - 5, MAX_LOUDNESS - 5)
                 else:
                     target_loudness = random.uniform(MIN_LOUDNESS, MAX_LOUDNESS)
                 signal = pyloudnorm.normalize.loudness(

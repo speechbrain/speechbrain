@@ -150,9 +150,7 @@ class CRDNN(sb.nnet.containers.Sequential):
                 combine_dims=True,
                 layer_name="linear",
             )
-            self.projection.append(
-                sb.nnet.normalization.LayerNorm, layer_name="norm"
-            )
+            self.projection.append(sb.nnet.normalization.LayerNorm, layer_name="norm")
             self.projection.append(activation(), layer_name="act")
 
         if rnn_layers > 0:
@@ -273,9 +271,7 @@ class CNN_Block(sb.nnet.containers.Sequential):
                 layer_name="pooling",
             )
 
-        self.append(
-            sb.nnet.dropout.Dropout2d(drop_rate=dropout), layer_name="drop"
-        )
+        self.append(sb.nnet.dropout.Dropout2d(drop_rate=dropout), layer_name="drop")
 
 
 class DNN_Block(sb.nnet.containers.Sequential):

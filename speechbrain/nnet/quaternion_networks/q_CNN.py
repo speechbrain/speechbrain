@@ -150,26 +150,18 @@ class QConv1d(torch.nn.Module):
                 torch.zeros(self.r_weight.shape), requires_grad=False
             )
         else:
-            self.zero_kernel = torch.Tensor(self.r_weight.shape).requires_grad_(
-                False
-            )
+            self.zero_kernel = torch.Tensor(self.r_weight.shape).requires_grad_(False)
 
         if self.spinor and self.vector_scale:
-            self.scale_param = torch.nn.Parameter(
-                torch.Tensor(self.r_weight.shape)
-            )
+            self.scale_param = torch.nn.Parameter(torch.Tensor(self.r_weight.shape))
             torch.nn.init.xavier_uniform_(self.scale_param.data)
         else:
-            self.scale_param = torch.Tensor(self.r_weight.shape).requires_grad_(
-                False
-            )
+            self.scale_param = torch.Tensor(self.r_weight.shape).requires_grad_(False)
 
         if bias:
             self.bias = torch.nn.Parameter(torch.Tensor(4 * self.out_channels))
         else:
-            self.bias = torch.Tensor(4 * self.out_channels).requires_grad_(
-                False
-            )
+            self.bias = torch.Tensor(4 * self.out_channels).requires_grad_(False)
         self.bias.data.fill_(0)
 
         self.winit = {"quaternion": quaternion_init, "unitary": unitary_init}[
@@ -213,9 +205,7 @@ class QConv1d(torch.nn.Module):
             )
 
         if self.padding == "same":
-            x = self._manage_padding(
-                x, self.kernel_size, self.dilation, self.stride
-            )
+            x = self._manage_padding(x, self.kernel_size, self.dilation, self.stride)
 
         elif self.padding == "causal":
             num_pad = (self.kernel_size - 1) * self.dilation
@@ -226,8 +216,7 @@ class QConv1d(torch.nn.Module):
 
         else:
             raise ValueError(
-                "Padding must be 'same', 'valid' or 'causal'. Got "
-                + self.padding
+                "Padding must be 'same', 'valid' or 'causal'. Got " + self.padding
             )
 
         if self.spinor:
@@ -273,9 +262,7 @@ class QConv1d(torch.nn.Module):
             raise ValueError("out_channels must be divisible by groups")
 
         ks = self.kernel_size
-        w_shape = (self.out_channels, self.in_channels // self.groups) + tuple(
-            (ks,)
-        )
+        w_shape = (self.out_channels, self.in_channels // self.groups) + tuple((ks,))
         return ks, w_shape
 
     def _manage_padding(self, x, kernel_size: int, dilation: int, stride: int):
@@ -479,19 +466,13 @@ class QConv2d(torch.nn.Module):
                 torch.zeros(self.r_weight.shape), requires_grad=False
             )
         else:
-            self.zero_kernel = torch.Tensor(self.r_weight.shape).requires_grad_(
-                False
-            )
+            self.zero_kernel = torch.Tensor(self.r_weight.shape).requires_grad_(False)
 
         if self.spinor and self.vector_scale:
-            self.scale_param = torch.nn.Parameter(
-                torch.Tensor(self.r_weight.shape)
-            )
+            self.scale_param = torch.nn.Parameter(torch.Tensor(self.r_weight.shape))
             torch.nn.init.xavier_uniform_(self.scale_param.data)
         else:
-            self.scale_param = torch.Tensor(self.r_weight.shape).requires_grad_(
-                False
-            )
+            self.scale_param = torch.Tensor(self.r_weight.shape).requires_grad_(False)
 
         if bias:
             self.bias = torch.nn.Parameter(torch.Tensor(4 * self.out_channels))
@@ -547,17 +528,14 @@ class QConv2d(torch.nn.Module):
             )
 
         if self.padding == "same":
-            x = self._manage_padding(
-                x, self.kernel_size, self.dilation, self.stride
-            )
+            x = self._manage_padding(x, self.kernel_size, self.dilation, self.stride)
 
         elif self.padding == "valid":
             pass
 
         else:
             raise ValueError(
-                "Padding must be 'same', 'valid' or 'causal'. Got "
-                + self.padding
+                "Padding must be 'same', 'valid' or 'causal'. Got " + self.padding
             )
 
         if self.spinor:
@@ -666,13 +644,9 @@ class QConv2d(torch.nn.Module):
         L_in = x.shape[-1]
 
         # Time padding
-        padding_time = get_padding_elem(
-            L_in, stride[-1], kernel_size[-1], dilation[-1]
-        )
+        padding_time = get_padding_elem(L_in, stride[-1], kernel_size[-1], dilation[-1])
 
-        padding_freq = get_padding_elem(
-            L_in, stride[-2], kernel_size[-2], dilation[-2]
-        )
+        padding_freq = get_padding_elem(L_in, stride[-2], kernel_size[-2], dilation[-2])
         padding = padding_time + padding_freq
 
         # Applying padding

@@ -32,9 +32,7 @@ def test_get_lexicon(tmp_path, tmp_csv_file):
     # Call the function
     from speechbrain.k2_integration.lexicon import prepare_char_lexicon
 
-    prepare_char_lexicon(
-        lang_dir, vocab_files, csv_files, add_word_boundary=False
-    )
+    prepare_char_lexicon(lang_dir, vocab_files, csv_files, add_word_boundary=False)
 
     # Read the output and assert its content
     with open(lang_dir / "lexicon.txt", "r", encoding="utf-8") as f:
@@ -50,16 +48,11 @@ def test_get_lexicon_with_boundary(tmp_path, tmp_csv_file):
     # Call the function with word boundaries
     from speechbrain.k2_integration.lexicon import prepare_char_lexicon
 
-    prepare_char_lexicon(
-        lang_dir, vocab_files, csv_files, add_word_boundary=True
-    )
+    prepare_char_lexicon(lang_dir, vocab_files, csv_files, add_word_boundary=True)
 
     # Read the output and assert its content
     with open(lang_dir / "lexicon.txt", "r", encoding="utf-8") as f:
-        assert (
-            f.read()
-            == "<UNK> <unk>\nhello h e l l o <eow>\nworld w o r l d <eow>\n"
-        )
+        assert f.read() == "<UNK> <unk>\nhello h e l l o <eow>\nworld w o r l d <eow>\n"
 
 
 @pytest.fixture
@@ -285,9 +278,7 @@ def test_prepare_lang():
     hello h e l l o
     world w o r l d
     """
-    with open(
-        os.path.join(temp_dir, "lexicon.txt"), "w", encoding="utf-8"
-    ) as f:
+    with open(os.path.join(temp_dir, "lexicon.txt"), "w", encoding="utf-8") as f:
         f.write(lexicon_content.strip())
 
     # Step 2: Run prepare_lang
@@ -348,10 +339,7 @@ world w o r l d"""
         unk_tid = lexicon.word_table["<UNK>"]
         hello_tids = lexicon.word_table["hello"]
         expected_oov_tids = [hello_tids] + [unk_tid]
-        assert (
-            lexicon.texts_to_word_ids(["hello universe"])[0]
-            == expected_oov_tids
-        )
+        assert lexicon.texts_to_word_ids(["hello universe"])[0] == expected_oov_tids
 
         # Test with sil_token as separator
         # Assuming that SIL exists in the tokens:

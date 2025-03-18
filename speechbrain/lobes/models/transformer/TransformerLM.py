@@ -107,9 +107,7 @@ class TransformerLM(TransformerInterface):
 
         self.embedding_proj = None
         if d_embedding is not None:
-            self.embedding_proj = Linear(
-                input_size=self.d_embedding, n_neurons=d_model
-            )
+            self.embedding_proj = Linear(input_size=self.d_embedding, n_neurons=d_model)
 
         self.output_proj = ModuleList(
             Linear(input_size=d_model, n_neurons=d_model),
@@ -173,9 +171,7 @@ class TransformerLM(TransformerInterface):
             if p.dim() > 1:
                 torch.nn.init.xavier_normal_(p)
 
-    def make_masks(
-        self, src, pad_idx=0, look_ahead_mask=True, padding_mask=True
-    ):
+    def make_masks(self, src, pad_idx=0, look_ahead_mask=True, padding_mask=True):
         src_mask = None
         if look_ahead_mask:
             src_mask = get_lookahead_mask(src)

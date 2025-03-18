@@ -110,9 +110,7 @@ class SpacyPipeline:
 
         return self.nlp.pipe(map(_as_sentence, inputs))
 
-    def lemmatize(
-        self, inputs: Union[List[str], List[List[str]]]
-    ) -> List[List[str]]:
+    def lemmatize(self, inputs: Union[List[str], List[List[str]]]) -> List[List[str]]:
         """Lemmatize a batch of sentences by processing the input sentences,
         discarding other irrelevant outputs.
 

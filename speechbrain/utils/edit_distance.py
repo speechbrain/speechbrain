@@ -86,9 +86,7 @@ def accumulatable_wer_stats(
                 updated_stats["substitutions"],
             ]
         )
-        updated_stats["WER"] = (
-            100.0 * num_edits / updated_stats["num_ref_tokens"]
-        )
+        updated_stats["WER"] = 100.0 * num_edits / updated_stats["num_ref_tokens"]
     return updated_stats
 
 
@@ -141,9 +139,7 @@ def _batch_stats(
     return stats
 
 
-def op_table(
-    a, b, equality_comparator: Callable[[str, str], bool] = _str_equals
-):
+def op_table(a, b, equality_comparator: Callable[[str, str], bool] = _str_equals):
     """Table of edit operations between a and b.
 
     Solves for the table of edit operations, which is mainly used to
@@ -193,10 +189,7 @@ def op_table(
     # For the edit operation table we will need the whole matrix.
     # We will initialize the table with no-ops, so that we only need to change
     # where an edit is made.
-    table = [
-        [EDIT_SYMBOLS["eq"] for j in range(len(b) + 1)]
-        for i in range(len(a) + 1)
-    ]
+    table = [[EDIT_SYMBOLS["eq"] for j in range(len(b) + 1)] for i in range(len(a) + 1)]
     # We already know the operations on the first row and column:
     for i in range(len(a) + 1):
         table[i][0] = EDIT_SYMBOLS["del"]
@@ -215,10 +208,7 @@ def op_table(
             # Here copying the Kaldi compute-wer comparison order, which in
             # ties prefers:
             # insertion > deletion > substitution
-            if (
-                substitution_cost < insertion_cost
-                and substitution_cost < deletion_cost
-            ):
+            if substitution_cost < insertion_cost and substitution_cost < deletion_cost:
                 curr_row[j] = substitution_cost
                 # Again, note that if not substitution, the edit table already
                 # has the correct no-op symbol.
@@ -707,9 +697,7 @@ def wer_details_by_speaker(details_by_utterance, utt2spk):
                 100.0 * spk_dets["num_edits"] / spk_dets["num_scored_tokens"]
             )
             spk_dets["SER"] = (
-                100.0
-                * spk_dets["num_erroneous_sents"]
-                / spk_dets["num_scored_sents"]
+                100.0 * spk_dets["num_erroneous_sents"] / spk_dets["num_scored_sents"]
             )
         else:
             spk_dets["WER"] = None
@@ -742,17 +730,11 @@ def top_wer_utts(details_by_utterance, top_k=20):
         The utterance dict has the same keys as
         details_by_utterance.
     """
-    scored_utterances = [
-        dets for dets in details_by_utterance if dets["scored"]
-    ]
-    utts_by_wer = sorted(
-        scored_utterances, key=lambda d: d["WER"], reverse=True
-    )
+    scored_utterances = [dets for dets in details_by_utterance if dets["scored"]]
+    utts_by_wer = sorted(scored_utterances, key=lambda d: d["WER"], reverse=True)
     top_non_empty = []
     top_empty = []
-    while utts_by_wer and (
-        len(top_non_empty) < top_k or len(top_empty) < top_k
-    ):
+    while utts_by_wer and (len(top_non_empty) < top_k or len(top_empty) < top_k):
         utt = utts_by_wer.pop(0)
         if utt["hyp_empty"] and len(top_empty) < top_k:
             top_empty.append(utt)

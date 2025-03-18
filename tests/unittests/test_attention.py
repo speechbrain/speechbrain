@@ -8,7 +8,6 @@ from speechbrain.nnet.attention import memoise_at_least
 
 
 def test_rel_pos_MHA(device):
-
     from speechbrain.nnet.attention import RelPosMHAXL
 
     bsz = 2
@@ -22,14 +21,12 @@ def test_rel_pos_MHA(device):
         for ql in q_len:
             for b in bias:
                 for h in head_dim:
-                    relpos = RelPosMHAXL(
-                        emb_dim, num_heads=2, vbias=b, vdim=h
-                    ).to(device)
+                    relpos = RelPosMHAXL(emb_dim, num_heads=2, vbias=b, vdim=h).to(
+                        device
+                    )
                     q = torch.rand((bsz, ql, emb_dim), device=device)
                     k = torch.rand((bsz, kl, emb_dim), device=device)
-                    pos_embs = torch.rand(
-                        (1, 2 * kl - 1, emb_dim), device=device
-                    )
+                    pos_embs = torch.rand((1, 2 * kl - 1, emb_dim), device=device)
                     relpos(q, k, k, pos_embs=pos_embs)
 
 
@@ -73,9 +70,7 @@ def rope_rotate_slow(x: np.ndarray):
     """
     batch_size, length, num_heads, num_dimensions = x.shape
 
-    def dimension_pair_angle(
-        dimension_pair_index: int, num_dimensions: int
-    ) -> float:
+    def dimension_pair_angle(dimension_pair_index: int, num_dimensions: int) -> float:
         return 10000 ** (-2 * dimension_pair_index / num_dimensions)
 
     def make_rotation_matrix(time: int, num_dimensions: int) -> np.ndarray:
@@ -85,21 +80,17 @@ def rope_rotate_slow(x: np.ndarray):
 
         # Implement (15) from https://arxiv.org/pdf/2104.09864 explicitly.
         for dimension_pair_index in range(num_dimensions // 2):
-            angle = time * dimension_pair_angle(
-                dimension_pair_index, num_dimensions
+            angle = time * dimension_pair_angle(dimension_pair_index, num_dimensions)
+            result[dimension_pair_index * 2][dimension_pair_index * 2] = math.cos(angle)
+            result[dimension_pair_index * 2][dimension_pair_index * 2 + 1] = -math.sin(
+                angle
             )
-            result[dimension_pair_index * 2][dimension_pair_index * 2] = (
+            result[dimension_pair_index * 2 + 1][dimension_pair_index * 2] = math.sin(
+                angle
+            )
+            result[dimension_pair_index * 2 + 1][dimension_pair_index * 2 + 1] = (
                 math.cos(angle)
             )
-            result[dimension_pair_index * 2][dimension_pair_index * 2 + 1] = (
-                -math.sin(angle)
-            )
-            result[dimension_pair_index * 2 + 1][dimension_pair_index * 2] = (
-                math.sin(angle)
-            )
-            result[dimension_pair_index * 2 + 1][
-                dimension_pair_index * 2 + 1
-            ] = math.cos(angle)
 
         return result
 
@@ -108,9 +99,7 @@ def rope_rotate_slow(x: np.ndarray):
 
     for batch_index in range(batch_size):
         for time in range(length):
-            rotation_matrix = make_rotation_matrix(time, num_dimensions).astype(
-                x.dtype
-            )
+            rotation_matrix = make_rotation_matrix(time, num_dimensions).astype(x.dtype)
             for head_index in range(num_heads):
                 result[batch_index][time][head_index] = (
                     rotation_matrix @ x[batch_index][time][head_index]

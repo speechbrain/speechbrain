@@ -173,9 +173,7 @@ class LLAMA2(HFTransformersInterface):
             Reply to conversation.
         """
         with torch.set_grad_enabled(not self.freeze):
-            output = self.model.forward(
-                input_ids, attention_mask=attention_mask
-            )
+            output = self.model.forward(input_ids, attention_mask=attention_mask)
         return output
 
     def _modify_state_dict(self, path, replaceables=["base_model"]):
@@ -209,8 +207,7 @@ class LLAMA2(HFTransformersInterface):
             None,
         )
         new_num_tokens = (
-            orig_state_dict.get(desired_key).size(0)
-            - self.model.config.vocab_size
+            orig_state_dict.get(desired_key).size(0) - self.model.config.vocab_size
         )
         if new_num_tokens > 0:
             self.model.resize_token_embeddings(new_num_tokens=32001)
@@ -321,9 +318,7 @@ class LLAMA2(HFTransformersInterface):
                 setattr(
                     module,
                     name,
-                    Linear4bit(
-                        child.in_features, child.out_features, bias=child.bias
-                    ),
+                    Linear4bit(child.in_features, child.out_features, bias=child.bias),
                 )
             else:
                 self.replace_linear(child)

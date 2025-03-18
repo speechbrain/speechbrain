@@ -344,11 +344,7 @@ class LinearWarmupScheduler:
         Current and new hyperparam value.
         """
         if current_step < self.num_warmup_steps:
-            return (
-                float(current_step)
-                / float(max(1, self.num_warmup_steps))
-                * self.lr0
-            )
+            return float(current_step) / float(max(1, self.num_warmup_steps)) * self.lr0
         return self.lr0 * max(
             0.0,
             float(self.num_training_steps - current_step)
@@ -862,9 +858,7 @@ class CyclicCosineScheduler:
 
     def _get_lr_scale(self):
         n_steps, n_warmup_steps = self.n_steps, self.n_warmup_steps
-        return 0.5 * (
-            math.cos(math.pi * (n_steps - n_warmup_steps) / self.total) + 1
-        )
+        return 0.5 * (math.cos(math.pi * (n_steps - n_warmup_steps) / self.total) + 1)
 
     @checkpoints.mark_as_saver
     def save(self, path):
@@ -917,9 +911,7 @@ class ReduceLROnPlateau:
     0.5
     """
 
-    def __init__(
-        self, lr_min=1e-8, factor=0.5, patience=2, dont_halve_until_epoch=65
-    ):
+    def __init__(self, lr_min=1e-8, factor=0.5, patience=2, dont_halve_until_epoch=65):
         self.lr_min = lr_min
         self.factor = factor
         self.patience = patience
@@ -958,8 +950,7 @@ class ReduceLROnPlateau:
                     next_lr = current_lr
                     self.anchor = current_loss
                 elif (
-                    current_loss > self.anchor
-                    and self.patience_counter < self.patience
+                    current_loss > self.anchor and self.patience_counter < self.patience
                 ):
                     self.patience_counter = self.patience_counter + 1
                     next_lr = current_lr
@@ -1244,9 +1235,7 @@ class IntervalScheduler:
 
     def _compute_next(self):
         self._next_intervals = [
-            interval
-            for interval in self.intervals
-            if interval["steps"] > self.n_steps
+            interval for interval in self.intervals if interval["steps"] > self.n_steps
         ]
 
     def _get_lr(self, current_lr):
@@ -1409,9 +1398,7 @@ class WarmCoolDecayLRSchedule:
             lr = base_lr - decrease * n
         else:
             # Slow decay for training.
-            lr = self.base_lr * math.exp(
-                self.power * (num_updates - self.warmup)
-            )
+            lr = self.base_lr * math.exp(self.power * (num_updates - self.warmup))
         for param_group in opt.param_groups:
             param_group["lr"] = lr
 
@@ -1621,8 +1608,7 @@ class TriStageLRSchedule:
         else:
             # Decay lr
             lr = self.peak_lr * math.exp(
-                -self.decay_factor
-                * (num_updates - self.hold_steps - self.warmup_steps)
+                -self.decay_factor * (num_updates - self.hold_steps - self.warmup_steps)
             )
 
         for param_group in opt.param_groups:

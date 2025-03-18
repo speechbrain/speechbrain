@@ -119,9 +119,7 @@ class WavTokenizer(nn.Module):
 
     @torch.no_grad()
     def _compute_embedding(self):
-        embs = self.model.feature_extractor.encodec.quantizer.vq.layers[
-            0
-        ].codebook
+        embs = self.model.feature_extractor.encodec.quantizer.vq.layers[0].codebook
         return embs
 
     def encode(self, inputs):

@@ -319,9 +319,7 @@ def download_file(
         Else the download might have failed or is incomplete.
     """
     print("Downloading:", split_name, "=>", filename)
-    resume_header = (
-        {"Range": f"bytes={resume_byte_pos}-"} if resume_byte_pos else None
-    )
+    resume_header = {"Range": f"bytes={resume_byte_pos}-"} if resume_byte_pos else None
     response = requests.get(download_url, headers=resume_header, stream=True)
     file_size = int(response.headers.get("Content-Length"))
 
@@ -541,9 +539,7 @@ def validate_file(download_url, download_path):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description="Download and extract DNS dataset."
-    )
+    parser = argparse.ArgumentParser(description="Download and extract DNS dataset.")
     parser.add_argument(
         "--compressed_path",
         type=str,

@@ -251,9 +251,7 @@ class HFTransformersInterface(nn.Module):
             save_path + "/models--" + path.replace("/", "--") + "/snapshots"
         )
         if sink.exists():
-            sink = (
-                sink / os.listdir(str(sink))[0]
-            )  # there's a hash-id subfolder
+            sink = sink / os.listdir(str(sink))[0]  # there's a hash-id subfolder
             if any(
                 File.endswith((".bin", ".safetensors", ".ckpt"))
                 for File in os.listdir(str(sink))
@@ -281,9 +279,7 @@ class HFTransformersInterface(nn.Module):
                     is_sb = True
                     return is_sb, checkpoint_filename, is_local
         else:
-            files = model_info(
-                path
-            ).siblings  # get the list of files of the Hub
+            files = model_info(path).siblings  # get the list of files of the Hub
 
             # Test if it's an HuggingFace model or a SB one
             for File in files:

@@ -117,15 +117,11 @@ class BaseSemDistStats(MetricStats):
             ref_emb = self.embed_function(ref_text).cpu()
             hyp_emb = self.embed_function(hyp_text).cpu()
 
-            similarity = torch.nn.functional.cosine_similarity(
-                ref_emb, hyp_emb, dim=-1
-            )
+            similarity = torch.nn.functional.cosine_similarity(ref_emb, hyp_emb, dim=-1)
             chunk_semdist = (1.0 - similarity) * self.scale
 
             for i, utt_id in enumerate(ids):
-                self.scores.append(
-                    {"key": utt_id, "semdist": chunk_semdist[i].item()}
-                )
+                self.scores.append({"key": utt_id, "semdist": chunk_semdist[i].item()})
 
             semdist_sum += chunk_semdist.sum()
 
@@ -186,12 +182,8 @@ class SemDistStats(BaseSemDistStats):
         if self.method == "meanpool":
             masked_hidden = hidden.cpu() * mask.unsqueeze(-1)
             nonmasked_counts = torch.sum(mask, dim=-1)  # shape: [batch_size]
-            return torch.sum(
-                masked_hidden, dim=-2
-            ) / nonmasked_counts.unsqueeze(-1)
+            return torch.sum(masked_hidden, dim=-2) / nonmasked_counts.unsqueeze(-1)
         elif self.method == "cls":
             return hidden[:, 0, :].cpu()  # the first token
         else:
-            raise ValueError(
-                f"Specified SemDist method {self.method} is invalid"
-            )
+            raise ValueError(f"Specified SemDist method {self.method} is invalid")

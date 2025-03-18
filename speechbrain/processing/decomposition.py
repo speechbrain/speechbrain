@@ -82,7 +82,6 @@ def gevd(a, b=None):
     ash = f(a)
 
     if b is None:
-
         b = torch.zeros(a.shape, dtype=a.dtype, device=a.device)
         ids = torch.triu_indices(C, C)
         b[..., 0, ids[0] == ids[1]] = 1.0

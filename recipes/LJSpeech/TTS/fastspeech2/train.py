@@ -62,10 +62,7 @@ class FastSpeech2Brain(sb.Brain):
         tokens, durations, pitch, energy, no_spn_seqs, last_phonemes = inputs
 
         # Forward pass for the silent token predictor module
-        if (
-            self.hparams.epoch_counter.current
-            > self.hparams.train_spn_predictor_epochs
-        ):
+        if self.hparams.epoch_counter.current > self.hparams.train_spn_predictor_epochs:
             self.hparams.modules["spn_predictor"].eval()
             with torch.no_grad():
                 spn_preds = self.hparams.modules["spn_predictor"](
@@ -238,9 +235,7 @@ class FastSpeech2Brain(sb.Brain):
                     mel_lens_spn_pred,
                 ) = self.run_inference()
                 self.hparams.progress_sample_logger.save(epoch)
-                self.run_vocoder(
-                    inference_mel, mel_lens, sample_type="with_spn"
-                )
+                self.run_vocoder(inference_mel, mel_lens, sample_type="with_spn")
                 self.run_vocoder(
                     inf_mel_spn_pred, mel_lens_spn_pred, sample_type="no_spn"
                 )
@@ -276,9 +271,7 @@ class FastSpeech2Brain(sb.Brain):
         ) = self.hparams.model(tokens)
 
         self.hparams.progress_sample_logger.remember(
-            infer_output=self.process_mel(
-                postnet_mel_out, [len(postnet_mel_out[0])]
-            )
+            infer_output=self.process_mel(postnet_mel_out, [len(postnet_mel_out[0])])
         )
 
         # Generates inference samples using the silent phoneme predictor
@@ -318,9 +311,7 @@ class FastSpeech2Brain(sb.Brain):
                 .int()
                 .to(self.device)
             )
-            last_phonemes = torch.LongTensor(last_phonemes_combined[i]).to(
-                self.device
-            )
+            last_phonemes = torch.LongTensor(last_phonemes_combined[i]).to(self.device)
 
             # Runs the silent phoneme predictor
             spn_preds = (
@@ -344,9 +335,9 @@ class FastSpeech2Brain(sb.Brain):
                 max_seq_len = tokens_with_spn.shape[-1]
 
         # "tokens_with_spn_tensor" holds the input phoneme sequence with silent phonemes
-        tokens_with_spn_tensor = torch.LongTensor(
-            tokens.shape[0], max_seq_len
-        ).to(self.device)
+        tokens_with_spn_tensor = torch.LongTensor(tokens.shape[0], max_seq_len).to(
+            self.device
+        )
         tokens_with_spn_tensor.zero_()
 
         for seq_idx, seq in enumerate(all_tokens_with_spn):
@@ -453,13 +444,9 @@ class FastSpeech2Brain(sb.Brain):
         pitch = pitch_padded.to(self.device, non_blocking=True).float()
         energy = energy_padded.to(self.device, non_blocking=True).float()
         mel_lengths = output_lengths.to(self.device, non_blocking=True).long()
-        no_spn_seqs = no_spn_seq_padded.to(
-            self.device, non_blocking=True
-        ).long()
+        no_spn_seqs = no_spn_seq_padded.to(self.device, non_blocking=True).long()
         spn_labels = spn_labels_padded.to(self.device, non_blocking=True).long()
-        last_phonemes = last_phonemes_padded.to(
-            self.device, non_blocking=True
-        ).long()
+        last_phonemes = last_phonemes_padded.to(self.device, non_blocking=True).long()
         x = (phonemes, durations, pitch, energy, no_spn_seqs, last_phonemes)
         y = (
             spectogram,
@@ -514,9 +501,9 @@ def dataio_prepare(hparams):
         label_phoneme = label_phoneme.split()
         text_seq = input_encoder.encode_sequence_torch(label_phoneme).int()
 
-        assert len(text_seq) == len(
-            durs
-        ), f"{len(text_seq)}, {len(durs), len(label_phoneme)}, ({label_phoneme})"  # ensure every token has a duration
+        assert len(text_seq) == len(durs), (
+            f"{len(text_seq)}, {len(durs), len(label_phoneme)}, ({label_phoneme})"
+        )  # ensure every token has a duration
 
         no_spn_label, last_phonemes = list(), list()
         for i in range(len(label_phoneme)):

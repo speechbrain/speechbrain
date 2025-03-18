@@ -16,12 +16,7 @@ def test_deltas(device):
 def test_context_window(device):
     from speechbrain.processing.features import ContextWindow
 
-    inp = (
-        torch.tensor([1, 2, 3], device=device)
-        .unsqueeze(0)
-        .unsqueeze(-1)
-        .float()
-    )
+    inp = torch.tensor([1, 2, 3], device=device).unsqueeze(0).unsqueeze(-1).float()
     compute_cw = ContextWindow(left_frames=1, right_frames=1).to(device)
     out = (
         torch.tensor([[0, 1, 2], [1, 2, 3], [2, 3, 0]], device=device)
@@ -101,12 +96,7 @@ def test_input_normalization(device):
     assert torch.jit.trace(norm, (inputs, inp_len))
 
     norm = InputNormalization().to(device)
-    inputs = (
-        torch.FloatTensor([1, 2, 3, 0, 0, 0])
-        .to(device)
-        .unsqueeze(0)
-        .unsqueeze(2)
-    )
+    inputs = torch.FloatTensor([1, 2, 3, 0, 0, 0]).to(device).unsqueeze(0).unsqueeze(2)
     inp_len = torch.FloatTensor([0.5]).to(device)
     out_norm = norm(inputs, inp_len).squeeze()
     target = torch.FloatTensor([-1, 0, 1, -2, -2, -2]).to(device)

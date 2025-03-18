@@ -67,7 +67,9 @@ def transducer_loss(
         try:
             from torchaudio.functional import rnnt_loss
         except ImportError:
-            err_msg = "The dependency torchaudio >= 0.10.0 is needed to use Transducer Loss\n"
+            err_msg = (
+                "The dependency torchaudio >= 0.10.0 is needed to use Transducer Loss\n"
+            )
             err_msg += "Cannot import torchaudio.functional.rnnt_loss.\n"
             err_msg += "To use it, please install torchaudio >= 0.10.0\n"
             err_msg += "==================\n"
@@ -179,9 +181,9 @@ class PitWrapper(nn.Module):
         )
 
         loss_mat = self.base_loss(pred, target)
-        assert (
-            len(loss_mat.shape) >= 2
-        ), "Base loss should not perform any reduction operation"
+        assert len(loss_mat.shape) >= 2, (
+            "Base loss should not perform any reduction operation"
+        )
         mean_over = [x for x in range(len(loss_mat.shape))]
         loss_mat = loss_mat.mean(dim=mean_over[:-2])
 
@@ -296,9 +298,7 @@ def ctc_loss(
         return loss
 
 
-def l1_loss(
-    predictions, targets, length=None, allowed_len_diff=3, reduction="mean"
-):
+def l1_loss(predictions, targets, length=None, allowed_len_diff=3, reduction="mean"):
     """Compute the true l1 loss, accounting for length differences.
 
     Arguments
@@ -328,14 +328,10 @@ def l1_loss(
     """
     predictions, targets = truncate(predictions, targets, allowed_len_diff)
     loss = functools.partial(torch.nn.functional.l1_loss, reduction="none")
-    return compute_masked_loss(
-        loss, predictions, targets, length, reduction=reduction
-    )
+    return compute_masked_loss(loss, predictions, targets, length, reduction=reduction)
 
 
-def mse_loss(
-    predictions, targets, length=None, allowed_len_diff=3, reduction="mean"
-):
+def mse_loss(predictions, targets, length=None, allowed_len_diff=3, reduction="mean"):
     """Compute the true mean squared error, accounting for length differences.
 
     Arguments
@@ -365,9 +361,7 @@ def mse_loss(
     """
     predictions, targets = truncate(predictions, targets, allowed_len_diff)
     loss = functools.partial(torch.nn.functional.mse_loss, reduction="none")
-    return compute_masked_loss(
-        loss, predictions, targets, length, reduction=reduction
-    )
+    return compute_masked_loss(loss, predictions, targets, length, reduction=reduction)
 
 
 def classification_error(
@@ -402,9 +396,7 @@ def classification_error(
     tensor(0.5000)
     """
     if len(probabilities.shape) == 3 and len(targets.shape) == 2:
-        probabilities, targets = truncate(
-            probabilities, targets, allowed_len_diff
-        )
+        probabilities, targets = truncate(probabilities, targets, allowed_len_diff)
 
     def error(predictions, targets):
         """Computes the classification error."""
@@ -699,9 +691,7 @@ def distance_diff_loss(
     tensor(0.2967)
     """
     return compute_masked_loss(
-        functools.partial(
-            _distance_diff_loss, beta=beta, max_weight=max_weight
-        ),
+        functools.partial(_distance_diff_loss, beta=beta, max_weight=max_weight),
         predictions=predictions,
         targets=targets,
         length=length,
@@ -832,9 +822,7 @@ def compute_masked_loss(
     mask = compute_length_mask(mask_data, length)
 
     loss *= mask
-    return reduce_loss(
-        loss, mask, reduction, label_smoothing, predictions, targets
-    )
+    return reduce_loss(loss, mask, reduction, label_smoothing, predictions, targets)
 
 
 def compute_length_mask(data, length=None, len_dim=1):
@@ -1080,13 +1068,9 @@ def cal_si_snr(source, estimate_source):
     mask = get_mask(source, source_lengths)
     estimate_source *= mask
 
-    num_samples = (
-        source_lengths.contiguous().reshape(1, -1, 1).float()
-    )  # [1, B, 1]
+    num_samples = source_lengths.contiguous().reshape(1, -1, 1).float()  # [1, B, 1]
     mean_target = torch.sum(source, dim=0, keepdim=True) / num_samples
-    mean_estimate = (
-        torch.sum(estimate_source, dim=0, keepdim=True) / num_samples
-    )
+    mean_estimate = torch.sum(estimate_source, dim=0, keepdim=True) / num_samples
     zero_mean_target = source - mean_target
     zero_mean_estimate = estimate_source - mean_estimate
     # mask padding position along T
@@ -1099,16 +1083,12 @@ def cal_si_snr(source, estimate_source):
     s_estimate = zero_mean_estimate  # [T, B, C]
     # s_target = <s', s>s / ||s||^2
     dot = torch.sum(s_estimate * s_target, dim=0, keepdim=True)  # [1, B, C]
-    s_target_energy = (
-        torch.sum(s_target**2, dim=0, keepdim=True) + EPS
-    )  # [1, B, C]
+    s_target_energy = torch.sum(s_target**2, dim=0, keepdim=True) + EPS  # [1, B, C]
     proj = dot * s_target / s_target_energy  # [T, B, C]
     # e_noise = s' - s_target
     e_noise = s_estimate - proj  # [T, B, C]
     # SI-SNR = 10 * log_10(||s_target||^2 / ||e_noise||^2)
-    si_snr_beforelog = torch.sum(proj**2, dim=0) / (
-        torch.sum(e_noise**2, dim=0) + EPS
-    )
+    si_snr_beforelog = torch.sum(proj**2, dim=0) / (torch.sum(e_noise**2, dim=0) + EPS)
     si_snr = 10 * torch.log10(si_snr_beforelog + EPS)  # [B, C]
 
     return -si_snr.unsqueeze(0)
@@ -1140,13 +1120,9 @@ def cal_snr(source, estimate_source):
     mask = get_mask(source, source_lengths)  # [T, E, 1]
     estimate_source *= mask
 
-    num_samples = (
-        source_lengths.contiguous().reshape(1, -1, 1).float()
-    )  # [1, B, 1]
+    num_samples = source_lengths.contiguous().reshape(1, -1, 1).float()  # [1, B, 1]
     mean_target = torch.sum(source, dim=0, keepdim=True) / num_samples
-    mean_estimate = (
-        torch.sum(estimate_source, dim=0, keepdim=True) / num_samples
-    )
+    mean_estimate = torch.sum(estimate_source, dim=0, keepdim=True) / num_samples
     zero_mean_target = source - mean_target
     zero_mean_estimate = estimate_source - mean_estimate
     # mask padding position along T
@@ -1571,12 +1547,8 @@ class ContrastiveLoss(nn.Module):
         # N, B, T -> T, B, N -> T*B, N
         logits = logits.transpose(0, 2).reshape(-1, logits.size(0))
 
-        targets = torch.zeros(
-            (logits.size(0)), dtype=torch.long, device=logits.device
-        )
-        loss = F.cross_entropy(
-            logits / self.logit_temp, targets, reduction="sum"
-        )
+        targets = torch.zeros((logits.size(0)), dtype=torch.long, device=logits.device)
+        loss = F.cross_entropy(logits / self.logit_temp, targets, reduction="sum")
         accuracy = torch.sum(logits.argmax(-1) == 0) / (
             logits.numel() / logits.size(-1)
         )
@@ -1711,9 +1683,7 @@ class VariationalAutoencoderLoss(nn.Module):
 
     def _compute_components(self, predictions, targets):
         rec, _, mean, log_var, _, _ = predictions
-        rec_loss = self._align_length_axis(
-            self.rec_loss(targets, rec, reduction=None)
-        )
+        rec_loss = self._align_length_axis(self.rec_loss(targets, rec, reduction=None))
         dist_loss = self._align_length_axis(
             -0.5 * (1 + log_var - mean**2 - log_var.exp())
         )
@@ -1839,9 +1809,7 @@ VariationalAutoencoderLossDetails = namedtuple(
     ["loss", "rec_loss", "dist_loss", "weighted_dist_loss"],
 )
 
-AutoencoderLossDetails = namedtuple(
-    "AutoencoderLossDetails", ["loss", "rec_loss"]
-)
+AutoencoderLossDetails = namedtuple("AutoencoderLossDetails", ["loss", "rec_loss"])
 
 
 class Laplacian(nn.Module):
@@ -1885,9 +1853,7 @@ class Laplacian(nn.Module):
 
     def get_kernel(self):
         """Computes the Laplacian kernel"""
-        kernel = -torch.ones(
-            self.kernel_size, self.kernel_size, dtype=self.dtype
-        )
+        kernel = -torch.ones(self.kernel_size, self.kernel_size, dtype=self.dtype)
         mid_position = self.kernel_size // 2
         mid_value = self.kernel_size**2 - 1.0
         kernel[mid_position, mid_position] = mid_value

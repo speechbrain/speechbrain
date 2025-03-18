@@ -229,24 +229,18 @@ def g3_loss(
     discrimloss = 0.5 * ((d_outputs - 1) ** 2)
     l1norm = torch.nn.functional.l1_loss(predictions, targets, reduction="none")
 
-    if not (
-        z_mean is None
-    ):  # This will determine if model is being trained as a vae
+    if not (z_mean is None):  # This will determine if model is being trained as a vae
         ZERO = torch.zeros_like(z_mean)
         distq = torch.distributions.normal.Normal(
             z_mean, torch.exp(z_logvar) ** (1 / 2)
         )
-        distp = torch.distributions.normal.Normal(
-            ZERO, torch.exp(ZERO) ** (1 / 2)
-        )
+        distp = torch.distributions.normal.Normal(ZERO, torch.exp(ZERO) ** (1 / 2))
         kl = torch.distributions.kl.kl_divergence(distq, distp)
         kl = kl.sum(axis=1).sum(axis=1).mean()
     else:
         kl = 0
     if reduction == "mean":
-        return (
-            discrimloss.mean() + l1LossCoeff * l1norm.mean() + klLossCoeff * kl
-        )
+        return discrimloss.mean() + l1LossCoeff * l1norm.mean() + klLossCoeff * kl
     elif reduction == "batch":
         dloss = discrimloss.view(discrimloss.size(0), -1).mean(1)
         lloss = l1norm.view(l1norm.size(0), -1).mean(1)

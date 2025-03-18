@@ -392,9 +392,7 @@ class Gigaspeech(datasets.GeneratorBasedBuilder):
     ):
         assert len(audio_archives_iterators) == len(meta_paths)
         if local_audio_archives_paths:
-            assert len(audio_archives_iterators) == len(
-                local_audio_archives_paths
-            )
+            assert len(audio_archives_iterators) == len(local_audio_archives_paths)
 
         for i, (meta_path, audio_archive_iterator) in enumerate(
             zip(meta_paths, audio_archives_iterators)
@@ -418,21 +416,22 @@ class Gigaspeech(datasets.GeneratorBasedBuilder):
                     audio_meta["category"] = "N/A"
 
                 path = (
-                    os.path.join(
-                        local_audio_archives_paths[i], audio_path_in_archive
-                    )
+                    os.path.join(local_audio_archives_paths[i], audio_path_in_archive)
                     if local_audio_archives_paths
                     else audio_path_in_archive
                 )
 
-                yield audio_id, {
-                    "audio": {"path": path, "bytes": audio_file.read()},
-                    **{
-                        feature: value
-                        for feature, value in audio_meta.items()
-                        if feature in self.info.features
+                yield (
+                    audio_id,
+                    {
+                        "audio": {"path": path, "bytes": audio_file.read()},
+                        **{
+                            feature: value
+                            for feature, value in audio_meta.items()
+                            if feature in self.info.features
+                        },
                     },
-                }
+                )
 
 
 def _flatten_nested_dict(nested_dict):

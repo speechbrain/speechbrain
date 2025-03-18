@@ -117,9 +117,7 @@ def data_prep(data_folder, hparams):
     sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline)
 
     # 3. Set output:
-    sb.dataio.dataset.set_output_keys(
-        datasets, ["id", "mix_sig", "source1", "source2"]
-    )
+    sb.dataio.dataset.set_output_keys(datasets, ["id", "mix_sig", "source1", "source2"])
 
     return train_data, valid_data
 

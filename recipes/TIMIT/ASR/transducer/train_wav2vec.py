@@ -11,6 +11,7 @@ Authors
  * Mirco Ravanelli 2020
  * Ju-Chieh Chou 2020
 """
+
 import os
 import sys
 
@@ -42,9 +43,7 @@ class ASR_Brain(sb.Brain):
         x = self.modules.enc_lin(x)
 
         # Prepend bos token at the beginning
-        y_in = sb.dataio.dataio.prepend_bos_token(
-            phns, self.hparams.blank_index
-        )
+        y_in = sb.dataio.dataio.prepend_bos_token(phns, self.hparams.blank_index)
         e_in = self.modules.emb(y_in)
         h, _ = self.modules.dec(e_in)
         h = self.modules.dec_lin(h)
@@ -87,9 +86,7 @@ class ASR_Brain(sb.Brain):
 
         # Transducer loss use logits from RNN-T model.
         loss = self.hparams.compute_cost(predictions, phns, wav_lens, phn_lens)
-        self.transducer_metrics.append(
-            ids, predictions, phns, wav_lens, phn_lens
-        )
+        self.transducer_metrics.append(ids, predictions, phns, wav_lens, phn_lens)
 
         if stage != sb.Stage.TRAIN:
             self.per_metrics.append(
@@ -114,12 +111,8 @@ class ASR_Brain(sb.Brain):
 
         if stage == sb.Stage.VALID:
             old_lr_adam, new_lr_adam = self.hparams.lr_annealing_adam(per)
-            old_lr_wav2vec, new_lr_wav2vec = self.hparams.lr_annealing_wav2vec(
-                per
-            )
-            sb.nnet.schedulers.update_learning_rate(
-                self.adam_optimizer, new_lr_adam
-            )
+            old_lr_wav2vec, new_lr_wav2vec = self.hparams.lr_annealing_wav2vec(per)
+            sb.nnet.schedulers.update_learning_rate(self.adam_optimizer, new_lr_adam)
             sb.nnet.schedulers.update_learning_rate(
                 self.wav2vec_optimizer, new_lr_wav2vec
             )
@@ -133,9 +126,7 @@ class ASR_Brain(sb.Brain):
                 train_stats={"loss": self.train_loss},
                 valid_stats={"loss": stage_loss, "PER": per},
             )
-            self.checkpointer.save_and_keep_only(
-                meta={"PER": per}, min_keys=["PER"]
-            )
+            self.checkpointer.save_and_keep_only(meta={"PER": per}, min_keys=["PER"])
 
         if stage == sb.Stage.TEST:
             self.hparams.train_logger.log_stats(
@@ -143,9 +134,7 @@ class ASR_Brain(sb.Brain):
                 test_stats={"loss": stage_loss, "PER": per},
             )
             if if_main_process():
-                with open(
-                    self.hparams.test_wer_file, "w", encoding="utf-8"
-                ) as w:
+                with open(self.hparams.test_wer_file, "w", encoding="utf-8") as w:
                     w.write("Transducer loss stats:\n")
                     self.transducer_metrics.write_stats(w)
                     w.write("\nPER stats:\n")
@@ -165,9 +154,7 @@ class ASR_Brain(sb.Brain):
         )
 
         if self.checkpointer is not None:
-            self.checkpointer.add_recoverable(
-                "wav2vec_opt", self.wav2vec_optimizer
-            )
+            self.checkpointer.add_recoverable("wav2vec_opt", self.wav2vec_optimizer)
             self.checkpointer.add_recoverable("adam_opt", self.adam_optimizer)
 
         self.optimizers_dict = {
@@ -196,9 +183,7 @@ def dataio_prep(hparams):
         hparams["train_dataloader_opts"]["shuffle"] = False
 
     elif hparams["sorting"] == "descending":
-        train_data = train_data.filtered_sorted(
-            sort_key="duration", reverse=True
-        )
+        train_data = train_data.filtered_sorted(sort_key="duration", reverse=True)
         # when sorting do not shuffle in dataloader ! otherwise is pointless
         hparams["train_dataloader_opts"]["shuffle"] = False
 
@@ -206,9 +191,7 @@ def dataio_prep(hparams):
         pass
 
     else:
-        raise NotImplementedError(
-            "sorting must be random, ascending or descending"
-        )
+        raise NotImplementedError("sorting must be random, ascending or descending")
 
     valid_data = sb.dataio.dataset.DynamicItemDataset.from_json(
         json_path=hparams["valid_annotation"],

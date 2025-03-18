@@ -94,22 +94,19 @@ class DiscreteSSL(nn.Module):
         device="cpu",
         sample_rate=16000,
     ):
-
         super().__init__()
         self.device = device
         self.ssl_model = ssl_model
         model_name = ssl_model.__class__.__name__.lower()
         self.check_if_input_is_compatible(layers_num, num_clusters)
 
-        self.kmeans_models, self.ssl_layer_ids, self.num_clusters = (
-            self.load_kmeans(
-                vocoder_repo_id,
-                kmeans_dataset,
-                model_name,
-                self.num_clusters,
-                save_path,
-                layers_num,
-            )
+        self.kmeans_models, self.ssl_layer_ids, self.num_clusters = self.load_kmeans(
+            vocoder_repo_id,
+            kmeans_dataset,
+            model_name,
+            self.num_clusters,
+            save_path,
+            layers_num,
         )
 
         self.vocabularies = []
@@ -138,13 +135,13 @@ class DiscreteSSL(nn.Module):
         if layers_num:
             if isinstance(num_clusters, int):
                 num_clusters = [num_clusters for i in layers_num]
-            assert len(num_clusters) == len(
-                layers_num
-            ), "length of num_clusters and layers_num should be the same!!!"
+            assert len(num_clusters) == len(layers_num), (
+                "length of num_clusters and layers_num should be the same!!!"
+            )
         if layers_num is None:
-            assert isinstance(
-                num_clusters, int
-            ), "num_clusters is expected to be int since the layers_num is not provided."
+            assert isinstance(num_clusters, int), (
+                "num_clusters is expected to be int since the layers_num is not provided."
+            )
         self.num_clusters = num_clusters
 
     def load_kmeans(
@@ -202,15 +199,13 @@ class DiscreteSSL(nn.Module):
                 if file not in files:
                     files.append(file)
                     layer_ids.append(
-                        int(
-                            file.split("/")[-1].split("_")[-1].split(".")[0][1:]
-                        )
+                        int(file.split("/")[-1].split("_")[-1].split(".")[0][1:])
                     )
                     kmeans_models.append(joblib.load(file))
 
-        assert (
-            len(layer_ids) > 0
-        ), f"There is no trained k-means model available for {repo_id}"
+        assert len(layer_ids) > 0, (
+            f"There is no trained k-means model available for {repo_id}"
+        )
 
         if isinstance(num_clusters, int):
             num_clusters = [num_clusters for i in layer_ids]
@@ -251,9 +246,7 @@ class DiscreteSSL(nn.Module):
             Batch of mel-waveforms [batch, time]
         """
 
-        tokens = self.encode(
-            wav, wav_lens, SSL_layers, deduplicates, bpe_tokenizers
-        )[0]
+        tokens = self.encode(wav, wav_lens, SSL_layers, deduplicates, bpe_tokenizers)[0]
         sig = self.decode(tokens, SSL_layers=SSL_layers)
         return tokens, sig
 
@@ -297,9 +290,9 @@ class DiscreteSSL(nn.Module):
         if bpe_tokenizers is None:
             bpe_tokenizers = [None] * len(SSL_layers)
 
-        assert (
-            len(deduplicates) == len(SSL_layers) == len(bpe_tokenizers)
-        ), "length of SSL_layers,deduplicates,bpe_tokenizers should be the same!!!"
+        assert len(deduplicates) == len(SSL_layers) == len(bpe_tokenizers), (
+            "length of SSL_layers,deduplicates,bpe_tokenizers should be the same!!!"
+        )
 
         embeddings = []
         token_ids = []
@@ -317,9 +310,7 @@ class DiscreteSSL(nn.Module):
             ):
                 if layer_num not in SSL_layers:
                     continue
-                tokens = model.predict(
-                    feats[layer_num].flatten(end_dim=-2).cpu()
-                )
+                tokens = model.predict(feats[layer_num].flatten(end_dim=-2).cpu())
                 embs = vocabulary[tokens]
                 embeddings.append(
                     torch.tensor(
@@ -363,9 +354,9 @@ class DiscreteSSL(nn.Module):
             Batch of mel-waveforms [batch, time]
         """
 
-        assert all(
-            cluster == self.num_clusters[0] for cluster in self.num_clusters
-        ), "All values in num_clusters must be equal."
+        assert all(cluster == self.num_clusters[0] for cluster in self.num_clusters), (
+            "All values in num_clusters must be equal."
+        )
         num_clusters = self.num_clusters[0]
 
         offsets = torch.arange(

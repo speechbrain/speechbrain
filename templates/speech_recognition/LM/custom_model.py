@@ -63,9 +63,7 @@ class CustomModel(torch.nn.Module):
         )
 
         # Final output transformation + softmax
-        self.out = sb.nnet.linear.Linear(
-            input_size=rnn_size, n_neurons=output_dim
-        )
+        self.out = sb.nnet.linear.Linear(input_size=rnn_size, n_neurons=output_dim)
         self.log_softmax = sb.nnet.activations.Softmax(apply_log=True)
 
     def forward(self, x, hx=None):

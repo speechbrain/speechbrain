@@ -39,9 +39,7 @@ class SLU(sb.Brain):
         if stage == sb.Stage.TRAIN and hasattr(self.hparams, "wav_augment"):
             wavs, wav_lens = self.hparams.wav_augment(wavs, wav_lens)
             tokens_bos = self.hparams.wav_augment.replicate_labels(tokens_bos)
-            tokens_bos_lens = self.hparams.wav_augment.replicate_labels(
-                tokens_bos_lens
-            )
+            tokens_bos_lens = self.hparams.wav_augment.replicate_labels(tokens_bos_lens)
 
         # ASR forward pass
         words, asr_tokens = self.hparams.asr_model.transcribe_batch(
@@ -76,9 +74,7 @@ class SLU(sb.Brain):
         # Compute outputs
         p_tokens = None
         if stage != sb.Stage.TRAIN:
-            p_tokens, _, _, _ = self.hparams.beam_searcher(
-                encoder_out, asr_tokens_lens
-            )
+            p_tokens, _, _, _ = self.hparams.beam_searcher(encoder_out, asr_tokens_lens)
 
         return p_seq, asr_tokens_lens, p_tokens
 
@@ -92,13 +88,9 @@ class SLU(sb.Brain):
 
         if stage == sb.Stage.TRAIN and hasattr(self.hparams, "wav_augment"):
             tokens_eos = self.hparams.wav_augment.replicate_labels(tokens_eos)
-            tokens_eos_lens = self.hparams.wav_augment.replicate_labels(
-                tokens_eos_lens
-            )
+            tokens_eos_lens = self.hparams.wav_augment.replicate_labels(tokens_eos_lens)
 
-        loss_seq = self.hparams.seq_cost(
-            p_seq, tokens_eos, length=tokens_eos_lens
-        )
+        loss_seq = self.hparams.seq_cost(p_seq, tokens_eos, length=tokens_eos_lens)
 
         # (No ctc loss)
         loss = loss_seq
@@ -106,8 +98,7 @@ class SLU(sb.Brain):
         if (stage != sb.Stage.TRAIN) or (self.step % show_results_every == 0):
             # Decode token terms to words
             predicted_semantics = [
-                tokenizer.decode_ids(utt_seq).split(" ")
-                for utt_seq in predicted_tokens
+                tokenizer.decode_ids(utt_seq).split(" ") for utt_seq in predicted_tokens
             ]
 
             target_semantics = [wrd.split(" ") for wrd in batch.semantics]
@@ -118,12 +109,8 @@ class SLU(sb.Brain):
                 print("")
 
             if stage != sb.Stage.TRAIN:
-                self.wer_metric.append(
-                    ids, predicted_semantics, target_semantics
-                )
-                self.cer_metric.append(
-                    ids, predicted_semantics, target_semantics
-                )
+                self.wer_metric.append(ids, predicted_semantics, target_semantics)
+                self.cer_metric.append(ids, predicted_semantics, target_semantics)
 
         return loss
 
@@ -164,9 +151,7 @@ class SLU(sb.Brain):
                 test_stats=stage_stats,
             )
             if if_main_process():
-                with open(
-                    self.hparams.test_wer_file, "w", encoding="utf-8"
-                ) as w:
+                with open(self.hparams.test_wer_file, "w", encoding="utf-8") as w:
                     self.wer_metric.write_stats(w)
 
 
@@ -189,9 +174,7 @@ def dataio_prepare(hparams):
         hparams["dataloader_opts"]["shuffle"] = False
 
     elif hparams["sorting"] == "descending":
-        train_data = train_data.filtered_sorted(
-            sort_key="duration", reverse=True
-        )
+        train_data = train_data.filtered_sorted(sort_key="duration", reverse=True)
         # when sorting do not shuffle in dataloader ! otherwise is pointless
         hparams["dataloader_opts"]["shuffle"] = False
 
@@ -199,9 +182,7 @@ def dataio_prepare(hparams):
         pass
 
     else:
-        raise NotImplementedError(
-            "sorting must be random, ascending or descending"
-        )
+        raise NotImplementedError("sorting must be random, ascending or descending")
 
     # If we are testing on all the real data, including dev-real,
     # we shouldn't use dev-real as the validation set.

@@ -77,17 +77,13 @@ def prepare_emovdb(data_folder, save_json, seed=12):
             data_folder, "converted", str(path).split("EmoV-DB/")[-1]
         )
         if "converted" not in str(path):
-            os.system(
-                f"sox -v 0.99 {str(path)} -b 16 -e signed-integer {convert_path}"
-            )
+            os.system(f"sox -v 0.99 {str(path)} -b 16 -e signed-integer {convert_path}")
     logger.info("Converting Finished")
 
     logger.info("Applying VAD and resampling ...")
     for repo in repos:
         source_folder = os.path.join(data_folder, "converted", repo)
-        destin_folder = os.path.join(
-            data_folder, "processed", repo.split("_")[0]
-        )
+        destin_folder = os.path.join(data_folder, "processed", repo.split("_")[0])
         if not os.path.exists(destin_folder):
             os.makedirs(destin_folder)
 
@@ -167,9 +163,7 @@ def concat_wavs(data_folder, save_json):
             os.makedirs(combine_path)
 
         while len(emotion_wavs) > 0:
-            combination = np.random.choice(
-                combinations, p=probabilities.ravel()
-            )
+            combination = np.random.choice(combinations, p=probabilities.ravel())
             if combination == "neu_emo":
                 neutral_sample = neutral_wavs[0]
                 emo_sample = emotion_wavs[0]
@@ -250,9 +244,7 @@ def concat_wavs(data_folder, save_json):
 
                 emotion_input += neutral_input_1.dBFS - emotion_input.dBFS
                 neutral_input_2 += neutral_input_1.dBFS - neutral_input_2.dBFS
-                combined_input = (
-                    neutral_input_1 + emotion_input + neutral_input_2
-                )
+                combined_input = neutral_input_1 + emotion_input + neutral_input_2
 
                 out_name = os.path.join(
                     combine_path,
@@ -286,9 +278,7 @@ def concat_wavs(data_folder, save_json):
 
                 emotion_input_1 = AudioSegment.from_wav(emo_sample_1)
 
-                out_name = os.path.join(
-                    combine_path, emo_sample_1.split("/")[-1]
-                )
+                out_name = os.path.join(combine_path, emo_sample_1.split("/")[-1])
                 emotion_input_1.export(out_name, format="wav")
 
                 id = repo + "_" + out_name.split("/")[-1][:-4]

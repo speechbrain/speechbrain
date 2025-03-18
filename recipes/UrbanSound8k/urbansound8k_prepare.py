@@ -175,8 +175,8 @@ def prepare_urban_sound_8k(
         os.path.abspath(data_folder), "metadata/", MODIFIED_METADATA_FILE_NAME
     )
     if not os.path.exists(urban_sound_8k_speechbrain_metadata_csv_path):
-        urban_sound_8k_speechbrain_metadata_csv_path = (
-            create_metadata_speechbrain_file(data_folder)
+        urban_sound_8k_speechbrain_metadata_csv_path = create_metadata_speechbrain_file(
+            data_folder
         )
         # TODO: If it does not exist, we create it, but next step will certainly fail?
 
@@ -185,9 +185,7 @@ def prepare_urban_sound_8k(
     metadata = load_data_csv(urban_sound_8k_speechbrain_metadata_csv_path)
 
     # List files and create manifest from list
-    logger.info(
-        f"Creating {save_json_train}, {save_json_valid}, and {save_json_test}"
-    )
+    logger.info(f"Creating {save_json_train}, {save_json_valid}, and {save_json_test}")
 
     # Creating json files
     create_json(metadata, audio_data_folder, train_fold_nums, save_json_train)
@@ -228,9 +226,7 @@ def create_json(metadata, audio_data_folder, folds_list, json_file):
                 file_info = torchaudio.info(wav_file)
 
                 # If we're using sox/soundfile backend, file_info will have the old type
-                if isinstance(
-                    file_info, torchaudio.backend.common.AudioMetaData
-                ):
+                if isinstance(file_info, torchaudio.backend.common.AudioMetaData):
                     duration = signal.shape[0] / file_info.sample_rate
                 else:
                     duration = signal.shape[0] / file_info[0].rate

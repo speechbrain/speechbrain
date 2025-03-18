@@ -93,14 +93,10 @@ class Embedding(nn.Module):
                     self.blank_id :
                 ]
             if self.blank_id != 0:
-                self.Embedding.weight.data[: self.blank_id] = one_hot[
-                    : self.blank_id
-                ]
+                self.Embedding.weight.data[: self.blank_id] = one_hot[: self.blank_id]
             self.Embedding.weight.requires_grad = False
         else:
-            self.Embedding = nn.Embedding(
-                self.num_embeddings, self.embedding_dim
-            )
+            self.Embedding = nn.Embedding(self.num_embeddings, self.embedding_dim)
 
     def forward(self, x):
         """Returns the embedding of input tensor.

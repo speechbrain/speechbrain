@@ -111,9 +111,7 @@ def transcribe_file(g2p, text_file_name, output_file_name=None, batch_size=64):
     line_count = get_line_count(text_file_name)
     with open(text_file_name, encoding="utf-8") as text_file:
         if output_file_name is None:
-            transcribe_stream(
-                g2p, text_file, sys.stdout, batch_size, total=line_count
-            )
+            transcribe_stream(g2p, text_file, sys.stdout, batch_size, total=line_count)
         else:
             with open(output_file_name, "w", encoding="utf-8") as output_file:
                 transcribe_stream(
@@ -163,9 +161,7 @@ def transcribe_stream(g2p, text_file, output_file, batch_size=64, total=None):
     for batch in tqdm(chunked(text_file, batch_size), total=batch_count):
         phoneme_results = g2p(batch)
         for result in phoneme_results:
-            line = " ".join(
-                _substitutions.get(phoneme, phoneme) for phoneme in result
-            )
+            line = " ".join(_substitutions.get(phoneme, phoneme) for phoneme in result)
             print(line, file=output_file)
             output_file.flush()
 
@@ -439,8 +435,7 @@ def main():
         )
     else:
         print(
-            "ERROR: Either --text or --text-file is required "
-            "in non-interactive mode",
+            "ERROR: Either --text or --text-file is required in non-interactive mode",
             file=sys.stderr,
         )
 

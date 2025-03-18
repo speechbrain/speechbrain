@@ -107,9 +107,7 @@ def prepare_ami(
 
     # Check if this phase is already done (if so, skip it)
     if skip(save_folder, conf, meta_files, opt_file):
-        logger.info(
-            "Skipping data preparation, as it was completed in previous run."
-        )
+        logger.info("Skipping data preparation, as it was completed in previous run.")
         return
 
     msg = "\tCreating meta-data file for the AMI Dataset.."
@@ -203,14 +201,11 @@ def get_RTTM_per_rec(segs, spkrs_list, rec_id):
                 "Possibly Incorrect Annotation Found!! transcriber_start (%s) > transcriber_end (%s)"
                 % (row[0], row[1])
             )
-            msg2 = (
-                "Excluding this incorrect row from the RTTM : %s, %s, %s, %s"
-                % (
-                    rec_id,
-                    row[0],
-                    str(round(float(row[1]) - float(row[0]), 4)),
-                    str(row[2]),
-                )
+            msg2 = "Excluding this incorrect row from the RTTM : %s, %s, %s, %s" % (
+                rec_id,
+                row[0],
+                str(round(float(row[1]) - float(row[0]), 4)),
+                str(row[2]),
             )
             logger.info(msg1)
             logger.info(msg2)
@@ -239,11 +234,7 @@ def prepare_segs_for_RTTM(
 
     for main_meet_id in list_ids:
         # Skip TNO meetings from dev and eval sets
-        if (
-            main_meet_id.startswith("TS")
-            and split_type != "train"
-            and skip_TNO is True
-        ):
+        if main_meet_id.startswith("TS") and split_type != "train" and skip_TNO is True:
             msg = (
                 "Skipping TNO meeting in AMI "
                 + str(split_type)
@@ -263,9 +254,7 @@ def prepare_segs_for_RTTM(
             list_spkr_xmls = glob.glob(f)
             list_spkr_xmls.sort()  # A, B, C, D, E etc (Speakers)
             segs = []
-            spkrs_list = (
-                []
-            )  # Since non-scenario recordings contains 3-5 speakers
+            spkrs_list = []  # Since non-scenario recordings contains 3-5 speakers
 
             for spkr_xml_file in list_spkr_xmls:
                 # Speaker ID
@@ -419,9 +408,7 @@ def prepare_metadata(
     MERGED_SEGMENTS = []
     SUBSEGMENTS = []
     for rec_id in rec_ids:
-        segs_iter = filter(
-            lambda x: x.startswith("SPEAKER " + str(rec_id)), RTTM
-        )
+        segs_iter = filter(lambda x: x.startswith("SPEAKER " + str(rec_id)), RTTM)
         gt_rttm_segs = [row.split(" ") for row in segs_iter]
 
         # Merge, subsegment and then convert to json format.
@@ -462,14 +449,7 @@ def prepare_metadata(
         # If multi-mic audio is selected
         if mic_type == "Array1":
             wav_file_base_path = (
-                data_dir
-                + "/"
-                + rec_id
-                + "/audio/"
-                + rec_id
-                + "."
-                + mic_type
-                + "-"
+                data_dir + "/" + rec_id + "/audio/" + rec_id + "." + mic_type + "-"
             )
 
             f = []  # adding all 8 mics
@@ -489,14 +469,7 @@ def prepare_metadata(
         else:
             # Single mic audio
             wav_file_path = (
-                data_dir
-                + "/"
-                + rec_id
-                + "/audio/"
-                + rec_id
-                + "."
-                + mic_type
-                + ".wav"
+                data_dir + "/" + rec_id + "/audio/" + rec_id + "." + mic_type + ".wav"
             )
 
             # Note: key "file" without 's' is used for single-mic

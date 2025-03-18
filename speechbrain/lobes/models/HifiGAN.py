@@ -446,9 +446,7 @@ class HifiganGenerator(torch.nn.Module):
         resblock = ResBlock1 if resblock_type == "1" else ResBlock2
         # upsampling layers
         self.ups = nn.ModuleList()
-        for i, (u, k) in enumerate(
-            zip(upsample_factors, upsample_kernel_sizes)
-        ):
+        for i, (u, k) in enumerate(zip(upsample_factors, upsample_kernel_sizes)):
             self.ups.append(
                 ConvTranspose1d(
                     in_channels=upsample_initial_channel // (2**i),
@@ -816,9 +814,7 @@ class UnitHifiganGenerator(HifiganGenerator):
         log_dur_pred = None
 
         if self.duration_predictor:
-            uniq_code_feat, uniq_code_mask, dur = process_duration(
-                x, u.transpose(1, 2)
-            )
+            uniq_code_feat, uniq_code_mask, dur = process_duration(x, u.transpose(1, 2))
             log_dur_pred = self.var_predictor(uniq_code_feat)
             log_dur_pred = log_dur_pred[uniq_code_mask]
             log_dur = torch.log(dur + 1)
@@ -867,9 +863,7 @@ class UnitHifiganGenerator(HifiganGenerator):
         x = x.transpose(1, 2)
 
         if self.duration_predictor:
-            assert (
-                x.size(0) == 1
-            ), "only support single sample batch in inference"
+            assert x.size(0) == 1, "only support single sample batch in inference"
             log_dur_pred = self.var_predictor(x.transpose(1, 2))
             dur_out = torch.clamp(
                 torch.round((torch.exp(log_dur_pred) - 1)).long(), min=1
@@ -1058,11 +1052,7 @@ class DiscriminatorS(torch.nn.Module):
 
     def __init__(self, use_spectral_norm=False):
         super().__init__()
-        norm_f = (
-            nn.utils.spectral_norm
-            if use_spectral_norm
-            else nn.utils.weight_norm
-        )
+        norm_f = nn.utils.spectral_norm if use_spectral_norm else nn.utils.weight_norm
         self.convs = nn.ModuleList(
             [
                 norm_f(nn.Conv1d(1, 128, 15, 1, padding=7)),
@@ -1255,9 +1245,7 @@ class MultiScaleSTFTLoss(torch.nn.Module):
     ):
         super().__init__()
         self.loss_funcs = torch.nn.ModuleList()
-        for n_fft, hop_length, win_length in zip(
-            n_ffts, hop_lengths, win_lengths
-        ):
+        for n_fft, hop_length, win_length in zip(n_ffts, hop_lengths, win_lengths):
             self.loss_funcs.append(STFTLoss(n_fft, hop_length, win_length))
 
     def forward(self, y_hat, y):
@@ -1424,9 +1412,7 @@ class MSEGLoss(nn.Module):
         Generator loss
         """
 
-        loss_fake = F.mse_loss(
-            score_fake, score_fake.new_ones(score_fake.shape)
-        )
+        loss_fake = F.mse_loss(score_fake, score_fake.new_ones(score_fake.shape))
         return loss_fake
 
 
@@ -1500,12 +1486,8 @@ class MSEDLoss(nn.Module):
         Discriminator losses
         """
 
-        loss_real = self.loss_func(
-            score_real, score_real.new_ones(score_real.shape)
-        )
-        loss_fake = self.loss_func(
-            score_fake, score_fake.new_zeros(score_fake.shape)
-        )
+        loss_real = self.loss_func(score_real, score_real.new_ones(score_real.shape))
+        loss_fake = self.loss_func(score_fake, score_fake.new_zeros(score_fake.shape))
         loss_d = loss_real + loss_fake
         return loss_d, loss_real, loss_fake
 
@@ -1690,9 +1672,7 @@ class GeneratorLoss(nn.Module):
             )
             loss["G_stft_loss_mg"] = stft_loss_mg
             loss["G_stft_loss_sc"] = stft_loss_sc
-            gen_loss = gen_loss + self.stft_loss_weight * (
-                stft_loss_mg + stft_loss_sc
-            )
+            gen_loss = gen_loss + self.stft_loss_weight * (stft_loss_mg + stft_loss_sc)
 
         # L1 Spec loss
         if self.l1_spec_loss:

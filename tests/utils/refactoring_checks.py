@@ -108,7 +108,7 @@ def get_model(repo, values, updates_dir=None, run_opts=None):
     if (
         "foreign" in values.keys()
     ):  # it's a custom model which has its own Python filename
-        custom = f'pretrained_models/{repo}/{values["foreign"]}'
+        custom = f"pretrained_models/{repo}/{values['foreign']}"
     # prepare model loading: is it the old -or- the new yaml/interface?
     if updates_dir is not None:
         # testing the refactoring; assuming all model data has been loaded already
@@ -118,7 +118,7 @@ def get_model(repo, values, updates_dir=None, run_opts=None):
         if "foreign" in values.keys():
             os.unlink(custom)
             os.symlink(
-                f'{updates_dir}/{repo}/{values["foreign"]}',
+                f"{updates_dir}/{repo}/{values['foreign']}",
                 custom,
             )
     else:
@@ -135,9 +135,9 @@ def get_model(repo, values, updates_dir=None, run_opts=None):
     print(f"\trepo: {repo}")
     # load pretrained model either via specified pretrained class or custom interface
     if "foreign" not in values.keys():
-        print(f'\tspeechbrain.inference.{values["cls"]}')
+        print(f"\tspeechbrain.inference.{values['cls']}")
         print(f"\tobj.from_hparams({kwargs})")
-        obj = eval(f'speechbrain.inference.{values["cls"]}')
+        obj = eval(f"speechbrain.inference.{values['cls']}")
         model = obj.from_hparams(**kwargs)
     else:
         kwargs["pymodule_file"] = values["foreign"]
@@ -185,7 +185,7 @@ def get_prediction(repo, values, updates_dir=None):
 
     except Exception:
         # use an example audio if no audio can be loaded
-        print(f'\tWARNING - no audio found on HF: {repo}/{values["sample"]}')
+        print(f"\tWARNING - no audio found on HF: {repo}/{values['sample']}")
         prediction = eval(
             f'model.{values["fnx"]}(model.load_audio("tests/samples/single-mic/example1.wav", savedir="pretrained_models/{repo}").unsqueeze(0), torch.tensor([1.0]))'
         )
@@ -236,9 +236,7 @@ def gather_expected_results(
         # skip if results are there
         if repo not in results.keys():
             # get values
-            with open(
-                f"{updates_dir}/{repo}/test.yaml", encoding="utf-8"
-            ) as yaml_test:
+            with open(f"{updates_dir}/{repo}/test.yaml", encoding="utf-8") as yaml_test:
                 values = load_hyperpyyaml(yaml_test)
 
             print(f"Collecting results for: {repo} w/ values={values}")
@@ -287,20 +285,14 @@ def gather_refactoring_results(
         # skip if results are there
         if "after" not in results[repo].keys():
             # get values
-            with open(
-                f"{updates_dir}/{repo}/test.yaml", encoding="utf-8"
-            ) as yaml_test:
+            with open(f"{updates_dir}/{repo}/test.yaml", encoding="utf-8") as yaml_test:
                 values = load_hyperpyyaml(yaml_test)
 
-            print(
-                f"Collecting refactoring results for: {repo} w/ values={values}"
-            )
+            print(f"Collecting refactoring results for: {repo} w/ values={values}")
 
             # extend the results
             results[repo]["after"] = get_prediction(repo, values, updates_dir)
-            results[repo]["same"] = (
-                results[repo]["before"] == results[repo]["after"]
-            )
+            results[repo]["same"] = results[repo]["before"] == results[repo]["after"]
 
             # update
             with open(yaml_path, "w", encoding="utf-8") as yaml_out:
@@ -309,9 +301,7 @@ def gather_refactoring_results(
             print(f"\tsame: {results[repo]['same']}")
 
 
-def test_performance(
-    repo, values, run_opts, updates_dir=None, recipe_overrides={}
-):
+def test_performance(repo, values, run_opts, updates_dir=None, recipe_overrides={}):
     """Runs the evaluation partition of a recipe dataset for a pretrained model.
 
     Arguments
@@ -335,10 +325,10 @@ def test_performance(
     Dict for export to yaml with performance statistics, as specified in the test.yaml files.
     """
     # Dataset depending file structure
-    tmp_dir = f'tests/tmp/{values["dataset"]}'
+    tmp_dir = f"tests/tmp/{values['dataset']}"
     speechbrain.create_experiment_directory(experiment_directory=tmp_dir)
     stats_meta = {
-        f'[{values["dataset"]}] - {"BEFORE" if updates_dir is None else "AFTER"}': repo
+        f"[{values['dataset']}] - {'BEFORE' if updates_dir is None else 'AFTER'}": repo
     }
 
     # Load pretrained
@@ -348,9 +338,7 @@ def test_performance(
 
     # Dataio preparation; we need the test sets only
     with open(values["recipe_yaml"], encoding="utf-8") as fin:
-        recipe_hparams = load_hyperpyyaml(
-            fin, values["overrides"] | recipe_overrides
-        )
+        recipe_hparams = load_hyperpyyaml(fin, values["overrides"] | recipe_overrides)
 
     # Dataset preparation is assumed to be done through recipes; before running this.
     exec(values["dataio"])
@@ -370,9 +358,7 @@ def test_performance(
     logger = FileTrainLogger(save_file=f"{tmp_dir}/{repo}.log")
     reporting = deepcopy(values["performance"])
     for metric, specs in reporting.items():
-        reporting[metric]["tracker"] = deepcopy(
-            recipe_hparams[specs["handler"]]()
-        )
+        reporting[metric]["tracker"] = deepcopy(recipe_hparams[specs["handler"]]())
 
     test_loader_kwargs = deepcopy(recipe_hparams[values["test_loader"]])
     del recipe_hparams
@@ -380,10 +366,7 @@ def test_performance(
     stats = {}
     for k in test_datasets.keys():  # keys are test_clean, test_other etc
         test_set = test_datasets[k]
-        if not (
-            isinstance(test_set, DataLoader)
-            or isinstance(test_set, LoopedLoader)
-        ):
+        if not (isinstance(test_set, DataLoader) or isinstance(test_set, LoopedLoader)):
             test_set = make_dataloader(test_set, **test_loader_kwargs)
 
         with torch.no_grad():
@@ -395,22 +378,18 @@ def test_performance(
                     wav_lens.to(model.device),
                 )
                 predictions = eval(  # noqa
-                    f'model.{values["fnx"]}(wavs, wav_lens)'
+                    f"model.{values['fnx']}(wavs, wav_lens)"
                 )
                 predicted = eval(values["predicted"])  # noqa
                 targeted = eval(values["targeted"])  # noqa
                 ids = batch.id  # noqa
                 for metric in reporting.keys():
-                    reporting[metric]["tracker"].append(
-                        *eval(values["to_stats"])
-                    )
+                    reporting[metric]["tracker"].append(*eval(values["to_stats"]))
 
         stats[k] = {}
         for metric, specs in reporting.items():
             stats[k][metric] = specs["tracker"].summarize(specs["field"])
-        logger.log_stats(
-            stats_meta=stats_meta | {"set": k}, test_stats=stats[k]
-        )
+        logger.log_stats(stats_meta=stats_meta | {"set": k}, test_stats=stats[k])
 
     return stats
 
@@ -418,9 +397,7 @@ def test_performance(
 # run first w/ "--after=False" on latest develop, then checkout the refactoring branch and run w/ "--after=True"
 # PYTHONPATH=`realpath .` python tests/utils/refactoring_checks.py tests/utils/overrides.yaml --LibriSpeech_data="" --CommonVoice_EN_data="" --CommonVoice_FR_data="" --IEMOCAP_data="" --after=False
 if __name__ == "__main__":
-    hparams_file, run_opts, overrides = speechbrain.parse_arguments(
-        sys.argv[1:]
-    )
+    hparams_file, run_opts, overrides = speechbrain.parse_arguments(sys.argv[1:])
 
     with open(hparams_file, encoding="utf-8") as fin:
         dataset_overrides = load_hyperpyyaml(fin, overrides)
@@ -433,7 +410,7 @@ if __name__ == "__main__":
     )
 
     # load results, if existing -or- new from scratch
-    yaml_path = f'{dataset_overrides["new_interfaces_local_dir"]}.yaml'
+    yaml_path = f"{dataset_overrides['new_interfaces_local_dir']}.yaml"
     if os.path.exists(yaml_path):
         with open(yaml_path, encoding="utf-8") as yaml_in:
             results = yaml.safe_load(yaml_in)
@@ -442,13 +419,11 @@ if __name__ == "__main__":
 
     repos = map(
         os.path.basename,
-        glob(f'{updates_dir}/{dataset_overrides["glob_filter"]}'),
+        glob(f"{updates_dir}/{dataset_overrides['glob_filter']}"),
     )
     for repo in repos:
         # get values
-        with open(
-            f"{updates_dir}/{repo}/test.yaml", encoding="utf-8"
-        ) as yaml_test:
+        with open(f"{updates_dir}/{repo}/test.yaml", encoding="utf-8") as yaml_test:
             values = load_hyperpyyaml(yaml_test)
 
         # for this testing, some fields need to exist; skip otherwise
@@ -469,7 +444,7 @@ if __name__ == "__main__":
             continue
 
         # skip if datasets is not given
-        if not dataset_overrides[f'{values["dataset"]}_data']:
+        if not dataset_overrides[f"{values['dataset']}_data"]:
             continue
 
         print(f"Run tests on: {repo}")
@@ -491,10 +466,7 @@ if __name__ == "__main__":
                 yaml.dump(results, yaml_out, default_flow_style=None)
 
         # After refactoring
-        if (
-            "after" not in results[repo].keys()
-            and dataset_overrides["after"] is True
-        ):
+        if "after" not in results[repo].keys() and dataset_overrides["after"] is True:
             results[repo]["after"] = test_performance(
                 repo,
                 values,
@@ -503,12 +475,10 @@ if __name__ == "__main__":
                 recipe_overrides=dataset_overrides[values["dataset"]],
             )
 
-            results[repo]["same"] = (
-                results[repo]["before"] == results[repo]["after"]
-            )
-            print(f'\tbefore: {results[repo]["before"]}')
-            print(f'\t after: {results[repo]["after"]}')
-            print(f'\t  same: {results[repo]["same"]}')
+            results[repo]["same"] = results[repo]["before"] == results[repo]["after"]
+            print(f"\tbefore: {results[repo]['before']}")
+            print(f"\t after: {results[repo]['after']}")
+            print(f"\t  same: {results[repo]['same']}")
 
             # update
             with open(yaml_path, "w", encoding="utf-8") as yaml_out:

@@ -283,12 +283,8 @@ class VectorQuantize(nn.Module):
         z_e = self.in_proj(z)  # z_e : (B x D x T)
         z_q, indices = self.decode_latents(z_e)
 
-        commitment_loss = F.mse_loss(z_e, z_q.detach(), reduction="none").mean(
-            [1, 2]
-        )
-        codebook_loss = F.mse_loss(z_q, z_e.detach(), reduction="none").mean(
-            [1, 2]
-        )
+        commitment_loss = F.mse_loss(z_e, z_q.detach(), reduction="none").mean([1, 2])
+        codebook_loss = F.mse_loss(z_q, z_e.detach(), reduction="none").mean([1, 2])
 
         z_q = (
             z_e + (z_q - z_e).detach()
@@ -479,8 +475,7 @@ class ResidualVectorQuantize(nn.Module):
 
             # Create mask to apply quantizer dropout
             mask = (
-                torch.full((z.shape[0],), fill_value=i, device=z.device)
-                < n_quantizers
+                torch.full((z.shape[0],), fill_value=i, device=z.device) < n_quantizers
             )
             z_q = z_q + z_q_i * mask[:, None, None]
             residual = residual - z_q_i
@@ -542,14 +537,12 @@ class ResidualVectorQuantize(nn.Module):
         codes = []
         dims = np.cumsum([0] + [q.codebook_dim for q in self.quantizers])
 
-        n_codebooks = np.where(dims <= latents.shape[1])[0].max(
-            axis=0, keepdims=True
-        )[0]
+        n_codebooks = np.where(dims <= latents.shape[1])[0].max(axis=0, keepdims=True)[
+            0
+        ]
         for i in range(n_codebooks):
             j, k = dims[i], dims[i + 1]
-            z_p_i, codes_i = self.quantizers[i].decode_latents(
-                latents[:, j:k, :]
-            )
+            z_p_i, codes_i = self.quantizers[i].decode_latents(latents[:, j:k, :])
             z_p.append(z_p_i)
             codes.append(codes_i)
 
@@ -752,9 +745,7 @@ class DecoderBlock(nn.Module):
         The stride for the transposed convolution, controlling the upsampling. Default is 1.
     """
 
-    def __init__(
-        self, input_dim: int = 16, output_dim: int = 8, stride: int = 1
-    ):
+    def __init__(self, input_dim: int = 16, output_dim: int = 8, stride: int = 1):
         super().__init__()
         self.block = nn.Sequential(
             Snake1d(input_dim),
@@ -968,9 +959,7 @@ class DAC(nn.Module):
         self.hop_length = np.prod(self.encoder_rates)
         if self.latent_dim is None:
             self.latent_dim = self.encoder_dim * (2 ** len(self.encoder_rates))
-        self.encoder = Encoder(
-            self.encoder_dim, self.encoder_rates, self.latent_dim
-        )
+        self.encoder = Encoder(self.encoder_dim, self.encoder_rates, self.latent_dim)
         self.quantizer = ResidualVectorQuantize(
             input_dim=self.latent_dim,
             n_codebooks=self.n_codebooks,
@@ -1072,9 +1061,7 @@ class DAC(nn.Module):
         """
         # Preprocess the audio data to have the right padded lengths
         length = audio_data.shape[-1]
-        right_pad = (
-            math.ceil(length / self.hop_length) * self.hop_length - length
-        )
+        right_pad = math.ceil(length / self.hop_length) * self.hop_length - length
         audio_data = nn.functional.pad(audio_data, (0, right_pad))
 
         z, codes, _, _, _ = self.encode(audio_data, n_quantizers)

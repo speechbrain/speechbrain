@@ -220,16 +220,10 @@ class DenoisingDiffusion(Diffuser):
             betas * torch.sqrt(alphas_cumprod_prev) / (1.0 - alphas_cumprod)
         )
         posterior_mean_weight_step = (
-            (1.0 - alphas_cumprod_prev)
-            * torch.sqrt(alphas)
-            / (1.0 - alphas_cumprod)
+            (1.0 - alphas_cumprod_prev) * torch.sqrt(alphas) / (1.0 - alphas_cumprod)
         )
-        self.register_buffer(
-            "posterior_mean_weight_start", posterior_mean_weight_start
-        )
-        self.register_buffer(
-            "posterior_mean_weight_step", posterior_mean_weight_step
-        )
+        self.register_buffer("posterior_mean_weight_start", posterior_mean_weight_start)
+        self.register_buffer("posterior_mean_weight_step", posterior_mean_weight_step)
         sample_pred_model_coefficient = (1.0 / alphas_cumprod).sqrt()
 
         self.register_buffer(
@@ -307,9 +301,7 @@ class DenoisingDiffusion(Diffuser):
             steps = tqdm(steps, desc=DESC_SAMPLING, total=self.timesteps)
         for timestep_number in steps:
             timestep = (
-                torch.ones(
-                    shape[0], dtype=torch.long, device=self.alphas.device
-                )
+                torch.ones(shape[0], dtype=torch.long, device=self.alphas.device)
                 * timestep_number
             )
             sample = self.sample_step(sample, timestep, **kwargs)
@@ -337,23 +329,16 @@ class DenoisingDiffusion(Diffuser):
         model_out = self.model(sample, timestep, **kwargs)
         noise = self.noise(sample)
         sample_start = (
-            unsqueeze_as(self.sample_pred_model_coefficient[timestep], sample)
-            * sample
-            - unsqueeze_as(
-                self.sample_pred_noise_coefficient[timestep], model_out
-            )
+            unsqueeze_as(self.sample_pred_model_coefficient[timestep], sample) * sample
+            - unsqueeze_as(self.sample_pred_noise_coefficient[timestep], model_out)
             * model_out
         )
         weight_start = unsqueeze_as(
             self.posterior_mean_weight_start[timestep], sample_start
         )
-        weight_step = unsqueeze_as(
-            self.posterior_mean_weight_step[timestep], sample
-        )
+        weight_step = unsqueeze_as(self.posterior_mean_weight_step[timestep], sample)
         mean = weight_start * sample_start + weight_step * sample
-        log_variance = unsqueeze_as(
-            self.posterior_log_variance[timestep], noise
-        )
+        log_variance = unsqueeze_as(self.posterior_log_variance[timestep], noise)
         predicted_sample = mean + (0.5 * log_variance).exp() * noise
         if self.sample_min is not None or self.sample_max is not None:
             predicted_sample.clip_(min=self.sample_min, max=self.sample_max)

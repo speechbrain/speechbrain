@@ -104,15 +104,12 @@ def check_already_generated(md_dir, aishell1_dir):
     return not_already_processed_directories
 
 
-def create_aishell1_dataframe(
-    aishell1_dir, subdir, speakers_md, filename2transcript
-):
+def create_aishell1_dataframe(aishell1_dir, subdir, speakers_md, filename2transcript):
     """Generate a dataframe that gather infos about the sound files in a
     aishell1 subdirectory"""
 
     print(
-        f"Creating {subdir} metadata file in "
-        f"{os.path.join(aishell1_dir, 'metadata')}"
+        f"Creating {subdir} metadata file in {os.path.join(aishell1_dir, 'metadata')}"
     )
     # Get the current directory path
     dir_path = os.path.join(aishell1_dir, subdir)

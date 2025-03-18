@@ -26,14 +26,10 @@ def test_SincConv(device):
 
 
 def test_Conv1d(device):
-
     from speechbrain.nnet.CNN import Conv1d
 
     input = (
-        torch.tensor([-1, -1, -1, -1], device=device)
-        .unsqueeze(0)
-        .unsqueeze(2)
-        .float()
+        torch.tensor([-1, -1, -1, -1], device=device).unsqueeze(0).unsqueeze(2).float()
     )
     convolve = Conv1d(
         out_channels=1, kernel_size=1, input_shape=input.shape, padding="same"
@@ -44,9 +40,7 @@ def test_Conv1d(device):
     convolve.conv.weight = torch.nn.Parameter(
         torch.tensor([-1], device=device).float().unsqueeze(0).unsqueeze(1)
     )
-    convolve.conv.bias = torch.nn.Parameter(
-        torch.tensor([0], device=device).float()
-    )
+    convolve.conv.bias = torch.nn.Parameter(torch.tensor([0], device=device).float())
     output = convolve(input)
     assert torch.all(torch.eq(torch.ones(input.shape, device=device), output))
 
@@ -54,7 +48,6 @@ def test_Conv1d(device):
 
 
 def test_Conv2d(device):
-
     from speechbrain.nnet.CNN import Conv2d
 
     input = torch.rand([4, 11, 32, 1], device=device)
@@ -70,18 +63,14 @@ def test_Conv2d(device):
     convolve.conv.weight = torch.nn.Parameter(
         torch.zeros(convolve.conv.weight.shape, device=device)
     )
-    convolve.conv.bias = torch.nn.Parameter(
-        torch.tensor([0], device=device).float()
-    )
+    convolve.conv.bias = torch.nn.Parameter(torch.tensor([0], device=device).float())
     output = convolve(input)
     assert torch.all(torch.eq(torch.zeros(input.shape, device=device), output))
 
     convolve.conv.weight = torch.nn.Parameter(
         torch.ones(convolve.conv.weight.shape, device=device)
     )
-    convolve.conv.bias = torch.nn.Parameter(
-        torch.tensor([0], device=device).float()
-    )
+    convolve.conv.bias = torch.nn.Parameter(torch.tensor([0], device=device).float())
     output = convolve(input)
     assert torch.all(torch.eq(input, output))
 

@@ -190,9 +190,7 @@ class DurationPredictor(nn.Module):
     torch.Size([3, 400, 1])
     """
 
-    def __init__(
-        self, in_channels, out_channels, kernel_size, dropout=0.0, n_units=1
-    ):
+    def __init__(self, in_channels, out_channels, kernel_size, dropout=0.0, n_units=1):
         super().__init__()
         self.conv1 = CNN.Conv1d(
             in_channels=in_channels,
@@ -292,13 +290,9 @@ class SPNPredictor(nn.Module):
         self.enc_num_head = enc_num_head
         self.padding_idx = padding_idx
 
-        self.encPreNet = EncoderPreNet(
-            n_char, padding_idx, out_channels=enc_d_model
-        )
+        self.encPreNet = EncoderPreNet(n_char, padding_idx, out_channels=enc_d_model)
 
-        self.sinusoidal_positional_embed_encoder = PositionalEncoding(
-            enc_d_model
-        )
+        self.sinusoidal_positional_embed_encoder = PositionalEncoding(enc_d_model)
 
         self.spn_encoder = TransformerEncoder(
             num_layers=enc_num_layers,
@@ -537,16 +531,10 @@ class FastSpeech2(nn.Module):
         self.enc_num_head = enc_num_head
         self.dec_num_head = dec_num_head
         self.padding_idx = padding_idx
-        self.sinusoidal_positional_embed_encoder = PositionalEncoding(
-            enc_d_model
-        )
-        self.sinusoidal_positional_embed_decoder = PositionalEncoding(
-            dec_d_model
-        )
+        self.sinusoidal_positional_embed_encoder = PositionalEncoding(enc_d_model)
+        self.sinusoidal_positional_embed_decoder = PositionalEncoding(dec_d_model)
 
-        self.encPreNet = EncoderPreNet(
-            n_char, padding_idx, out_channels=enc_d_model
-        )
+        self.encPreNet = EncoderPreNet(n_char, padding_idx, out_channels=enc_d_model)
         self.durPred = DurationPredictor(
             in_channels=enc_d_model,
             out_channels=enc_d_model,
@@ -686,9 +674,7 @@ class FastSpeech2(nn.Module):
         token_feats = token_feats * srcmask_inverted
 
         # duration predictor
-        predict_durations = self.durPred(token_feats, srcmask_inverted).squeeze(
-            -1
-        )
+        predict_durations = self.durPred(token_feats, srcmask_inverted).squeeze(-1)
 
         if predict_durations.dim() == 1:
             predict_durations = predict_durations.unsqueeze(0)
@@ -799,9 +785,7 @@ def average_over_durations(values, durs):
         - torch.gather(values_nonzero_cums, 2, dcs)
     ).float()
 
-    avg = torch.where(
-        values_nelems == 0.0, values_nelems, values_sums / values_nelems
-    )
+    avg = torch.where(values_nelems == 0.0, values_nelems, values_sums / values_nelems)
     return avg
 
 
@@ -869,9 +853,7 @@ class TextMelCollate:
         """
         # TODO: Remove for loops
         raw_batch = list(batch)
-        for i in range(
-            len(batch)
-        ):  # the pipeline return a dictionary with one element
+        for i in range(len(batch)):  # the pipeline return a dictionary with one element
             batch[i] = batch[i]["mel_text_pair"]
 
         # Right zero-pad all one-hot text sequences to max input length
@@ -902,9 +884,7 @@ class TextMelCollate:
         for i in range(len(ids_sorted_decreasing)):
             text = batch[ids_sorted_decreasing[i]][0]
             no_spn_seq = batch[ids_sorted_decreasing[i]][-2]
-            last_phonemes = torch.LongTensor(
-                batch[ids_sorted_decreasing[i]][-3]
-            )
+            last_phonemes = torch.LongTensor(batch[ids_sorted_decreasing[i]][-3])
             dur = batch[ids_sorted_decreasing[i]][1]
             spn_labels = torch.LongTensor(batch[ids_sorted_decreasing[i]][-1])
 
@@ -1283,9 +1263,7 @@ class SSIMLoss(torch.nn.Module):
         Normalized tensor
         """
         maximum = torch.amax(x.masked_fill(~mask, 0), dim=(1, 2), keepdim=True)
-        minimum = torch.amin(
-            x.masked_fill(~mask, 1e30), dim=(1, 2), keepdim=True
-        )
+        minimum = torch.amin(x.masked_fill(~mask, 1e30), dim=(1, 2), keepdim=True)
         return (x - minimum) / (maximum - minimum + 1e-8)
 
     def forward(self, y_hat, y, length):
@@ -1303,9 +1281,9 @@ class SSIMLoss(torch.nn.Module):
         -------
         loss: Average loss value in range [0, 1] masked by the length.
         """
-        mask = self.sequence_mask(
-            sequence_length=length, max_len=y.size(1)
-        ).unsqueeze(2)
+        mask = self.sequence_mask(sequence_length=length, max_len=y.size(1)).unsqueeze(
+            2
+        )
         y_norm = self.sample_wise_min_max(y, mask)
         y_hat_norm = self.sample_wise_min_max(y_hat, mask)
         ssim_loss = self.loss_func(
@@ -1313,15 +1291,11 @@ class SSIMLoss(torch.nn.Module):
         )
 
         if ssim_loss.item() > 1.0:
-            print(
-                f" > SSIM loss is out-of-range {ssim_loss.item()}, setting it 1.0"
-            )
+            print(f" > SSIM loss is out-of-range {ssim_loss.item()}, setting it 1.0")
             ssim_loss = torch.tensor(1.0, device=ssim_loss.device)
 
         if ssim_loss.item() < 0.0:
-            print(
-                f" > SSIM loss is out-of-range {ssim_loss.item()}, setting it 0.0"
-            )
+            print(f" > SSIM loss is out-of-range {ssim_loss.item()}, setting it 0.0")
             ssim_loss = torch.tensor(0.0, device=ssim_loss.device)
 
         return ssim_loss
@@ -1386,9 +1360,7 @@ class _SSIMLoss(_Loss):
 
         # This check might look redundant because kernel size is checked within the ssim function anyway.
         # However, this check allows to fail fast when the loss is being initialised and training has not been started.
-        assert (
-            kernel_size % 2 == 1
-        ), f"Kernel size must be odd, got [{kernel_size}]"
+        assert kernel_size % 2 == 1, f"Kernel size must be odd, got [{kernel_size}]"
         self.kernel_sigma = kernel_sigma
         self.k1 = k1
         self.k2 = k2
@@ -1416,9 +1388,7 @@ class _SSIMLoss(_Loss):
             return x.mean(dim=0)
         if reduction == "sum":
             return x.sum(dim=0)
-        raise ValueError(
-            "Unknown reduction. Expected one of {'none', 'mean', 'sum'}"
-        )
+        raise ValueError("Unknown reduction. Expected one of {'none', 'mean', 'sum'}")
 
     def _validate_input(
         self,
@@ -1452,36 +1422,38 @@ class _SSIMLoss(_Loss):
 
         for t in tensors:
             assert torch.is_tensor(t), f"Expected torch.Tensor, got {type(t)}"
-            assert (
-                t.device == x.device
-            ), f"Expected tensors to be on {x.device}, got {t.device}"
+            assert t.device == x.device, (
+                f"Expected tensors to be on {x.device}, got {t.device}"
+            )
 
             if size_range is None:
-                assert (
-                    t.size() == x.size()
-                ), f"Expected tensors with same size, got {t.size()} and {x.size()}"
+                assert t.size() == x.size(), (
+                    f"Expected tensors with same size, got {t.size()} and {x.size()}"
+                )
             else:
                 assert (
                     t.size()[size_range[0] : size_range[1]]
                     == x.size()[size_range[0] : size_range[1]]
-                ), f"Expected tensors with same size at given dimensions, got {t.size()} and {x.size()}"
+                ), (
+                    f"Expected tensors with same size at given dimensions, got {t.size()} and {x.size()}"
+                )
 
             if dim_range[0] == dim_range[1]:
-                assert (
-                    t.dim() == dim_range[0]
-                ), f"Expected number of dimensions to be {dim_range[0]}, got {t.dim()}"
+                assert t.dim() == dim_range[0], (
+                    f"Expected number of dimensions to be {dim_range[0]}, got {t.dim()}"
+                )
             elif dim_range[0] < dim_range[1]:
-                assert (
-                    dim_range[0] <= t.dim() <= dim_range[1]
-                ), f"Expected number of dimensions to be between {dim_range[0]} and {dim_range[1]}, got {t.dim()}"
+                assert dim_range[0] <= t.dim() <= dim_range[1], (
+                    f"Expected number of dimensions to be between {dim_range[0]} and {dim_range[1]}, got {t.dim()}"
+                )
 
             if data_range[0] < data_range[1]:
-                assert (
-                    data_range[0] <= t.min()
-                ), f"Expected values to be greater or equal to {data_range[0]}, got {t.min()}"
-                assert (
-                    t.max() <= data_range[1]
-                ), f"Expected values to be lower or equal to {data_range[1]}, got {t.max()}"
+                assert data_range[0] <= t.min(), (
+                    f"Expected values to be greater or equal to {data_range[0]}, got {t.min()}"
+                )
+                assert t.max() <= data_range[1], (
+                    f"Expected values to be lower or equal to {data_range[1]}, got {t.max()}"
+                )
 
     def gaussian_filter(self, kernel_size, sigma):
         """Returns 2D Gaussian kernel N(0,sigma^2)
@@ -1537,33 +1509,23 @@ class _SSIMLoss(_Loss):
         c1 = k1**2
         c2 = k2**2
         n_channels = x.size(1)
-        mu_x = F.conv2d(
-            x, weight=kernel, stride=1, padding=0, groups=n_channels
-        )
-        mu_y = F.conv2d(
-            y, weight=kernel, stride=1, padding=0, groups=n_channels
-        )
+        mu_x = F.conv2d(x, weight=kernel, stride=1, padding=0, groups=n_channels)
+        mu_y = F.conv2d(y, weight=kernel, stride=1, padding=0, groups=n_channels)
 
         mu_xx = mu_x**2
         mu_yy = mu_y**2
         mu_xy = mu_x * mu_y
 
         sigma_xx = (
-            F.conv2d(
-                x**2, weight=kernel, stride=1, padding=0, groups=n_channels
-            )
+            F.conv2d(x**2, weight=kernel, stride=1, padding=0, groups=n_channels)
             - mu_xx
         )
         sigma_yy = (
-            F.conv2d(
-                y**2, weight=kernel, stride=1, padding=0, groups=n_channels
-            )
+            F.conv2d(y**2, weight=kernel, stride=1, padding=0, groups=n_channels)
             - mu_yy
         )
         sigma_xy = (
-            F.conv2d(
-                x * y, weight=kernel, stride=1, padding=0, groups=n_channels
-            )
+            F.conv2d(x * y, weight=kernel, stride=1, padding=0, groups=n_channels)
             - mu_xy
         )
 
@@ -1639,36 +1601,26 @@ class _SSIMLoss(_Loss):
         x_y_imag = x_real * y_imag + x_imag * y_real
 
         sigma1_sq = (
-            F.conv2d(
-                x_sq, weight=kernel, stride=1, padding=0, groups=n_channels
-            )
+            F.conv2d(x_sq, weight=kernel, stride=1, padding=0, groups=n_channels)
             - mu1_sq
         )
         sigma2_sq = (
-            F.conv2d(
-                y_sq, weight=kernel, stride=1, padding=0, groups=n_channels
-            )
+            F.conv2d(y_sq, weight=kernel, stride=1, padding=0, groups=n_channels)
             - mu2_sq
         )
         sigma12_real = (
-            F.conv2d(
-                x_y_real, weight=kernel, stride=1, padding=0, groups=n_channels
-            )
+            F.conv2d(x_y_real, weight=kernel, stride=1, padding=0, groups=n_channels)
             - mu1_mu2_real
         )
         sigma12_imag = (
-            F.conv2d(
-                x_y_imag, weight=kernel, stride=1, padding=0, groups=n_channels
-            )
+            F.conv2d(x_y_imag, weight=kernel, stride=1, padding=0, groups=n_channels)
             - mu1_mu2_imag
         )
         sigma12 = torch.stack((sigma12_imag, sigma12_real), dim=-1)
         mu1_mu2 = torch.stack((mu1_mu2_real, mu1_mu2_imag), dim=-1)
         # Set alpha = beta = gamma = 1.
         cs_map = (sigma12 * 2 + c2 * compensation) / (
-            sigma1_sq.unsqueeze(-1)
-            + sigma2_sq.unsqueeze(-1)
-            + c2 * compensation
+            sigma1_sq.unsqueeze(-1) + sigma2_sq.unsqueeze(-1) + c2 * compensation
         )
         ssim_map = (mu1_mu2 * 2 + c1 * compensation) / (
             mu1_sq.unsqueeze(-1) + mu2_sq.unsqueeze(-1) + c1 * compensation
@@ -1727,12 +1679,8 @@ class _SSIMLoss(_Loss):
         Value of Structural Similarity (SSIM) index. In case of 5D input tensors, complex value is returned
         as a tensor of size 2.
         """
-        assert (
-            kernel_size % 2 == 1
-        ), f"Kernel size must be odd, got [{kernel_size}]"
-        self._validate_input(
-            [x, y], dim_range=(4, 5), data_range=(0, data_range)
-        )
+        assert kernel_size % 2 == 1, f"Kernel size must be odd, got [{kernel_size}]"
+        self._validate_input([x, y], dim_range=(4, 5), data_range=(0, data_range))
 
         x = x / float(data_range)
         y = y / float(data_range)
@@ -1749,9 +1697,7 @@ class _SSIMLoss(_Loss):
             .to(y)
         )
         _compute_ssim_per_channel = (
-            self._ssim_per_channel_complex
-            if x.dim() == 5
-            else self._ssim_per_channel
+            self._ssim_per_channel_complex if x.dim() == 5 else self._ssim_per_channel
         )
         ssim_map, cs_map = _compute_ssim_per_channel(
             x=x, y=y, kernel=kernel, k1=k1, k2=k2
@@ -1836,9 +1782,7 @@ class TextMelCollateWithAlignment:
         """
         # TODO: Remove for loops
         raw_batch = list(batch)
-        for i in range(
-            len(batch)
-        ):  # the pipeline return a dictionary with one element
+        for i in range(len(batch)):  # the pipeline return a dictionary with one element
             batch[i] = batch[i]["mel_text_pair"]
 
         # Right zero-pad all one-hot text sequences to max input length
@@ -1929,9 +1873,9 @@ def maximum_path_numpy(value, mask):
     v = np.zeros((b, t_x), dtype=np.float32)
     x_range = np.arange(t_x, dtype=np.float32).reshape(1, -1)
     for j in range(t_y):
-        v0 = np.pad(
-            v, [[0, 0], [1, 0]], mode="constant", constant_values=max_neg_val
-        )[:, :-1]
+        v0 = np.pad(v, [[0, 0], [1, 0]], mode="constant", constant_values=max_neg_val)[
+            :, :-1
+        ]
         v1 = v
         max_mask = v1 >= v0
         v_max = np.where(max_mask, v1, v0)
@@ -2078,9 +2022,7 @@ class AlignmentNetwork(torch.nn.Module):
                 attn_prior[:, None] + 1e-8
             )
         if mask is not None:
-            attn_logp.data.masked_fill_(
-                ~mask.bool().unsqueeze(2), -float("inf")
-            )
+            attn_logp.data.masked_fill_(~mask.bool().unsqueeze(2), -float("inf"))
         attn = self.softmax(attn_logp)
         return attn, attn_logp
 
@@ -2255,16 +2197,10 @@ class FastSpeech2WithAlignment(nn.Module):
         self.enc_num_head = enc_num_head
         self.dec_num_head = dec_num_head
         self.padding_idx = padding_idx
-        self.sinusoidal_positional_embed_encoder = PositionalEncoding(
-            enc_d_model
-        )
-        self.sinusoidal_positional_embed_decoder = PositionalEncoding(
-            dec_d_model
-        )
+        self.sinusoidal_positional_embed_encoder = PositionalEncoding(enc_d_model)
+        self.sinusoidal_positional_embed_decoder = PositionalEncoding(dec_d_model)
 
-        self.encPreNet = EncoderPreNet(
-            n_char, padding_idx, out_channels=enc_d_model
-        )
+        self.encPreNet = EncoderPreNet(n_char, padding_idx, out_channels=enc_d_model)
         self.durPred = DurationPredictor(
             in_channels=enc_d_model,
             out_channels=enc_d_model,
@@ -2464,9 +2400,7 @@ class FastSpeech2WithAlignment(nn.Module):
         alignment_logprob = None
         alignment_mas = None
         if mel_spectograms is not None:
-            y_mask = get_key_padding_mask(
-                mel_spectograms, pad_idx=self.padding_idx
-            )
+            y_mask = get_key_padding_mask(mel_spectograms, pad_idx=self.padding_idx)
             y_mask_inverted = (~y_mask).unsqueeze(-1)
 
             (
@@ -2485,9 +2419,7 @@ class FastSpeech2WithAlignment(nn.Module):
             alignment_mas = alignment_mas.transpose(1, 2)
 
         # duration predictor
-        predict_durations = self.durPred(
-            token_feats, srcmask_inverted
-        ).squeeze()
+        predict_durations = self.durPred(token_feats, srcmask_inverted).squeeze()
         if predict_durations.dim() == 1:
             predict_durations = predict_durations.unsqueeze(0)
         predict_durations_reverse_log = torch.clamp(
@@ -2500,9 +2432,7 @@ class FastSpeech2WithAlignment(nn.Module):
         # use a pitch rate to adjust the pitch
         predict_pitch = predict_pitch * pitch_rate
         if pitch is not None:
-            avg_pitch = average_over_durations(
-                pitch.unsqueeze(1), alignment_durations
-            )
+            avg_pitch = average_over_durations(pitch.unsqueeze(1), alignment_durations)
             pitch = self.pitchEmbed(avg_pitch)
             avg_pitch = avg_pitch.permute(0, 2, 1)
         else:
@@ -2636,9 +2566,7 @@ class LossWithAlignment(nn.Module):
         self.energy_loss_weight = energy_loss_weight
         self.aligner_loss_weight = aligner_loss_weight
         self.binary_alignment_loss_weight = binary_alignment_loss_weight
-        self.binary_alignment_loss_warmup_epochs = (
-            binary_alignment_loss_warmup_epochs
-        )
+        self.binary_alignment_loss_warmup_epochs = binary_alignment_loss_warmup_epochs
         self.binary_alignment_loss_max_epochs = binary_alignment_loss_max_epochs
 
     def forward(self, predictions, targets, current_epoch):
@@ -2746,9 +2674,7 @@ class LossWithAlignment(nn.Module):
         loss["mel_loss"] = mel_loss * self.mel_loss_weight
 
         postnet_mel_loss = torch.div(postnet_mel_loss, len(mel_target))
-        loss["postnet_mel_loss"] = (
-            postnet_mel_loss * self.postnet_mel_loss_weight
-        )
+        loss["postnet_mel_loss"] = postnet_mel_loss * self.postnet_mel_loss_weight
 
         dur_loss = torch.div(dur_loss, len(mel_target))
         loss["dur_loss"] = dur_loss * self.duration_loss_weight
@@ -2760,9 +2686,7 @@ class LossWithAlignment(nn.Module):
         loss["energy_loss"] = energy_loss * self.energy_loss_weight
 
         if alignment_logprob is not None:
-            aligner_loss = self.aligner_loss(
-                alignment_logprob, phon_len, mel_length
-            )
+            aligner_loss = self.aligner_loss(alignment_logprob, phon_len, mel_length)
             loss["aligner_loss"] = aligner_loss * self.aligner_loss_weight
 
         if alignment_soft is not None and alignment_hard is not None:
@@ -2771,8 +2695,7 @@ class LossWithAlignment(nn.Module):
             else:
                 binary_loss_warmup_weight = (
                     min(
-                        current_epoch
-                        / self.binary_alignment_loss_warmup_epochs,
+                        current_epoch / self.binary_alignment_loss_warmup_epochs,
                         1.0,
                     )
                     * 1.0

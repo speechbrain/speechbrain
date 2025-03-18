@@ -32,6 +32,7 @@ Authors
  * Titouan Parcollet 2021, 2022
  * Dominik Wagner 2022
 """
+
 import functools
 import os
 import sys
@@ -109,9 +110,7 @@ class ASR(sb.core.Brain):
             if current_epoch % self.hparams.valid_search_interval == 0:
                 # for the sake of efficiency, we only perform beamsearch with limited capacity
                 # and no LM to give user some idea of how the AM is doing
-                hyps, _, _, _ = self.hparams.valid_search(
-                    enc_out.detach(), wav_lens
-                )
+                hyps, _, _, _ = self.hparams.valid_search(enc_out.detach(), wav_lens)
         elif stage == sb.Stage.TEST:
             # for the sake of efficiency, we only perform beamsearch with limited capacity
             # and no LM to give user some idea of how the AM is doing
@@ -147,9 +146,7 @@ class ASR(sb.core.Brain):
 
         # now as training progresses we use real prediction from the prev step instead of teacher forcing
 
-        loss_ctc = self.hparams.ctc_cost(
-            p_ctc, tokens, wav_lens, tokens_lens
-        ).sum()
+        loss_ctc = self.hparams.ctc_cost(p_ctc, tokens, wav_lens, tokens_lens).sum()
 
         loss = (
             self.hparams.ctc_weight * loss_ctc
@@ -159,9 +156,7 @@ class ASR(sb.core.Brain):
         if stage != sb.Stage.TRAIN:
             current_epoch = self.hparams.epoch_counter.current
             valid_search_interval = self.hparams.valid_search_interval
-            if current_epoch % valid_search_interval == 0 or (
-                stage == sb.Stage.TEST
-            ):
+            if current_epoch % valid_search_interval == 0 or (stage == sb.Stage.TEST):
                 # Decode token terms to words
                 predicted_words = [
                     tokenizer.decode_ids(utt_seq).split(" ") for utt_seq in hyps
@@ -208,10 +203,7 @@ class ASR(sb.core.Brain):
             stage_stats["ACC"] = self.acc_metric.summarize()
             current_epoch = self.hparams.epoch_counter.current
             valid_search_interval = self.hparams.valid_search_interval
-            if (
-                current_epoch % valid_search_interval == 0
-                or stage == sb.Stage.TEST
-            ):
+            if current_epoch % valid_search_interval == 0 or stage == sb.Stage.TEST:
                 stage_stats["WER"] = self.wer_metric.summarize("error_rate")
 
         # log stats and save checkpoint at end-of-epoch
@@ -243,9 +235,7 @@ class ASR(sb.core.Brain):
                 test_stats=stage_stats,
             )
             if if_main_process():
-                with open(
-                    self.hparams.test_wer_file, "w", encoding="utf-8"
-                ) as w:
+                with open(self.hparams.test_wer_file, "w", encoding="utf-8") as w:
                     self.wer_metric.write_stats(w)
 
             # save the averaged checkpoint at the end of the evaluation stage
@@ -261,9 +251,7 @@ class ASR(sb.core.Brain):
         """perform checkpoint average if needed"""
         super().on_evaluate_start()
 
-        ckpts = self.checkpointer.find_checkpoints(
-            max_key=max_key, min_key=min_key
-        )
+        ckpts = self.checkpointer.find_checkpoints(max_key=max_key, min_key=min_key)
         ckpt = sb.utils.checkpoints.average_checkpoints(
             ckpts,
             recoverable_name="model",
@@ -291,9 +279,7 @@ def dataio_prepare(hparams):
         hparams["train_dataloader_opts"]["shuffle"] = False
 
     elif hparams["sorting"] == "descending":
-        train_data = train_data.filtered_sorted(
-            sort_key="duration", reverse=True
-        )
+        train_data = train_data.filtered_sorted(sort_key="duration", reverse=True)
         # when sorting do not shuffle in dataloader ! otherwise is pointless
         hparams["train_dataloader_opts"]["shuffle"] = False
 
@@ -301,9 +287,7 @@ def dataio_prepare(hparams):
         pass
 
     else:
-        raise NotImplementedError(
-            "sorting must be random, ascending or descending"
-        )
+        raise NotImplementedError("sorting must be random, ascending or descending")
     valid_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
         csv_path=hparams["valid_csv"],
         replacements={"data_root": data_folder},
@@ -317,9 +301,7 @@ def dataio_prepare(hparams):
         test_datasets[name] = sb.dataio.dataset.DynamicItemDataset.from_csv(
             csv_path=csv_file, replacements={"data_root": data_folder}
         )
-        test_datasets[name] = test_datasets[name].filtered_sorted(
-            sort_key="duration"
-        )
+        test_datasets[name] = test_datasets[name].filtered_sorted(sort_key="duration")
 
     datasets = [train_data, valid_data] + [i for k, i in test_datasets.items()]
     valtest_datasets = [valid_data] + [i for k, i in test_datasets.items()]
@@ -338,9 +320,7 @@ def dataio_prepare(hparams):
         start = int(start)
         stop = int(stop)
         num_frames = stop - start
-        sig, fs = torchaudio.load(
-            wav, num_frames=num_frames, frame_offset=start
-        )
+        sig, fs = torchaudio.load(wav, num_frames=num_frames, frame_offset=start)
         info = torchaudio.info(wav)
 
         resampled = sig
@@ -374,9 +354,7 @@ def dataio_prepare(hparams):
         start = int(start)
         stop = int(stop)
         num_frames = stop - start
-        sig, fs = torchaudio.load(
-            wav, num_frames=num_frames, frame_offset=start
-        )
+        sig, fs = torchaudio.load(wav, num_frames=num_frames, frame_offset=start)
         info = torchaudio.info(wav)
 
         resampled = sig
@@ -398,9 +376,7 @@ def dataio_prepare(hparams):
         # Speed Perturb is done here so it is multi-threaded with the
         # workers of the dataloader (faster).
         if hparams["do_speed_perturb"]:
-            resampled = hparams["speed_perturb"](
-                resampled.unsqueeze(0)
-            ).squeeze(0)
+            resampled = hparams["speed_perturb"](resampled.unsqueeze(0)).squeeze(0)
 
         return resampled
 

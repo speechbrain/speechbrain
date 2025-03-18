@@ -80,9 +80,7 @@ class mBART(HFTransformersInterface):
         self.load_tokenizer(source=source, pad_token=None, tgt_lang=target_lang)
 
         if share_input_output_embed:
-            self.model.lm_head.weight = (
-                self.model.model.decoder.embed_tokens.weight
-            )
+            self.model.lm_head.weight = self.model.model.decoder.embed_tokens.weight
             self.model.lm_head.requires_grad = False
             self.model.model.decoder.embed_tokens.requires_grad = False
 
@@ -117,9 +115,7 @@ class mBART(HFTransformersInterface):
         """
 
         # should we replace 0 elements by pax_idx as pad_idx of mbart model seems to be different from 0?
-        tgt = self.custom_padding(
-            tgt, 0, self.model.model.decoder.config.pad_token_id
-        )
+        tgt = self.custom_padding(tgt, 0, self.model.model.decoder.config.pad_token_id)
 
         if self.freeze:
             with torch.no_grad():

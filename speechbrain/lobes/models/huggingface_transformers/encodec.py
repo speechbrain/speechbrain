@@ -102,9 +102,7 @@ class Encodec(HFTransformersInterface):
         )
         self.num_tokens = self.model.config.codebook_size
         quantizer_layers = self.model.quantizer.layers[: self.num_heads]
-        vocabulary = torch.stack(
-            [layer.codebook.embed for layer in quantizer_layers]
-        )
+        vocabulary = torch.stack([layer.codebook.embed for layer in quantizer_layers])
         self.register_buffer("vocabulary", vocabulary)
         _, self.num_tokens, self.emb_dim = self.vocabulary.shape
         vocabulary_flat = self.vocabulary.reshape(
@@ -154,9 +152,9 @@ class Encodec(HFTransformersInterface):
             length = torch.ones(len(sample), device=sample.device)
         max_len = sample.size(1)
         emb = self._raw_embeddings(sample)
-        mask = length_to_mask(length * max_len, max_len)[
-            :, :, None, None
-        ].expand_as(emb)
+        mask = length_to_mask(length * max_len, max_len)[:, :, None, None].expand_as(
+            emb
+        )
         emb_mean = (emb.mean(-1).sum(1) / mask.mean(-1).sum(1)).mean(0)[
             None, None, :, None
         ]
@@ -322,9 +320,7 @@ class Encodec(HFTransformersInterface):
             the reconstructed audio
         """
         with torch.set_grad_enabled(not self.freeze):
-            result = self.model.decode(
-                tokens.unsqueeze(0).transpose(-1, -2), [None]
-            )
+            result = self.model.decode(tokens.unsqueeze(0).transpose(-1, -2), [None])
             audio = result.audio_values
             if length is not None:
                 clean_padding_(audio, length)
@@ -348,9 +344,7 @@ class Encodec(HFTransformersInterface):
         with torch.set_grad_enabled(not self.freeze):
             if self.flat_embeddings:
                 batch_size, max_len, _ = emb.shape
-                emb = emb.reshape(
-                    batch_size, max_len, self.num_heads, self.emb_dim
-                )
+                emb = emb.reshape(batch_size, max_len, self.num_heads, self.emb_dim)
             if self.renorm_embeddings:
                 emb = emb * self.emb_std + self.emb_mean
             scaled_states = emb.pow(2).sum(-1, keepdim=True)
