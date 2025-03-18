@@ -21,7 +21,7 @@ While CoVoST offers multiple languages, this recipe only was tested on English t
 | Language | hyperparams file | Encoder | LLM | Test BLEU | Hugging Face link | Model link | GPUs |
 | ------------- |:-------------:|:---------------------------:| -----:| -----:| -----:| -----:| -----:|
 | English - German | conformer.yaml | conformer | None | 13.9 | None | None | 2x A40 |
-| English - German | xlsr_llama3.yaml| XLS-R 300M | LLaMA 3.1 7B | 22.8 | None | None | 8x A40 |
+| English - German | xlsr_llama3.yaml| XLS-R 300M | LLaMA 3.1 7B | 24.5 | None | None | 8x A40 |
 
 # **About SpeechBrain**
 - Website: https://speechbrain.github.io/
