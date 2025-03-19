@@ -360,14 +360,7 @@ class ScoreModel(nn.Module):
             return per_sample_loss
         else:
             raise ValueError("Invalid reduction type")
-
-    def to(self, *args, **kwargs):
-        """Also transfer the EMA buffers if needed."""
-        self.ema.to(*args, **kwargs)
-        return super().to(*args, **kwargs)
     
-    # TODO: DO WE NEED THE BLOW FUNCTIONS?
-
     def update_ema(self):
         """Call this after each optimizer step to update the EMA weights."""
         self.ema.update(self.dnn.parameters())
@@ -380,3 +373,8 @@ class ScoreModel(nn.Module):
     def restore_ema(self):
         """Call this after evaluation if you stored EMA weights and want to restore normal weights."""
         self.ema.restore(self.dnn.parameters())
+
+    def to(self, *args, **kwargs):
+        """Override PyTorch .to() to also transfer the EMA of the model weights"""
+        self.ema.to(*args, **kwargs)
+        return super().to(*args, **kwargs)

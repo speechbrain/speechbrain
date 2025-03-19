@@ -279,7 +279,7 @@ class SGMSEBrain(sb.Brain):
         loss = super().fit_batch(batch)
 
         # Update EMA for the diffusion model
-        # self.modules["score_model"].update_ema()
+        self.modules["score_model"].update_ema()
 
         return loss
 
@@ -372,8 +372,10 @@ class SGMSEBrain(sb.Brain):
         Returns:
         - None
         """
-        # TODO: how to handle ema here? is this needed?
+        # Swap in the EMA weights for evaluation
         self.modules["score_model"].store_ema()
+        # You can also call super if you like 
+        super().on_evaluate_start(max_key=max_key, min_key=min_key)
 
     def on_evaluate_end(self):
         """
@@ -388,8 +390,9 @@ class SGMSEBrain(sb.Brain):
         Returns:
         - None
         """
-        # TODO: how to handle ema here?
+        # Restore original weights
         self.modules["score_model"].restore_ema()
+        super().on_evaluate_end()
 
     # ---------------------------
     # STFT and Spec transforms
