@@ -157,3 +157,6 @@ dmypy.json
 
 # Mac OS
 .DS_Store
+
+# Wandb
+**/wandb/

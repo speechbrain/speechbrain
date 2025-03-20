@@ -188,10 +188,6 @@ class WandBLogger(TrainLogger):
 
     Arguments
     ---------
-    initializer: callable
-        A callable function that initializes the WandB run.
-        For more information on the parameters that can be passed to the initializer, refer to
-        the documentation: https://docs.wandb.ai/ref/python/init
     *args: tuple
         Positional arguments to be passed to the initializer function.
     **kwargs: dict
@@ -219,11 +215,20 @@ class WandBLogger(TrainLogger):
     If there is an issue with the WandB Logger initialization, it raises an exception.
     """
 
-    def __init__(self, initializer, *args, **kwargs):
+    def __init__(self, *args, **kwargs):
+        try:
+            import wandb
+        except ImportError:
+            raise ImportError(
+                "WandB is not installed. Please install it using `pip install wandb`"
+            )
         try:
             self.run = None
             if if_main_process():
-                self.run = initializer(*args, **kwargs)
+                if "dir" in kwargs:
+                    # make sure the dir exists
+                    os.makedirs(kwargs["dir"], exist_ok=True)
+                self.run = wandb.init(*args, **kwargs)
         except Exception as e:
             raise e("There was an issue with the WandB Logger initialization")
 

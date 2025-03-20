@@ -10,6 +10,7 @@ import copy
 import math
 from types import MethodType
 
+import torch
 from torch.utils.data import Dataset
 
 from speechbrain.dataio.dataio import load_data_csv, load_data_json
@@ -502,3 +503,105 @@ def apply_overfit_test(
         epoch_data_count = overfit_test_epoch_data_count
         dataset = dataset.overfit_test(sample_count, epoch_data_count)
     return dataset
+
+import torch.distributed as dist
+import random 
+
+class PackedDatasetWrapper(torch.utils.data.IterableDataset):
+    """Wrapper that packs tokens from an existing DynamicItemDataset into concatenated batches."""
+
+    def __init__(self, original_dataset, block_size, token_key="tokens", num_training_steps=1000000):
+        super().__init__()
+        self.original_dataset = original_dataset
+        self.__len_original = len(self.original_dataset)
+        print(f"Original dataset length: {self.__len_original}")
+        self.block_size = block_size
+        self.token_key = token_key
+
+    def __iter__(self):
+        """Yields concatenated batches of tokens up to block_size."""
+        buffer = []
+        buffer_length = 0
+        buffer_ids = []
+
+        # get worker info within a DataLoader
+        worker_info = torch.utils.data.get_worker_info()
+        worker_id = worker_info.id if worker_info else 0
+        # get DDP rank info
+        rank = dist.get_rank() if dist.is_initialized() else 0
+        # combine the worker_id and worker_rank to create a unique seed for rng
+        seed = 42 + worker_id + 1337 * rank
+        rng = random.Random(seed)
+
+
+        while True:
+            idx = rng.randint(0, self.__len_original)
+            data_point = self.original_dataset[idx]
+            tokens = data_point[self.token_key]
+            id_name = data_point.get("id", idx)
+
+            # Convert tokens to tensor if needed
+            if isinstance(tokens, list):
+                tokens = torch.tensor(tokens, dtype=torch.long)
+            elif not isinstance(tokens, torch.Tensor):
+                raise ValueError(f"Unsupported token type: {type(tokens)}")
+
+            seq_length = tokens.size(0)
+
+            # If adding these tokens would exceed block_size
+            if buffer_length + seq_length > self.block_size:
+                if buffer:
+                    # Fill current block and yield it
+                    num_tokens_to_keep = self.block_size - buffer_length
+                    new_tokens = tokens[:num_tokens_to_keep]
+                    buffer.append(new_tokens)
+                    buffer_ids.append(id_name)
+                    packed_tokens = torch.cat(buffer, dim=0)
+                    yield {"id": "@".join(buffer_ids), "tokens": packed_tokens}
+
+                    # Process remaining tokens from current sequence
+                    remaining = tokens[num_tokens_to_keep:]
+                    chunks = remaining.split(self.block_size)
+                    
+                    # Yield any complete blocks
+                    for chunk in chunks[:-1]:
+                        if chunk.size(0) == self.block_size:
+                            yield {"id": id_name, "tokens": chunk}
+
+                    # Start new buffer with leftover tokens
+                    buffer = [chunks[-1]] if chunks[-1].size(0) > 0 else []
+                    buffer_ids = [id_name] if buffer else []
+                    buffer_length = chunks[-1].size(0) if buffer else 0
+
+                else:
+                    # Single sequence larger than block_size
+                    chunks = tokens.split(self.block_size)
+                    
+                    # Yield complete blocks
+                    for chunk in chunks[:-1]:
+                        if chunk.size(0) == self.block_size:
+                            yield {"id": id_name, "tokens": chunk}
+                    
+                    # Start new buffer with leftover tokens
+                    buffer = [chunks[-1]] if chunks[-1].size(0) > 0 else []
+                    buffer_ids = [id_name] if buffer else []
+                    buffer_length = chunks[-1].size(0) if buffer else 0
+
+            else:
+                # Add tokens to buffer
+                buffer.append(tokens)
+                buffer_ids.append(id_name)
+                buffer_length += seq_length
+
+        # Yield any remaining tokens in buffer
+        if buffer:
+            concatenated = torch.cat(buffer, dim=0)
+            yield {"id": "@".join(buffer_ids), "tokens": concatenated}
+
+    # def __len__(self):
+    #     """Approximate length based on total tokens and block size."""
+    #     total_tokens = sum(
+    #         self.original_dataset[i][self.token_key].size(0) 
+    #         for i in range(len(self.original_dataset))
+    #     )
+    #     return max(1, total_tokens // self.block_size)

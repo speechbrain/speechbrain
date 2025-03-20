@@ -93,7 +93,7 @@ class Wav2Vec2(HFTransformersInterface):
         self.model.config.apply_spec_augment = apply_spec_augment
 
         # We check if inputs need to be normalized w.r.t pretrained wav2vec2
-        self.load_feature_extractor(source, cache_dir=save_path)
+        self.load_feature_extractor(source)
         self.normalize_wav = self.feature_extractor.do_normalize
 
         self.freeze_feature_extractor = freeze_feature_extractor
@@ -184,6 +184,9 @@ class Wav2Vec2(HFTransformersInterface):
             attention_mask=padding_mask,
             output_hidden_states=self.output_all_hiddens,
         )
+
+        print('warning here?')
+        exit()
 
         if self.output_all_hiddens:
             out = torch.stack(list(out.hidden_states), dim=0)

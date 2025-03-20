@@ -195,6 +195,15 @@ class PaddedBatch:
         """Returns the bach size"""
         return self.__length
 
+    def __repr__(self):
+        """Return a string that resembles a dictionary of the batch's key-value pairs."""
+        items = {key: getattr(self, key) for key in self.__keys}
+        return f"PaddedBatch({items})"
+
+    def __str__(self):
+        """Return a dictionary-like string representation of the batch."""
+        items = {key: getattr(self, key) for key in self.__keys}
+        return str(items)
 
 class BatchsizeGuesser:
     """Try to figure out the batchsize, but never error out

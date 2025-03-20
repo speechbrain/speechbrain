@@ -1,0 +1,56 @@
+#
+#
+# HF_DATASETS_OFFLINE=1 HF_HUB_OFFLINE=1 python inference.py hparams/DAC_inference.yaml --save_folder=$SCRATCH/results/speech_lm/DAC_overfit_dev_clean/save/
+#
+####################### Model parameters ###########################
+save_folder: !PLACEHOLDER
+model_type: 16khz
+model_bitrate: 8kbps
+num_codebooks: 12
+sample_rate: 16000
+codebook_size: 1024
+block_size: 2048 
+eos_token: !ref <codebook_size>
+pad_token: !ref <codebook_size> + 1
+vocab_size: !ref <codebook_size> + 2 # card(codebook) + eos + pad -> 1026
+collapse_repeated_tokens: True
+
+codebook_pattern: !new:speechbrain.lobes.models.huggingface_transformers.discrete_speechlm.InterleavedCodebookPattern
+  audio_pad_token: !ref <pad_token>
+
+model_backbone: !apply:transformers.AutoModelForCausalLM.from_pretrained
+  pretrained_model_name_or_path: "HuggingFaceTB/SmolLM-135M"
+  torch_dtype: !name:torch.bfloat16
+  # attn_implementation: "flash_attention_2"
+  cache_dir: "/scratch/adelmou/hf_home/hub/" 
+
+config: !new:speechbrain.lobes.models.huggingface_transformers.discrete_speechlm.DiscreteSpeechLMConfig
+  source: "HuggingFaceTB/SmolLM-135M"
+  cache_dir: "/scratch/adelmou/hf_home/hub/"
+  block_size: !ref <block_size>
+  n_codebooks: !ref <num_codebooks>
+  vocabsize: !ref <vocab_size>
+  tie_embds: True
+
+model: !new:speechbrain.lobes.models.huggingface_transformers.discrete_speechlm.DiscreteSpeechLM
+  config: !ref <config>
+  model_backbone: !ref <model_backbone>
+
+####################### Tokenizer parameters ###########################
+
+tokenizer: !new:utils.tokenizer_interface.DACTokenizer
+  model_type: !ref <model_type>
+  model_bitrate: !ref <model_bitrate>
+  load_pretrained: True
+  tag: latest
+  load_path: /scratch/adelmou/models/dac/weights_16khz.pth
+
+####################### Checkpointer parameters ###########################
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+  checkpoints_dir: !ref <save_folder>
+  recoverables:
+    model: !ref <model>
+
+prompt_audio_file: /scratch/adelmou/datasets/sLM21-dataset/syntactic/dev/eqCEhzRXnNt.wav
+prompt_duration: -1
+prefix_output: dac

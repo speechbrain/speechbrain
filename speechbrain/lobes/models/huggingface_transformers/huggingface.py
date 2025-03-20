@@ -117,7 +117,7 @@ class HFTransformersInterface(nn.Module):
         # Fetch config
         self.config, _unused_kwargs = AutoConfig.from_pretrained(
             source,
-            cache_dir=save_path,
+            # cache_dir=save_path,
             return_unused_kwargs=True,
             trust_remote_code=trust_remote_code,
         )
@@ -204,7 +204,7 @@ class HFTransformersInterface(nn.Module):
             self.model = self.auto_class.from_pretrained(
                 source,
                 config=self.config,
-                cache_dir=save_path,
+                # cache_dir=save_path,
                 quantization_config=self.quantization_config,
                 **kwargs,
             )
@@ -220,85 +220,80 @@ class HFTransformersInterface(nn.Module):
         Arguments
         ---------
         path : str
-            Used as "source"; local path or HuggingFace hub name: e.g "facebook/wav2vec2-large-lv60"
+            Used as "source"; local path or HuggingFace hub name, e.g., "facebook/wav2vec2-large-lv60".
         save_path : str
-            norm_output (dir) of the downloaded model.
+            Directory where the downloaded model is saved.
 
         Returns
         -------
         is_sb : bool
-            Whether/not the model is deserializable w/ SpeechBrain or not (then, model conversion is needed).
+            Whether the model is deserializable with SpeechBrain (True) or requires conversion (False).
         checkpoint_filename : str
-            as of HuggingFace documentation: file name relative to the repo root (guaranteed to be here).
+            Filename of the checkpoint relative to the repository root.
         is_local : bool
-            Whether/not the model is hosted locally or on a HuggingFace hub.
+            Whether the model is hosted locally or on the HuggingFace hub.
 
         Raises
         ------
-        ValueError
-            If file is not found
+        FileNotFoundError
+            If the checkpoint file is not found.
         """
+        import os
+        import pathlib
+
+        from huggingface_hub import model_info, snapshot_download
+
         checkpoint_filename = ""
         source = pathlib.Path(path)
         is_local = True
+        local_path = path
 
-        # If path is a huggingface hub.
+        # Check if the path exists locally
         if not source.exists():
             is_local = False
-
-        # Check if source is downloaded already
-        sink = pathlib.Path(
-            save_path + "/models--" + path.replace("/", "--") + "/snapshots"
-        )
-        if sink.exists():
-            sink = (
-                sink / os.listdir(str(sink))[0]
-            )  # there's a hash-id subfolder
-            if any(
-                File.endswith((".bin", ".safetensors", ".ckpt"))
-                for File in os.listdir(str(sink))
-            ):
+            # Attempt to find the model in the local cache
+            try:
+                local_path = snapshot_download(
+                    repo_id=path, local_files_only=True
+                )
                 is_local = True
-                local_path = str(sink)
-            else:
-                local_path = path
-        else:
-            local_path = path
+            except FileNotFoundError:
+                # Model is not cached locally; will need to download
+                pass
 
         if is_local:
-            # Test for HuggingFace model
-            if any(
-                File.endswith((".bin", ".safetensors"))
-                for File in os.listdir(local_path)
-            ):
-                is_sb = False
-                return is_sb, checkpoint_filename, is_local
-
-            # Test for SpeechBrain model and get the filename.
-            for File in os.listdir(local_path):
-                if File.endswith(".ckpt"):
-                    checkpoint_filename = os.path.join(path, File)
-                    is_sb = True
-                    return is_sb, checkpoint_filename, is_local
-        else:
-            files = model_info(
-                path
-            ).siblings  # get the list of files of the Hub
-
-            # Test if it's an HuggingFace model or a SB one
-            for File in files:
-                if File.rfilename.endswith(".ckpt"):
-                    checkpoint_filename = File.rfilename
-                    is_sb = True
-                    return is_sb, checkpoint_filename, is_local
-
-            for File in files:
-                if File.rfilename.endswith((".bin", ".safetensors")):
-                    checkpoint_filename = File.rfilename
+            # Check for HuggingFace model files
+            for file_name in os.listdir(local_path):
+                if file_name.endswith((".bin", ".safetensors")):
+                    checkpoint_filename = os.path.join(local_path, file_name)
                     is_sb = False
                     return is_sb, checkpoint_filename, is_local
 
-        err_msg = f"{path} does not contain a .bin, .safetensors or .ckpt checkpoint !"
+            # Check for SpeechBrain model files
+            for file_name in os.listdir(local_path):
+                if file_name.endswith(".ckpt"):
+                    checkpoint_filename = os.path.join(local_path, file_name)
+                    is_sb = True
+                    return is_sb, checkpoint_filename, is_local
+        else:
+            # Fetch file information from the HuggingFace hub
+            files = model_info(path).siblings
+
+            # Check for SpeechBrain model files on the hub
+            for file in files:
+                if file.rfilename.endswith(".ckpt"):
+                    checkpoint_filename = file.rfilename
+                    is_sb = True
+                    return is_sb, checkpoint_filename, is_local
+
+            # Check for HuggingFace model files on the hub
+            for file in files:
+                if file.rfilename.endswith((".bin", ".safetensors")):
+                    checkpoint_filename = file.rfilename
+                    is_sb = False
+                    return is_sb, checkpoint_filename, is_local
+
+        err_msg = f"{path} does not contain a .bin, .safetensors, or .ckpt checkpoint!"
         raise FileNotFoundError(err_msg)
 
     def _modify_state_dict(self, path, **kwargs):
@@ -404,7 +399,7 @@ class HFTransformersInterface(nn.Module):
         """
         return config
 
-    def load_feature_extractor(self, source, cache_dir, **kwarg):
+    def load_feature_extractor(self, source, cache_dir=None, **kwarg):
         """Load model's feature_extractor from the hub.
 
         Arguments
@@ -417,7 +412,7 @@ class HFTransformersInterface(nn.Module):
             Keyword arguments to pass to the AutoFeatureExtractor.from_pretrained() method.
         """
         self.feature_extractor = AutoFeatureExtractor.from_pretrained(
-            source, cache_dir=cache_dir, **kwarg
+            source, **kwarg
         )
 
     def load_tokenizer(self, source, **kwarg):
