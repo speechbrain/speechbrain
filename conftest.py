@@ -13,6 +13,8 @@ def pytest_generate_tests(metafunc):
 collect_ignore = [
     "setup.py",
     "speechbrain/lobes/models/huggingface_transformers/mert.py",
+    "speechbrain/lobes/models/flair",
+    "speechbrain/lobes/models/spacy",
 ]
 try:
     import numba  # noqa: F401
