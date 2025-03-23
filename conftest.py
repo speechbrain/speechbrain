@@ -15,6 +15,7 @@ collect_ignore = [
     "speechbrain/lobes/models/huggingface_transformers/mert.py",
     "speechbrain/lobes/models/flair",
     "speechbrain/lobes/models/spacy",
+    "speechbrain/alignment/ctc_segmentation.py",
 ]
 try:
     import numba  # noqa: F401
