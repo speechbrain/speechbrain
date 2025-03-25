@@ -246,5 +246,4 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
         counter: !ref <epoch_counter>
 
 bleu_computer: !name:speechbrain.utils.bleu.BLEUStats
-    merge_words: False
 acc_computer: !name:speechbrain.utils.Accuracy.AccuracyStats
