@@ -1,8 +1,19 @@
-import numpy
+"""Test input normalization in processing/features.py.
+"""
+
+import functools
+from typing import List, Tuple, Union
+
+import numpy as np
 import pytest
 import torch
 
-from speechbrain.processing.features import InputNormalization
+from speechbrain.processing.features import (
+    InputNormalization,
+    combine_gaussian_statistics,
+    combine_gaussian_statistics_distributed,
+    gaussian_statistics,
+)
 
 
 class TestInputNormalization:
@@ -235,8 +246,6 @@ class TestInputNormalization:
 
 
 # Utility tests for the helper functions
-
-
 def test_get_mask():
     """Test the get_mask function."""
     from speechbrain.processing.features import get_mask
@@ -265,24 +274,126 @@ def test_get_mask():
     assert torch.equal(mask, expected_mask)
 
 
-def parallel_mean_var_update(rank, world_size, tmpdir):
-    """Test that the mean_var_norm works in ddp."""
+def reference_gaussian_statistics(
+    x: np.ndarray, dimensions: Union[int, tuple, None]
+) -> Tuple[int, np.ndarray, np.ndarray]:
+    """
+    Compute reference count, mean, variance with Numpy, in the simplest way
+    possible.
+    """
+    # Ensure dimensions object is a tuple.
+    if isinstance(dimensions, int):
+        dimensions = (dimensions,)
+    elif dimensions is None:
+        # All dimensions
+        dimensions = tuple(range(len(x.shape)))
+    assert isinstance(dimensions, tuple)
 
+    # Start by pretending that dimensions=() and then roll them up one by one.
+    count = 1
+    mean = x
+    variance_statistics = np.square(x)
+
+    for dimension in sorted(dimensions, reverse=True):
+        count *= x.shape[dimension]
+        mean = np.mean(mean, axis=dimension)
+        variance_statistics = np.mean(variance_statistics, axis=dimension)
+
+    variance = variance_statistics - np.square(mean)
+
+    return count, mean, variance
+
+
+@pytest.mark.parametrize(
+    "size", [(), (1,), (5,), (4, 2), (7, 8, 9), (2, 3, 4, 5)]
+)
+@pytest.mark.parametrize(
+    "dimensions",
+    [
+        None,
+        0,
+        1,
+        2,
+        3,
+        (),
+        (0,),
+        (1,),
+        (2,),
+        (3,),
+        (0, 1),
+        (0, 2),
+        (0, 1, 2),
+        (0, 1, 3),
+    ],
+)
+def test_gaussian_statistics(size, dimensions):
+    if isinstance(dimensions, tuple):
+        if any(dimension >= len(size) for dimension in dimensions):
+            return
+    elif isinstance(dimensions, int):
+        if dimensions >= len(size):
+            return
+    generator = np.random.default_rng(20250304)
+
+    x = generator.uniform(low=-5, high=+5, size=size)
+
+    reference_count, reference_mean, reference_variance = (
+        reference_gaussian_statistics(x, dimensions=dimensions)
+    )
+
+    count, mean, variance = gaussian_statistics(torch.tensor(x), dim=dimensions)
+
+    assert count == reference_count
+    assert mean.shape == reference_mean.shape
+    assert variance.shape == reference_variance.shape
+    assert np.allclose(mean.cpu().numpy(), reference_mean)
+    assert np.allclose(variance.cpu().numpy(), reference_variance)
+
+
+# For this test, assume that we compute the statistics across all dimensions
+# except the last.
+# Note that only the last dimension needs to match.
+@pytest.mark.parametrize(
+    "size_left, size_right",
+    [
+        ((2,), (2,)),
+        ((1, 4), (3, 4)),
+        ((5, 2, 5), (7, 6, 4, 5)),
+        ((2, 5, 3), (4, 3)),
+    ],
+)
+def test_combine_gaussian_statistics(size_left, size_right):
+    generator = np.random.default_rng(20250304)
+
+    last_size = size_left[-1]
+    assert size_right[-1] == last_size
+
+    left = generator.uniform(low=-5, high=+5, size=size_left)
+    right = generator.uniform(low=-7, high=+3, size=size_right)
+
+    # Concatenate left and right into one tensor, since the mean and variance on
+    # this tensor is what we should be computing.
+    flat_left = np.reshape(left, (-1, last_size))
+    flat_right = np.reshape(right, (-1, last_size))
+    combined = np.concatenate([flat_left, flat_right], axis=0)
+
+    reference_count, reference_mean, reference_variance = gaussian_statistics(
+        torch.tensor(combined)
+    )
+
+    count, mean, variance = combine_gaussian_statistics(
+        gaussian_statistics(torch.tensor(left)),
+        gaussian_statistics(torch.tensor(right)),
+    )
+
+    assert count == reference_count
+    assert torch.allclose(mean, reference_mean)
+    assert torch.allclose(variance, reference_variance)
+
+
+def initialise_process_group(rank: int, world_size: int, tmpdir):
     import os
 
-    from speechbrain.processing.features import mean_std_update
-
-    # The masked tensors are [1., 2.] and [2., 3.] for ranks 0 and 1
-    tensor = torch.tensor([[1.0, 2.0, 3.0]]) + rank
-    mask = torch.tensor([[True, True, False]])
-    dims = (1,)
-
-    # Running values should be the same between processes
-    run_count = 2
-    run_mean = torch.tensor([2.0])
-    run_std = torch.tensor([1.0])
-
-    # initialize the process group
     os.environ["RANK"] = str(rank)
     os.environ["LOCAL_RANK"] = str(rank)
     sync_file = f"file://{tmpdir}/sync"
@@ -290,60 +401,140 @@ def parallel_mean_var_update(rank, world_size, tmpdir):
         "gloo", rank=rank, world_size=world_size, init_method=sync_file
     )
 
-    # Run mean_var_norm
-    new_count, new_mean, new_std = mean_std_update(
-        tensor, mask, dims, run_count, run_mean, run_std
+
+def parallel_combine_gaussian_statistics_distributed(
+    rank, world_size, tmpdir, sizes: List[tuple], dimensions
+):
+    """
+    Test for combine_gaussian_statistics_distributed, to be run on "world_size"
+    processes at the same time.
+    """
+    assert world_size == len(sizes)
+    initialise_process_group(rank, world_size, tmpdir=tmpdir)
+
+    generator = torch.Generator()
+    generator.manual_seed(20240311)
+
+    data = [
+        5 - 15 * torch.rand(size=process_size, generator=generator)
+        for process_size in sizes
+    ]
+
+    all_statistics = [gaussian_statistics(d, dim=dimensions) for d in data]
+
+    reference_count, reference_mean, reference_variance = functools.reduce(
+        combine_gaussian_statistics, all_statistics
+    )
+
+    count, mean, variance = combine_gaussian_statistics_distributed(
+        all_statistics[rank]
+    )
+
+    assert count == reference_count
+    assert torch.allclose(mean, reference_mean)
+    assert torch.allclose(variance, reference_variance)
+
+
+@pytest.mark.parametrize(
+    "sizes, dimensions",
+    [
+        ([(2,), (2,)], ()),
+        ([(1, 4), (3, 4), (2, 4)], 0),
+        ([(1, 6, 2, 5), (7, 6, 4, 5)], (0, 2)),
+        ([(2, 5, 3), (3, 4, 3)], (0, 1)),
+    ],
+)
+def test_combine_gaussian_statistics_distributed(tmpdir, sizes, dimensions):
+    """Test the mean_var_update function in parallel."""
+    world_size = len(sizes)
+    torch.multiprocessing.spawn(
+        parallel_combine_gaussian_statistics_distributed,
+        args=(world_size, tmpdir, sizes, dimensions),
+        nprocs=world_size,
+        join=True,
+    )
+
+
+def parallel_mean_var_update(rank, world_size, tmpdir):
+    """Test that the mean_var_norm works in ddp."""
+
+    from speechbrain.processing.features import mean_std_update
+
+    initialise_process_group(rank, world_size, tmpdir)
+
+    generator = torch.Generator()
+    generator.manual_seed(20240307)
+
+    feature_length = 10
+    num_rounds = 3
+
+    batch_size = 4
+    utterance_length = 3
+    main_shape = (batch_size, utterance_length)
+
+    inputs = [
+        [
+            10
+            - 5
+            * torch.rand(
+                size=main_shape + (feature_length,), generator=generator
+            )
+            for _ in range(num_rounds)
+        ]
+        for _ in range(world_size)
+    ]
+
+    # TODO different masks
+    mask = torch.full(main_shape + (1,), fill_value=True)
+
+    # TODO test other dimensions
+    dimensions = (0, 1)
+
+    # Running values should be the same between processes
+    running_count = torch.tensor(0)
+    running_mean = torch.zeros((feature_length,))
+    # TODO test running_std is None
+    running_std = torch.zeros((feature_length,))
+
+    for round in range(num_rounds):
+        running_count, running_mean, running_std = mean_std_update(
+            x=inputs[rank][round],
+            mask=mask,
+            dim=dimensions,
+            run_count=running_count,
+            run_mean=running_mean,
+            run_std=running_std,
+        )
+
+    # Flatten all inputs.
+    input_list = []
+    for tensors in inputs:
+        input_list.extend(tensors)
+    flat_inputs = torch.cat(
+        [input.reshape((-1, feature_length)) for input in input_list]
     )
 
     # Expected values
-    expected_count = run_count + 2 + 2
-    expected_mean = run_mean + (1.0 - 1.0) / expected_count
-    expected_std = ((1.0 + 1.0 + 1.0) / (expected_count - 1)) ** 0.5
+    expected_count = torch.tensor(flat_inputs.shape[0])
+    assert (
+        expected_count
+        == world_size * num_rounds * batch_size * utterance_length
+    )
+    expected_mean = torch.mean(flat_inputs, dim=0)
+    expected_variance = torch.mean(
+        torch.square(flat_inputs - expected_mean), dim=0
+    )
+    expected_std = torch.sqrt(expected_variance)
 
     # Same values on all processes
-    assert numpy.isclose(new_count, expected_count)
-    assert numpy.isclose(new_mean, expected_mean)
-    assert numpy.isclose(new_std, expected_std)
-
-    # Try with more features and updates
-    batch, length, features = 2, 3, 2
-    x = (
-        torch.arange(batch * length * features)
-        .view(batch, length, features)
-        .float()
-    )
-    mask = torch.tensor([True, True, False]).view(1, length, 1).expand_as(x)
-    dims = (0, 1)
-    run_count = 0
-    run_mean = torch.tensor([0.0, 0.0])
-    run_std = torch.tensor([0.0, 0.0])
-
-    run_count, run_mean, run_std = mean_std_update(
-        x + rank, mask, dims, run_count, run_mean, run_std
-    )
-
-    run_count, run_mean, run_std = mean_std_update(
-        x + 1 + rank, mask, dims, run_count, run_mean, run_std
-    )
-
-    # Ranks 0 and 1 total
-    masked_x = x[:, 0:2]
-    all_items = torch.cat([masked_x, masked_x + 1, masked_x + 1, masked_x + 2])
-
-    # Count should only be over (global) batch and length, divide out feature dim
-    expected_count = all_items.numel() // 2
-    expected_mean = all_items.mean(dim=dims)
-    expected_std = all_items.std(unbiased=True, dim=dims)
-
-    assert run_count == expected_count
-    assert torch.allclose(run_mean, expected_mean)
-    print(run_std, expected_std)
-    assert torch.allclose(run_std, expected_std)
+    assert torch.allclose(running_count, expected_count)
+    assert torch.allclose(running_mean, expected_mean)
+    assert torch.allclose(running_std, expected_std)
 
 
 def test_mean_var_update_parallel(tmpdir):
     """Test the mean_var_update function in parallel."""
-    world_size = 2
+    world_size = 3
     torch.multiprocessing.spawn(
         parallel_mean_var_update,
         args=(world_size, tmpdir),

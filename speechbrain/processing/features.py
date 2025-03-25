@@ -33,9 +33,11 @@ Example
 Authors
  * Mirco Ravanelli 2020
  * Peter Plantinga 2025
+ * Rogier van Dalen 2025
 """
 
 import math
+from typing import Tuple, Union
 
 import torch
 from torch.distributed import ReduceOp
@@ -994,6 +996,198 @@ class ContextWindow(torch.nn.Module):
         return cw_x
 
 
+def gaussian_statistics(x: torch.Tensor, dim: Union[int, tuple, None] = None):
+    """
+    Compute first- and second-order moments of data, and return them as the
+    count, mean, and variance of a vector over one or more dimensions.
+
+    Arguments
+    ---------
+    x: torch.Tensor
+        The tensor to compute the statistics over
+    dim: int | tuple | None
+        The dimension or dimensions that the statistics should be computed over.
+        The other dimensions are retained in the output.
+        If None, then scalar-valued statistics will be returned.
+
+    Returns
+    -------
+    count
+        The number of sub-vectors or sub-tensors that the statistics were
+        computed over.
+    mean
+        The mean.
+    variance
+        The variance.
+    """
+
+    if dim is None:
+        number = math.prod(x.shape)
+    elif isinstance(dim, int):
+        number = x.shape[dim]
+    else:
+        assert isinstance(dim, tuple)
+        if dim == ():
+            return 1, x, torch.zeros_like(x)
+        number = 1
+        for d in dim:
+            number *= x.shape[d]
+
+    # First keep the dimensions so that broadcasting works.
+    mean_with_dims = torch.mean(x, dim=dim, keepdim=True)
+    mean = (
+        torch.squeeze(mean_with_dims)
+        if dim is None
+        else torch.squeeze(mean_with_dims, dim=dim)
+    )
+    variance = torch.mean(torch.square(x - mean_with_dims), dim=dim)
+
+    return (number, mean, variance)
+
+
+def combine_gaussian_statistics(
+    left_statistics: Tuple[int, torch.Tensor, torch.Tensor],
+    right_statistics: Tuple[int, torch.Tensor, torch.Tensor],
+):
+    """
+    Combine the first- and second-order moments from two pieces of data.
+    The data and the result is in the form (count, mean, variance).
+    The result is the mean and variance as if they have been computed on the
+    concatenation of the data for left_statistics and the data for
+    right_statistics.
+
+    Arguments
+    ---------
+    left_statistics: Tuple[int, torch.Tensor, torch.Tensor]
+        One set of statistics.
+    right_statistics: Tuple[int, torch.Tensor, torch.Tensor]
+        Another set of statistics.
+
+    Returns
+    -------
+    count
+        The total number of elements in the data.
+    mean
+        The combined mean.
+    variance
+        The combined variance, relative to the new mean.
+    """
+    left_count, left_mean, left_variance = left_statistics
+    right_count, right_mean, right_variance = right_statistics
+    assert left_mean.shape == left_variance.shape
+    assert left_mean.shape == right_mean.shape
+    assert left_variance.shape == right_variance.shape
+
+    count = left_count + right_count
+
+    left_weight = left_count / count
+    right_weight = right_count / count
+
+    mean = left_weight * left_mean + right_weight * right_mean
+
+    # Reconstruct the left and right variances relative to "mean".
+    compensated_left_variance = left_variance + torch.square(mean - left_mean)
+    compensated_right_variance = right_variance + torch.square(
+        mean - right_mean
+    )
+
+    variance = (
+        left_weight * compensated_left_variance
+        + right_weight * compensated_right_variance
+    )
+
+    return count, mean, variance
+
+
+def combine_gaussian_statistics_distributed(
+    statistics: Tuple[int, torch.Tensor, torch.Tensor],
+):
+    """
+    Combine the first- and second-order moments from multiple pieces of data
+    using torch.distributed.
+    The data and the result is in the form (count, mean, variance).
+    The result is the mean and variance as if they have been computed on the
+    concatenation of the data for statistics for all parallel processes.
+
+    Arguments
+    ---------
+    statistics: Tuple[int, torch.Tensor, torch.Tensor]
+        The new statistics for this process, to be combined with the current
+        statistics and the new statistics for all other processes.
+
+    Returns
+    -------
+    count
+        The total number of elements in the data across processes.
+    mean
+        The combined mean.
+    variance
+        The combined variance, relative to the new mean.
+    """
+    # This is the DDP version of combine_gaussian_statistics above.
+    local_count, local_mean, local_variance = statistics
+    global_count = ddp_all_reduce(torch.tensor(local_count), ReduceOp.SUM)
+
+    local_weight = local_count / global_count
+    global_mean = ddp_all_reduce(local_weight * local_mean, ReduceOp.SUM)
+
+    compensated_local_variance = local_variance + torch.square(
+        local_mean - global_mean
+    )
+    global_variance = ddp_all_reduce(
+        local_weight * compensated_local_variance, ReduceOp.SUM
+    )
+
+    return (global_count, global_mean, global_variance)
+
+
+def mean_std_update(x, mask, dim, run_count, run_mean, run_std=None):
+    """Update the mean and variance statistics run_mean and run_std that
+    have been computed on run_count samples to integrate the new samples x.
+
+    For more information about running variance statistic calculation, see
+    https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Welford's_online_algorithm
+
+    WARNING: Must be called in sync across processes.
+
+    Arguments
+    ---------
+    x : torch.Tensor
+        The new values to add to the running stats.
+    mask : torch.Tensor
+        A mask indicating padding positions to be ignored.
+    dim : tuple or int
+        The dimension or dimensions to reduce (e.g. 1 for length).
+    run_count : float or torch.Tensor
+        The running number of samples seen so far.
+    run_mean : float or torch.Tensor
+        The running mean of samples seen so far.
+    run_std : float or torch.Tensor, optional
+        The running standard deviations from the mean. If `None`, the
+        variance is not computed and this returns 1.0 for the `run_std`.
+
+    Returns
+    -------
+    new_run_count : torch.Tensor
+        Updated count all samples, now including x.
+    new_run_mean : torch.Tensor
+        Updated running mean of all samples, now including x.
+    new_run_std : torch.Tensor (if passed)
+        Updated running standard deviations of all samples, now including x.
+    """
+    assert torch.all(mask), "Not implemented yet"
+
+    # TODO implement run_std is None
+    current_statistics = (run_count, run_mean, torch.square(run_std))
+    new_statistics = combine_gaussian_statistics_distributed(
+        gaussian_statistics(x, dim=dim)
+    )
+    (count, mean, variance) = combine_gaussian_statistics(
+        current_statistics, new_statistics
+    )
+    return count, mean, torch.sqrt(variance)
+
+
 @register_checkpoint_hooks
 class InputNormalization(torch.nn.Module):
     """Performs mean and variance normalization over the time and possibly
@@ -1292,58 +1486,6 @@ class InputNormalization(torch.nn.Module):
         del end_of_epoch  # Unused here.
         stats = torch.load(path, map_location=self.device)
         self._load_statistics_dict(stats)
-
-
-def mean_std_update(x, mask, dim, run_count, run_mean, run_std=None):
-    """Update the mean and variance statistics run_mean and run_std that
-    have been computed on run_count samples to integrate the new samples x.
-
-    For more information about running variance statistic calculation, see
-    https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Welford's_online_algorithm
-
-    WARNING: Must be called in sync across processes.
-
-    Arguments
-    ---------
-    x : torch.Tensor
-        The new values to add to the running stats.
-    mask : torch.Tensor
-        A mask indicating padding positions to be ignored.
-    dim : tuple or int
-        The dimension or dimensions to reduce (e.g. 1 for length).
-    run_count : float or torch.Tensor
-        The running number of samples seen so far.
-    run_mean : float or torch.Tensor
-        The running mean of samples seen so far.
-    run_std : float or torch.Tensor, optional
-        The running standard deviations from the mean. If `None`, the
-        variance is not computed and this returns 1.0 for the `run_std`.
-
-    Returns
-    -------
-    new_run_count : torch.Tensor
-        Updated count all samples, now including x.
-    new_run_mean : torch.Tensor
-        Updated running mean of all samples, now including x.
-    new_run_std : torch.Tensor (if passed)
-        Updated running standard deviations of all samples, now including x.
-    """
-    delta = x - run_mean
-    n = ddp_all_reduce(mask.sum(), ReduceOp.SUM) // run_mean.numel()
-    delta_sum = ddp_all_reduce((delta * mask).sum(dim), ReduceOp.SUM)
-    run_mean += delta_sum / (run_count + n)
-
-    # Only compute variance if needed (for efficiency)
-    if run_std is not None:
-        # Add up square-diff over current tensor, other processes, and previous tensors.
-        square_diff_sum = (delta * (x - run_mean) * mask).sum(dim)
-        ddp_all_reduce(square_diff_sum, ReduceOp.SUM)
-        square_diff_sum += run_std.square() * max(run_count - 1, 0)
-        run_std = (square_diff_sum / (run_count + n - 1)).sqrt()
-    else:
-        run_std = torch.ones_like(run_mean)
-
-    return run_count + n, run_mean, run_std
 
 
 def get_mask(x, lengths=None, length_dim=1):
