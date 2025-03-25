@@ -46,15 +46,17 @@ class LLaMA(HFTransformersInterface):
         One of right or left.
     weight_precision_load : torch.dtype (default: torch.bfloat16)
         If no bnb_config is given, this parameter defines the loading type of the parameters of the model. This is useful to reduce memory footprint, but it does not change the compute dtype. For this just refer to mixed precision training in SpeechBrain.
+    **kwargs
+        Extra keyword arguments passed to the `from_pretrained` function. This can be used, for instance, to change the type of attention. The HuggingFace documentation gives the full list of parameters which may be model dependent.
 
     Example
     -------
     >>> model_hub = "meta-llama/Llama-2-7b-chat-hf"
     >>> save_path = "savedir"
-    >>> model = LLaMA(model_hub, save_path)
+    >>> model = LLaMA(model_hub, save_path) # doctest: +SKIP
     >>> tokens = torch.tensor([[1, 1]])
     >>> attention_mask = torch.tensor([[1, 1]])
-    >>> outputs = model(tokens, attention_mask)
+    >>> outputs = model(tokens, attention_mask) # doctest: +SKIP
     """
 
     def __init__(
@@ -66,6 +68,7 @@ class LLaMA(HFTransformersInterface):
         pad_token: str = "[PAD]",
         padding_side: Literal["left", "right"] = "right",
         weight_precision_load: torch.dtype = torch.bfloat16,
+        **kwargs,
     ) -> None:
         self.pad_token = pad_token
         self.padding_side = padding_side
@@ -85,12 +88,16 @@ class LLaMA(HFTransformersInterface):
             with_casual_lm=True,
             quantization_config=self.bnb_config,
             torch_dtype=weight_precision_load,
+            **kwargs,
         )
 
         self.load_tokenizer(source=source, pad_token=self.pad_token)
+
+        # We resize the token embeddings size to a factor of 8 to maximise
+        # the use of tensorcores.
         self.model.resize_token_embeddings(
             len(self.tokenizer), pad_to_multiple_of=8
-        )  # TODO: optimal value of pad_to_multiple_of varies? see https://github.com/huggingface/tokenizers/issues/991.
+        )
 
     def forward(self, **kwargs):
         """This function wraps the HuggingFace forward function. See the HuggingFace documentation of your Llama model of interest to know which
