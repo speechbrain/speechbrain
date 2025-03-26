@@ -1202,10 +1202,18 @@ class ScorerBuilder:
             score, new_memory[k] = impl.score(inp_tokens, memory[k], None, attn)
             log_probs += score * self.weights[k]
 
+        # This is just to avoid an edge case in the case if candidates in log_probs is less than int(beam_size * self.scorer_beam_scale)
+        """
+        Error I faced.
+                    _, candidates = log_probs.topk(
+                        RuntimeError: selected index k out of range
+        """
+        if log_probs.shape[1] < int(beam_size * self.scorer_beam_scale):
+            sbc = int(log_probs.shape[1])  # scorer beam scale.
+        else:
+            sbc = int(beam_size * self.scorer_beam_scale)  # scorer beam scale.
         # select candidates from the results of full scorers for partial scorers
-        _, candidates = log_probs.topk(
-            int(beam_size * self.scorer_beam_scale), dim=-1
-        )
+        _, candidates = log_probs.topk(sbc, dim=-1)
 
         # score pruned tokens candidates
         for k, impl in self.partial_scorers.items():
