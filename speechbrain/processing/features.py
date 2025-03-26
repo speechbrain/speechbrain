@@ -37,7 +37,7 @@ Authors
 """
 
 import math
-from typing import Tuple, Union
+from typing import Optional, Tuple, Union
 
 import torch
 from torch.distributed import ReduceOp
@@ -997,7 +997,10 @@ class ContextWindow(torch.nn.Module):
 
 
 def gaussian_statistics(
-    x: torch.Tensor, mask: torch.Tensor, dim: Union[int, tuple, None] = None
+    x: torch.Tensor,
+    mask: torch.Tensor,
+    dim: Union[int, tuple, None] = None,
+    compute_var: bool = True,
 ):
     """
     Compute first- and second-order moments of data, and return them as the
@@ -1013,6 +1016,9 @@ def gaussian_statistics(
         The dimension or dimensions that the statistics should be computed over.
         The other dimensions are retained in the output.
         If None, then scalar-valued statistics will be returned.
+    compute_var: bool
+        Whether to compute the variance, in order to speed computation
+        when it is not needed. Returns None for variance if False.
 
     Returns
     -------
@@ -1039,20 +1045,24 @@ def gaussian_statistics(
 
     # Keep dims so broadcasting works with variance computation
     mean_with_dims = torch.sum(x * mask, dim=dim, keepdim=True) / n
-    sq_diff = torch.square(x - mean_with_dims) * mask
-    variance = torch.sum(sq_diff, dim=dim) / n
     mean = (
         mean_with_dims.squeeze()
         if dim is None
         else mean_with_dims.squeeze(dim=dim)
     )
 
+    # Only compute variance if required
+    variance = None
+    if compute_var:
+        sq_diff = torch.square(x - mean_with_dims) * mask
+        variance = torch.sum(sq_diff, dim=dim) / n
+
     return (n, mean, variance)
 
 
 def combine_gaussian_statistics(
-    left_statistics: Tuple[int, torch.Tensor, torch.Tensor],
-    right_statistics: Tuple[int, torch.Tensor, torch.Tensor],
+    left_statistics: Tuple[int, torch.Tensor, Optional[torch.Tensor]],
+    right_statistics: Tuple[int, torch.Tensor, Optional[torch.Tensor]],
 ):
     """
     Combine the first- and second-order moments from two pieces of data.
@@ -1063,10 +1073,10 @@ def combine_gaussian_statistics(
 
     Arguments
     ---------
-    left_statistics: Tuple[int, torch.Tensor, torch.Tensor]
-        One set of statistics.
-    right_statistics: Tuple[int, torch.Tensor, torch.Tensor]
-        Another set of statistics.
+    left_statistics: Tuple[int, torch.Tensor, Optional[torch.Tensor]]
+        One set of gaussian stats: count, mean, variance
+    right_statistics: Tuple[int, torch.Tensor, Optional[torch.Tensor]]
+        Another set of gaussian stats: count, mean, variance
 
     Returns
     -------
@@ -1076,12 +1086,17 @@ def combine_gaussian_statistics(
         The combined mean.
     variance
         The combined variance, relative to the new mean.
+        Returns None if either statistics set has variance of None
     """
     left_count, left_mean, left_variance = left_statistics
     right_count, right_mean, right_variance = right_statistics
-    assert left_mean.shape == left_variance.shape
     assert left_mean.shape == right_mean.shape
-    assert left_variance.shape == right_variance.shape
+
+    compute_variance = False
+    if left_variance is not None and right_variance is not None:
+        compute_variance = True
+        assert left_mean.shape == left_variance.shape
+        assert left_variance.shape == right_variance.shape
 
     count = left_count + right_count
 
@@ -1090,22 +1105,26 @@ def combine_gaussian_statistics(
 
     mean = left_weight * left_mean + right_weight * right_mean
 
-    # Reconstruct the left and right variances relative to "mean".
-    compensated_left_variance = left_variance + torch.square(mean - left_mean)
-    compensated_right_variance = right_variance + torch.square(
-        mean - right_mean
-    )
+    variance = None
+    if compute_variance:
+        # Reconstruct the left and right variances relative to "mean".
+        compensated_left_variance = left_variance + torch.square(
+            mean - left_mean
+        )
+        compensated_right_variance = right_variance + torch.square(
+            mean - right_mean
+        )
 
-    variance = (
-        left_weight * compensated_left_variance
-        + right_weight * compensated_right_variance
-    )
+        variance = (
+            left_weight * compensated_left_variance
+            + right_weight * compensated_right_variance
+        )
 
     return count, mean, variance
 
 
 def combine_gaussian_statistics_distributed(
-    statistics: Tuple[int, torch.Tensor, torch.Tensor],
+    statistics: Tuple[int, torch.Tensor, Optional[torch.Tensor]],
 ):
     """
     Combine the first- and second-order moments from multiple pieces of data
@@ -1116,7 +1135,7 @@ def combine_gaussian_statistics_distributed(
 
     Arguments
     ---------
-    statistics: Tuple[int, torch.Tensor, torch.Tensor]
+    statistics: Tuple[int, torch.Tensor, Optional[torch.Tensor]]
         The new statistics for this process, to be combined with the current
         statistics and the new statistics for all other processes.
 
@@ -1128,6 +1147,7 @@ def combine_gaussian_statistics_distributed(
         The combined mean.
     variance
         The combined variance, relative to the new mean.
+        Returns None if the local variance (input) is None.
     """
     # This is the DDP version of combine_gaussian_statistics above.
     local_count, local_mean, local_variance = statistics
@@ -1137,17 +1157,19 @@ def combine_gaussian_statistics_distributed(
     local_weight = local_count / global_count
     global_mean = ddp_all_reduce(local_weight * local_mean, ReduceOp.SUM)
 
-    compensated_local_variance = local_variance + torch.square(
-        local_mean - global_mean
-    )
-    global_variance = ddp_all_reduce(
-        local_weight * compensated_local_variance, ReduceOp.SUM
-    )
+    global_variance = None
+    if local_variance is not None:
+        compensated_local_variance = local_variance + torch.square(
+            local_mean - global_mean
+        )
+        global_variance = ddp_all_reduce(
+            local_weight * compensated_local_variance, ReduceOp.SUM
+        )
 
     return (global_count, global_mean, global_variance)
 
 
-def mean_std_update(x, mask, dim, run_count, run_mean, run_std):
+def mean_std_update(x, mask, dim, run_count, run_mean, run_std=None):
     """Update the mean and variance statistics run_mean and run_std that
     have been computed on run_count samples to integrate the new samples x.
 
@@ -1169,7 +1191,8 @@ def mean_std_update(x, mask, dim, run_count, run_mean, run_std):
     run_mean : float or torch.Tensor
         The running mean of samples seen so far.
     run_std : float or torch.Tensor, optional
-        The running standard deviations from the mean.
+        The running standard deviations from the mean. If None, returns
+        1.0 for the standard deviation without computation.
 
     Returns
     -------
@@ -1177,18 +1200,24 @@ def mean_std_update(x, mask, dim, run_count, run_mean, run_std):
         Updated count all samples, now including x.
     new_run_mean : torch.Tensor
         Updated running mean of all samples, now including x.
-    new_run_std : torch.Tensor (if passed)
+    new_run_std : torch.Tensor
         Updated running standard deviations of all samples, now including x.
     """
 
-    current_statistics = (run_count, run_mean, torch.square(run_std))
+    compute_variance = run_std is not None
     new_statistics = combine_gaussian_statistics_distributed(
-        gaussian_statistics(x, mask=mask, dim=dim)
+        gaussian_statistics(x, mask=mask, dim=dim, compute_var=compute_variance)
     )
+
+    if run_std is not None:
+        run_std = run_std.square()
+    current_statistics = (run_count, run_mean, run_std)
     (count, mean, variance) = combine_gaussian_statistics(
         current_statistics, new_statistics
     )
-    return count, mean, torch.sqrt(variance)
+    stdev = variance.sqrt() if variance is not None else None
+
+    return count, mean, stdev
 
 
 @register_checkpoint_hooks
@@ -1210,10 +1239,10 @@ class InputNormalization(torch.nn.Module):
 
     Arguments
     ---------
-    mean_norm : True
+    mean_norm : bool, default True
         If True, the mean will be normalized. Passing `False` is deprecated.
-    std_norm : True
-        If True, the variance will be normalized. Passing `False` is deprecated.
+    std_norm : bool, default True
+        If True, the variance will be normalized.
     norm_type : str, default "global"
         String parameter whose value defines how the statistics are computed:
          * 'sentence' computes norms per utterance (no running stats)
@@ -1304,8 +1333,6 @@ class InputNormalization(torch.nn.Module):
         # Validate and store input arguments
         if not mean_norm:
             raise ValueError("Passing `False` for `mean_norm` is deprecated.")
-        if not std_norm:
-            raise ValueError("Passing `False` for `std_norm` is deprecated.")
         if avg_factor is not None:
             raise ValueError(
                 "Passing avg_factor is DEPRECATED as this exactly matches the "
@@ -1324,6 +1351,7 @@ class InputNormalization(torch.nn.Module):
         elif norm_type not in self.NORM_TYPES:
             raise ValueError(f"norm_type must be one of {self.NORM_TYPES}.")
 
+        self.std_norm = std_norm
         self.norm_type = norm_type
         self.avoid_padding_norm = avoid_padding_norm
         self.epsilon = epsilon
@@ -1369,6 +1397,8 @@ class InputNormalization(torch.nn.Module):
             if self._should_update(epoch):
                 self._update_global_stats(x, mask)
             mean, std = self.glob_mean, self.glob_std
+            if std is None:
+                std = torch.ones_like(mean)
 
         # Local stats are computed over self.length_dim
         else:
@@ -1410,14 +1440,17 @@ class InputNormalization(torch.nn.Module):
             dim=(0, self.length_dim),
             run_count=self.count,
             run_mean=self.glob_mean,
-            run_std=self.glob_std,
+            run_std=self.glob_std if self.std_norm else None,
         )
 
     def _compute_current_stats(self, x, mask, dim):
         """Computes masked mean and std of an input tensor along the given dimension(s)."""
         n = mask.sum(dim, keepdim=True)
         mean = (x * mask).sum(dim, keepdim=True) / n
-        var = ((x - mean) * mask).square().sum(dim, keepdim=True) / n
+        if self.std_norm:
+            var = ((x - mean) * mask).square().sum(dim, keepdim=True) / n
+        else:
+            var = torch.ones_like(mean)
         return mean.squeeze(dim), var.squeeze(dim).sqrt()
 
     def _statistics_dict(self):

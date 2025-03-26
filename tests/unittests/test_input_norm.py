@@ -50,10 +50,12 @@ class TestInputNormalization:
     def test_constructor_defaults(self):
         """Test constructor with default parameters."""
         norm = InputNormalization()
+        assert norm.std_norm is True
         assert norm.norm_type == "global"
         assert norm.update_until_epoch == 2
         assert norm.avoid_padding_norm is False
         assert norm.epsilon == 1e-10
+        assert norm.length_dim == 1
 
     def test_invalid_norm_type(self):
         """Test that invalid norm_type raises an error."""
@@ -175,6 +177,18 @@ class TestInputNormalization:
         assert torch.allclose(saved_mean, norm.glob_mean, atol=1e-5)
         assert torch.allclose(saved_std, norm.glob_std, atol=1e-5)
         assert saved_count == norm.count
+
+    def test_no_std_normalization(self, sample_data):
+        """Test normalization with std_norm=False."""
+        x, lengths, mask = sample_data
+        norm = InputNormalization(norm_type="global", std_norm=False)
+
+        # Apply normalization
+        output = norm(x, lengths)
+
+        # Check that mean normalization was applied but std normalization wasn't
+        assert torch.allclose(output[mask].mean(), torch.zeros(1), atol=1e-5)
+        assert not torch.allclose(output[mask].std(), torch.ones(1), atol=0.1)
 
     def test_save_load(self, tmp_path, sample_data):
         """Test save and load functionality."""
