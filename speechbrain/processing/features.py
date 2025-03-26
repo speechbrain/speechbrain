@@ -1009,39 +1009,51 @@ def gaussian_statistics(
     Arguments
     ---------
     x: torch.Tensor
-        The tensor to compute the statistics over
+        The tensor to compute the statistics over.
     mask: torch.Tensor
-        Padding mask to exclude padding from the statistics computation
+        Padding mask to exclude padding from the statistics computation.
+        All dimensions other than `dim` should be ones (e.g. [B, T, 1, ...])
+        Ones / trues are valid positions, and zeros / falses are padding positions.
     dim: int | tuple | None
         The dimension or dimensions that the statistics should be computed over.
         The other dimensions are retained in the output.
         If None, then scalar-valued statistics will be returned.
     compute_var: bool
         Whether to compute the variance, in order to speed computation
-        when it is not needed. Returns None for variance if False.
+        when it is not needed. Returns `None` for variance if `False`.
 
     Returns
     -------
-    count
-        The number of sub-vectors or sub-tensors that the statistics were
-        computed over.
-    mean
-        The mean.
-    variance
-        The variance.
+    count: int
+        The number of values in the statistics computation, without padding
+        this is just the product of the lengths of the dimensions in `dim`.
+    mean: torch.Tensor
+        The mean of the non-padding values over the dimensions in `dim`.
+    variance: Optional[torch.Tensor]
+        The (biased) variance of the non-padding values over the `dim`
+        dimensions. This is `None` if `compute_var` is `False`.
+
+    Example
+    -------
+    >>> x = torch.tensor([[1., 3., 0.]])
+    >>> mask = torch.tensor([[True, True, False]])
+    >>> dim = (0, 1)
+    >>> count, mean, variance = gaussian_statistics(x, mask, dim)
+    >>> count
+    2
+    >>> mean
+    tensor(2.)
+    >>> variance
+    tensor(1.)
     """
 
     if isinstance(dim, int):
         dim = (dim,)
 
-    # Use output size to compute N from the mask. Assumes N will
-    # be the same for each output, computing only a single value.
-    output_size = 1
-    if dim is not None:
-        for d, dim_size in enumerate(x.shape):
-            if d not in dim:
-                output_size *= dim_size
-    n = torch.sum(mask.expand_as(x)).item() // output_size
+    # We assume that all non-target dimensions are singletons
+    # so that this sum accurately reflects the count of items
+    # that the mean and variance are computed over.
+    n = torch.sum(mask).item()
 
     # Keep dims so broadcasting works with variance computation
     mean_with_dims = torch.sum(x * mask, dim=dim, keepdim=True) / n
@@ -1183,7 +1195,9 @@ def mean_std_update(x, mask, dim, run_count, run_mean, run_std=None):
     x : torch.Tensor
         The new values to add to the running stats.
     mask : torch.Tensor
-        A mask indicating padding positions to be ignored.
+        Padding mask to exclude padding from the statistics computation.
+        All dimensions other than batch and time should be ones (e.g. [B, T, 1, ...])
+        Ones / trues are valid positions, and zeros / falses are padding positions.
     dim : tuple or int
         The dimension or dimensions to reduce (e.g. 1 for length).
     run_count : float or torch.Tensor
@@ -1528,6 +1542,7 @@ def get_mask(x, lengths=None, length_dim=1):
         The input tensor demonstrating the size of the target mask.
     lengths : torch.Tensor, optional
         The relative lengths of an input batch of utterances.
+        If None, all positions are considered valid (i.e. mask is all `True`).
     length_dim : int, default 1
         The dimension for which the lengths indicate padded positions.
 
@@ -1538,7 +1553,7 @@ def get_mask(x, lengths=None, length_dim=1):
         for padding positions.
     """
     if lengths is None:
-        return torch.ones_like(x)
+        lengths = torch.ones(x.size(0), device=x.device)
 
     # Convert relative lengths to absolute lengths, then compute boolean mask
     max_len = x.size(length_dim)
@@ -1550,8 +1565,8 @@ def get_mask(x, lengths=None, length_dim=1):
         if dim != length_dim:
             mask = mask.unsqueeze(dim)
 
-    # Repeat values (without copying) into singleton dimensions
-    return mask.expand_as(x)
+    # Leave the non-masked dimensions as singletons, which can be broadcast
+    return mask
 
 
 class GlobalNorm(torch.nn.Module):

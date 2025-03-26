@@ -263,11 +263,12 @@ def test_get_mask():
     # First sequence: all True
     # Second sequence: first 3 True, last False
     # Third sequence: first 2 True, last 2 False
+    # Last dimension is singleton, can be broadcast to apply mask
     expected_mask = torch.tensor(
         [
-            [[True, True], [True, True], [True, True], [True, True]],
-            [[True, True], [True, True], [True, True], [False, False]],
-            [[True, True], [True, True], [False, False], [False, False]],
+            [[True], [True], [True], [True]],
+            [[True], [True], [True], [False]],
+            [[True], [True], [False], [False]],
         ]
     )
 
@@ -331,7 +332,16 @@ def test_gaussian_statistics(size, dimensions):
     )
 
     x = torch.tensor(x)
-    mask = get_mask(x)
+
+    if dimensions is None:
+        # When dimensions is None, reduction is over all dims
+        mask = torch.ones_like(x)
+    else:
+        # Compute padding mask -- all irrelevant dims have to be singletons
+        dims = (dimensions,) if isinstance(dimensions, int) else dimensions
+        mask_dims = (x.size(d) if d in dims else 1 for d in range(x.ndim))
+        mask = torch.ones(tuple(mask_dims))
+
     count, mean, variance = gaussian_statistics(x, mask=mask, dim=dimensions)
 
     assert count == reference_count
@@ -359,22 +369,24 @@ def test_combine_gaussian_statistics(size_left, size_right):
     last_size = size_left[-1]
     assert size_right[-1] == last_size
 
-    left = generator.uniform(low=-5, high=+5, size=size_left)
-    right = generator.uniform(low=-7, high=+3, size=size_right)
+    left = torch.tensor(generator.uniform(low=-5, high=+5, size=size_left))
+    right = torch.tensor(generator.uniform(low=-7, high=+3, size=size_right))
 
     # Concatenate left and right into one tensor, since the mean and variance on
     # this tensor is what we should be computing.
-    flat_left = np.reshape(left, (-1, last_size))
-    flat_right = np.reshape(right, (-1, last_size))
-    combined = torch.tensor(np.concatenate([flat_left, flat_right], axis=0))
+    flat_left = torch.reshape(left, (-1, last_size))
+    flat_right = torch.reshape(right, (-1, last_size))
+    combined = torch.concatenate([flat_left, flat_right], axis=0)
 
+    # Using default None for dimension, reduction is done over all dimensions
+    # So the mask is specified here for all positions as they are all valid
     reference_count, reference_mean, reference_variance = gaussian_statistics(
-        combined, get_mask(combined)
+        combined, mask=torch.ones_like(combined)
     )
 
     count, mean, variance = combine_gaussian_statistics(
-        gaussian_statistics(torch.tensor(left), get_mask(torch.tensor(left))),
-        gaussian_statistics(torch.tensor(right), get_mask(torch.tensor(right))),
+        gaussian_statistics(left, mask=torch.ones_like(left)),
+        gaussian_statistics(right, mask=torch.ones_like(right)),
     )
 
     assert count == reference_count
