@@ -1,6 +1,6 @@
-# KsponSpeech ASR with Transformers
+# KsponSpeech ASR with Transducers
 
-This folder contains the scripts to train a Transformer-based speech recognizer using KsponSpeech.
+This folder contains the scripts to train a Transducer-based speech recognizer using KsponSpeech.
 
 You can download KsponSpeech at [Link](https://aihub.or.kr/aihubdata/data/view.do?currMenu=115&topMenu=100&aihubDataSe=realm&dataSetSn=123)
 
@@ -19,18 +19,15 @@ data_folder: /path/to/data/prep/results
 ```
 Run the following to start training
 ```bash
-python train.py hparams/conformer_medium.yaml
+python train.py hparams/conformer_transducer.yaml
 ```
 
 # Results
 | Release  |   hyperparams file    | eval clean WER | eval other WER | eval clean CER | eval other CER |                                   HuggingFace link                                   |                                               Model link                                                |    GPUs     |  Training time  |
 | :------: | :-------------------: | :------------: | :------------: | :------------: | :------------: | :----------------------------------------------------------------------------------: | :-----------------------------------------------------------------------------------------------------: | :---------: | :-------------: |
-| 04-16-24 | conformer_medium.yaml |     20.15%     |     24.75%     |     7.40%      |     7.96%      | [HuggingFace](https://huggingface.co/ddwkim/asr-conformer-transformerlm-ksponspeech) | [DropBox](https://www.dropbox.com/sh/uibokbz83o8ybv3/AACtO5U7mUbu_XhtcoOphAjza?dl=0) | 2xA100 40GB | 17 hours 1 mins |
-| 04-16-24 | conformer_small.yaml |     21.78%     |     26.48%     |     8.20%      |     8.99%      | [HuggingFace](https://huggingface.co/ddwkim/asr-conformer-small-transformerlm-ksponspeech) | [DropBox](https://www.dropbox.com/sh/uibokbz83o8ybv3/AACtO5U7mUbu_XhtcoOphAjza?dl=0) | 2xA100 40GB | 14 hours 5 mins |
-| 04-16-24 | branchformer_medium.yaml |     21.01%     |     25.68%     |     7.77%      |     8.59%      | [HuggingFace](https://huggingface.co/ddwkim/asr-branchformer-transformerlm-ksponspeech) | [DropBox](https://www.dropbox.com/sh/uibokbz83o8ybv3/AACtO5U7mUbu_XhtcoOphAjza?dl=0) | 2xA100 40GB | 16 hours 11 mins |
-
+| 04-22-24 | conformer_transducer.yaml |     21.38%     |     25.90%     |     8.20%      |     9.10%      | [HuggingFace](https://huggingface.co/ddwkim/asr-conformer-transducer-rnnlm-ksponspeech) | [DropBox](https://www.dropbox.com/sh/uibokbz83o8ybv3/AACtO5U7mUbu_XhtcoOphAjza?dl=0) | 2xA100 40GB | 4 days 1- hours |
 # PreTrained Model + Easy-Inference
-You can find the pre-trained model with an easy-inference function on HuggingFace: [HuggingFace](https://huggingface.co/speechbrain/asr-conformer-transformerlm-ksponspeech)
+You can find the pre-trained model with an easy-inference function on HuggingFace: [HuggingFace](https://huggingface.co/ddwkim/asr-conformer-transducer-rnnlm-ksponspeech)
 
 # About SpeechBrain
 - Website: https://speechbrain.github.io/
@@ -42,15 +39,6 @@ You can find the pre-trained model with an easy-inference function on HuggingFac
 Please, cite SpeechBrain if you use it for your research or business.
 
 ```bibtex
-@misc{speechbrainV1,
-  title={Open-Source Conversational AI with SpeechBrain 1.0},
-  author={Mirco Ravanelli and Titouan Parcollet and Adel Moumen and Sylvain de Langen and Cem Subakan and Peter Plantinga and Yingzhi Wang and Pooneh Mousavi and Luca Della Libera and Artem Ploujnikov and Francesco Paissan and Davide Borra and Salah Zaiem and Zeyu Zhao and Shucong Zhang and Georgios Karakasidis and Sung-Lin Yeh and Pierre Champion and Aku Rouhe and Rudolf Braun and Florian Mai and Juan Zuluaga-Gomez and Seyed Mahed Mousavi and Andreas Nautsch and Xuechen Liu and Sangeet Sagar and Jarod Duret and Salima Mdhaffar and Gaelle Laperriere and Mickael Rouvier and Renato De Mori and Yannick Esteve},
-  year={2024},
-  eprint={2407.00463},
-  archivePrefix={arXiv},
-  primaryClass={cs.LG},
-  url={https://arxiv.org/abs/2407.00463},
-}
 @misc{speechbrain,
   title={{SpeechBrain}: A General-Purpose Speech Toolkit},
   author={Mirco Ravanelli and Titouan Parcollet and Peter Plantinga and Aku Rouhe and Samuele Cornell and Loren Lugosch and Cem Subakan and Nauman Dawalatabad and Abdelwahab Heba and Jianyuan Zhong and Ju-Chieh Chou and Sung-Lin Yeh and Szu-Wei Fu and Chien-Feng Liao and Elena Rastorgueva and François Grondin and William Aris and Hwidong Na and Yan Gao and Renato De Mori and Yoshua Bengio},
