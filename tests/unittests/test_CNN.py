@@ -101,3 +101,22 @@ def test_Leaf(device):
     output = convolve(input)
     assert output.shape[-1] == 8
     assert torch.jit.trace(convolve, input)
+
+
+def test_LFB(device):
+    from speechbrain.lobes.features import LFB
+
+    input = torch.rand([4, 16000], device=device)
+    convolve = LFB(
+        input_shape=input.shape,
+        out_channels=16,
+        window_len=25.0,
+        window_stride=10.0,
+        min_freq=10.0,
+        skip_transpose=True,
+        gammatone_init_order=4,
+        n_fft=256,
+    ).to(device)
+    output = convolve(input)
+    assert output.shape[-1] == 16
+    assert torch.jit.trace(convolve, input)

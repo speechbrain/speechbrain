@@ -21,6 +21,7 @@ import torchaudio
 from speechbrain.processing.signal_processing import (
     gabor_impulse_response,
     gabor_impulse_response_legacy_complex,
+    gammatone_impulse_response,
 )
 from speechbrain.utils.logger import get_logger
 
@@ -1410,31 +1411,18 @@ class GaborConv1d(nn.Module):
         x = F.pad(x, pad_value, mode=self.padding_mode, value=0)
         return x
 
-    def _mel_filters(self):
-        def _mel_filters_areas(filters):
-            peaks, _ = torch.max(filters, dim=1, keepdim=True)
-            return (
-                peaks
-                * (torch.sum((filters > 0).float(), dim=1, keepdim=True) + 2)
-                * np.pi
-                / self.n_fft
-            )
-
-        mel_filters = torchaudio.functional.melscale_fbanks(
-            n_freqs=self.n_fft // 2 + 1,
-            f_min=self.min_freq,
-            f_max=self.max_freq,
-            n_mels=self.filters,
-            sample_rate=self.sample_rate,
-        )
-        mel_filters = mel_filters.transpose(1, 0)
-        if self.normalize_energy:
-            mel_filters = mel_filters / _mel_filters_areas(mel_filters)
-        return mel_filters
-
     def _gabor_params_from_mels(self):
         coeff = torch.sqrt(2.0 * torch.log(torch.tensor(2.0))) * self.n_fft
-        sqrt_filters = torch.sqrt(self._mel_filters())
+        sqrt_filters = torch.sqrt(
+            mel_filters(
+                self.n_fft,
+                self.min_freq,
+                self.max_freq,
+                self.filters,
+                self.sample_rate,
+                self.normalize_energy,
+            )
+        )
         center_frequencies = torch.argmax(sqrt_filters, dim=1)
         peaks, _ = torch.max(sqrt_filters, dim=1, keepdim=True)
         half_magnitudes = peaks / 2.0
@@ -1470,6 +1458,332 @@ class GaborConv1d(nn.Module):
                 % (self.kernel_size)
             )
         return in_channels
+
+
+class GammatoneConv1d(nn.Module):
+    """This function implements Gammatone Convolutional Filterbank from
+
+    Helena Peic Tukuljac, Benjamin Ricaud, Nicolas Aspert and Laurent Colbois, "Learnable filter-banks
+        for CNN-based audio applications", in Proc of NLDL 2022 (https://septentrio.uit.no/index.php/nldl/article/view/6279)
+
+    Arguments
+    ---------
+    out_channels : int
+        It is the number of output channels.
+    kernel_size: int
+        Kernel size of the convolutional filters.
+    input_shape : tuple
+        The shape of the input. Alternatively use ``in_channels``.
+    in_channels : int
+        The number of input channels. Alternatively use ``input_shape``.
+    stride : int
+        Stride factor of the convolutional filters. When the stride factor > 1,
+        a decimation in time is performed.
+    dilation : int
+        Dilation factor of the convolutional filters.
+    padding : str
+        (same, valid, causal). If "valid", no padding is performed.
+        If "same" and stride is 1, output shape is the same as the input shape.
+        "causal" results in causal (dilated) convolutions.
+    padding_mode : str
+        This flag specifies the type of padding. See torch.nn documentation
+        for more information.
+    sample_rate : int,
+        Sampling rate of the input signals.
+    min_freq : float
+        Lowest possible frequency (in Hz) for a filter
+    max_freq : float
+        Highest possible frequency (in Hz) for a filter
+    n_fft: int
+        number of FFT bins for initialization
+    gammatone_init_order: int
+        order of the gammatone filter initialization
+    bias : bool
+        If True, the additive bias b is adopted.
+    sort_filters: bool
+        whether to sort filters by center frequencies. Default is False
+    skip_transpose: bool
+        If False, uses batch x time x channel convention of speechbrain.
+        If True, uses batch x channel x time convention.
+
+    Example
+    -------
+    >>> inp_tensor = torch.rand([10, 16000])
+    >>> conv = GammatoneConv1d(input_shape=inp_tensor.shape, out_channels=24, kernel_size=161, stride=1)
+    >>> out_tensor = conv(inp_tensor)
+    >>> out_tensor.shape
+    torch.Size([10, 16000, 24])
+    """
+
+    def __init__(
+        self,
+        out_channels,
+        kernel_size,
+        input_shape=None,
+        in_channels=None,
+        stride=1,
+        dilation=1,
+        padding="same",
+        padding_mode="constant",
+        sample_rate=16000,
+        min_freq=20.0,
+        max_freq=None,
+        n_fft=512,
+        gammatone_init_order=4,
+        bias=False,
+        sort_filters=False,
+        skip_transpose=False,
+    ):
+        super().__init__()
+        self.in_channels = in_channels
+        self.out_channels = out_channels
+        self.filters = out_channels
+        self.kernel_size = kernel_size
+        self.stride = stride
+        self.dilation = dilation
+        self.padding = padding
+        self.padding_mode = padding_mode
+        self.sample_rate = sample_rate
+        self.min_freq = min_freq
+        self.max_freq = sample_rate / 2 if max_freq is None else max_freq
+        self.n_fft = n_fft
+        self.gammatone_init_order = gammatone_init_order
+        self.sort_filters = sort_filters
+        self.skip_transpose = skip_transpose
+        # input shape inference
+        if input_shape is None and self.in_channels is None:
+            raise ValueError("Must provide one of input_shape or in_channels")
+
+        if self.in_channels is None:
+            self.in_channels = self._check_input_shape(input_shape)
+
+        if self.out_channels % self.in_channels != 0:
+            raise ValueError(
+                "Number of output channels must be divisible by in_channels"
+            )
+
+        # Initialize Gammatone filters
+        self.kernel = nn.Parameter(self._initialize_kernel())
+        if bias:
+            self.bias = torch.nn.Parameter(torch.ones(self.filters))
+        else:
+            self.bias = None
+
+    def forward(self, x):
+        """Returns the output of the convolution.
+
+        Arguments
+        ---------
+        x : torch.Tensor (batch, time, channel)
+            input to convolve. 2d or 4d tensors are expected.
+
+        Returns
+        -------
+        x : torch.Tensor
+            The output of the Gammatone convolution
+        """
+        self.device = x.device
+
+        if not self.skip_transpose:
+            x = x.transpose(1, -1)
+
+        unsqueeze = x.ndim == 2
+        if unsqueeze:
+            x = x.unsqueeze(1)
+
+        kernel = self._gammatone_constraint(self.kernel)
+        if self.sort_filters:
+            idxs = torch.argsort(kernel[:, 0])  # sort by frequency
+            kernel = kernel[idxs, :]
+
+        filters = self._gammatone_filters(kernel).unsqueeze(1)
+
+        if self.padding == "same":
+            x = self._manage_padding(
+                x, self.kernel_size, self.dilation, self.stride
+            )
+        elif self.padding == "valid":
+            pass
+        else:
+            raise ValueError(
+                f"Padding must be 'same' or 'valid'. Got {self.padding}."
+            )
+
+        output = F.conv1d(
+            x,
+            filters,
+            stride=self.stride,
+            padding=0,
+            dilation=self.dilation,
+            groups=self.in_channels,
+        )
+
+        if unsqueeze:
+            output = output.squeeze(1)
+
+        if not self.skip_transpose:
+            output = output.transpose(1, -1)
+
+        return output
+
+    def _check_input_shape(self, shape):
+        """Checks the input shape and returns the number of input channels."""
+
+        if len(shape) == 2:
+            in_channels = 1
+        elif len(shape) == 3:
+            in_channels = shape[-1]
+        else:
+            raise ValueError(
+                "gammatoneconv expects 2d or 3d inputs. Got " + str(len(shape))
+            )
+
+        # Kernel size must be odd
+        if self.kernel_size % 2 == 0:
+            raise ValueError(
+                "The field kernel size must be an odd number. Got %s."
+                % (self.kernel_size)
+            )
+        return in_channels
+
+    def _gammatone_constraint(self, kernel_data):
+        decay_lower = 0.0
+        order_lower = 1.0
+        f_lower = 0.0
+        f_upper = 0.5
+
+        clipped_f = torch.clamp(kernel_data[:, 0], f_lower, f_upper)
+        clipped_order = torch.clamp(kernel_data[:, 1], order_lower, None)
+        clipped_decay = torch.clamp(kernel_data[:, 2], decay_lower, None)
+
+        return torch.cat(
+            [
+                clipped_f.unsqueeze(1),
+                clipped_order.unsqueeze(1),
+                clipped_decay.unsqueeze(1),
+            ],
+            dim=-1,
+        )
+
+    def _gammatone_filters(self, kernel):
+        """This functions creates the Gammatone-filters to used for Gammatone-conv."""
+        t = torch.arange(
+            0, self.kernel_size, dtype=kernel.dtype, device=kernel.device
+        )
+        return gammatone_impulse_response(
+            t, center_freq=kernel[:, 0], order=kernel[:, 1], decay=kernel[:, 2]
+        )
+
+    def _gammatone_params_from_mels(self):
+        filters = mel_filters(
+            n_fft=self.n_fft,
+            n_filters=self.filters,
+            min_freq=self.min_freq,
+            max_freq=self.max_freq,
+            sample_rate=self.sample_rate,
+        )
+        center_frequencies = torch.argmax(filters, dim=1)
+        peaks, _ = torch.max(filters, dim=1, keepdim=True)
+        half_magnitudes = peaks / 2.0
+        fwhms = torch.sum((filters >= half_magnitudes).float(), dim=1)
+        output = torch.cat(
+            [
+                (center_frequencies / self.n_fft).unsqueeze(1),
+                torch.full((self.filters, 1), self.gammatone_init_order),
+                (
+                    fwhms
+                    / (
+                        self.n_fft
+                        * 2
+                        * np.sqrt(2 ** (1 / self.gammatone_init_order) - 1)
+                    )
+                ).unsqueeze(1),
+            ],
+            dim=-1,
+        )
+        return output
+
+    def _initialize_kernel(self):
+        return self._gammatone_params_from_mels()
+
+    def _manage_padding(
+        self,
+        x,
+        kernel_size: int,
+        dilation: int,
+        stride: int,
+    ):
+        """This function performs zero-padding on the time axis
+        such that their lengths is unchanged after the convolution.
+
+        Arguments
+        ---------
+        x : torch.Tensor
+            Input tensor.
+        kernel_size : int
+            Size of kernel.
+        dilation : int
+            Dilation used.
+        stride : int
+            Stride.
+
+        Returns
+        -------
+        x : torch.Tensor
+        """
+
+        # Detecting input shape
+        L_in = self.in_channels
+
+        # Time padding
+        padding = get_padding_elem(L_in, stride, kernel_size, dilation)
+
+        # Applying padding
+        x = F.pad(x, padding, mode=self.padding_mode)
+
+        return x
+
+
+def mel_filters(
+    n_fft, min_freq, max_freq, n_filters, sample_rate, normalize_energy=False
+):
+    """
+    This function creates a Mel-scale filterbank.
+
+    n_fft : int
+        Number of FFT bins.
+    min_freq : float
+        Minimum frequency in Hz.
+    max_freq : float
+        Maximum frequency in Hz.
+    n_filters : int
+        Number of filters.
+    sample_rate : int
+        Sampling rate in Hz.
+    normalize_energy : bool
+        If True, normalizes the energy of the filters to 1.
+    """
+
+    def _mel_filters_areas(filters):
+        peaks, _ = torch.max(filters, dim=1, keepdim=True)
+        return (
+            peaks
+            * (torch.sum((filters > 0).float(), dim=1, keepdim=True) + 2)
+            * np.pi
+            / n_fft
+        )
+
+    mel_filterbank = torchaudio.functional.melscale_fbanks(
+        n_freqs=n_fft // 2 + 1,
+        f_min=min_freq,
+        f_max=max_freq,
+        n_mels=n_filters,
+        sample_rate=sample_rate,
+    )
+    mel_filterbank = mel_filterbank.transpose(1, 0)
+    if normalize_energy:
+        mel_filterbank = mel_filterbank / _mel_filters_areas(mel_filterbank)
+    return mel_filterbank
 
 
 def get_padding_elem(L_in: int, stride: int, kernel_size: int, dilation: int):

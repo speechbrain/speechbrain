@@ -146,6 +146,7 @@ def dataio_prep(hparams):
 
     datasets = [train_data, valid_data, test_data]
     label_encoder = sb.dataio.encoder.CategoricalEncoder()
+    label_encoder.expect_len(hparams["number_of_commands"])
 
     # 2. Define audio pipeline:
     @sb.utils.data_pipeline.takes("wav", "start", "stop", "duration")
@@ -273,7 +274,7 @@ if __name__ == "__main__":
         prepare_GSC,
         kwargs={
             "data_folder": hparams["data_folder"],
-            "save_folder": hparams["output_folder"],
+            "save_folder": hparams["save_folder"],
             "validation_percentage": hparams["validation_percentage"],
             "testing_percentage": hparams["testing_percentage"],
             "percentage_unknown": hparams["percentage_unknown"],
