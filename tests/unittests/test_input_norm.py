@@ -13,6 +13,7 @@ from speechbrain.processing.features import (
     combine_gaussian_statistics,
     combine_gaussian_statistics_distributed,
     gaussian_statistics,
+    get_mask,
 )
 
 
@@ -49,8 +50,6 @@ class TestInputNormalization:
     def test_constructor_defaults(self):
         """Test constructor with default parameters."""
         norm = InputNormalization()
-        assert norm.mean_norm is True
-        assert norm.std_norm is True
         assert norm.norm_type == "global"
         assert norm.update_until_epoch == 2
         assert norm.avoid_padding_norm is False
@@ -68,7 +67,9 @@ class TestInputNormalization:
 
         # Manual calculation for comparison, using corrected variance
         expected_means = torch.tensor([2.5, 6.0, 9.5]).view(-1, 1)
-        expected_stds = torch.tensor([5.0 / 3.0, 1.0, 0.5]).sqrt().view(-1, 1)
+        expected_stds = (
+            torch.tensor([5.0 / 4.0, 2.0 / 3.0, 0.5 / 2.0]).sqrt().view(-1, 1)
+        )
 
         # Apply sentence normalization
         output = norm(x, lengths)
@@ -97,13 +98,11 @@ class TestInputNormalization:
         # Manual calculation for comparison. See code for note about
         # how this algorithm is not correct, kept only for backwards compat.
         mean_mean = torch.tensor([2.5, 6.0, 9.5]).mean()
-        expected_mean = (x - mean_mean)[mask].mean()
-        std_mean = torch.tensor([5.0 / 3.0, 1.0, 0.5]).sqrt().mean()
-        expected_std = ((x - mean_mean)[mask] / std_mean).std()
+        std_mean = torch.tensor([5.0 / 4.0, 2.0 / 3.0, 0.5 / 2.0]).sqrt().mean()
+        expected = (x - mean_mean) / std_mean
 
         # Check normalization was applied correctly to non-padding values
-        assert torch.allclose(output[mask].mean(), expected_mean, atol=1e-3)
-        assert torch.allclose(output[mask].std(), expected_std, atol=1e-2)
+        assert torch.allclose(output[mask], expected[mask], atol=1e-3)
 
         # Check if padding values are preserved properly
         assert torch.allclose(output[~mask], x[~mask], atol=1e-5)
@@ -177,18 +176,6 @@ class TestInputNormalization:
         assert torch.allclose(saved_std, norm.glob_std, atol=1e-5)
         assert saved_count == norm.count
 
-    def test_no_std_normalization(self, sample_data):
-        """Test normalization with std_norm=False."""
-        x, lengths, mask = sample_data
-        norm = InputNormalization(norm_type="global", std_norm=False)
-
-        # Apply normalization
-        output = norm(x, lengths)
-
-        # Check that mean normalization was applied but std normalization wasn't
-        assert torch.allclose(output[mask].mean(), torch.zeros(1), atol=1e-5)
-        assert not torch.allclose(output[mask].std(), torch.ones(1), atol=0.1)
-
     def test_save_load(self, tmp_path, sample_data):
         """Test save and load functionality."""
         x, lengths, mask = sample_data
@@ -248,7 +235,6 @@ class TestInputNormalization:
 # Utility tests for the helper functions
 def test_get_mask():
     """Test the get_mask function."""
-    from speechbrain.processing.features import get_mask
 
     # Create a batch of sequences
     x = torch.ones(3, 4, 2)  # Batch size 3, seq len 4, feature dim 2
@@ -285,28 +271,17 @@ def reference_gaussian_statistics(
     if isinstance(dimensions, int):
         dimensions = (dimensions,)
     elif dimensions is None:
-        # All dimensions
         dimensions = tuple(range(len(x.shape)))
     assert isinstance(dimensions, tuple)
 
-    # Start by pretending that dimensions=() and then roll them up one by one.
-    count = 1
-    mean = x
-    variance_statistics = np.square(x)
-
-    for dimension in sorted(dimensions, reverse=True):
-        count *= x.shape[dimension]
-        mean = np.mean(mean, axis=dimension)
-        variance_statistics = np.mean(variance_statistics, axis=dimension)
-
-    variance = variance_statistics - np.square(mean)
+    count = np.prod([x.shape[d] for d in dimensions])
+    mean = np.mean(x, axis=dimensions)
+    variance = np.var(x, axis=dimensions)
 
     return count, mean, variance
 
 
-@pytest.mark.parametrize(
-    "size", [(), (1,), (5,), (4, 2), (7, 8, 9), (2, 3, 4, 5)]
-)
+@pytest.mark.parametrize("size", [(1,), (5,), (4, 2), (7, 8, 9), (2, 3, 4, 5)])
 @pytest.mark.parametrize(
     "dimensions",
     [
@@ -315,7 +290,6 @@ def reference_gaussian_statistics(
         1,
         2,
         3,
-        (),
         (0,),
         (1,),
         (2,),
@@ -327,6 +301,7 @@ def reference_gaussian_statistics(
     ],
 )
 def test_gaussian_statistics(size, dimensions):
+    """Test computation of mean and variance"""
     if isinstance(dimensions, tuple):
         if any(dimension >= len(size) for dimension in dimensions):
             return
@@ -341,7 +316,9 @@ def test_gaussian_statistics(size, dimensions):
         reference_gaussian_statistics(x, dimensions=dimensions)
     )
 
-    count, mean, variance = gaussian_statistics(torch.tensor(x), dim=dimensions)
+    x = torch.tensor(x)
+    mask = get_mask(x)
+    count, mean, variance = gaussian_statistics(x, mask=mask, dim=dimensions)
 
     assert count == reference_count
     assert mean.shape == reference_mean.shape
@@ -375,15 +352,15 @@ def test_combine_gaussian_statistics(size_left, size_right):
     # this tensor is what we should be computing.
     flat_left = np.reshape(left, (-1, last_size))
     flat_right = np.reshape(right, (-1, last_size))
-    combined = np.concatenate([flat_left, flat_right], axis=0)
+    combined = torch.tensor(np.concatenate([flat_left, flat_right], axis=0))
 
     reference_count, reference_mean, reference_variance = gaussian_statistics(
-        torch.tensor(combined)
+        combined, get_mask(combined)
     )
 
     count, mean, variance = combine_gaussian_statistics(
-        gaussian_statistics(torch.tensor(left)),
-        gaussian_statistics(torch.tensor(right)),
+        gaussian_statistics(torch.tensor(left), get_mask(torch.tensor(left))),
+        gaussian_statistics(torch.tensor(right), get_mask(torch.tensor(right))),
     )
 
     assert count == reference_count
@@ -420,7 +397,9 @@ def parallel_combine_gaussian_statistics_distributed(
         for process_size in sizes
     ]
 
-    all_statistics = [gaussian_statistics(d, dim=dimensions) for d in data]
+    all_statistics = [
+        gaussian_statistics(d, mask=get_mask(d), dim=dimensions) for d in data
+    ]
 
     reference_count, reference_mean, reference_variance = functools.reduce(
         combine_gaussian_statistics, all_statistics
@@ -438,7 +417,6 @@ def parallel_combine_gaussian_statistics_distributed(
 @pytest.mark.parametrize(
     "sizes, dimensions",
     [
-        ([(2,), (2,)], ()),
         ([(1, 4), (3, 4), (2, 4)], 0),
         ([(1, 6, 2, 5), (7, 6, 4, 5)], (0, 2)),
         ([(2, 5, 3), (3, 4, 3)], (0, 1)),
@@ -493,7 +471,6 @@ def parallel_mean_var_update(rank, world_size, tmpdir):
     # Running values should be the same between processes
     running_count = torch.tensor(0)
     running_mean = torch.zeros((feature_length,))
-    # TODO test running_std is None
     running_std = torch.zeros((feature_length,))
 
     for round in range(num_rounds):
@@ -515,7 +492,7 @@ def parallel_mean_var_update(rank, world_size, tmpdir):
     )
 
     # Expected values
-    expected_count = torch.tensor(flat_inputs.shape[0])
+    expected_count = torch.tensor(flat_inputs.shape[0]).long()
     assert (
         expected_count
         == world_size * num_rounds * batch_size * utterance_length

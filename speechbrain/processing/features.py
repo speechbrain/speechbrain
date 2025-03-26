@@ -996,7 +996,9 @@ class ContextWindow(torch.nn.Module):
         return cw_x
 
 
-def gaussian_statistics(x: torch.Tensor, dim: Union[int, tuple, None] = None):
+def gaussian_statistics(
+    x: torch.Tensor, mask: torch.Tensor, dim: Union[int, tuple, None] = None
+):
     """
     Compute first- and second-order moments of data, and return them as the
     count, mean, and variance of a vector over one or more dimensions.
@@ -1005,6 +1007,8 @@ def gaussian_statistics(x: torch.Tensor, dim: Union[int, tuple, None] = None):
     ---------
     x: torch.Tensor
         The tensor to compute the statistics over
+    mask: torch.Tensor
+        Padding mask to exclude padding from the statistics computation
     dim: int | tuple | None
         The dimension or dimensions that the statistics should be computed over.
         The other dimensions are retained in the output.
@@ -1021,28 +1025,29 @@ def gaussian_statistics(x: torch.Tensor, dim: Union[int, tuple, None] = None):
         The variance.
     """
 
-    if dim is None:
-        number = math.prod(x.shape)
-    elif isinstance(dim, int):
-        number = x.shape[dim]
-    else:
-        assert isinstance(dim, tuple)
-        if dim == ():
-            return 1, x, torch.zeros_like(x)
-        number = 1
-        for d in dim:
-            number *= x.shape[d]
+    if isinstance(dim, int):
+        dim = (dim,)
 
-    # First keep the dimensions so that broadcasting works.
-    mean_with_dims = torch.mean(x, dim=dim, keepdim=True)
+    # Use output size to compute N from the mask. Assumes N will
+    # be the same for each output, computing only a single value.
+    output_size = 1
+    if dim is not None:
+        for d, dim_size in enumerate(x.shape):
+            if d not in dim:
+                output_size *= dim_size
+    n = torch.sum(mask.expand_as(x)).item() // output_size
+
+    # Keep dims so broadcasting works with variance computation
+    mean_with_dims = torch.sum(x * mask, dim=dim, keepdim=True) / n
+    sq_diff = torch.square(x - mean_with_dims) * mask
+    variance = torch.sum(sq_diff, dim=dim) / n
     mean = (
-        torch.squeeze(mean_with_dims)
+        mean_with_dims.squeeze()
         if dim is None
-        else torch.squeeze(mean_with_dims, dim=dim)
+        else mean_with_dims.squeeze(dim=dim)
     )
-    variance = torch.mean(torch.square(x - mean_with_dims), dim=dim)
 
-    return (number, mean, variance)
+    return (n, mean, variance)
 
 
 def combine_gaussian_statistics(
@@ -1127,6 +1132,7 @@ def combine_gaussian_statistics_distributed(
     # This is the DDP version of combine_gaussian_statistics above.
     local_count, local_mean, local_variance = statistics
     global_count = ddp_all_reduce(torch.tensor(local_count), ReduceOp.SUM)
+    global_count = global_count.item()
 
     local_weight = local_count / global_count
     global_mean = ddp_all_reduce(local_weight * local_mean, ReduceOp.SUM)
@@ -1141,7 +1147,7 @@ def combine_gaussian_statistics_distributed(
     return (global_count, global_mean, global_variance)
 
 
-def mean_std_update(x, mask, dim, run_count, run_mean, run_std=None):
+def mean_std_update(x, mask, dim, run_count, run_mean, run_std):
     """Update the mean and variance statistics run_mean and run_std that
     have been computed on run_count samples to integrate the new samples x.
 
@@ -1163,8 +1169,7 @@ def mean_std_update(x, mask, dim, run_count, run_mean, run_std=None):
     run_mean : float or torch.Tensor
         The running mean of samples seen so far.
     run_std : float or torch.Tensor, optional
-        The running standard deviations from the mean. If `None`, the
-        variance is not computed and this returns 1.0 for the `run_std`.
+        The running standard deviations from the mean.
 
     Returns
     -------
@@ -1175,12 +1180,10 @@ def mean_std_update(x, mask, dim, run_count, run_mean, run_std=None):
     new_run_std : torch.Tensor (if passed)
         Updated running standard deviations of all samples, now including x.
     """
-    assert torch.all(mask), "Not implemented yet"
 
-    # TODO implement run_std is None
     current_statistics = (run_count, run_mean, torch.square(run_std))
     new_statistics = combine_gaussian_statistics_distributed(
-        gaussian_statistics(x, dim=dim)
+        gaussian_statistics(x, mask=mask, dim=dim)
     )
     (count, mean, variance) = combine_gaussian_statistics(
         current_statistics, new_statistics
@@ -1208,9 +1211,9 @@ class InputNormalization(torch.nn.Module):
     Arguments
     ---------
     mean_norm : True
-        If True, the mean will be normalized.
+        If True, the mean will be normalized. Passing `False` is deprecated.
     std_norm : True
-        If True, the variance will be normalized.
+        If True, the variance will be normalized. Passing `False` is deprecated.
     norm_type : str, default "global"
         String parameter whose value defines how the statistics are computed:
          * 'sentence' computes norms per utterance (no running stats)
@@ -1250,28 +1253,28 @@ class InputNormalization(torch.nn.Module):
     >>> norm = InputNormalization(norm_type="sentence")
     >>> features = norm(inputs, input_lens)
     >>> features
-    tensor([[-1.,  0.,  1.],
-            [-1.,  0.,  1.],
-            [-1.,  0.,  1.]])
+    tensor([[-1.2247,  0.0000,  1.2247],
+            [-1.2247,  0.0000,  1.2247],
+            [-1.2247,  0.0000,  1.2247]])
     >>> norm = InputNormalization(norm_type="batch")
     >>> features = norm(inputs, input_lens)
     >>> features
-    tensor([[-4., -3., -2.],
-            [-1.,  0.,  1.],
-            [ 2.,  3.,  4.]])
+    tensor([[-4.8990, -3.6742, -2.4495],
+            [-1.2247,  0.0000,  1.2247],
+            [ 2.4495,  3.6742,  4.8990]])
     >>> norm = InputNormalization(norm_type="global")
     >>> features = norm(inputs, input_lens)
     >>> features.mean() < 1e-7
     tensor(True)
     >>> features = norm(inputs + 1, input_lens)
     >>> features.mean()
-    tensor(0.1848)
+    tensor(0.1901)
     >>> features = norm(inputs, input_lens)
     >>> features.mean()
-    tensor(-0.1246)
+    tensor(-0.1270)
     >>> features = norm(inputs - 1, input_lens)
     >>> features.mean()
-    tensor(-0.3683)
+    tensor(-0.3735)
     >>> features = norm(inputs, input_lens)
     >>> features.mean() < 1e-7
     tensor(True)
@@ -1301,6 +1304,8 @@ class InputNormalization(torch.nn.Module):
         # Validate and store input arguments
         if not mean_norm:
             raise ValueError("Passing `False` for `mean_norm` is deprecated.")
+        if not std_norm:
+            raise ValueError("Passing `False` for `std_norm` is deprecated.")
         if avg_factor is not None:
             raise ValueError(
                 "Passing avg_factor is DEPRECATED as this exactly matches the "
@@ -1319,8 +1324,6 @@ class InputNormalization(torch.nn.Module):
         elif norm_type not in self.NORM_TYPES:
             raise ValueError(f"norm_type must be one of {self.NORM_TYPES}.")
 
-        self.mean_norm = mean_norm
-        self.std_norm = std_norm
         self.norm_type = norm_type
         self.avoid_padding_norm = avoid_padding_norm
         self.epsilon = epsilon
@@ -1397,7 +1400,7 @@ class InputNormalization(torch.nn.Module):
         """Use input tensor to update global statistics."""
         if self.count == 0:
             # Initialize with the mean, std of the first batch
-            self.glob_mean, self.glob_std = self._compute_current_stats(
+            _, self.glob_mean, self.glob_std = gaussian_statistics(
                 x, mask, dim=(0, self.length_dim)
             )
 
@@ -1407,19 +1410,14 @@ class InputNormalization(torch.nn.Module):
             dim=(0, self.length_dim),
             run_count=self.count,
             run_mean=self.glob_mean,
-            run_std=self.glob_std if self.std_norm else None,
+            run_std=self.glob_std,
         )
 
     def _compute_current_stats(self, x, mask, dim):
         """Computes masked mean and std of an input tensor along the given dimension(s)."""
         n = mask.sum(dim, keepdim=True)
         mean = (x * mask).sum(dim, keepdim=True) / n
-
-        if self.std_norm:
-            var = ((x - mean) * mask).square().sum(dim, keepdim=True) / (n - 1)
-        else:
-            var = torch.ones_like(mean)
-
+        var = ((x - mean) * mask).square().sum(dim, keepdim=True) / n
         return mean.squeeze(dim), var.squeeze(dim).sqrt()
 
     def _statistics_dict(self):
@@ -1559,23 +1557,23 @@ class GlobalNorm(torch.nn.Module):
     >>> x = torch.tensor([[1., 2., 3.]])
     >>> x_norm = global_norm(x)
     >>> x_norm
-    tensor([[0.3000, 0.5000, 0.7000]])
+    tensor([[0.2551, 0.5000, 0.7449]])
     >>> x = torch.tensor([[5., 10., -4.]])
     >>> x_norm = global_norm(x)
     >>> x_norm
-    tensor([[0.5937, 0.8101, 0.2043]])
+    tensor([[0.6027, 0.8397, 0.1761]])
     >>> x_denorm = global_norm.denormalize(x_norm)
     >>> x_denorm
     tensor([[ 5.0000, 10.0000, -4.0000]])
     >>> x = torch.tensor([[100., -100., -50.]])
     >>> global_norm.freeze()
     >>> global_norm(x)
-    tensor([[ 4.7042, -3.9493, -1.7860]])
+    tensor([[ 5.1054, -4.3740, -2.0041]])
     >>> global_norm.denormalize(x_norm)
     tensor([[ 5.0000, 10.0000, -4.0000]])
     >>> global_norm.unfreeze()
     >>> global_norm(x)
-    tensor([[ 4.7042, -3.9493, -1.7860]])
+    tensor([[ 5.1054, -4.3740, -2.0041]])
     >>> global_norm.denormalize(x_norm)
     tensor([[ 5.0000, 10.0000, -4.0000]])
     """

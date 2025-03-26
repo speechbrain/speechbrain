@@ -111,10 +111,10 @@ def test_input_normalization(device):
 
     # Test default setup
     norm = InputNormalization().to(device)
-    inputs = torch.FloatTensor([1, 2, 3, 0, 0, 0]).view(1, -1, 1).to(device)
-    inp_len = torch.FloatTensor([0.5]).to(device)
+    inputs = torch.FloatTensor([1, 3, 0, 0, 0]).view(1, -1, 1).to(device)
+    inp_len = torch.FloatTensor([0.4]).to(device)
     out_norm = norm(inputs, inp_len).squeeze()
-    expected = torch.FloatTensor([-1, 0, 1, -2, -2, -2]).to(device)
+    expected = torch.FloatTensor([-1, 1, -2, -2, -2]).to(device)
     assert torch.equal(out_norm, expected)
 
 
