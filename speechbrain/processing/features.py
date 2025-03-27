@@ -1053,9 +1053,6 @@ def gaussian_statistics(
 
     (reduce_dimensions, keep_dimensions) = normalise_dimensions(x, dim)
 
-    # Compute the number of elements that the statistics are computed over
-    # and check that the mask is shaped correctly.
-
     # Check that the mask is shaped correctly.
     if mask is not None:
         assert len(mask.shape) == len(x.shape)
