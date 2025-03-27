@@ -1072,11 +1072,12 @@ def gaussian_statistics(
     masked_data = x if mask is None else mask * x
 
     # First keep the dimensions so that broadcasting works.
-    sum_with_dims = torch.sum(masked_data, dim=reduce_dimensions, keepdim=True)
-
-    mean_with_dims = sum_with_dims / number
-
+    # If number == 0, the following will generate a warning, as it should.
+    mean_with_dims = (
+        torch.sum(masked_data, dim=reduce_dimensions, keepdim=True) / number
+    )
     mean = torch.squeeze(mean_with_dims, dim=reduce_dimensions)
+
     central_squared_data = torch.square(x - mean_with_dims)
     masked_squared_data = (
         central_squared_data if mask is None else mask * central_squared_data
