@@ -1185,16 +1185,14 @@ def mean_std_update(
     x: torch.Tensor,
     mask: Optional[torch.Tensor],
     dim: Union[int, tuple, None],
-    run_count,
-    run_mean,
-    run_std=None,
+    run_count: int,
+    run_mean: torch.Tensor,
+    run_std: torch.Tensor,
 ):
     """
     Update the running count, running mean, and running standard deviation
     by integrating new data x from multiple processes.
     """
-
-    # TODO implement run_std is None
     current_statistics = (run_count, run_mean, torch.square(run_std))
     new_statistics = combine_gaussian_statistics_distributed(
         gaussian_statistics(x, dim=dim, mask=mask)
