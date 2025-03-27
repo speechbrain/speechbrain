@@ -21,7 +21,7 @@ def normalise_dimensions(
     """Ensure dimensions object is a tuple."""
     if isinstance(dimensions, int):
         return (dimensions,)
-    elif dimensions is None:
+    elif dimensions is None or dimensions == ():
         # All dimensions
         return tuple(range(num_dimensions))
     assert isinstance(dimensions, tuple)
@@ -58,17 +58,18 @@ def reference_gaussian_statistics(
     # Start by pretending that dimensions=() and then roll them up one by one.
     all_count = 1
     masked_data = x if mask is None else mask * x
-    mean = masked_data
-    variance_statistics = np.square(masked_data)
+    sum = masked_data
+    sum_squares = np.square(masked_data)
 
     for dimension in sorted(dimensions, reverse=True):
         all_count *= x.shape[dimension]
-        mean = np.mean(mean, axis=dimension)
-        variance_statistics = np.mean(variance_statistics, axis=dimension)
+        sum = np.sum(sum, axis=dimension)
+        sum_squares = np.sum(sum_squares, axis=dimension)
 
     count = all_count if mask is None else np.sum(mask)
 
-    variance = variance_statistics - np.square(mean)
+    mean = sum / count
+    variance = (sum_squares / count) - np.square(mean)
 
     return count, mean, variance
 

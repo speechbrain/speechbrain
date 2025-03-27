@@ -1012,7 +1012,10 @@ def gaussian_statistics(
     dim: int | tuple | None
         The dimension or dimensions that the statistics should be computed over.
         The other dimensions are retained in the output.
-        If None, then scalar-valued statistics will be returned.
+        If None, then statistics will be computed over all dimensions and
+        scalar-valued statistics will be returned.
+        () has the same effect as None, which is nonsensical but it consistent
+        with torch.sum and friends.
     mask: torch.Tensor | None
         A boolean tensor with True for elements that should be considered, and
         False for elements that should not be considered (e.g. that are after
@@ -1038,7 +1041,9 @@ def gaussian_statistics(
     ) -> Tuple[tuple, tuple]:
         """Normalise "dim" and return (reduce_dimensions, keep_dimensions)."""
         all_dimensions = range(len(x.shape))
-        if dim is None:
+        if dim is None or dim == ():
+            # dim == () is an exceptional case and replicates the strangeness
+            # of torch.sum(.., dim=()) and friends.
             return (tuple(d for d in all_dimensions), ())
         elif isinstance(dim, int):
             return ((dim,), tuple(d for d in all_dimensions if d != dim))
@@ -1059,13 +1064,6 @@ def gaussian_statistics(
         for d in keep_dimensions:
             assert mask.size(d) == 1
 
-    if reduce_dimensions == ():
-        if mask is None:
-            return 1, x, torch.zeros_like(x)
-        else:
-            # mask.numel == 1
-            return int(torch.sum(mask)), mask * x, torch.zeros_like(x)
-
     if mask is None:
         number = math.prod(x.size(d) for d in reduce_dimensions)
     else:
@@ -1074,13 +1072,16 @@ def gaussian_statistics(
     masked_data = x if mask is None else mask * x
 
     # First keep the dimensions so that broadcasting works.
-    mean_with_dims = torch.mean(masked_data, dim=dim, keepdim=True)
-    mean = (
-        torch.squeeze(mean_with_dims)
-        if dim is None
-        else torch.squeeze(mean_with_dims, dim=dim)
+    sum_with_dims = torch.sum(masked_data, dim=reduce_dimensions, keepdim=True)
+
+    mean_with_dims = sum_with_dims / number
+
+    mean = torch.squeeze(mean_with_dims, dim=reduce_dimensions)
+    central_squared_data = torch.square(x - mean_with_dims)
+    masked_squared_data = (
+        central_squared_data if mask is None else mask * central_squared_data
     )
-    variance = torch.mean(torch.square(masked_data - mean_with_dims), dim=dim)
+    variance = torch.sum(masked_squared_data, dim=reduce_dimensions) / number
 
     return (number, mean, variance)
 
