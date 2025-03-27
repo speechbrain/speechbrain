@@ -97,14 +97,17 @@ def reference_gaussian_statistics(
     ],
 )
 @pytest.mark.parametrize("use_mask", [False, True])
-def test_gaussian_statistics(size, dimensions, use_mask: bool):
+@pytest.mark.parametrize("random_seed", [20250304, 20250326, 20250327])
+def test_gaussian_statistics(
+    size, dimensions, use_mask: bool, random_seed: int
+):
     if isinstance(dimensions, tuple):
         if any(dimension >= len(size) for dimension in dimensions):
             return
     elif isinstance(dimensions, int):
         if dimensions >= len(size):
             return
-    generator = np.random.default_rng(20250304)
+    generator = np.random.default_rng(random_seed)
 
     x = generator.uniform(low=-5, high=+5, size=size)
 
@@ -126,8 +129,12 @@ def test_gaussian_statistics(size, dimensions, use_mask: bool):
     assert count == reference_count
     assert mean.shape == reference_mean.shape
     assert variance.shape == reference_variance.shape
-    assert np.allclose(mean.cpu().numpy(), reference_mean)
-    assert np.allclose(variance.cpu().numpy(), reference_variance)
+    if not np.all(np.isnan(reference_mean)):
+        assert np.allclose(mean.cpu().numpy(), reference_mean)
+        assert np.allclose(variance.cpu().numpy(), reference_variance)
+    else:
+        assert np.all(np.isnan(mean.cpu().numpy()))
+        assert np.all(np.isnan(variance.cpu().numpy()))
 
 
 # For this test, assume that we compute the statistics across all dimensions
@@ -235,7 +242,7 @@ def test_combine_gaussian_statistics_distributed(tmpdir, sizes, dimensions):
     )
 
 
-def parallel_mean_var_update(rank, world_size, tmpdir):
+def parallel_mean_var_update(rank, world_size, tmpdir, random_seed):
     """Test that the mean_var_norm works in ddp."""
 
     from speechbrain.processing.features import mean_std_update
@@ -243,7 +250,7 @@ def parallel_mean_var_update(rank, world_size, tmpdir):
     initialise_process_group(rank, world_size, tmpdir)
 
     generator = torch.Generator()
-    generator.manual_seed(20240307)
+    generator.manual_seed(random_seed)
 
     feature_length = 10
     num_rounds = 3
@@ -251,58 +258,75 @@ def parallel_mean_var_update(rank, world_size, tmpdir):
     batch_size = 4
     utterance_length = 3
     main_shape = (batch_size, utterance_length)
+    dimensions = (0, 1)
+
+    def random_input(generator):
+        """Return a random input"""
+        return 10 - 5 * torch.rand(
+            size=main_shape + (feature_length,), generator=generator
+        )
+
+    def random_mask(generator):
+        """Return a random mask"""
+        # Sometimes produce None.
+        if float(torch.rand(size=(), generator=generator)) < 0.3:
+            return None
+        else:
+            return torch.randint(
+                high=2,
+                size=main_shape + (1,),
+                generator=generator,
+                dtype=torch.bool,
+            )
 
     inputs = [
-        [
-            10
-            - 5
-            * torch.rand(
-                size=main_shape + (feature_length,), generator=generator
-            )
-            for _ in range(num_rounds)
-        ]
+        [random_input(generator) for _ in range(num_rounds)]
         for _ in range(world_size)
     ]
 
-    # TODO different masks
-    mask = torch.full(main_shape + (1,), fill_value=True)
-
-    # TODO test other dimensions
-    dimensions = (0, 1)
+    full_mask = torch.full(main_shape + (1,), fill_value=True)
+    masks = [
+        [random_mask(generator) for _ in range(num_rounds)]
+        for _ in range(world_size)
+    ]
 
     # Running values should be the same between processes
     running_count = torch.tensor(0)
     running_mean = torch.zeros((feature_length,))
-    # TODO test running_std is None
     running_std = torch.zeros((feature_length,))
 
     for round in range(num_rounds):
         running_count, running_mean, running_std = mean_std_update(
             x=inputs[rank][round],
-            mask=mask,
+            mask=masks[rank][round],
             dim=dimensions,
             run_count=running_count,
             run_mean=running_mean,
             run_std=running_std,
         )
 
+    def flatten(tensor_list_list: List[List[torch.Tensor]]):
+        flat_list = []
+        for tensors in tensor_list_list:
+            flat_list.extend(tensors)
+        # Replace masks "None" by a tensor with only True.
+        flat_list = [(t if t is not None else full_mask) for t in flat_list]
+        last_dimension = flat_list[0].size(-1)
+        return torch.cat(
+            [tensor.reshape((-1, last_dimension)) for tensor in flat_list]
+        )
+
     # Flatten all inputs.
-    input_list = []
-    for tensors in inputs:
-        input_list.extend(tensors)
-    flat_inputs = torch.cat(
-        [input.reshape((-1, feature_length)) for input in input_list]
-    )
+    flat_inputs = flatten(inputs)
+    flat_masks = flatten(masks)
 
     # Expected values
-    expected_count = torch.tensor(flat_inputs.shape[0])
-    assert (
-        expected_count
-        == world_size * num_rounds * batch_size * utterance_length
-    )
-    expected_mean = torch.mean(flat_inputs, dim=0)
-    expected_variance = torch.mean(
-        torch.square(flat_inputs - expected_mean), dim=0
+    expected_count = torch.sum(flat_masks)
+
+    expected_mean = torch.sum(flat_masks * flat_inputs, dim=0) / expected_count
+    expected_variance = (
+        torch.sum(flat_masks * torch.square(flat_inputs - expected_mean), dim=0)
+        / expected_count
     )
     expected_std = torch.sqrt(expected_variance)
 
@@ -312,12 +336,13 @@ def parallel_mean_var_update(rank, world_size, tmpdir):
     assert torch.allclose(running_std, expected_std)
 
 
-def test_mean_var_update_parallel(tmpdir):
+@pytest.mark.parametrize("random_seed", [20250307, 20250326, 20250327])
+def test_mean_var_update_parallel(tmpdir, random_seed):
     """Test the mean_var_update function in parallel."""
     world_size = 3
     torch.multiprocessing.spawn(
         parallel_mean_var_update,
-        args=(world_size, tmpdir),
+        args=(world_size, tmpdir, random_seed),
         nprocs=world_size,
         join=True,
     )
