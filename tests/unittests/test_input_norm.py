@@ -2,7 +2,7 @@
 """
 
 import functools
-from typing import List, Tuple, Union
+from typing import List, Optional, Tuple, Union
 
 import numpy as np
 import pytest
@@ -15,30 +15,58 @@ from speechbrain.processing.features import (
 )
 
 
+def normalise_dimensions(
+    dimensions: Union[int, tuple, None], num_dimensions: int
+):
+    """Ensure dimensions object is a tuple."""
+    if isinstance(dimensions, int):
+        return (dimensions,)
+    elif dimensions is None:
+        # All dimensions
+        return tuple(range(num_dimensions))
+    assert isinstance(dimensions, tuple)
+    return dimensions
+
+
+def random_mask_numpy(
+    generator: np.random.Generator,
+    data_shape: tuple,
+    dimensions: Union[int, tuple, None],
+):
+    dimensions_set = set(normalise_dimensions(dimensions, len(data_shape)))
+
+    mask_shape = tuple(
+        (data_shape[d] if d in dimensions_set else 1)
+        for d in range(len(data_shape))
+    )
+
+    return generator.integers(0, 2, size=mask_shape, dtype=bool)
+
+
 def reference_gaussian_statistics(
-    x: np.ndarray, dimensions: Union[int, tuple, None]
+    x: np.ndarray,
+    dimensions: Union[int, tuple, None],
+    mask: Optional[np.ndarray],
 ) -> Tuple[int, np.ndarray, np.ndarray]:
     """
     Compute reference count, mean, variance with Numpy, in the simplest way
     possible.
     """
     # Ensure dimensions object is a tuple.
-    if isinstance(dimensions, int):
-        dimensions = (dimensions,)
-    elif dimensions is None:
-        # All dimensions
-        dimensions = tuple(range(len(x.shape)))
-    assert isinstance(dimensions, tuple)
+    dimensions = normalise_dimensions(dimensions, len(x.shape))
 
     # Start by pretending that dimensions=() and then roll them up one by one.
-    count = 1
-    mean = x
-    variance_statistics = np.square(x)
+    all_count = 1
+    masked_data = x if mask is None else mask * x
+    mean = masked_data
+    variance_statistics = np.square(masked_data)
 
     for dimension in sorted(dimensions, reverse=True):
-        count *= x.shape[dimension]
+        all_count *= x.shape[dimension]
         mean = np.mean(mean, axis=dimension)
         variance_statistics = np.mean(variance_statistics, axis=dimension)
+
+    count = all_count if mask is None else np.sum(mask)
 
     variance = variance_statistics - np.square(mean)
 
@@ -67,7 +95,8 @@ def reference_gaussian_statistics(
         (0, 1, 3),
     ],
 )
-def test_gaussian_statistics(size, dimensions):
+@pytest.mark.parametrize("use_mask", [False, True])
+def test_gaussian_statistics(size, dimensions, use_mask: bool):
     if isinstance(dimensions, tuple):
         if any(dimension >= len(size) for dimension in dimensions):
             return
@@ -78,11 +107,20 @@ def test_gaussian_statistics(size, dimensions):
 
     x = generator.uniform(low=-5, high=+5, size=size)
 
+    if use_mask:
+        mask = random_mask_numpy(generator, size, dimensions)
+    else:
+        mask = None
+
     reference_count, reference_mean, reference_variance = (
-        reference_gaussian_statistics(x, dimensions=dimensions)
+        reference_gaussian_statistics(x, dimensions=dimensions, mask=mask)
     )
 
-    count, mean, variance = gaussian_statistics(torch.tensor(x), dim=dimensions)
+    count, mean, variance = gaussian_statistics(
+        torch.tensor(x),
+        dim=dimensions,
+        mask=None if mask is None else torch.tensor(mask),
+    )
 
     assert count == reference_count
     assert mean.shape == reference_mean.shape
