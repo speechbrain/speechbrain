@@ -998,7 +998,7 @@ class ContextWindow(torch.nn.Module):
 
 def gaussian_statistics(
     x: torch.Tensor,
-    mask: torch.Tensor,
+    mask: Optional[torch.Tensor] = None,
     dim: Union[int, tuple, None] = None,
     compute_var: bool = True,
 ):
@@ -1047,29 +1047,52 @@ def gaussian_statistics(
     tensor(1.)
     """
 
-    if isinstance(dim, int):
-        dim = (dim,)
+    def normalise_dimensions(
+        x: torch.Tensor, dim: Union[int, tuple, None]
+    ) -> Tuple[tuple, tuple]:
+        """Normalise "dim" and return (reduce_dimensions, keep_dimensions)."""
+        all_dimensions = range(len(x.shape))
+        if dim is None or dim == ():
+            # dim == () is an exceptional case and replicates the strangeness
+            # of torch.sum(.., dim=()) and friends.
+            return (tuple(d for d in all_dimensions), ())
+        elif isinstance(dim, int):
+            return ((dim,), tuple(d for d in all_dimensions if d != dim))
+        else:
+            assert isinstance(dim, tuple)
+            return (dim, tuple(d for d in all_dimensions if d not in dim))
 
-    # We assume that all non-target dimensions are singletons
-    # so that this sum accurately reflects the count of items
-    # that the mean and variance are computed over.
-    n = torch.sum(mask).item()
+    (reduce_dimensions, keep_dimensions) = normalise_dimensions(x, dim)
 
-    # Keep dims so broadcasting works with variance computation
-    mean_with_dims = torch.sum(x * mask, dim=dim, keepdim=True) / n
-    mean = (
-        mean_with_dims.squeeze()
-        if dim is None
-        else mean_with_dims.squeeze(dim=dim)
+    # Check that the mask is shaped correctly.
+    if mask is not None:
+        assert len(mask.shape) == len(x.shape)
+        for d in reduce_dimensions:
+            assert mask.size(d) == x.size(d)
+        for d in keep_dimensions:
+            assert mask.size(d) == 1
+
+    if mask is None:
+        number = math.prod(x.size(d) for d in reduce_dimensions)
+    else:
+        number = int(torch.sum(mask))
+
+    masked_data = x if mask is None else mask * x
+
+    # First keep the dimensions so that broadcasting works.
+    # If number == 0, the following will generate a warning, as it should.
+    mean_with_dims = (
+        torch.sum(masked_data, dim=reduce_dimensions, keepdim=True) / number
     )
+    mean = torch.squeeze(mean_with_dims, dim=reduce_dimensions)
 
-    # Only compute variance if required
-    variance = None
-    if compute_var:
-        sq_diff = torch.square(x - mean_with_dims) * mask
-        variance = torch.sum(sq_diff, dim=dim) / n
+    central_squared_data = torch.square(x - mean_with_dims)
+    masked_squared_data = (
+        central_squared_data if mask is None else mask * central_squared_data
+    )
+    variance = torch.sum(masked_squared_data, dim=reduce_dimensions) / number
 
-    return (n, mean, variance)
+    return (number, mean, variance)
 
 
 def combine_gaussian_statistics(
