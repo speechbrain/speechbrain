@@ -158,7 +158,8 @@ ssl_model: !apply:speechbrain.utils.hparams.choice
 
 
 token_model: !apply:speechbrain.utils.hparams.conditional
-    condition: !ref <representation_mode> == "discrete"
+    condition: !ref <representation_mode>
+    condition_value: discrete
     apply: True
     value: !name:speechbrain.lobes.models.huggingface_transformers.discrete_ssl.DiscreteSSL
         ssl_model: !ref <ssl_model>
