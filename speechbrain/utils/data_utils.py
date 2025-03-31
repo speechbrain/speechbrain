@@ -521,6 +521,60 @@ def batch_pad_right(tensors: list, mode="constant", value=0):
     return batched, torch.tensor(valid)
 
 
+def feature_pad(tensor, length, padding_length, padding=None):
+    """Pads feature dimensions to the specified length with the specified padding,
+    assuming a (Batch x Length x Features..) tensor
+
+    Arguments
+    ---------
+    tensor : torch.Tensor
+        The tensor to be padded
+
+    length : torch.Tensor
+        Relative lengths
+
+    padding_length : int
+        The padding length
+
+    padding : torch.Tensor, optional
+        The padding tensor - if omitted, zero padding
+        will be used
+
+    Returns
+    -------
+    result : torch.Tensor
+        The padded tensor
+    length_pad : torch.Tensor
+        The new relative lengths, accounting for the padding
+        that was added
+    """
+    if padding is None:
+        padding = torch.zeros(tensor.shape[1:], device=tensor.device)
+    batch_size, max_len = tensor.shape[:2]
+    length_abs = (length * max_len).unsqueeze(-1)
+    positions = torch.arange(
+        max_len + padding_length,
+        device=length.device,
+    )[None, :]
+    while positions.dim() < tensor.dim():
+        length_abs = length_abs.unsqueeze(-1)
+        positions = positions.unsqueeze(-1)
+    edge_shape = list(tensor.shape)
+    edge_shape[1] = padding_length
+    edge = torch.zeros(
+        tuple(edge_shape), device=tensor.device, dtype=tensor.dtype
+    )
+    result = torch.cat([tensor, edge], dim=1)
+    length_abs_pad = length_abs + padding_length
+    mask = ((length_abs <= positions) & (positions < length_abs_pad)).expand_as(
+        result
+    )
+    padding_shape = tuple([batch_size, padding_length] + list(padding.shape))
+    result[mask] = padding[None, None, :].expand(padding_shape).flatten()
+    length_pad = length_abs_pad.squeeze() / result.size(1)
+    return result, length_pad
+
+
 def split_by_whitespace(text):
     """A very basic functional version of str.split"""
     return text.split()

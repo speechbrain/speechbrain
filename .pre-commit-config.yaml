@@ -4,6 +4,7 @@ repos:
     hooks:
       - id: trailing-whitespace
         types: [file, text]
+        exclude: "(char_[a-z]{2}.txt|arpabet.txt)"
       - id: end-of-file-fixer
         types: [python]
       - id: requirements-txt-fixer

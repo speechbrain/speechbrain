@@ -28,6 +28,13 @@ You can find the pre-trained model with an easy-inference function on [HuggingFa
 # FastSpeech2
 The subfolder "fastspeech2" contains the recipes for training the non-autoregressive transformer based TTS model [FastSpeech2](https://arxiv.org/abs/2006.04558).
 
+# Tokotron
+The subfolder "tokotron" contains the recipes for training the transformer-based that uses discrete audio representations.
+
+You can find the pre-trained model with an easy-inference function on [HuggingFace](https://huggingface.co/speechbrain/tts-tokotron-wavlm-ljspeech).
+
+
+
 ### FastSpeech2 with pre-extracted durations from a forced aligner
 Training FastSpeech2 requires pre-extracted phoneme alignments (durations). The LJSpeech phoneme alignments from Montreal Forced Aligner are automatically downloaded, decompressed and stored at this location: ```/your_folder/LJSpeech-1.1/TextGrid```.
 
