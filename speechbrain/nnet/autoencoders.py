@@ -389,7 +389,7 @@ class NormalizingAutoencoder(Autoencoder):
         self.decoder = decoder
         self.latent_padding = latent_padding
         if norm is None:
-            norm = GlobalNorm()
+            norm = GlobalNorm(length_dim=len_dim)
         self.norm = norm
         self.len_dim = len_dim
         self.mask_out = mask_out

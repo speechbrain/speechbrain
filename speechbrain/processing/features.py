@@ -1208,9 +1208,6 @@ def mean_std_update(x, mask, dim, run_count, run_mean, run_std=None):
     """Update the mean and variance statistics run_mean and run_std that
     have been computed on run_count samples to integrate the new samples x.
 
-    For more information about running variance statistic calculation, see
-    https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Welford's_online_algorithm
-
     WARNING: Must be called in sync across processes.
 
     Arguments
@@ -1239,6 +1236,24 @@ def mean_std_update(x, mask, dim, run_count, run_mean, run_std=None):
         Updated running mean of all samples, now including x.
     new_run_std : torch.Tensor
         Updated running standard deviations of all samples, now including x.
+
+    Example
+    -------
+    >>> input_tensor = torch.tensor([[-1.0, 0.0, 1.0, 0.0]])
+    >>> input_length = torch.tensor([0.75])
+    >>> input_length_dim = 1
+    >>> input_mask = get_mask(input_tensor, input_length, input_length_dim)
+    >>> dim = (0, input_length_dim)
+    >>> run_count, run_mean, run_std = 0, torch.tensor(0.0), torch.tensor(1.0)
+    >>> run_count, run_mean, run_std = mean_std_update(
+    ...     input_tensor, input_mask, dim, run_count, run_mean, run_std
+    ... )
+    >>> run_count
+    3
+    >>> run_mean
+    tensor(0.)
+    >>> run_std
+    tensor(0.8165)
     """
 
     compute_variance = run_std is not None
@@ -1602,15 +1617,15 @@ class GlobalNorm(torch.nn.Module):
 
     Arguments
     ---------
-    norm_mean: float
+    norm_mean: float, default 0.0
         the desired normalized mean
-    norm_std: float
+    norm_std: float, default 1.0
         the desired normalized standard deviation
-    update_steps: float
+    update_steps: float, optional
         the number of steps over which statistics will be collected
-    length_dim: int
+    length_dim: int, default 2
         the dimension used to represent the length
-    mask_value: float
+    mask_value: float, default 0.0
         the value with which to fill masked positions
         without a mask_value, the masked positions would be normalized,
         which might not be desired
@@ -1680,12 +1695,12 @@ class GlobalNorm(torch.nn.Module):
         ---------
         x: torch.Tensor
             the tensor to normalize
-        lengths: torch.Tensor
+        lengths: torch.Tensor, optional
             a tensor of relative lengths (padding will not
             count towards normalization)
-        mask_value: float
+        mask_value: float, optional
             the value to use for masked positions
-        skip_update: false
+        skip_update: bool, default False
             whether to skip updates to the norm
 
         Returns
@@ -1698,7 +1713,8 @@ class GlobalNorm(torch.nn.Module):
         if mask_value is None:
             mask_value = self.mask_value
 
-        mask = get_mask(x, lengths, self.length_dim)
+        # Expand mask to all dims because GlobalNorm is over all
+        mask = get_mask(x, lengths, self.length_dim).expand_as(x)
 
         # Update statistics using this tensor if needed
         if not skip_update and self.should_update():
