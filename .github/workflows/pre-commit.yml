@@ -13,4 +13,4 @@ jobs:
       - uses: actions/setup-python@v2
         with:
           python-version: '3.12'
-      - uses: pre-commit/action@v4.2.0
+      - uses: pre-commit/action@v3.0.1
