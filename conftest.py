@@ -16,6 +16,7 @@ collect_ignore = [
     "speechbrain/lobes/models/flair",
     "speechbrain/lobes/models/spacy",
     "speechbrain/alignment/ctc_segmentation.py",
+    "speechbrain/lm/arpa.py",
 ]
 try:
     import numba  # noqa: F401
