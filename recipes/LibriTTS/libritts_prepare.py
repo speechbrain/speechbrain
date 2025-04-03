@@ -37,7 +37,9 @@ def prepare_libritts(
     test_split=None,
     seed=1234,
     model_name=None,
+    max_valid_size=500,
     skip_prep=False,
+    skip_resample=False,
 ):
     """
     Prepares the json files for the LibriTTS dataset.
@@ -74,8 +76,12 @@ def prepare_libritts(
         Seed value
     model_name : str
         Model name (used to prepare additional model specific data)
+    max_valid_size : int
+        The maximum size of the validation set
     skip_prep: Bool
         If True, skip preparation.
+    skip_resample : bool
+        If set to True the signal will not be resampled
 
     Returns
     -------
@@ -100,15 +106,22 @@ def prepare_libritts(
     # If specific splits are provided, creates data manifest files accordingly
     if train_split:
         wav_list = prepare_split(data_folder, train_split)
-        create_json(wav_list, save_json_train, sample_rate, model_name)
+        create_json(
+            wav_list, save_json_train, sample_rate, skip_resample, model_name
+        )
     if valid_split:
         wav_list = prepare_split(data_folder, valid_split)
         # TODO add better way to speedup evaluation
-        wav_list = random.sample(wav_list, 500)
-        create_json(wav_list, save_json_valid, sample_rate, model_name)
+        if len(wav_list) > max_valid_size:
+            wav_list = random.sample(wav_list, max_valid_size)
+        create_json(
+            wav_list, save_json_valid, sample_rate, skip_resample, model_name
+        )
     if test_split:
         wav_list = prepare_split(data_folder, test_split)
-        create_json(wav_list, save_json_test, sample_rate, model_name)
+        create_json(
+            wav_list, save_json_test, sample_rate, skip_resample, model_name
+        )
 
     if skip(save_json_train, save_json_valid, save_json_test):
         logger.info("Preparation completed.")
@@ -122,12 +135,26 @@ def prepare_libritts(
         data_split = split_sets(wav_list, split_ratio)
         # Creating json files
         create_json(
-            data_split["train"], save_json_train, sample_rate, model_name
+            data_split["train"],
+            save_json_train,
+            sample_rate,
+            skip_resample,
+            model_name,
         )
         create_json(
-            data_split["valid"], save_json_valid, sample_rate, model_name
+            data_split["valid"],
+            save_json_valid,
+            sample_rate,
+            skip_resample,
+            model_name,
         )
-        create_json(data_split["test"], save_json_test, sample_rate, model_name)
+        create_json(
+            data_split["test"],
+            save_json_test,
+            sample_rate,
+            skip_resample,
+            model_name,
+        )
 
 
 def prepare_split(data_folder, split_list):
@@ -170,7 +197,9 @@ def prepare_split(data_folder, split_list):
     return wav_list
 
 
-def create_json(wav_list, json_file, sample_rate, model_name=None):
+def create_json(
+    wav_list, json_file, sample_rate, skip_resample=False, model_name=None
+):
     """
     Creates the json file given a list of wav files.
     Arguments
@@ -181,11 +210,14 @@ def create_json(wav_list, json_file, sample_rate, model_name=None):
         The path of the output json file
     sample_rate : int
         The sample rate to be used for the dataset
+    skip_resample : bool
+        If set to True the signal will not be resampled
     model_name : str
         Model name (used to prepare additional model specific data)
     """
 
     # Downloads and initializes the G2P model to compute the phonemes if data is being prepared for Tacotron2 experiments
+    g2p = None
     if model_name == "Tacotron2":
         logger.info(
             "Computing phonemes for labels using SpeechBrain G2P. This may take a while."
@@ -248,7 +280,7 @@ def create_json(wav_list, json_file, sample_rate, model_name=None):
         }
 
         # Characters are used for Tacotron2, phonemes may be needed for other models
-        if model_name not in ["Tacotron2", "HiFi-GAN"]:
+        if g2p is not None and model_name not in ["Tacotron2", "HiFi-GAN"]:
             # Computes phoneme labels using SpeechBrain G2P and keeps the punctuations
             phonemes = _g2p_keep_punctuations(g2p, normalized_text)
             json_dict[uttid].update({"label_phoneme": phonemes})

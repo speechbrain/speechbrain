@@ -1,0 +1,100 @@
+"""An feature extraction script for LibriTTS
+
+Authors
+ * Artem Ploujnikov 2025
+"""
+
+import sys
+from pathlib import Path
+
+import torchaudio
+from hyperpyyaml import load_hyperpyyaml
+from torch import nn
+
+import speechbrain as sb
+from speechbrain.dataio.dataset import DynamicItemDataset
+from speechbrain.utils.distributed import run_on_main
+from speechbrain.utils.logger import get_logger
+
+logger = get_logger(__name__)
+
+
+if __name__ == "__main__":
+    hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
+
+    with open(hparams_file, encoding="utf-8") as fin:
+        hparams = load_hyperpyyaml(fin, overrides)
+
+    # Dataset prep (parsing Librispeech
+    from libritts_prepare import prepare_libritts  # noqa
+
+    # multi-gpu (ddp) save data preparation
+    run_on_main(
+        prepare_libritts,
+        kwargs={
+            "data_folder": hparams["data_folder"],
+            "train_split": hparams["train_splits"],
+            "valid_split": hparams["dev_splits"],
+            "test_split": hparams["test_splits"],
+            "save_json_train": hparams["train_json"],
+            "save_json_valid": hparams["valid_json"],
+            "save_json_test": hparams["test_json"],
+            "sample_rate": hparams["sample_rate"],
+            "skip_prep": hparams["skip_prep"],
+            "skip_resample": hparams["skip_resample"],
+        },
+    )
+
+    modules = nn.ModuleDict(hparams["modules"]).to(run_opts["device"])
+
+    @sb.utils.data_pipeline.takes("wav")
+    @sb.utils.data_pipeline.provides("sig")
+    def audio_pipeline(wav):
+        sig, rate = torchaudio.load(wav)
+        sig = torchaudio.functional.resample(sig, rate, hparams["sample_rate"])
+        return sig.squeeze(0)
+
+    @sb.utils.data_pipeline.takes("sig")
+    @sb.utils.data_pipeline.provides("audio_features")
+    def audio_features_pipeline(sig):
+        return modules.ssl_model(sig.data, sig.lengths)
+
+    @sb.utils.data_pipeline.takes("sig")
+    @sb.utils.data_pipeline.provides("audio_tokens", "audio_emb")
+    def audio_tokens_pipeline(sig):
+        _, audio_emb, audio_tokens = modules.tokens_model.encode(
+            sig.data, sig.lengths, **hparams["tokenizer_kwargs"]
+        )
+        yield audio_tokens
+        yield audio_emb
+
+    data_folder = hparams["data_folder"]
+    datasets = []
+    for split in ["train", "valid", "test"]:
+        json_path = hparams[f"{split}_json"]
+        name = Path(json_path).stem
+        dataset = DynamicItemDataset.from_json(
+            json_path=json_path,
+            replacements={"data_root": data_folder},
+        )
+        datasets.append(dataset)
+        dataset.add_dynamic_item(audio_pipeline)
+
+    merged_data = {
+        key: value
+        for dataset in datasets
+        for key, value in dataset.data.items()
+    }
+    merged_dataset = DynamicItemDataset(merged_data)
+
+    logger.info("Extracting features")
+    feature_extractor = hparams["feature_extractor"](
+        device=run_opts["device"],
+        dynamic_items=[
+            audio_features_pipeline,
+            audio_tokens_pipeline,
+        ],
+    )
+    feature_extractor.set_output_features(hparams["extract_features"])
+    feature_extractor.extract(dataset)
+    logger.info("Extraction done")
