@@ -8,6 +8,8 @@ The speech translation model comprises a wav2vec 2.0 encoder and a Transformer d
 
 This recipe also provides a flexible use of text-based sequence-to-sequence models, such as [mBART](https://huggingface.co/facebook/mbart-large-50-many-to-many-mmt) or [NLLB](https://huggingface.co/facebook/nllb-200-1.3B) model, to initialize the decoder of the speech translation model. This practice has been proven more effective in a wide range of settings in comparison with the randomly initialized decoder.
 
+An update to this recipe adds support for SpeechT5. It is not part of the original contribution and is meant to serve as an example of usage of this model for speech to text.
+
 ## Data Downloading
 
 For downloading the dataset used for this experiment, please run the following command.
@@ -70,6 +72,20 @@ Examples of the two parameters:
 
 One should change hparams/train_samu_mbart_st.yaml to hparams/train_samu_nllb_st.yaml in the above training command for using NLLB model instead.
 
+## Training with SpeechT5
+
+To train the model, please update the variables at hparams/train_speecht5_st.yaml.
+
+To launch the training training:
+```bash
+python train.py hparams/train_speecht5_st.yaml
+```
+If you are using distributed training, use the following:
+```bash
+ torchrun --nproc_per_node=your_number train.py hparams/train_speecht5_st.yaml --find_unused_parameters
+ ```
+
+
 # Results
 
 | No. | hyperparams file |  dev BLEU | test BLEU | Model Link |
@@ -79,6 +95,7 @@ One should change hparams/train_samu_mbart_st.yaml to hparams/train_samu_nllb_st
 | 3 | train_w2v2_nllb_st.yaml | 11.09 | 8.70 | [DropBox](https://www.dropbox.com/sh/spp2ijgfdbzuz26/AABkJ97e72D7aKzNLTm1qmWEa?dl=0) |
 | 4 | train_samu_mbart_st.yaml | 13.41 | 10.28 | [DropBox](https://www.dropbox.com/sh/98s1xyc3chreaw6/AABom3FnwY5SsIvg4en9tWC2a?dl=0) |
 | 5 | train_samu_nllb_st.yaml | 13.89 | 11.32 | [DropBox](https://www.dropbox.com/sh/ekkpl9c3kxsgllj/AABa0q2LrJe_o7JF-TTbfxZ-a?dl=0) |
+| 6 | train_speecht5_st.yaml | 6.00 | 5.28 | [DropBox](https://www.dropbox.com/scl/fo/q5zx8ah7rzeoz0fg6ea62/h?rlkey=y68eo4faog0nz4t9c4lyxoh4x&dl=0) |
 
 ## Citation
 ```
