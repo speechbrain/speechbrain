@@ -1526,7 +1526,7 @@ class InputNormalization(torch.nn.Module):
         """
         del end_of_epoch  # Unused here.
         device = "cpu"
-        stats = torch.load(path, map_location=device)
+        stats = torch.load(path, map_location=device, weights_only=False)
         self._load_statistics_dict(stats)
 
 
