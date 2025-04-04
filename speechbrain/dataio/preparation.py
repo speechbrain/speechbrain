@@ -6,9 +6,10 @@ Authors
 """
 
 import csv
-import logging
 import math
 from concurrent.futures import ThreadPoolExecutor, wait
+from contextlib import contextmanager
+from functools import partial
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 from uuid import uuid4
@@ -20,7 +21,7 @@ from tqdm.auto import tqdm
 from speechbrain.dataio.batch import undo_batch
 from speechbrain.dataio.dataloader import make_dataloader
 from speechbrain.dataio.dataset import DynamicItemDataset
-from speechbrain.utils.data_pipeline import DataPipeline
+from speechbrain.utils.data_pipeline import DataPipeline, provides, takes
 from speechbrain.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -28,6 +29,7 @@ logger = get_logger(__name__)
 has_h5 = False
 try:
     import h5py
+
     has_h5 = True
 except ImportError:
     logger.warning("h5py not installed, h5 is not supported")
@@ -76,14 +78,7 @@ class FeatureExtractor:
             dataloader_opts = {}
         self.id_key = id_key
         self.src_keys = src_keys
-        if isinstance(storage, Storage):
-            self.storage = storage
-        elif isinstance(storage, str):
-            self.storage = Storage.from_uri(
-                storage, mode="w", options=storage_opts
-            )
-        else:
-            raise ValueError(f"Invalid storage: {storage}")
+        self.storage = resolve_storage(storage, storage_opts, mode="w")
         self.id_key = id_key
         self.dataloader_opts = dataloader_opts
         self.device = device
@@ -401,7 +396,10 @@ class NumpyStorage(Storage):
                 if shard_key in shard_data:
                     shard[read_data_id][read_key] = shard_data[shard_key]
         self.current_read_shard = shard
-        return shard[data_id].get(key)
+        result = shard[data_id].get(key)
+        if result is not None:
+            result = torch.from_numpy(result)
+        return result
 
     def flush(self):
         """Saves any pre-cahced data to permanent storage"""
@@ -474,7 +472,7 @@ class NumpyStorage(Storage):
         uri: str
             A URI
         mode : str
-            The access mode: "r" or "w"
+            The access mode: "r" for reading or "w" for writing
         options : dict
             Additional storage-specific options
 
@@ -502,6 +500,7 @@ class NumpyStorage(Storage):
 @storage_uri_scheme("h5")
 class H5Storage(Storage):
     """A storage wrapper for h5py"""
+
     def __init__(self, path, mode, write_batch_size=10, compression=None):
         if not has_h5:
             raise ValueError("h5 not supported, please install h5py")
@@ -533,7 +532,7 @@ class H5Storage(Storage):
         if self.mode != "w":
             raise ValueError("The file was not opened in write mode")
         if torch.is_tensor(data):
-            data = data.numpy()        
+            data = data.numpy()
         if key not in self.data:
             self.data[key] = []
             self.data_ids[key] = []
@@ -571,7 +570,8 @@ class H5Storage(Storage):
         data_flat = self.file[key_data][idx]
         key_shapes = f"{key}_shapes"
         shape = self.file[key_shapes][idx]
-        return data_flat.reshape(shape)
+        result = data_flat.reshape(shape)
+        return torch.from_numpy(result)
 
     def flush(self):
         """Saves any pre-cahced data to permanent storage"""
@@ -610,9 +610,22 @@ class H5Storage(Storage):
         dim = data.ndim
         if key_data not in self.file:
             dt = h5py.vlen_dtype(data.dtype)
-            dataset = self.file.create_dataset(key_data, shape=(0,), maxshape=(None,), dtype=dt, compression=self.compression)
-            dataset_shapes = self.file.create_dataset(key_shapes, shape=(0, dim), maxshape=(None, dim), dtype=int)
-            dataset_idx = self.file.create_dataset(key_idx, shape=(0,), maxshape=(None,), dtype=h5py.string_dtype(encoding="utf-8"))
+            dataset = self.file.create_dataset(
+                key_data,
+                shape=(0,),
+                maxshape=(None,),
+                dtype=dt,
+                compression=self.compression,
+            )
+            dataset_shapes = self.file.create_dataset(
+                key_shapes, shape=(0, dim), maxshape=(None, dim), dtype=int
+            )
+            dataset_idx = self.file.create_dataset(
+                key_idx,
+                shape=(0,),
+                maxshape=(None,),
+                dtype=h5py.string_dtype(encoding="utf-8"),
+            )
         else:
             dataset = self.file[key_data]
             dataset_shapes = self.file[key_shapes]
@@ -622,12 +635,8 @@ class H5Storage(Storage):
         dataset.resize(size=(end,))
         dataset_shapes.resize(size=(end, dim))
         dataset_idx.resize(size=(end,))
-        data_shapes = [
-            item.shape for item in batch
-        ]
-        batch_flat = [
-            item.flatten() for item in batch
-        ]
+        data_shapes = [item.shape for item in batch]
+        batch_flat = [item.flatten() for item in batch]
         dataset[offset:end] = batch_flat
         dataset_shapes[offset:end] = data_shapes
         dataset_idx[offset:end] = self.data_ids[key]
@@ -678,3 +687,75 @@ def _to_bool(value, default=False):
         if bool_value is None:
             raise ValueError(f"Invalid Boolean {bool_value}")
     return bool_value
+
+
+def resolve_storage(storage, storage_opts=None, mode="r"):
+    """A helper function that returns the storage as is if it is a Storage instance
+    or resolves it from a URL if one is passed
+
+    Arguments
+    ---------
+    storage : Storage | str
+        The storage provider instance of a storage URI
+        Example: numpy:/some/path
+    storage_opts : dict
+        Storage options (optional)
+    mode : str
+        The access mode: "r" for reading or "w" for writing
+
+    Returns
+    -------
+    result : Storage
+        a storage instance
+    """
+    if isinstance(storage, Storage):
+        result = storage
+    elif isinstance(storage, str):
+        result = Storage.from_uri(storage, mode, storage_opts)
+    else:
+        raise ValueError(f"Invalid storage: {storage}")
+    return result
+
+
+@contextmanager
+def prepared_features(datasets, keys, storage, storage_opts=None, id_key="id"):
+    """Adds previously extracted features
+
+    Argumengts
+    ----------
+    datasets : speechbrain.dataio.dataset.DynamicItemDataset | dict | enumerable
+        A dataset
+    keys : list
+        A list of keys to be made available. Please note that
+        this does not automatically load them into batches - this will
+        be controlled by set_output_keys
+    storage : Storage | str
+        A storage instance or URI
+    storage_opts : dict
+        Storage options
+    id_key : str
+        The key to be used for the ID (optional)
+    """
+    storage = resolve_storage(storage, storage_opts)
+    if isinstance(datasets, DynamicItemDataset):
+        _add_prepared_features(datasets, keys, storage, id_key)
+    elif isinstance(datasets, dict):
+        for dataset in datasets.values():
+            _add_prepared_features(dataset, keys, storage, id_key)
+    else:
+        for dataset in datasets:
+            _add_prepared_features(dataset, keys, storage, id_key)
+    yield datasets
+    storage.close()
+
+
+def _add_prepared_features(dataset, keys, storage, id_key):
+    def storage_pipeline(key, storage, data_id):
+        data = storage.load(data_id, key)
+        return data
+
+    for key in keys:
+        key_storage_pipeline = partial(storage_pipeline, key, storage)
+        key_storage_pipeline = takes(id_key)(key_storage_pipeline)
+        key_storage_pipeline = provides(key)(key_storage_pipeline)
+        dataset.add_dynamic_item(key_storage_pipeline)

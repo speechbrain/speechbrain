@@ -12,6 +12,7 @@ from hyperpyyaml import load_hyperpyyaml
 from torch import nn
 
 import speechbrain as sb
+from speechbrain.dataio.batch import PaddedData
 from speechbrain.dataio.dataset import DynamicItemDataset
 from speechbrain.utils.distributed import run_on_main
 from speechbrain.utils.logger import get_logger
@@ -57,7 +58,8 @@ if __name__ == "__main__":
     @sb.utils.data_pipeline.takes("sig")
     @sb.utils.data_pipeline.provides("audio_features")
     def audio_features_pipeline(sig):
-        return modules.ssl_model(sig.data, sig.lengths)
+        audio_features = modules.ssl_model(sig.data, sig.lengths)
+        return PaddedData(audio_features, sig.lengths)
 
     @sb.utils.data_pipeline.takes("sig")
     @sb.utils.data_pipeline.provides("audio_tokens", "audio_emb")
@@ -65,8 +67,8 @@ if __name__ == "__main__":
         _, audio_emb, audio_tokens = modules.tokens_model.encode(
             sig.data, sig.lengths, **hparams["tokenizer_kwargs"]
         )
-        yield audio_tokens
-        yield audio_emb
+        yield PaddedData(audio_tokens, sig.lengths)
+        yield PaddedData(audio_emb, sig.lengths)
 
     data_folder = hparams["data_folder"]
     datasets = []
@@ -77,18 +79,18 @@ if __name__ == "__main__":
             json_path=json_path,
             replacements={"data_root": data_folder},
         )
+        # NOTE: This is only for debugging
+        if hparams["data_count"]:
+            dataset.data_ids = dataset.data_ids[: hparams["data_count"]]
         datasets.append(dataset)
 
     merged_data = {
-        key: value
+        data_id: dataset.data[data_id]
         for dataset in datasets
-        for key, value in dataset.data.items()
+        for data_id in dataset.data_ids
     }
     merged_dataset = DynamicItemDataset(merged_data)
     merged_dataset.add_dynamic_item(audio_pipeline)
-
-    if hparams["data_count"]:
-        merged_dataset = merged_dataset.filtered_sorted(select_n=hparams["data_count"])
 
     logger.info("Extracting features")
     feature_extractor = hparams["feature_extractor"](
