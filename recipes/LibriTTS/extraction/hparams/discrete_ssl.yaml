@@ -13,6 +13,7 @@ storage_type: numpy
 storage_opts:
   numpy:
     shard_size: !ref <storage_numpy_shard_size>
+  h5: {}
 storage_numpy_shard_size: 1000
 storage_numpy_async_save: False
 storage_numpy_async_save_concurrency: 8
@@ -35,6 +36,7 @@ batch_size: 8
 num_workers: 8
 src_keys: ["id", "sig"]
 id_key: id
+data_count: null
 
 # Dataloader options
 dataloader_opts:

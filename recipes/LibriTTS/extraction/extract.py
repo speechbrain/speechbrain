@@ -78,7 +78,6 @@ if __name__ == "__main__":
             replacements={"data_root": data_folder},
         )
         datasets.append(dataset)
-        dataset.add_dynamic_item(audio_pipeline)
 
     merged_data = {
         key: value
@@ -86,6 +85,10 @@ if __name__ == "__main__":
         for key, value in dataset.data.items()
     }
     merged_dataset = DynamicItemDataset(merged_data)
+    merged_dataset.add_dynamic_item(audio_pipeline)
+
+    if hparams["data_count"]:
+        merged_dataset = merged_dataset.filtered_sorted(select_n=hparams["data_count"])
 
     logger.info("Extracting features")
     feature_extractor = hparams["feature_extractor"](
@@ -96,5 +99,5 @@ if __name__ == "__main__":
         ],
     )
     feature_extractor.set_output_features(hparams["extract_features"])
-    feature_extractor.extract(dataset)
+    feature_extractor.extract(merged_dataset)
     logger.info("Extraction done")

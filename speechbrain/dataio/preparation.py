@@ -14,14 +14,23 @@ from urllib.parse import parse_qs, urlparse
 from uuid import uuid4
 
 import numpy as np
+import torch
 from tqdm.auto import tqdm
 
 from speechbrain.dataio.batch import undo_batch
 from speechbrain.dataio.dataloader import make_dataloader
 from speechbrain.dataio.dataset import DynamicItemDataset
 from speechbrain.utils.data_pipeline import DataPipeline
+from speechbrain.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
+
+has_h5 = False
+try:
+    import h5py
+    has_h5 = True
+except ImportError:
+    logger.warning("h5py not installed, h5 is not supported")
 
 
 class FeatureExtractor:
@@ -345,6 +354,8 @@ class NumpyStorage(Storage):
             and data_id not in self.current_shard
         ):
             self.flush()
+        if torch.is_tensor(data):
+            data = data.numpy()
         if data_id not in self.current_shard:
             self.current_shard[data_id] = {}
         self.current_shard[data_id][key] = data
@@ -485,10 +496,171 @@ class NumpyStorage(Storage):
             options["async_save_concurrency"] = int(
                 query["async_save_concurrency"]
             )
-        path = uri.path
-        if path.startswith("/~"):
-            path = path.lstrip("/")
-        return cls(path=path, mode=mode, **options)
+        return cls(path=uri.path, mode=mode, **options)
+
+
+@storage_uri_scheme("h5")
+class H5Storage(Storage):
+    """A storage wrapper for h5py"""
+    def __init__(self, path, mode, write_batch_size=10, compression=None):
+        if not has_h5:
+            raise ValueError("h5 not supported, please install h5py")
+        self.mode = mode
+        path = Path(path)
+        if not path.name.endswith(".h5"):
+            path = path / "data.h5"
+        self.path = path
+        self.compression = compression
+        self.data = {}
+        self.data_ids = {}
+        self.data_index = {}
+        self.write_batch_size = write_batch_size
+        self.file = None
+
+    def save(self, data_id, key, data):
+        """Saves a data element
+
+        Arguments
+        ---------
+        data_id : object
+            The identifier of the data sample (usually a string or an integer)
+        key : str
+            The key, identifying the type of data being saved
+        data : object
+            The data to be saved - what data is allowed will
+            depend on the storage
+        """
+        if self.mode != "w":
+            raise ValueError("The file was not opened in write mode")
+        if torch.is_tensor(data):
+            data = data.numpy()        
+        if key not in self.data:
+            self.data[key] = []
+            self.data_ids[key] = []
+        elif len(self.data[key]) >= self.write_batch_size:
+            self._flush_key(key)
+        self.data[key].append(data)
+        self.data_ids[key].append(data_id)
+
+    def load(self, data_id, key):  # noqa: DOC202
+        """Loads a data element
+
+        Arguments
+        ---------
+        data_id : object
+            The identifier of the data sample (usually a string or an integer)
+        key : str
+            The key, identifying the type of data being saved
+
+        Returns
+        -------
+        data : object
+            The saved data
+        """
+        if self.mode != "r":
+            raise ValueError("The file was not opened in read mode")
+        self._ensure_open()
+        key_data = f"{key}_data"
+        if key_data not in self.file:
+            return None
+        if key not in self.data_index:
+            self._read_index(key)
+        idx = self.data_index[key].get(data_id)
+        if idx is None:
+            return None
+        data_flat = self.file[key_data][idx]
+        key_shapes = f"{key}_shapes"
+        shape = self.file[key_shapes][idx]
+        return data_flat.reshape(shape)
+
+    def flush(self):
+        """Saves any pre-cahced data to permanent storage"""
+        if self.file is not None:
+            keys = list(self.data.keys())
+            for key in keys:
+                self._flush_key(key)
+
+    def close(self):
+        """Closes any open resources"""
+        if self.file is not None:
+            self.flush()
+            self.file.close()
+
+    def _ensure_open(self):
+        if self.file is None:
+            self.path.parent.mkdir(exist_ok=True, parents=True)
+            self.file = h5py.File(self.path, self.mode)
+
+    def _read_index(self, key):
+        dataset_idx = self.file[f"{key}_idx"]
+        self.data_index[key] = {
+            data_id.decode("utf-8"): idx
+            for idx, data_id in enumerate(dataset_idx)
+        }
+
+    def _flush_key(self, key):
+        self._ensure_open()
+        key_data = f"{key}_data"
+        key_shapes = f"{key}_shapes"
+        key_idx = f"{key}_idx"
+        batch = self.data[key]
+        if not batch:
+            return  # Nothing to do
+        data = batch[0]
+        dim = data.ndim
+        if key_data not in self.file:
+            dt = h5py.vlen_dtype(data.dtype)
+            dataset = self.file.create_dataset(key_data, shape=(0,), maxshape=(None,), dtype=dt, compression=self.compression)
+            dataset_shapes = self.file.create_dataset(key_shapes, shape=(0, dim), maxshape=(None, dim), dtype=int)
+            dataset_idx = self.file.create_dataset(key_idx, shape=(0,), maxshape=(None,), dtype=h5py.string_dtype(encoding="utf-8"))
+        else:
+            dataset = self.file[key_data]
+            dataset_shapes = self.file[key_shapes]
+            dataset_idx = self.file[key_idx]
+        offset = len(dataset)
+        end = offset + len(batch)
+        dataset.resize(size=(end,))
+        dataset_shapes.resize(size=(end, dim))
+        dataset_idx.resize(size=(end,))
+        data_shapes = [
+            item.shape for item in batch
+        ]
+        batch_flat = [
+            item.flatten() for item in batch
+        ]
+        dataset[offset:end] = batch_flat
+        dataset_shapes[offset:end] = data_shapes
+        dataset_idx[offset:end] = self.data_ids[key]
+        self.data[key], self.data_ids[key] = [], []
+
+    @classmethod
+    def from_uri(cls, uri, mode, options=None):
+        """Instantiates a new storage from a URI
+
+        Arguments
+        ---------
+        uri: str
+            A URI
+        mode : str
+            The access mode: "r" or "w"
+        options : dict
+            Additional storage-specific options
+
+        Returns
+        -------
+        storage : Storage
+            The storage instance
+        """
+        if isinstance(uri, str):
+            uri = urlparse(uri)
+        query = parse_qs(uri.query)
+        if options is None:
+            options = {}
+        if "write_batch_size" in query:
+            options["write_batch_size"] = int(query["write_batch_size"])
+        if "compression" in query:
+            options["compression"] = _to_bool(query["compression"])
+        return cls(path=uri.path, mode=mode, **options)
 
 
 _bool_map = {
