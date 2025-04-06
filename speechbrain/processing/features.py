@@ -1000,7 +1000,6 @@ def gaussian_statistics(
     x: torch.Tensor,
     mask: Optional[torch.Tensor] = None,
     dim: Union[int, tuple, None] = None,
-    compute_var: bool = True,
 ):
     """
     Compute first- and second-order moments of data, and return them as the
@@ -1012,15 +1011,13 @@ def gaussian_statistics(
         The tensor to compute the statistics over.
     mask: torch.Tensor
         Padding mask to exclude padding from the statistics computation.
+        For dimensions in `dim`, the mask size should exactly match `x`.
         All dimensions other than `dim` should be ones (e.g. [B, T, 1, ...])
         Ones / trues are valid positions, and zeros / falses are padding positions.
     dim: int | tuple | None
         The dimension or dimensions that the statistics should be computed over.
         The other dimensions are retained in the output.
         If None, then scalar-valued statistics will be returned.
-    compute_var: bool
-        Whether to compute the variance, in order to speed computation
-        when it is not needed. Returns `None` for variance if `False`.
 
     Returns
     -------
@@ -1029,9 +1026,8 @@ def gaussian_statistics(
         this is just the product of the lengths of the dimensions in `dim`.
     mean: torch.Tensor
         The mean of the non-padding values over the dimensions in `dim`.
-    variance: Optional[torch.Tensor]
-        The (biased) variance of the non-padding values over the `dim`
-        dimensions. This is `None` if `compute_var` is `False`.
+    variance: torch.Tensor
+        The (biased) variance of the non-padding values over `dim`.
 
     Example
     -------
@@ -1126,12 +1122,8 @@ def combine_gaussian_statistics(
     left_count, left_mean, left_variance = left_statistics
     right_count, right_mean, right_variance = right_statistics
     assert left_mean.shape == right_mean.shape
-
-    compute_variance = False
-    if left_variance is not None and right_variance is not None:
-        compute_variance = True
-        assert left_mean.shape == left_variance.shape
-        assert left_variance.shape == right_variance.shape
+    assert left_mean.shape == left_variance.shape
+    assert left_variance.shape == right_variance.shape
 
     count = left_count + right_count
 
@@ -1140,26 +1132,22 @@ def combine_gaussian_statistics(
 
     mean = left_weight * left_mean + right_weight * right_mean
 
-    variance = None
-    if compute_variance:
-        # Reconstruct the left and right variances relative to "mean".
-        compensated_left_variance = left_variance + torch.square(
-            mean - left_mean
-        )
-        compensated_right_variance = right_variance + torch.square(
-            mean - right_mean
-        )
+    # Reconstruct the left and right variances relative to "mean".
+    compensated_left_variance = left_variance + torch.square(mean - left_mean)
+    compensated_right_variance = right_variance + torch.square(
+        mean - right_mean
+    )
 
-        variance = (
-            left_weight * compensated_left_variance
-            + right_weight * compensated_right_variance
-        )
+    variance = (
+        left_weight * compensated_left_variance
+        + right_weight * compensated_right_variance
+    )
 
     return count, mean, variance
 
 
 def combine_gaussian_statistics_distributed(
-    statistics: Tuple[int, torch.Tensor, Optional[torch.Tensor]],
+    statistics: Tuple[int, torch.Tensor, torch.Tensor],
 ):
     """
     Combine the first- and second-order moments from multiple pieces of data
@@ -1170,9 +1158,9 @@ def combine_gaussian_statistics_distributed(
 
     Arguments
     ---------
-    statistics: Tuple[int, torch.Tensor, Optional[torch.Tensor]]
-        The new statistics for this process, to be combined with the current
-        statistics and the new statistics for all other processes.
+    statistics: Tuple[int, torch.Tensor, torch.Tensor]
+        A set of gaussian statistics to reduce across all processes.
+        The three elements of the tuple represent the count, mean, and variance.
 
     Returns
     -------
@@ -1182,7 +1170,6 @@ def combine_gaussian_statistics_distributed(
         The combined mean.
     variance
         The combined variance, relative to the new mean.
-        Returns None if the local variance (input) is None.
     """
     # This is the DDP version of combine_gaussian_statistics above.
     local_count, local_mean, local_variance = statistics
@@ -1192,19 +1179,24 @@ def combine_gaussian_statistics_distributed(
     local_weight = local_count / global_count
     global_mean = ddp_all_reduce(local_weight * local_mean, ReduceOp.SUM)
 
-    global_variance = None
-    if local_variance is not None:
-        compensated_local_variance = local_variance + torch.square(
-            local_mean - global_mean
-        )
-        global_variance = ddp_all_reduce(
-            local_weight * compensated_local_variance, ReduceOp.SUM
-        )
+    compensated_local_variance = local_variance + torch.square(
+        local_mean - global_mean
+    )
+    global_variance = ddp_all_reduce(
+        local_weight * compensated_local_variance, ReduceOp.SUM
+    )
 
     return (global_count, global_mean, global_variance)
 
 
-def mean_std_update(x, mask, dim, run_count, run_mean, run_std=None):
+def mean_std_update(
+    x: torch.Tensor,
+    mask: Optional[torch.Tensor],
+    dim: Union[int, tuple, None],
+    run_count: int,
+    run_mean: torch.Tensor,
+    run_std: torch.Tensor,
+):
     """Update the mean and variance statistics run_mean and run_std that
     have been computed on run_count samples to integrate the new samples x.
 
@@ -1224,9 +1216,8 @@ def mean_std_update(x, mask, dim, run_count, run_mean, run_std=None):
         The running number of samples seen so far.
     run_mean : float or torch.Tensor
         The running mean of samples seen so far.
-    run_std : float or torch.Tensor, optional
-        The running standard deviations from the mean. If None, returns
-        1.0 for the standard deviation without computation.
+    run_std : float or torch.Tensor
+        The running standard deviations from the mean.
 
     Returns
     -------
@@ -1256,20 +1247,16 @@ def mean_std_update(x, mask, dim, run_count, run_mean, run_std=None):
     tensor(0.8165)
     """
 
-    compute_variance = run_std is not None
     new_statistics = combine_gaussian_statistics_distributed(
-        gaussian_statistics(x, mask=mask, dim=dim, compute_var=compute_variance)
+        gaussian_statistics(x, mask=mask, dim=dim)
     )
 
-    if run_std is not None:
-        run_std = run_std.square()
-    current_statistics = (run_count, run_mean, run_std)
+    current_statistics = (run_count, run_mean, run_std.square())
     (count, mean, variance) = combine_gaussian_statistics(
         current_statistics, new_statistics
     )
-    stdev = variance.sqrt() if variance is not None else None
 
-    return count, mean, stdev
+    return count, mean, variance.sqrt()
 
 
 @register_checkpoint_hooks
@@ -1449,8 +1436,6 @@ class InputNormalization(torch.nn.Module):
             if self._should_update(epoch):
                 self._update_global_stats(x, mask)
             mean, std = self.glob_mean, self.glob_std
-            if std is None:
-                std = torch.ones_like(mean)
 
         # Local stats are computed over self.length_dim
         else:
@@ -1460,6 +1445,9 @@ class InputNormalization(torch.nn.Module):
             # speechbrain.nnet.normalization.BatchNorm1d(track_running_stats=False)
             if self.norm_type == "batch":
                 mean, std = mean.mean(dim=0), std.mean(dim=0)
+
+        if self.std_norm is False:
+            std = torch.ones_like(mean)
 
         # Add back reduced dimensions (avoiding padding if needed)
         if self.norm_type in ["global", "batch"]:
@@ -1492,7 +1480,7 @@ class InputNormalization(torch.nn.Module):
             dim=(0, self.length_dim),
             run_count=self.count,
             run_mean=self.glob_mean,
-            run_std=self.glob_std if self.std_norm else None,
+            run_std=self.glob_std,
         )
 
     def _compute_current_stats(self, x, mask, dim):
