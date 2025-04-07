@@ -50,12 +50,6 @@ except ModuleNotFoundError:
         "speechbrain/lobes/models/huggingface_transformers/discrete_ssl.py"
     )
 try:
-    import peft  # noqa: F401
-except ModuleNotFoundError:
-    collect_ignore.append(
-        "speechbrain/lobes/models/huggingface_transformers/llama2.py"
-    )
-try:
     import sacrebleu  # noqa: F401
 except ModuleNotFoundError:
     collect_ignore.append("speechbrain/utils/bleu.py")
