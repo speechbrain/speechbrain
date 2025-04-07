@@ -21,11 +21,12 @@ Warning: In the metadata of this dataset, the used ISO language code for Hebrew 
 
 You have two options how to download and prepare the VoxLingua107 dataset for training the model:
 
-  - Download the VoxLingua107 language-specific zips from http://bark.phon.ioc.ee/voxlingua107 and convert them
+  - Download the VoxLingua107 language-specific zips from https://cs.taltech.ee/staff/tanel.alumae/data/voxlingua107/ and convert them
     to WebDataset format. This is the most flexible option, as it allows selecting a subset of VoxLingua107 languages,
     or adding new languages. It will require around 2.2 TB disk space.
 
-  - Download the pre-compiled WebDataset shards from http://bark.phon.ioc.ee/voxlingua107. It will require around 1.4T of disk space.
+  - Download the pre-compiled WebDataset shards from https://cs.taltech.ee/staff/tanel.alumae/data/voxlingua107/
+    It would require around 1.4T of disk space but is unfortunately not available as of 2025-04-07.
 
 
 ### 1st option: download the VoxLingua107 zips and create the Webdataset shards
@@ -37,10 +38,9 @@ Download the zips:
 cd /data/
 mkdir voxlingua107
 cd voxlingua107
-wget http://bark.phon.ioc.ee/voxlingua107/zip_urls.txt
+wget https://cs.taltech.ee/staff/tanel.alumae/data/voxlingua107/zip_urls.txt
 cat zip_urls.txt | xargs  wget --continue
-wget bark.phon.ioc.ee/voxlingua107/dev.zip
-
+wget https://cs.taltech.ee/staff/tanel.alumae/data/voxlingua107/dev.zip
 ```
 
 Create WebDataset shards:
@@ -54,7 +54,7 @@ python create_wds_shards.py /data/voxlingua107/dev/ /data/voxlingua107_shards/de
 
 > [!IMPORTANT]
 > As of 2024-09-19, according to the
-> [official website](https://bark.phon.ioc.ee/voxlingua107/), the pre-compiled
+> [official website](https://cs.taltech.ee/staff/tanel.alumae/data/voxlingua107/), the pre-compiled
 > WebDataset shards are currently unavailable. As a result, this method is
 > likely broken. If you get a 503 error, it is because of that.
 
