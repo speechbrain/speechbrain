@@ -15,7 +15,7 @@ storage_opts:
     shard_size: !ref <storage_numpy_shard_size>
     async_save: !ref <storage_numpy_async_save>
     async_save_concurrency: !ref <storage_numpy_async_save_concurrency>
-  h5: 
+  h5:
     write_batch_size: !ref <storage_h5_write_batch_size>
     compression: !ref <storage_h5_compression>
 storage_numpy_shard_size: 1000

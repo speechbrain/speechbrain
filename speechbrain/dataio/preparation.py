@@ -746,7 +746,14 @@ def resolve_storage(storage, storage_opts=None, mode="r"):
 
 
 @contextmanager
-def prepared_features(datasets, keys, storage, storage_opts=None, id_key="id"):
+def prepared_features(
+    datasets,
+    keys,
+    storage,
+    storage_opts=None,
+    id_key="id",
+    use=True,
+):
     """Adds previously extracted features
 
     Argumengts
@@ -763,18 +770,25 @@ def prepared_features(datasets, keys, storage, storage_opts=None, id_key="id"):
         Storage options
     id_key : str
         The key to be used for the ID (optional)
+    use : bool
+        Whether prepared features should be used. If not, the function will
+        yield the original datasets unmodified. Convenient for recipes where
+        the features can be extracted on-demand
     """
-    storage = resolve_storage(storage, storage_opts)
-    if isinstance(datasets, DynamicItemDataset):
-        _add_prepared_features(datasets, keys, storage, id_key)
-    elif isinstance(datasets, dict):
-        for dataset in datasets.values():
-            _add_prepared_features(dataset, keys, storage, id_key)
+    if not use:
+        yield datasets
     else:
-        for dataset in datasets:
-            _add_prepared_features(dataset, keys, storage, id_key)
-    yield datasets
-    storage.close()
+        storage = resolve_storage(storage, storage_opts)
+        if isinstance(datasets, DynamicItemDataset):
+            _add_prepared_features(datasets, keys, storage, id_key)
+        elif isinstance(datasets, dict):
+            for dataset in datasets.values():
+                _add_prepared_features(dataset, keys, storage, id_key)
+        else:
+            for dataset in datasets:
+                _add_prepared_features(dataset, keys, storage, id_key)
+        yield datasets
+        storage.close()
 
 
 def _add_prepared_features(dataset, keys, storage, id_key):
