@@ -37,6 +37,7 @@ train_json: !ref <output_folder>/train.json
 valid_json: !ref <output_folder>/dev-clean.json
 test_json: !ref <output_folder>/test.json
 extract_features: ["audio_tokens"]
+selected_layers: [7]
 
 batch_size: 8
 num_workers: 8

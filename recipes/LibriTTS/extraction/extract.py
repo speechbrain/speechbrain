@@ -49,6 +49,7 @@ if __name__ == "__main__":
     )
 
     modules = nn.ModuleDict(hparams["modules"]).to(run_opts["device"])
+    selected_layers = hparams.get("selected_layers")
 
     @sb.utils.data_pipeline.takes("wav")
     @sb.utils.data_pipeline.provides("sig")
@@ -61,6 +62,8 @@ if __name__ == "__main__":
     @sb.utils.data_pipeline.provides("audio_features")
     def audio_features_pipeline(sig):
         audio_features = modules.ssl_model(sig.data, sig.lengths)
+        if selected_layers:
+            audio_features = audio_features[selected_layers]
         return PaddedData(audio_features, sig.lengths)
 
     @sb.utils.data_pipeline.takes("sig")
