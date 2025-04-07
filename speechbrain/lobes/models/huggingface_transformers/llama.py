@@ -40,7 +40,7 @@ class LLaMA(HFTransformersInterface):
         alongside with the rest of the pipeline.
     pad_token : str (default: "PAD")
         String representation of the padding token. This may change from one model to another.
-    weight_precision_load : torch.dtype (default: torch.bfloat16)
+    torch_dtype : torch.dtype (default: torch.float16)
         If no bnb_config is given, this parameter defines the loading type of the parameters of the model. This is useful to reduce memory footprint, but it does not change the compute dtype. For this just refer to mixed precision training in SpeechBrain.
     **kwargs : dict
         Extra keyword arguments passed to the `from_pretrained` function. This can be used, for instance, to change the type of attention. The HuggingFace documentation gives the full dict of parameters which may be model dependent.
@@ -62,7 +62,7 @@ class LLaMA(HFTransformersInterface):
         bnb_config: BitsAndBytesConfig = None,
         freeze: bool = False,
         pad_token: str = "[PAD]",
-        weight_precision_load: torch.dtype = torch.bfloat16,
+        torch_dtype: torch.dtype = torch.float16,
         **kwargs: dict,
     ) -> None:
         self.pad_token = pad_token
@@ -81,7 +81,7 @@ class LLaMA(HFTransformersInterface):
             freeze=freeze,
             with_casual_lm=True,
             quantization_config=self.bnb_config,
-            torch_dtype=weight_precision_load,
+            torch_dtype=torch_dtype,
             **kwargs,
         )
 
