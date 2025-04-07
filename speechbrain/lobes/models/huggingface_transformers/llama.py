@@ -42,8 +42,8 @@ class LLaMA(HFTransformersInterface):
         String representation of the padding token. This may change from one model to another.
     weight_precision_load : torch.dtype (default: torch.bfloat16)
         If no bnb_config is given, this parameter defines the loading type of the parameters of the model. This is useful to reduce memory footprint, but it does not change the compute dtype. For this just refer to mixed precision training in SpeechBrain.
-    **kwargs
-        Extra keyword arguments passed to the `from_pretrained` function. This can be used, for instance, to change the type of attention. The HuggingFace documentation gives the full list of parameters which may be model dependent.
+    **kwargs : dict
+        Extra keyword arguments passed to the `from_pretrained` function. This can be used, for instance, to change the type of attention. The HuggingFace documentation gives the full dict of parameters which may be model dependent.
 
     Example
     -------
@@ -63,7 +63,7 @@ class LLaMA(HFTransformersInterface):
         freeze: bool = False,
         pad_token: str = "[PAD]",
         weight_precision_load: torch.dtype = torch.bfloat16,
-        **kwargs,
+        **kwargs: dict,
     ) -> None:
         self.pad_token = pad_token
         self.source = source
@@ -93,13 +93,13 @@ class LLaMA(HFTransformersInterface):
             len(self.tokenizer), pad_to_multiple_of=8
         )
 
-    def forward(self, **kwargs):
+    def forward(self, **kwargs: dict):
         """This function wraps the HuggingFace forward function. See the HuggingFace documentation of your Llama model of interest to know which
         parameters to pass, typically the input tokens or embeddings and attention masks.
 
         Arguments
         ---------
-        **kwargs : list
+        **kwargs : dict
             Please refer to HuggingFace documentation and map it to your Llama model of interest.
 
         Returns
@@ -110,13 +110,13 @@ class LLaMA(HFTransformersInterface):
 
         return self.model(**kwargs)
 
-    def generate(self, **kwargs):
+    def generate(self, **kwargs: dict):
         """This function wraps the HuggingFace generate function. See the HuggingFace documentation of your Llama model of interest to know which
         parameters to pass, typically the input tokens or embeddings, attention masks and a transformers.GenerationConfig.
 
         Arguments
         ---------
-        **kwargs : list
+        **kwargs : dict
             Please refer to HuggingFace documentation and map it to your Llama model of interest.
 
         Returns
