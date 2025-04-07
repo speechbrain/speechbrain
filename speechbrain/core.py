@@ -21,7 +21,6 @@ import tempfile
 import time
 import warnings
 from contextlib import contextmanager
-from dataclasses import dataclass
 from datetime import date
 from enum import Enum, auto
 from types import SimpleNamespace
@@ -29,6 +28,7 @@ from types import SimpleNamespace
 import torch
 import yaml
 from hyperpyyaml import resolve_references
+from packaging import version
 from torch.nn import DataParallel as DP
 from torch.nn import SyncBatchNorm
 from torch.nn.parallel import DistributedDataParallel as DDP
@@ -41,6 +41,7 @@ from speechbrain.dataio.sampler import (
     DistributedSamplerWrapper,
     ReproducibleRandomSampler,
 )
+from speechbrain.utils.autocast import AMPConfig, TorchAutocast
 from speechbrain.utils.distributed import is_distributed_initialized
 from speechbrain.utils.logger import get_logger
 from speechbrain.utils.optimizers import rm_vector_weight_decay
@@ -70,9 +71,9 @@ run_opt_defaults = {
     "jit_module_keys": None,
     "compile": False,
     "compile_module_keys": None,
-    "compile_mode": "reduce-overhead",
+    "compile_mode": "default",
     "compile_using_fullgraph": False,
-    "compile_using_dynamic_shape_tracing": False,
+    "compile_using_dynamic_shape_tracing": True,
     "precision": "fp32",
     "eval_precision": "fp32",
     "auto_mix_prec": False,
@@ -92,45 +93,6 @@ run_opt_defaults = {
     "profile_warmup": 5,
     "profile_steps": 5,
 }
-
-
-@dataclass
-class AMPConfig:
-    """Configuration for automatic mixed precision (AMP).
-
-    Arguments
-    ---------
-    dtype : torch.dtype
-        The dtype to use for AMP.
-    """
-
-    dtype: torch.dtype
-
-    @classmethod
-    def from_name(self, name):
-        """Create an AMPConfig from a string name.
-
-        Arguments
-        ---------
-        name : str
-            The name of the AMPConfig to create.  Must be one of `fp32`,
-            `fp16`, or `bf16`.
-
-        Returns
-        -------
-        AMPConfig
-            The AMPConfig corresponding to the name.
-        """
-        if name is None or name == "fp32":
-            return AMPConfig(torch.float32)
-        elif name == "fp16":
-            return AMPConfig(torch.float16)
-        elif name == "bf16":
-            return AMPConfig(torch.bfloat16)
-        else:
-            raise ValueError(
-                f"Specified autocast mode ({name}) incorrect, expected one of `fp32`, `fp16`, `bf16`."
-            )
 
 
 def create_experiment_directory(
@@ -169,9 +131,9 @@ def create_experiment_directory(
                 hyperparams_filename = os.path.join(
                     experiment_directory, "hyperparams.yaml"
                 )
-                with open(hyperparams_to_save) as f:
+                with open(hyperparams_to_save, encoding="utf-8") as f:
                     resolved_yaml = resolve_references(f, overrides)
-                with open(hyperparams_filename, "w") as w:
+                with open(hyperparams_filename, "w", encoding="utf-8") as w:
                     print("# Generated %s from:" % date.today(), file=w)
                     print("# %s" % os.path.abspath(hyperparams_to_save), file=w)
                     print("# yamllint disable", file=w)
@@ -204,7 +166,9 @@ def create_experiment_directory(
             if save_env_desc:
                 description_str = sb.utils.logger.get_environment_description()
                 with open(
-                    os.path.join(experiment_directory, "env.log"), "w"
+                    os.path.join(experiment_directory, "env.log"),
+                    "w",
+                    encoding="utf-8",
                 ) as fo:
                     fo.write(description_str)
     finally:
@@ -790,18 +754,27 @@ class Brain:
                 "skip nonfinite gradients."
             )
 
+        logger.info(f"Gradscaler enabled: `{gradscaler_enabled}`")
+        logger.info(f"Using training precision: `--precision={self.precision}`")
         logger.info(
-            f"Gradscaler enabled: {gradscaler_enabled}. Using precision: {self.precision}."
+            f"Using evaluation precision: `--eval_precision={self.eval_precision}`"
         )
-        self.scaler = torch.cuda.amp.GradScaler(enabled=gradscaler_enabled)
+        if version.parse(torch.__version__) < version.parse("2.4.0"):
+            self.scaler = torch.cuda.amp.GradScaler(enabled=gradscaler_enabled)
+        else:
+            self.scaler = torch.GradScaler(
+                self.device, enabled=gradscaler_enabled
+            )
 
-        self.use_amp = False
-        if self.device == "cpu" and self.precision == "bf16":
-            self.use_amp = True
-        elif "cuda" in self.device and self.precision in ["fp16", "bf16"]:
-            self.use_amp = True
-
-        if self.use_amp and self.checkpointer is not None:
+        train_dtype = AMPConfig.from_name(self.precision).dtype
+        self.training_ctx = TorchAutocast(
+            device_type=self.device, dtype=train_dtype
+        )
+        eval_dtype = AMPConfig.from_name(self.eval_precision).dtype
+        self.evaluation_ctx = TorchAutocast(
+            device_type=self.device, dtype=eval_dtype
+        )
+        if gradscaler_enabled and self.checkpointer is not None:
             self.checkpointer.add_recoverable(
                 "scaler", self.scaler, optional_load=True
             )
@@ -1218,23 +1191,13 @@ class Brain:
         -------
         detached loss
         """
-        amp = AMPConfig.from_name(self.precision)
         should_step = (self.step % self.grad_accumulation_factor) == 0
         self.on_fit_batch_start(batch, should_step)
 
         with self.no_sync(not should_step):
-            if self.use_amp:
-                with torch.autocast(
-                    dtype=amp.dtype, device_type=torch.device(self.device).type
-                ):
-                    outputs = self.compute_forward(batch, sb.Stage.TRAIN)
-                    loss = self.compute_objectives(
-                        outputs, batch, sb.Stage.TRAIN
-                    )
-            else:
+            with self.training_ctx:
                 outputs = self.compute_forward(batch, sb.Stage.TRAIN)
                 loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
-
             scaled_loss = self.scaler.scale(
                 loss / self.grad_accumulation_factor
             )
@@ -1397,14 +1360,7 @@ class Brain:
         -------
         detached loss
         """
-        amp = AMPConfig.from_name(self.eval_precision)
-        if self.use_amp:
-            with torch.autocast(
-                dtype=amp.dtype, device_type=torch.device(self.device).type
-            ):
-                out = self.compute_forward(batch, stage=stage)
-                loss = self.compute_objectives(out, batch, stage=stage)
-        else:
+        with self.evaluation_ctx:
             out = self.compute_forward(batch, stage=stage)
             loss = self.compute_objectives(out, batch, stage=stage)
         return loss.detach().cpu()
@@ -1870,13 +1826,13 @@ class Brain:
             "avg_train_loss": self.avg_train_loss,
             "optimizer_step": self.optimizer_step,
         }
-        with open(path, "w") as w:
+        with open(path, "w", encoding="utf-8") as w:
             w.write(yaml.dump(save_dict))
 
     @sb.utils.checkpoints.mark_as_loader
     def _recover(self, path, end_of_epoch):
         del end_of_epoch
-        with open(path) as f:
+        with open(path, encoding="utf-8") as f:
             save_dict = yaml.safe_load(f)
         self.step = save_dict["step"]
         self.avg_train_loss = save_dict["avg_train_loss"]

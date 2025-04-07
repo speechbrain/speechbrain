@@ -280,7 +280,7 @@ class MetricGanBrain(sb.Brain):
         ):
             path = os.path.join(self.hparams.MetricGAN_folder, name + ".wav")
             data = torch.unsqueeze(pred_wav[: int(length)].cpu(), 0)
-            torchaudio.save(path, data, self.hparams.Sample_rate)
+            torchaudio.save(path, data.detach(), self.hparams.Sample_rate)
 
             # Make record of path and score for historical training
             score = float(scores[i][0])
@@ -567,7 +567,7 @@ def create_folder(folder):
 if __name__ == "__main__":
     # Load hyperparameters file with command-line overrides
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
-    with open(hparams_file) as fin:
+    with open(hparams_file, encoding="utf-8") as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
     # Initialize ddp (useful only for multi-GPU DDP training)

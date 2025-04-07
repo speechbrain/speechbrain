@@ -11,8 +11,9 @@ Description:
 Usage:
     python readme_builder.py
 
-Authors:
-    - Mirco Ravanelli 2023
+Authors
+-------
+ * Mirco Ravanelli 2023
 """
 
 import argparse
@@ -26,17 +27,20 @@ def create_table(fid_w, csv_file):
     """
     Reads the input CSV file and adds performance tables to the output file.
 
-    Args:
-        fid_w (file pointer): Pointer to the output performance file.
-        csv_file (str): Path to the recipe CSV file containing recipe information
-                        (e.g., 'tests/recipes/LibriSpeech.csv').
+    Arguments
+    ---------
+    fid_w : file pointer
+        Pointer to the output performance file.
+    csv_file : str
+        Path to the recipe CSV file containing recipe information
+        (e.g., 'tests/recipes/LibriSpeech.csv').
 
     Returns
     -------
-        None
+    None
     """
     # Read CSV file into a list of dictionaries
-    with open(csv_file, "r") as file:
+    with open(csv_file, "r", encoding="utf-8") as file:
         csv_reader = csv.DictReader(file)
         recipes_lst = [row for row in csv_reader]
 
@@ -103,12 +107,15 @@ def extract_name_value_pairs(input_string):
     """
     Extracts performance metrics and their values from the performance line.
 
-    Args:
-        input_string (str): The string containing the performance.
+    Arguments
+    ---------
+    input_string : str
+        The string containing the performance.
 
     Returns
     -------
-        dict: A dictionary containing the detected performance metrics and their values.
+    result : dict
+        A dictionary containing the detected performance metrics and their values.
     """
     pattern = re.compile(r"(\w+(?:-\w+)?)=(\S+)")
     matches = pattern.findall(input_string)
@@ -136,7 +143,7 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    file_w = open(args.output_file, "w")
+    file_w = open(args.output_file, "w", encoding="utf-8")
 
     # List of recipe files
     recipe_files = get_all_files(

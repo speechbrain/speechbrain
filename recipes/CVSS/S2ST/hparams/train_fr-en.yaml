@@ -221,7 +221,7 @@ test_search: !new:speechbrain.decoders.seq2seq.S2STransformerBeamSearcher
 
 acc_computer: !name:speechbrain.utils.Accuracy.AccuracyStats
 bleu_computer: !name:speechbrain.utils.bleu.BLEUStats
-    merge_words: False
+
 
 #checkpointer
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer

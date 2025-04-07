@@ -112,7 +112,9 @@ def create_mixture(session_n, output_dir, params, metadata):
             )
 
     with open(
-        os.path.join(output_dir, session_n, "{}.json".format(session_n)), "w"
+        os.path.join(output_dir, session_n, "{}.json".format(session_n)),
+        "w",
+        encoding="utf-8",
     ) as f:
         json.dump(session_meta, f, indent=4)
 

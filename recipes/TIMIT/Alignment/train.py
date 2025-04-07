@@ -242,7 +242,7 @@ if __name__ == "__main__":
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
 
     # Load hyperparameters file with command-line overrides
-    with open(hparams_file) as fin:
+    with open(hparams_file, encoding="utf-8") as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
     # Dataset prep (parsing TIMIT and annotation into csv files)

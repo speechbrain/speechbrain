@@ -10,6 +10,7 @@ Authors
  * Gaëlle Laperrière 2021
  * Sahar Ghannay 2021
  * Sylvain de Langen 2022
+ * Adel Moumen 2025
 """
 
 import csv
@@ -19,13 +20,18 @@ import os
 import pickle
 import re
 import time
+from io import BytesIO
+from typing import Union
 
 import numpy as np
 import torch
 import torchaudio
 
 from speechbrain.utils.logger import get_logger
-from speechbrain.utils.torch_audio_backend import check_torchaudio_backend
+from speechbrain.utils.torch_audio_backend import (
+    check_torchaudio_backend,
+    validate_backend,
+)
 
 check_torchaudio_backend()
 logger = get_logger(__name__)
@@ -55,7 +61,7 @@ def load_data_json(json_path, replacements={}):
     ... }
     ... '''
     >>> tmpfile = getfixture('tmpdir') / "test.json"
-    >>> with open(tmpfile, "w") as fo:
+    >>> with open(tmpfile, "w", encoding="utf-8") as fo:
     ...     _ = fo.write(json_spec)
     >>> data = load_data_json(tmpfile, {"ROOT": "/home"})
     >>> data["ex1"]["files"][0]
@@ -64,7 +70,7 @@ def load_data_json(json_path, replacements={}):
     '/home/ex2.wav'
 
     """
-    with open(json_path, "r") as f:
+    with open(json_path, "r", encoding="utf-8") as f:
         out_json = json.load(f)
     _recursive_format(out_json, replacements)
     return out_json
@@ -122,14 +128,14 @@ def load_data_csv(csv_path, replacements={}):
     ... utt2,2.0,$data_folder/utt2.wav
     ... '''
     >>> tmpfile = getfixture("tmpdir") / "test.csv"
-    >>> with open(tmpfile, "w") as fo:
+    >>> with open(tmpfile, "w", encoding="utf-8") as fo:
     ...     _ = fo.write(csv_spec)
     >>> data = load_data_csv(tmpfile, {"data_folder": "/home"})
     >>> data["utt1"]["wav_path"]
     '/home/utt1.wav'
     """
 
-    with open(csv_path, newline="") as csvfile:
+    with open(csv_path, newline="", encoding="utf-8") as csvfile:
         result = {}
         reader = csv.DictReader(csvfile, skipinitialspace=True)
         variable_finder = re.compile(r"\$([\w.]+)")
@@ -163,7 +169,9 @@ def load_data_csv(csv_path, replacements={}):
     return result
 
 
-def read_audio_info(path) -> "torchaudio.backend.common.AudioMetaData":
+def read_audio_info(
+    path, backend=None
+) -> "torchaudio.backend.common.AudioMetaData":
     """Retrieves audio metadata from a file path. Behaves identically to
     torchaudio.info, but attempts to fix metadata (such as frame count) that is
     otherwise broken with certain torchaudio version and codec combinations.
@@ -174,6 +182,15 @@ def read_audio_info(path) -> "torchaudio.backend.common.AudioMetaData":
     ---------
     path : str
         Path to the audio file to examine.
+    backend : str, optional
+        Audio backend to use for loading the audio file. Must be one of
+        'ffmpeg', 'sox', 'soundfile' or None. If None, uses torchaudio's default backend.
+
+    Raises
+    ------
+    ValueError
+        If the `backend` is not one of the allowed values.
+        Must be one of [None, 'ffmpeg', 'sox', 'soundfile'].
 
     Returns
     -------
@@ -188,6 +205,7 @@ def read_audio_info(path) -> "torchaudio.backend.common.AudioMetaData":
     In these cases, you may as well read the entire audio file to avoid doubling
     the processing time.
     """
+    validate_backend(backend)
 
     _path_no_ext, path_ext = os.path.splitext(path)
 
@@ -196,9 +214,9 @@ def read_audio_info(path) -> "torchaudio.backend.common.AudioMetaData":
         # autodetect mp3.
         # HACK: here, we check for the file extension to force mp3 detection,
         # which prevents an error from occurring in torchaudio.
-        info = torchaudio.info(path, format="mp3")
+        info = torchaudio.info(path, format="mp3", backend=backend)
     else:
-        info = torchaudio.info(path)
+        info = torchaudio.info(path, backend=backend)
 
     # Certain file formats, such as MP3, do not provide a reliable way to
     # query file duration from metadata (when there is any).
@@ -213,7 +231,9 @@ def read_audio_info(path) -> "torchaudio.backend.common.AudioMetaData":
     # double-checking anyway. If I am wrong and you are reading this comment
     # because of it: sorry
     if info.num_frames == 0:
-        channels_data, sample_rate = torchaudio.load(path, normalize=False)
+        channels_data, sample_rate = torchaudio.load(
+            path, normalize=False, backend=backend
+        )
 
         info.num_frames = channels_data.size(1)
         info.sample_rate = sample_rate  # because we might as well
@@ -221,7 +241,7 @@ def read_audio_info(path) -> "torchaudio.backend.common.AudioMetaData":
     return info
 
 
-def read_audio(waveforms_obj):
+def read_audio(waveforms_obj, backend=None):
     """General audio loading, based on a custom notation.
 
     Expected use case is in conjunction with Datasets
@@ -256,12 +276,21 @@ def read_audio(waveforms_obj):
         If unspecified or equal to start, load from `start` to the end.
         Will not fail if `stop` is past the sample count of the file and will
         return less frames.
+    backend : str, optional
+        Audio backend to use for loading the audio file. Must be one of
+        'ffmpeg', 'sox', 'soundfile' or None. If None, uses torchaudio's default backend.
 
     Returns
     -------
     torch.Tensor
         1-channel: audio tensor with shape: `(samples, )`.
         >=2-channels: audio tensor with shape: `(samples, channels)`.
+
+    Raises
+    ------
+    ValueError
+        If the `backend` is not one of the allowed values.
+        Must be one of [None, 'ffmpeg', 'sox', 'soundfile'].
 
     Example
     -------
@@ -274,8 +303,20 @@ def read_audio(waveforms_obj):
     >>> loaded.allclose(dummywav.squeeze(0),atol=1e-4) # replace with eq with sox_io backend
     True
     """
-    if isinstance(waveforms_obj, str):
-        audio, _ = torchaudio.load(waveforms_obj)
+    validate_backend(backend)
+
+    # Case 1: Directly a file path (str) or file-like object or raw bytes.
+    # If a file-like object, ensure the pointer is at the beginning.
+    if hasattr(waveforms_obj, "seek"):
+        waveforms_obj.seek(0)
+
+    if isinstance(waveforms_obj, (str, BytesIO, bytes)):
+        # If raw bytes, wrap them in a BytesIO.
+        if isinstance(waveforms_obj, bytes):
+            waveforms_obj = BytesIO(waveforms_obj)
+            waveforms_obj.seek(0)
+        audio, _ = torchaudio.load(waveforms_obj, backend=backend)
+    # Case 2: A dict with more options. Only works with file paths.
     else:
         path = waveforms_obj["file"]
         start = waveforms_obj.get("start", 0)
@@ -301,17 +342,19 @@ def read_audio(waveforms_obj):
         if start != stop:
             num_frames = stop - start
             audio, fs = torchaudio.load(
-                path, num_frames=num_frames, frame_offset=start
+                path, num_frames=num_frames, frame_offset=start, backend=backend
             )
         else:
             # Load to the end.
-            audio, fs = torchaudio.load(path, frame_offset=start)
+            audio, fs = torchaudio.load(
+                path, frame_offset=start, backend=backend
+            )
 
     audio = audio.transpose(0, 1)
     return audio.squeeze(1)
 
 
-def read_audio_multichannel(waveforms_obj):
+def read_audio_multichannel(waveforms_obj, backend=None):
     """General audio loading, based on a custom notation.
 
     Expected use case is in conjunction with Datasets
@@ -347,6 +390,15 @@ def read_audio_multichannel(waveforms_obj):
     ---------
     waveforms_obj : str, dict
         Audio reading annotation, see above for format.
+    backend : str, optional
+        Audio backend to use for loading the audio file. Must be one of
+        'ffmpeg', 'sox', 'soundfile' or None. If None, uses torchaudio's default backend.
+
+    Raises
+    ------
+    ValueError
+        If the `backend` is not one of the allowed values.
+        Must be one of [None, 'ffmpeg', 'sox', 'soundfile'].
 
     Returns
     -------
@@ -364,10 +416,22 @@ def read_audio_multichannel(waveforms_obj):
     >>> loaded.allclose(dummywav.squeeze(0),atol=1e-4) # replace with eq with sox_io backend
     True
     """
-    if isinstance(waveforms_obj, str):
-        audio, _ = torchaudio.load(waveforms_obj)
+    validate_backend(backend)
+
+    # Case 1: Directly a file path (str) or file-like object or raw bytes.
+    # If a file-like object, ensure the pointer is at the beginning.
+    if hasattr(waveforms_obj, "seek"):
+        waveforms_obj.seek(0)
+
+    if isinstance(waveforms_obj, (str, BytesIO, bytes)):
+        # If raw bytes, wrap them in a BytesIO.
+        if isinstance(waveforms_obj, bytes):
+            waveforms_obj = BytesIO(waveforms_obj)
+            waveforms_obj.seek(0)
+        audio, _ = torchaudio.load(waveforms_obj, backend=backend)
         return audio.transpose(0, 1)
 
+    # Case 2: A dict with more options. Only works with file paths.
     files = waveforms_obj["files"]
     if not isinstance(files, list):
         files = [files]
@@ -380,7 +444,7 @@ def read_audio_multichannel(waveforms_obj):
     num_frames = stop - start
     for f in files:
         audio, fs = torchaudio.load(
-            f, num_frames=num_frames, frame_offset=start
+            f, num_frames=num_frames, frame_offset=start, backend=backend
         )
         waveforms.append(audio)
 
@@ -438,7 +502,7 @@ def load_pickle(pickle_path):
     return out
 
 
-def to_floatTensor(x: (list, tuple, np.ndarray)):
+def to_floatTensor(x: Union[list, tuple, np.ndarray]):
     """
     Arguments
     ---------
@@ -458,7 +522,7 @@ def to_floatTensor(x: (list, tuple, np.ndarray)):
         return torch.tensor(x, dtype=torch.float)
 
 
-def to_doubleTensor(x: (list, tuple, np.ndarray)):
+def to_doubleTensor(x: Union[list, tuple, np.ndarray]):
     """
     Arguments
     ---------
@@ -478,7 +542,7 @@ def to_doubleTensor(x: (list, tuple, np.ndarray)):
         return torch.tensor(x, dtype=torch.double)
 
 
-def to_longTensor(x: (list, tuple, np.ndarray)):
+def to_longTensor(x: Union[list, tuple, np.ndarray]):
     """
     Arguments
     ---------
@@ -708,7 +772,7 @@ def write_txt_file(data, filename, sampling_rate=None):
     del sampling_rate  # Not used.
     # Check if the path of filename exists
     os.makedirs(os.path.dirname(filename), exist_ok=True)
-    with open(filename, "w") as fout:
+    with open(filename, "w", encoding="utf-8") as fout:
         if isinstance(data, torch.Tensor):
             data = data.tolist()
         if isinstance(data, np.ndarray):
@@ -954,7 +1018,7 @@ def load_pkl(file):
             break
 
     try:
-        open(file + ".lock", "w").close()
+        open(file + ".lock", "w", encoding="utf-8").close()
         with open(file, "rb") as f:
             return pickle.load(f)
     finally:
@@ -1081,11 +1145,15 @@ def merge_csvs(data_folder, csv_lst, merged_csv):
     write_path = os.path.join(data_folder, merged_csv)
     if os.path.isfile(write_path):
         logger.info("Skipping merging. Completed in previous run.")
-    with open(os.path.join(data_folder, csv_lst[0])) as f:
+    with open(
+        os.path.join(data_folder, csv_lst[0]), newline="", encoding="utf-8"
+    ) as f:
         header = f.readline()
     lines = []
     for csv_file in csv_lst:
-        with open(os.path.join(data_folder, csv_file)) as f:
+        with open(
+            os.path.join(data_folder, csv_file), newline="", encoding="utf-8"
+        ) as f:
             for i, line in enumerate(f):
                 if i == 0:
                     # Checking header
@@ -1095,7 +1163,7 @@ def merge_csvs(data_folder, csv_lst, merged_csv):
                         )
                     continue
                 lines.append(line)
-    with open(write_path, "w") as f:
+    with open(write_path, "w", encoding="utf-8") as f:
         f.write(header)
         for line in lines:
             f.write(line)

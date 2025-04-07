@@ -62,9 +62,15 @@ class ASR(sb.core.Brain):
         feats = self.modules.normalize(feats, wav_lens, epoch=current_epoch)
 
         # Add feature augmentation if specified.
+        augment_warmup = 0
+        if hasattr(self.hparams, "augment_warmup"):
+            augment_warmup = self.hparams.augment_warmup
         if stage == sb.Stage.TRAIN and hasattr(self.hparams, "fea_augment"):
-            feats, fea_lens = self.hparams.fea_augment(feats, wav_lens)
-            tokens_bos = self.hparams.fea_augment.replicate_labels(tokens_bos)
+            if self.optimizer_step > augment_warmup:
+                feats, fea_lens = self.hparams.fea_augment(feats, wav_lens)
+                tokens_bos = self.hparams.fea_augment.replicate_labels(
+                    tokens_bos
+                )
 
         # forward modules
         src = self.modules.CNN(feats)
@@ -118,7 +124,13 @@ class ASR(sb.core.Brain):
         if stage == sb.Stage.TRAIN:
             # Labels must be extended if parallel augmentation or concatenated
             # augmentation was performed on the input (increasing the time dimension)
-            if hasattr(self.hparams, "fea_augment"):
+            augment_warmup = 0
+            if hasattr(self.hparams, "augment_warmup"):
+                augment_warmup = self.hparams.augment_warmup
+            if (
+                hasattr(self.hparams, "fea_augment")
+                and self.optimizer_step > augment_warmup
+            ):
                 (
                     tokens,
                     tokens_lens,
@@ -224,7 +236,9 @@ class ASR(sb.core.Brain):
                 test_stats=stage_stats,
             )
             if if_main_process():
-                with open(self.hparams.test_wer_file, "w") as w:
+                with open(
+                    self.hparams.test_wer_file, "w", encoding="utf-8"
+                ) as w:
                     self.wer_metric.write_stats(w)
 
             # save the averaged checkpoint at the end of the evaluation stage
@@ -378,7 +392,7 @@ def dataio_prepare(hparams):
 if __name__ == "__main__":
     # CLI:
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
-    with open(hparams_file) as fin:
+    with open(hparams_file, encoding="utf-8") as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
     # create ddp_group with the right communication protocol

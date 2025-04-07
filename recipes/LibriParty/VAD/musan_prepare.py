@@ -56,7 +56,7 @@ def _prepare_csv(folder, filelist, csv_file, max_length=None):
     """
     try:
         if sb.utils.distributed.if_main_process():
-            with open(csv_file, "w") as w:
+            with open(csv_file, "w", encoding="utf-8") as w:
                 w.write("ID,duration,wav,wav_format,wav_opts\n\n")
                 for line in filelist:
                     # Read file for duration/channel info

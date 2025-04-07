@@ -4,8 +4,6 @@ Please, install speechtokenizer:
     pip install speechtokenizer
 
 Reference: https://arxiv.org/abs/2308.16692
-Reference: https://arxiv.org/abs/1904.05862
-Reference: https://arxiv.org/abs/2110.13900
 
 Transformer from HuggingFace needs to be installed:
 https://huggingface.co/transformers/installation.html
@@ -18,10 +16,9 @@ Author
 import torch
 import torch.nn as nn
 from huggingface_hub import snapshot_download
-from speechtokenizer import SpeechTokenizer
 
 
-class SpeechTokenizer_interface(nn.Module):
+class SpeechTokenizer(nn.Module):
     """This lobe enables the integration of HuggingFace and SpeechBrain
     pretrained SpeechTokenizer.
 
@@ -40,6 +37,8 @@ class SpeechTokenizer_interface(nn.Module):
         HuggingFace hub name: e.g "fnlp/SpeechTokenizer"
     save_path : str
         Path (dir) of the downloaded model.
+    sample_rate : int (default: 16000)
+        The audio sampling rate
 
     Example
     -------
@@ -47,12 +46,12 @@ class SpeechTokenizer_interface(nn.Module):
     >>> inputs = torch.rand([10, 600])
     >>> model_hub = "fnlp/SpeechTokenizer"
     >>> save_path = "savedir"
-    >>> model =SpeechTokenizer_interface(model_hub, save_path)  # doctest: +SKIP
-    >>> tokens = model(inputs)  # doctest: +SKIP
-    >>> print(tokens.shape)  # doctest: +SKIP
+    >>> model =SpeechTokenizer(model_hub, save_path)
+    >>> tokens = model.encode(inputs)
+    >>> tokens.shape
     torch.Size([8, 10, 2])
     >>> wav=model.decode(tokens)
-    >>> print(wav.shape)
+    >>> wav.shape
     torch.Size([10, 640])
     """
 
@@ -60,7 +59,20 @@ class SpeechTokenizer_interface(nn.Module):
         self,
         source,
         save_path,
+        sample_rate=16000,
     ):
+
+        # Lazy import to avoid circular dependency issues
+        try:
+            from speechtokenizer import SpeechTokenizer
+
+            self.SpeechTokenizer = SpeechTokenizer
+        except ImportError:
+            raise ImportError(
+                "Please install the speechtokenizer module using: "
+                "pip install speechtokenizer`"
+                "pip install beartype==0.1.1"
+            )
         super().__init__()
 
         saved_dir = snapshot_download(
@@ -71,10 +83,11 @@ class SpeechTokenizer_interface(nn.Module):
 
         config_path = f"{saved_dir}/speechtokenizer_hubert_avg/config.json"
         ckpt_path = f"{saved_dir}/speechtokenizer_hubert_avg/SpeechTokenizer.pt"
-        self.model = SpeechTokenizer.load_from_checkpoint(
+        self.model = self.SpeechTokenizer.load_from_checkpoint(
             config_path, ckpt_path
         )
         self.model.eval()
+        self.sample_rate = sample_rate
 
     def forward(self, wav, wav_lens=None):
         """Takes an input waveform and return its corresponding wav2vec encoding.

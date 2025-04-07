@@ -133,7 +133,7 @@ def create_json(wav_list, json_file):
         }
 
     # Writing the dictionary to the json file
-    with open(json_file, mode="w") as json_f:
+    with open(json_file, mode="w", encoding="utf-8") as json_f:
         json.dump(json_dict, json_f, indent=2)
 
     logger.info(f"{json_file} successfully created!")
@@ -292,7 +292,7 @@ def load_utterInfo(inputFile):
         r"[\[]*[0-9]*[.][0-9]*[ -]*[0-9]*[.][0-9]*[\]][\t][a-z0-9_]*[\t][a-z]{3}[\t][\[][0-9]*[.][0-9]*[, ]+[0-9]*[.][0-9]*[, ]+[0-9]*[.][0-9]*[\]]",
         re.IGNORECASE,
     )  # noqa
-    with open(inputFile, "r") as myfile:
+    with open(inputFile, "r", encoding="utf-8") as myfile:
         data = myfile.read().replace("\n", " ")
     result = pattern.findall(data)
     out = []
@@ -312,12 +312,12 @@ def load_session(pathSession):
 
     Arguments
     ---------
-        pathSession: str
-            Path folder of IEMOCAP session.
+    pathSession: str
+        Path folder of IEMOCAP session.
     Returns
     -------
-        improvisedUtteranceList: list
-            List of improvised utterancefor IEMOCAP session.
+    improvisedUtteranceList: list
+        List of improvised utterancefor IEMOCAP session.
     """
     pathEmo = pathSession + "/dialog/EmoEvaluation/"
     pathWavFolder = pathSession + "/sentences/wav/"

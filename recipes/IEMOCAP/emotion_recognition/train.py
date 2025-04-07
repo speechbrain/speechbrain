@@ -166,7 +166,7 @@ class EmoIdBrain(sb.Brain):
             save_file = os.path.join(
                 self.hparams.output_folder, "predictions.csv"
             )
-            with open(save_file, "w", newline="") as csvfile:
+            with open(save_file, "w", newline="", encoding="utf-8") as csvfile:
                 outwriter = csv.writer(csvfile, delimiter=",")
                 outwriter.writerow(["id", "prediction", "true_value"])
 
@@ -185,7 +185,9 @@ class EmoIdBrain(sb.Brain):
                     torch.argmax(output, dim=-1).squeeze(dim=1).tolist()
                 )
 
-                with open(save_file, "a", newline="") as csvfile:
+                with open(
+                    save_file, "a", newline="", encoding="utf-8"
+                ) as csvfile:
                     outwriter = csv.writer(csvfile, delimiter=",")
                     for emo_id, prediction, true_val in zip(
                         emo_ids, predictions, true_vals
@@ -285,7 +287,7 @@ if __name__ == "__main__":
     sb.utils.distributed.ddp_init_group(run_opts)
 
     # Load hyperparameters file with command-line overrides.
-    with open(hparams_file) as fin:
+    with open(hparams_file, encoding="utf-8") as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
     # Create experiment directory

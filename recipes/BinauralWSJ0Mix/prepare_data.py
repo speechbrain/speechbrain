@@ -100,7 +100,10 @@ def create_binaural_wsj0mix2_csv(
         ]
 
         with open(
-            os.path.join(savepath, savename + set_type + ".csv"), "w"
+            os.path.join(savepath, savename + set_type + ".csv"),
+            "w",
+            newline="",
+            encoding="utf-8",
         ) as csvfile:
             writer = csv.DictWriter(csvfile, fieldnames=csv_columns)
             writer.writeheader()
@@ -184,7 +187,10 @@ def create_binaural_wsj0mix3_csv(
         ]
 
         with open(
-            os.path.join(savepath, savename + set_type + ".csv"), "w"
+            os.path.join(savepath, savename + set_type + ".csv"),
+            "w",
+            newline="",
+            encoding="utf-8",
         ) as csvfile:
             writer = csv.DictWriter(csvfile, fieldnames=csv_columns)
             writer.writeheader()
@@ -279,7 +285,10 @@ def create_binaural_wsj0mix2_noise_csv(
         ]
 
         with open(
-            os.path.join(savepath, savename + set_type + ".csv"), "w"
+            os.path.join(savepath, savename + set_type + ".csv"),
+            "w",
+            newline="",
+            encoding="utf-8",
         ) as csvfile:
             writer = csv.DictWriter(csvfile, fieldnames=csv_columns)
             writer.writeheader()
@@ -359,7 +368,10 @@ def create_binaural_wsj0mix2_reverb_csv(
         ]
 
         with open(
-            os.path.join(savepath, savename + set_type + ".csv"), "w"
+            os.path.join(savepath, savename + set_type + ".csv"),
+            "w",
+            newline="",
+            encoding="utf-8",
         ) as csvfile:
             writer = csv.DictWriter(csvfile, fieldnames=csv_columns)
             writer.writeheader()

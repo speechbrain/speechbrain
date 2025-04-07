@@ -328,7 +328,7 @@ def download_file(
     mode = "ab" if resume_byte_pos else "wb"
     initial_pos = resume_byte_pos if resume_byte_pos else 0
 
-    with open(download_path, mode) as f:
+    with open(download_path, mode, encoding="utf-8") as f:
         with tqdm(
             total=file_size,
             unit="B",
@@ -463,7 +463,6 @@ def decompress_file(file, decompress_path, split_name):
         tar.close()
     else:
         print("Unsupported file format. Only zip and bz2 files are supported.")
-    # os.remove(file)
 
 
 def rename_rirs(decompress_path):
@@ -473,11 +472,8 @@ def rename_rirs(decompress_path):
 
     Arguments
     ---------
-        decompress_path (str): The path to the directory containing the RIRs
-
-    Returns
-    -------
-        None
+    decompress_path : str
+        The path to the directory containing the RIRs
     """
     try:
         os.rename(
