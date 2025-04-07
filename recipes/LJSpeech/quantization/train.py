@@ -142,7 +142,7 @@ def dataio_prepare(hparams):
     """
     train_data = sb.dataio.dataset.DynamicItemDataset.from_json(
         json_path=hparams["train_json"],
-        replacements={"DATA_ROOT": hparams["data_folder"]},
+        replacements={"data_root": hparams["data_folder"]},
     )
     # Sort training data to speed up training
     train_data = train_data.filtered_sorted(
@@ -153,7 +153,7 @@ def dataio_prepare(hparams):
 
     valid_data = sb.dataio.dataset.DynamicItemDataset.from_json(
         json_path=hparams["valid_json"],
-        replacements={"DATA_ROOT": hparams["data_folder"]},
+        replacements={"data_root": hparams["data_folder"]},
     )
     # Sort validation data to speed up validation
     valid_data = valid_data.filtered_sorted(
@@ -164,7 +164,7 @@ def dataio_prepare(hparams):
 
     test_data = sb.dataio.dataset.DynamicItemDataset.from_json(
         json_path=hparams["test_json"],
-        replacements={"DATA_ROOT": hparams["data_folder"]},
+        replacements={"data_root": hparams["data_folder"]},
     )
     # Sort the test data to speed up testing
     test_data = test_data.filtered_sorted(
