@@ -350,7 +350,7 @@ class NumpyStorage(Storage):
         ):
             self.flush()
         if torch.is_tensor(data):
-            data = data.numpy()
+            data = data.detach().cpu().numpy()
         if data_id not in self.current_shard:
             self.current_shard[data_id] = {}
         self.current_shard[data_id][key] = data
@@ -532,7 +532,7 @@ class H5Storage(Storage):
         if self.mode != "w":
             raise ValueError("The file was not opened in write mode")
         if torch.is_tensor(data):
-            data = data.numpy()
+            data = data.detach().cpu().numpy()
         if key not in self.data:
             self.data[key] = []
             self.data_ids[key] = []
