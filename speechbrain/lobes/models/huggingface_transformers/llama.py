@@ -6,8 +6,6 @@ Authors
  * Pooneh Mousavi 2023
 """
 
-from typing import Literal
-
 import torch
 from transformers import BitsAndBytesConfig
 
@@ -42,8 +40,6 @@ class LLaMA(HFTransformersInterface):
         alongside with the rest of the pipeline.
     pad_token : str (default: "PAD")
         String representation of the padding token. This may change from one model to another.
-    padding_side : str (default: "right")
-        One of right or left.
     weight_precision_load : torch.dtype (default: torch.bfloat16)
         If no bnb_config is given, this parameter defines the loading type of the parameters of the model. This is useful to reduce memory footprint, but it does not change the compute dtype. For this just refer to mixed precision training in SpeechBrain.
     **kwargs
@@ -66,12 +62,10 @@ class LLaMA(HFTransformersInterface):
         bnb_config: BitsAndBytesConfig = None,
         freeze: bool = False,
         pad_token: str = "[PAD]",
-        padding_side: Literal["left", "right"] = "right",
         weight_precision_load: torch.dtype = torch.bfloat16,
         **kwargs,
     ) -> None:
         self.pad_token = pad_token
-        self.padding_side = padding_side
         self.source = source
         self.save_path = save_path
         self.bnb_config = bnb_config
