@@ -95,22 +95,27 @@ def test_dtc(device):
 def test_input_normalization(device):
     from speechbrain.processing.features import InputNormalization
 
+    # Check this can be traced after training is complete
     norm = InputNormalization().to(device)
     inputs = torch.randn([10, 101, 20], device=device)
-    inp_len = torch.ones([10], device=device)
+    inp_len = torch.arange(1, 11, device=device) / 10
+
+    # One pass to initialize, ensure it is correctly sized
+    _ = norm(inputs, inp_len)
+    assert norm.glob_mean.numel() == 20
+    assert norm.glob_std.numel() == 20
+
+    # Freeze and trace
+    norm = norm.eval()
     assert torch.jit.trace(norm, (inputs, inp_len))
 
+    # Test default setup
     norm = InputNormalization().to(device)
-    inputs = (
-        torch.FloatTensor([1, 2, 3, 0, 0, 0])
-        .to(device)
-        .unsqueeze(0)
-        .unsqueeze(2)
-    )
-    inp_len = torch.FloatTensor([0.5]).to(device)
+    inputs = torch.FloatTensor([1, 3, 0, 0, 0]).view(1, -1, 1).to(device)
+    inp_len = torch.FloatTensor([0.4]).to(device)
     out_norm = norm(inputs, inp_len).squeeze()
-    target = torch.FloatTensor([-1, 0, 1, -2, -2, -2]).to(device)
-    assert torch.equal(out_norm, target)
+    expected = torch.FloatTensor([-1, 1, -2, -2, -2]).to(device)
+    assert torch.equal(out_norm, expected)
 
 
 def test_features_multimic(device):
