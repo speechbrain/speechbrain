@@ -283,7 +283,23 @@ def storage_uri_scheme(scheme):
 
 @storage_uri_scheme("numpy")
 class NumpyStorage(Storage):
-    """A simple shareded Numpy-based storage implementation"""
+    """A simple shareded Numpy-based storage implementation
+
+    Arguments
+    ---------
+    path : str
+        The storage path (a folder)
+    mode : str
+        The access mode ("r" or "w")
+    shard_size : int
+        The number of data samples per shard
+    async_save : bool
+        Whether to save files asynchronously.
+        This can be useful on compute clusters where
+        I/O speed is a bottleneck
+    async_save_concurrency : int
+        The number of concurrent processes for I/O
+    """
 
     def __init__(
         self,
@@ -499,7 +515,19 @@ class NumpyStorage(Storage):
 
 @storage_uri_scheme("h5")
 class H5Storage(Storage):
-    """A storage wrapper for h5py"""
+    """A storage wrapper for h5py
+
+    Arguments
+    ---------
+    path : str | path-like
+        The storage path (a file or a directory)
+    mode : str
+        The access mode ("r" or "w")
+    write_batch_size : int
+        The batch size
+    compression : str
+        the compression mode
+    """
 
     def __init__(self, path, mode, write_batch_size=10, compression=None):
         if not has_h5:
