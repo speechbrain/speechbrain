@@ -1233,7 +1233,7 @@ def mean_std_update(
     >>> input_tensor = torch.tensor([[-1.0, 0.0, 1.0, 0.0]])
     >>> input_length = torch.tensor([0.75])
     >>> input_length_dim = 1
-    >>> input_mask = get_mask(input_tensor, input_length, input_length_dim)
+    >>> input_mask = make_padding_mask(input_tensor, input_length, input_length_dim)
     >>> dim = (0, input_length_dim)
     >>> run_count, run_mean, run_std = 0, torch.tensor(0.0), torch.tensor(1.0)
     >>> run_count, run_mean, run_std = mean_std_update(
@@ -1327,9 +1327,9 @@ class InputNormalization(torch.nn.Module):
     >>> norm = InputNormalization(norm_type="batch")
     >>> features = norm(inputs, input_lens)
     >>> features
-    tensor([[-4.8990, -3.6742, -2.4495],
-            [-1.2247,  0.0000,  1.2247],
-            [ 2.4495,  3.6742,  4.8990]])
+    tensor([[-1.5492, -1.1619, -0.7746],
+            [-0.3873,  0.0000,  0.3873],
+            [ 0.7746,  1.1619,  1.5492]])
     >>> norm = InputNormalization(norm_type="global")
     >>> features = norm(inputs, input_lens)
     >>> features.mean() < 1e-7
@@ -1380,13 +1380,6 @@ class InputNormalization(torch.nn.Module):
             )
         if norm_type == "speaker":
             raise ValueError("per-speaker normalization is deprecated.")
-        elif norm_type == "batch":
-            logger.warning(
-                "norm_type=batch computation is not technically correct under "
-                "the current algorithm, but is kept for backwards compatibility. "
-                "For correct computation, use speechbrain.nnet.normalization."
-                "BatchNorm1d(track_running_stats=False) to perform normalization."
-            )
         elif norm_type not in self.NORM_TYPES:
             raise ValueError(f"norm_type must be one of {self.NORM_TYPES}.")
 
@@ -1429,7 +1422,7 @@ class InputNormalization(torch.nn.Module):
             The normalized tensor.
         """
         # Padding mask is used to protect padding elements from updates
-        mask = get_mask(x, lengths, length_dim=1)
+        mask = make_padding_mask(x, lengths, length_dim=1)
 
         # Global stats should be updated before performing normalization
         if self.norm_type == "global":
@@ -1438,13 +1431,11 @@ class InputNormalization(torch.nn.Module):
             mean, std = self.glob_mean, self.glob_std
 
         # Local stats are computed over self.length_dim
-        else:
+        elif self.norm_type == "sentence":
             mean, std = self._compute_current_stats(x, mask, self.length_dim)
-            # averaging std across samples is not correct, but is kept
-            # for backwards compatibility. For correct batch norm, you can use:
-            # speechbrain.nnet.normalization.BatchNorm1d(track_running_stats=False)
-            if self.norm_type == "batch":
-                mean, std = mean.mean(dim=0), std.mean(dim=0)
+        elif self.norm_type == "batch":
+            _, mean, var = gaussian_statistics(x, mask, (0, self.length_dim))
+            std = var.clamp(min=self.epsilon).sqrt()
 
         if self.std_norm is False:
             std = torch.ones_like(mean)
@@ -1468,19 +1459,14 @@ class InputNormalization(torch.nn.Module):
 
     def _update_global_stats(self, x, mask):
         """Use input tensor to update global statistics."""
+        dim = (0, self.length_dim)
         if self.count == 0:
             # Initialize with the mean, std of the first batch
-            _, self.glob_mean, self.glob_std = gaussian_statistics(
-                x, mask, dim=(0, self.length_dim)
-            )
+            _, self.glob_mean, var = gaussian_statistics(x, mask, dim=dim)
+            self.glob_std = var.clamp(min=self.epsilon).sqrt()
 
         self.count, self.glob_mean, self.glob_std = mean_std_update(
-            x,
-            mask=mask,
-            dim=(0, self.length_dim),
-            run_count=self.count,
-            run_mean=self.glob_mean,
-            run_std=self.glob_std,
+            x, mask, dim, self.count, self.glob_mean, self.glob_std
         )
 
     def _compute_current_stats(self, x, mask, dim):
@@ -1559,7 +1545,7 @@ class InputNormalization(torch.nn.Module):
         self._load_statistics_dict(stats)
 
 
-def get_mask(x, lengths=None, length_dim=1):
+def make_padding_mask(x, lengths=None, length_dim=1, eps=1e-8):
     """Create a mask from relative lengths along a given dimension.
 
     Arguments
@@ -1571,19 +1557,47 @@ def get_mask(x, lengths=None, length_dim=1):
         If None, all positions are considered valid (i.e. mask is all `True`).
     length_dim : int, default 1
         The dimension for which the lengths indicate padded positions.
+    eps : float, default 1e-8
+        A small constant to avoid floating point errors in computation of
+        the padding mask.
 
     Returns
     -------
-    mask : torch.Tensor
+    padding_mask : torch.Tensor
         A boolean tensor with `True` for valid positions and `False`
-        for padding positions.
+        for padding positions. The `padding_mask` can be multiplied with
+        `x` via broadcasting, as all dimensions other than length and batch
+        are singleton dimensions.
+
+    Example
+    -------
+    >>> input_tensor = torch.arange(3 * 4 * 2).view(3, 4, 2)
+    >>> lengths = torch.tensor([1.0, 0.75, 0.5])
+    >>> mask = make_padding_mask(input_tensor, lengths)
+    >>> mask.shape
+    torch.Size([3, 4, 1])
+    >>> input_tensor * mask
+    tensor([[[ 0,  1],
+             [ 2,  3],
+             [ 4,  5],
+             [ 6,  7]],
+    <BLANKLINE>
+            [[ 8,  9],
+             [10, 11],
+             [12, 13],
+             [ 0,  0]],
+    <BLANKLINE>
+            [[16, 17],
+             [18, 19],
+             [ 0,  0],
+             [ 0,  0]]])
     """
     if lengths is None:
         lengths = torch.ones(x.size(0), device=x.device)
 
     # Convert relative lengths to absolute lengths, then compute boolean mask
     max_len = x.size(length_dim)
-    abs_lengths = lengths.unsqueeze(1) * max_len
+    abs_lengths = (lengths * max_len + eps).unsqueeze(1)
     mask = torch.arange(max_len, device=x.device).unsqueeze(0) < abs_lengths
 
     # Add dimensions other than (batch, length) back into the mask
@@ -1702,7 +1716,7 @@ class GlobalNorm(torch.nn.Module):
             mask_value = self.mask_value
 
         # Expand mask to all dims because GlobalNorm is over all
-        mask = get_mask(x, lengths, self.length_dim).expand_as(x)
+        mask = make_padding_mask(x, lengths, self.length_dim).expand_as(x)
 
         # Update statistics using this tensor if needed
         if not skip_update and self.should_update():

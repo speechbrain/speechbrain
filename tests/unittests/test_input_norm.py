@@ -13,7 +13,7 @@ from speechbrain.processing.features import (
     combine_gaussian_statistics,
     combine_gaussian_statistics_distributed,
     gaussian_statistics,
-    get_mask,
+    make_padding_mask,
 )
 
 
@@ -23,27 +23,15 @@ class TestInputNormalization:
     @pytest.fixture
     def sample_data(self):
         """Create sample data for testing."""
-        # Create a batch of 3 sequences with 4 features and variable lengths
-        x = torch.tensor(
-            [
-                [1.0, 2.0, 3.0, 4.0],
-                [5.0, 6.0, 7.0, 8.0],
-                [9.0, 10.0, 11.0, 12.0],
-            ],
-            dtype=torch.float32,
-        )
+        # Create a batch of 2 sequences with 3 features and variable lengths
+        x = torch.arange(4 * 4 * 3, dtype=torch.float32).view(4, 4, 3) + 1
 
-        # Relative lengths: first has 100%, second 75%, third 50%
-        lengths = torch.tensor([1.0, 0.75, 0.5], dtype=torch.float32)
+        # Relative lengths: first has 100%, second 75%, third 50%, last 25%
+        lengths = torch.tensor([0.25, 0.5, 0.75, 1.0], dtype=torch.float32)
 
         # Mask of the input tensor based on the lengths
-        mask = torch.tensor(
-            [
-                [True, True, True, True],
-                [True, True, True, False],
-                [True, True, False, False],
-            ]
-        )
+        mask = torch.triu(torch.ones(4, 4)).transpose(0, 1).bool()
+        mask = mask.unsqueeze(-1).expand_as(x)
 
         return x, lengths, mask
 
@@ -67,21 +55,12 @@ class TestInputNormalization:
         x, lengths, mask = sample_data
         norm = InputNormalization(norm_type="sentence", avoid_padding_norm=True)
 
-        # Manual calculation for comparison, using corrected variance
-        expected_means = torch.tensor([2.5, 6.0, 9.5]).view(-1, 1)
-        expected_stds = (
-            torch.tensor([5.0 / 4.0, 2.0 / 3.0, 0.5 / 2.0]).sqrt().view(-1, 1)
-        )
+        # Manual calculation for comparison
+        mean, std = reference_sentence_norm(x, mask, avoid_padding_norm=True)
+        expected = (x - mean) / std
 
         # Apply sentence normalization
         output = norm(x, lengths)
-
-        # Calculate expected output manually
-        expected = torch.zeros_like(x)
-        for i in range(3):
-            expected[i, mask[i]] = (
-                x[i, mask[i]] - expected_means[i]
-            ) / expected_stds[i]
 
         # Check if output matches expected values where not padding
         assert torch.allclose(output[mask], expected[mask], atol=1e-5)
@@ -94,14 +73,20 @@ class TestInputNormalization:
         x, lengths, mask = sample_data
         norm = InputNormalization(norm_type="batch", avoid_padding_norm=True)
 
+        # Padding Mask is slightly different format (singletons for non-dims)
+        padding_mask = make_padding_mask(x, lengths)
+        _, mean, var = reference_gaussian_statistics(
+            x.numpy(), (0, 1), padding_mask.numpy()
+        )
+        mean = torch.FloatTensor(mean).expand_as(x).masked_fill(~mask, 0.0)
+        var = torch.FloatTensor(var).expand_as(x).masked_fill(~mask, 1.0)
+        expected = (x - mean) / var.clamp(min=1e-8).sqrt()
+
         # Apply normalization
         output = norm(x, lengths)
 
-        # Manual calculation for comparison. See code for note about
-        # how this algorithm is not correct, kept only for backwards compat.
-        mean_mean = torch.tensor([2.5, 6.0, 9.5]).mean()
-        std_mean = torch.tensor([5.0 / 4.0, 2.0 / 3.0, 0.5 / 2.0]).sqrt().mean()
-        expected = (x - mean_mean) / std_mean
+        # print(output)
+        # print(expected)
 
         # Check normalization was applied correctly to non-padding values
         assert torch.allclose(output[mask], expected[mask], atol=1e-3)
@@ -132,15 +117,21 @@ class TestInputNormalization:
 
         # Since we've seen the same pattern twice and the shifted pattern once,
         # the normalized output should be different for the same input
-        assert not torch.allclose(valid_values1, valid_values3, atol=0.1)
+        assert not torch.allclose(valid_values1, valid_values3, atol=0.01)
 
         # Check that after many trials, the overall stats match the tensor stats
         for i in range(1000):
             _ = norm(x, lengths)
 
-        assert torch.allclose(norm.glob_mean, x[mask].mean(), atol=1e-3)
+        padding_mask = make_padding_mask(x, lengths)
+        _, mean, var = reference_gaussian_statistics(
+            x.numpy(), (0, 1), padding_mask.numpy()
+        )
         assert torch.allclose(
-            norm.glob_std, x[mask].std(unbiased=False), atol=1e-2
+            norm.glob_mean, torch.FloatTensor(mean), atol=1e-3
+        )
+        assert torch.allclose(
+            norm.glob_std, torch.FloatTensor(var).sqrt(), atol=1e-2
         )
 
     def test_global_normalization_stops_updates(self, sample_data):
@@ -246,9 +237,21 @@ class TestInputNormalization:
         assert output.device.type == "cuda"
 
 
+def reference_sentence_norm(x, mask, avoid_padding_norm=True):
+    """Compute reference sentence norm"""
+    n = mask.sum(dim=1, keepdim=True)
+    mean = (x * mask).sum(dim=1, keepdim=True) / n
+    var = ((x - mean) * mask).square().sum(dim=1, keepdim=True) / n
+    if avoid_padding_norm:
+        var = var.masked_fill(~mask, 1.0)
+        mean = mean.masked_fill(~mask, 0.0)
+
+    return mean, var.clamp(min=1e-8).sqrt()
+
+
 # Utility tests for the helper functions
-def test_get_mask():
-    """Test the get_mask function."""
+def test_make_padding_mask():
+    """Test the make_padding_mask function."""
 
     # Create a batch of sequences
     x = torch.ones(3, 4, 2)  # Batch size 3, seq len 4, feature dim 2
@@ -257,7 +260,7 @@ def test_get_mask():
     lengths = torch.tensor([1.0, 0.75, 0.5])
 
     # Get mask
-    mask = get_mask(x, lengths, length_dim=1)
+    mask = make_padding_mask(x, lengths, length_dim=1)
 
     # Expected mask:
     # First sequence: all True
@@ -271,6 +274,14 @@ def test_get_mask():
             [[True], [True], [False], [False]],
         ]
     )
+
+    assert torch.equal(mask, expected_mask)
+
+    # Test for potential rounding error
+    x = torch.ones(22, 22)
+    lengths = (torch.arange(22) + 1) / 22
+    mask = make_padding_mask(x, lengths, length_dim=1)
+    expected_mask = torch.triu(torch.ones(22, 22)).transpose(0, 1).bool()
 
     assert torch.equal(mask, expected_mask)
 
