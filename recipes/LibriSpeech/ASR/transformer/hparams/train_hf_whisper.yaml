@@ -7,7 +7,7 @@
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 1986
 __set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
-output_folder: !ref results/whisper/<seed>
+output_folder: !ref results/whisper_normalized_transcripts_false/<seed>
 output_wer_folder: !ref <output_folder>/
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
@@ -22,7 +22,7 @@ normalized_transcripts: True
 
 # Data files
 data_folder: !PLACEHOLDER # e,g./path/to/LibriSpeech
-train_splits: ["train-clean-100", "train-clean-360", "train-other-500"]
+train_splits: ["train-clean-100"]
 dev_splits: ["dev-clean"]
 test_splits: ["dev-clean", "test-clean", "test-other"]
 skip_prep: False
@@ -63,13 +63,21 @@ test_beam_size: 8
 
 train_loader_kwargs:
     batch_size: !ref <batch_size>
+    collate_fn: !name:speechbrain.dataio.batch.PaddedBatch
+      padding_kwargs:
+        value: -100
 
 valid_loader_kwargs:
     batch_size: !ref <test_batch_size>
+    collate_fn: !name:speechbrain.dataio.batch.PaddedBatch
+      padding_kwargs:
+        value: -100
 
 test_loader_kwargs:
     batch_size: !ref <test_batch_size>
-
+    collate_fn: !name:speechbrain.dataio.batch.PaddedBatch
+      padding_kwargs:
+        value: -100
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
@@ -136,11 +144,16 @@ valid_search: !new:speechbrain.decoders.seq2seq.S2SWhisperGreedySearcher
     min_decode_ratio: !ref <min_decode_ratio>
     max_decode_ratio: !ref <max_decode_ratio>
 
-test_search: !new:speechbrain.decoders.seq2seq.S2SWhisperBeamSearcher
-    module: [!ref <whisper>]
+test_search: !new:speechbrain.decoders.seq2seq.S2SWhisperGreedySearcher
+    model: !ref <whisper>
     min_decode_ratio: !ref <min_decode_ratio>
     max_decode_ratio: !ref <max_decode_ratio>
-    beam_size: !ref <test_beam_size>
+
+# test_search: !new:speechbrain.decoders.seq2seq.S2SWhisperBeamSearcher
+#     module: [!ref <whisper>]
+#     min_decode_ratio: !ref <min_decode_ratio>
+#     max_decode_ratio: !ref <max_decode_ratio>
+#     beam_size: !ref <test_beam_size>
 
 lr_annealing_whisper: !new:speechbrain.nnet.schedulers.NoamScheduler
     lr_initial: !ref <lr_whisper>

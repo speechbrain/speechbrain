@@ -14,9 +14,9 @@ save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
 # URL for the biggest Fairseq english whisper model.
-whisper_hub: /scratch/adelmou/models/openai/whisper-medium
+whisper_hub: /scratch/adelmou/models/openai/whisper-tiny
 
-# Normalize inputs with the same normalization done in the paper (https://cdn.openai.com/papers/whisper.pdf). Refer to Appendix C for further information.
+# Normalize inputs with the same normalizatioe paper (https://cdn.openai.com/papers/whisper.pdf). Refer to Appendix C for further information.
 normalized_transcripts: True
 
 # Data files
@@ -26,9 +26,10 @@ train_tsv_file: !ref <data_folder>/train.tsv  # Standard CommonVoice .tsv files
 dev_tsv_file: !ref <data_folder>/dev.tsv  # Standard CommonVoice .tsv files
 test_tsv_file: !ref <data_folder>/test.tsv  # Standard CommonVoice .tsv files
 accented_letters: True
-train_csv: !ref <output_folder>/train.csv
-valid_csv: !ref <output_folder>/dev.csv
-test_csv: !ref <output_folder>/dev.csv
+csv_loc: /scratch/adelmou/results/whisper_medium_debug_v2
+train_csv: !ref <csv_loc>/train.csv
+valid_csv: !ref <csv_loc>/dev.csv
+test_csv: !ref <csv_loc>/dev.csv
 skip_prep: False # Skip data preparation
 
 # We remove utterance slonger than 10s in the train/dev/test sets as
@@ -129,11 +130,6 @@ whisper: !new:speechbrain.lobes.models.huggingface_transformers.whisper.Whisper
     task: "transcribe"
     torch_dtype: !name:torch.bfloat16
     attn_implementation: "flash_attention_2"
-
-log_softmax: !new:speechbrain.nnet.activations.Softmax
-    apply_log: True
-
-nll_loss: !name:speechbrain.nnet.losses.nll_loss
 
 modules:
     whisper: !ref <whisper>
