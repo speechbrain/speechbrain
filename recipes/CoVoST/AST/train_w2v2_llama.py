@@ -43,6 +43,16 @@ class AST(sb.core.Brain):
         audio_attn_mask = length_to_mask(abs_len)
         wavs = wavs * audio_attn_mask
 
+        # Add waveform augmentation if specified.
+        if (
+            stage == sb.Stage.TRAIN
+            and hasattr(self.hparams, "wav_augment")
+            and self.optimizer_step > self.hparams.augment_warmup
+        ):
+            wavs, wav_lens = self.hparams.wav_augment(wavs, wav_lens)
+
+        wavs = self.hparams.normalize(wavs, wav_lens)
+
         # Forward Speech Modules
         feats = self.modules.wav2vec2(wavs, wav_lens)
         down_feats = self.modules.feat_downsampler(feats)
