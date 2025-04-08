@@ -64,6 +64,7 @@ if __name__ == "__main__":
         audio_features = modules.ssl_model(sig.data, sig.lengths)
         if selected_layers:
             audio_features = audio_features[selected_layers]
+        audio_features = audio_features.permute(1, 2, 0, 3)
         return PaddedData(audio_features, sig.lengths)
 
     @sb.utils.data_pipeline.takes("sig")
