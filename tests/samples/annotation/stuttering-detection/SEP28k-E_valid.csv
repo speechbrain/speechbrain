@@ -1,0 +1,6 @@
+,Show,EpId,ClipId,Start,Stop,is_probably_host,speaker,clip_silhouette_score,SEP12k,SEP28k-E,SEP28k-T,SEP28k-D,Unsure,PoorAudioQuality,Prolongation,Block,SoundRep,WordRep,DifficultToUnderstand,Interjection,NoStutteredWords,NaturalPause,Music,NoSpeech,ID
+43,HeStutters,1,3,28193760,28241760,False,HeStutters_1_1,0.3859234452247619,train,dev,dev,train,0,0,0,1,0,0,0,3,2,1,0,0,43
+61,HeStutters,1,21,30707360,30755360,False,HeStutters_1_1,0.1425594687461853,train,dev,dev,train,1,0,0,0,1,0,2,0,1,0,0,1,61
+91,HeStutters,1,51,33325280,33373280,False,HeStutters_1_1,0.3587537109851837,train,dev,dev,train,0,0,0,1,0,3,0,0,0,0,0,0,91
+105,HeStutters,1,65,35435840,35483840,False,HeStutters_1_1,0.4276331067085266,train,dev,dev,train,0,0,0,2,1,3,0,0,0,0,0,0,105
+106,HeStutters,1,66,35470560,35518560,False,HeStutters_1_1,0.4031138122081756,train,dev,dev,train,0,0,1,0,0,0,0,0,2,0,0,0,106

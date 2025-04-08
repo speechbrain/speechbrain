@@ -41,7 +41,7 @@ def accumulate_and_extract_features(
     ssl_layer_num : int
         specify output of which layer of the ssl_model should be used.
     device : str
-        CPU or GPU.
+        `cpu` or `cuda` device.
     """
     batch = batch.to(device)
     wavs, wav_lens = batch.sig
@@ -123,17 +123,12 @@ def process_chunks(data, chunk_size, model):
 
     Arguments
     ---------
-        data : list
-            The list of integers to be processed.
-        chunk_size : int
-            The size of each chunk.
-        model : MiniBatchKMeans
-            The initial kmeans model for training.
-
-    Returns
-    -------
-        model : MiniBatchKMeans
-            The initial kmeans model for training.
+    data : list
+        The list of integers to be processed.
+    chunk_size : int
+        The size of each chunk.
+    model : MiniBatchKMeans
+        The initial kmeans model for training.
     """
     for i in range(0, len(data), chunk_size):
         chunk = data[i : i + chunk_size]
@@ -159,22 +154,22 @@ def train(
 
     Arguments
     ---------
-        model : MiniBatchKMeans
-            The initial kmeans model for training.
-        train_set : Dataloader
-            Batches of tarining data.
-        ssl_model
-            SSL-model used to  extract features used for clustering.
-        save_path: string
-            Path to save intra-checkpoints and dataloader.
-        ssl_layer_num : int
-            Specify output of which layer of the ssl_model should be used.
-        device
-            CPU or  GPU.
-        kmeans_batch_size : int
-            Size of the mini batches.
-        checkpoint_interval: int
-            Determine at which iterations to save the checkpoints.
+    model : MiniBatchKMeans
+        The initial kmeans model for training.
+    train_set : Dataloader
+        Batches of tarining data.
+    ssl_model : torch.nn.Module
+        SSL-model used to  extract features used for clustering.
+    save_path: string
+        Path to save intra-checkpoints and dataloader.
+    ssl_layer_num : int
+        Specify output of which layer of the ssl_model should be used.
+    kmeans_batch_size : int
+        Size of the mini batches.
+    device : str
+        `cpu` or `cuda` device.
+    checkpoint_interval: int
+        Determine at which iterations to save the checkpoints.
     """
     logger.info("Start training kmeans model.")
     features_list = []
@@ -218,9 +213,9 @@ def save_model(model, checkpoint_path):
 
     Arguments
     ---------
-        model : MiniBatchKMeans
-            The  kmeans model to be saved.
-        checkpoint_path : str
-            Path to save the model..
+    model : MiniBatchKMeans
+        The  kmeans model to be saved.
+    checkpoint_path : str
+        Path to save the model.
     """
     joblib.dump(model, open(checkpoint_path, "wb"))

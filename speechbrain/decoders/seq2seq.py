@@ -1385,7 +1385,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
         top_scores = torch.stack((top_scores), dim=0).view(batch_size, -1)
 
         # Use SpeechBrain style lengths
-        top_lengths = top_lengths / top_hyps.size(1)
+        top_lengths = (top_lengths - 1) / top_hyps.size(1)
 
         # Get topk indices
         topk_scores, indices = top_scores.topk(self.topk, dim=-1)
