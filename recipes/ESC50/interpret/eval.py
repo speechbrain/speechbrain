@@ -6,8 +6,9 @@ To run this recipe, use the following command:
     Please refer to README.md for more details.
 
 Authors
-    * Francesco Paissan 2024
-    * Cem Subakan 2024
+    * Eleonora Mancini 2025
+    * Francesco Paissan 2025
+    * Cem Subakan 2025
 """
 import os
 import random
@@ -21,9 +22,8 @@ import torchaudio.transforms as T
 from esc50_prepare import dataio_prep, prepare_esc50
 from hyperpyyaml import load_hyperpyyaml
 from train_l2i import L2I
-
-# from train_lmac import LMAC
-from train_lmactd import LMAC
+from train_lmac import LMAC
+from train_lmactd import LMACTD
 
 # from train_sepformerlmac import SepformerLMAC
 from wham_prepare import prepare_wham
@@ -219,71 +219,53 @@ if __name__ == "__main__":
     if hparams["add_wham_noise"]:
         ood_dataset = datasets["valid"]
 
-    # assert (
-    #     hparams["pretrained_interpreter"] is not None
-    # ), "You need to specify a path for the pretrained_interpreter!"
-    # hparams["psi_model"].load_state_dict(
-    #     torch.load(hparams["pretrained_interpreter"], map_location="cpu")
-    # )
-
-    # Check that the pretrained_interpreter path is provided
-
-    # assert (
-    #     hparams["pretrained_interpreter"] is not None
-    # ), "You need to specify a path for the pretrained_interpreter!"
-
-    # # Load each component separately
-    # hparams["MaskNet"].load_state_dict(
-    #     torch.load(f"{hparams['pretrained_interpreter']}/masknet.ckpt", torch.device('cpu'))
-    # )
-    # hparams["Encoder"].load_state_dict(
-    #     torch.load(f"{hparams['pretrained_interpreter']}/encoder.ckpt", torch.device('cpu'))
-    # )
-    # hparams["Decoder"].load_state_dict(
-    #     torch.load(f"{hparams['pretrained_interpreter']}/decoder.ckpt", torch.device('cpu'))
-    # )
-    # hparams["MultiResolutionPooling"].load_state_dict(
-    #     torch.load(f"{hparams['pretrained_interpreter']}/pooling.ckpt", torch.device('cpu'))
-    # )
-
-    assert (
-        hparams["pretrained_interpreter"] is not None
-    ), "You need to specify a path for the pretrained_interpreter!"
-
-    # Load each component separately
-    hparams["MaskNet"].load_state_dict(
-        torch.load(
-            f"{hparams['pretrained_interpreter']}/masknet.ckpt",
-            torch.device("cpu"),
+    if hparams["int_method"] != "lmactd":
+        assert (
+            hparams["pretrained_interpreter"] is not None
+        ), "You need to specify a path for the pretrained_interpreter!"
+        hparams["psi_model"].load_state_dict(
+            torch.load(hparams["pretrained_interpreter"], map_location="cpu")
         )
-    )
-    hparams["Encoder"].load_state_dict(
-        torch.load(
-            f"{hparams['pretrained_interpreter']}/encoder.ckpt",
-            torch.device("cpu"),
-        )
-    )
-    hparams["Decoder"].load_state_dict(
-        torch.load(
-            f"{hparams['pretrained_interpreter']}/decoder.ckpt",
-            torch.device("cpu"),
-        )
-    )
-    hparams["convt_decoder"].load_state_dict(
-        torch.load(
-            f"{hparams['pretrained_interpreter']}/convt_decoder.ckpt",
-            torch.device("cpu"),
-        )
-    )
 
-    # if hparams["int_method"] == "lmac":
-    #     Interpreter = LMAC(
-    #         modules=hparams["modules"],
-    #         opt_class=hparams["opt_class"],
-    #         hparams=hparams,
-    #         run_opts=run_opts,
-    #     )
-    if hparams["int_method"] == "l2i":
+    else:
+        assert (
+            hparams["pretrained_interpreter"] is not None
+        ), "You need to specify a path for the pretrained_interpreter!"
+
+        # Load each component separately
+        hparams["MaskNet"].load_state_dict(
+            torch.load(
+                f"{hparams['pretrained_interpreter']}/masknet.ckpt",
+                torch.device("cpu"),
+            )
+        )
+        hparams["Encoder"].load_state_dict(
+            torch.load(
+                f"{hparams['pretrained_interpreter']}/encoder.ckpt",
+                torch.device("cpu"),
+            )
+        )
+        hparams["Decoder"].load_state_dict(
+            torch.load(
+                f"{hparams['pretrained_interpreter']}/decoder.ckpt",
+                torch.device("cpu"),
+            )
+        )
+        hparams["convt_decoder"].load_state_dict(
+            torch.load(
+                f"{hparams['pretrained_interpreter']}/convt_decoder.ckpt",
+                torch.device("cpu"),
+            )
+        )
+
+    if hparams["int_method"] == "lmac":
+        Interpreter = LMAC(
+            modules=hparams["modules"],
+            opt_class=hparams["opt_class"],
+            hparams=hparams,
+            run_opts=run_opts,
+        )
+    elif hparams["int_method"] == "l2i":
         # hparams["nmf_decoder"].load_state_dict(
         #     torch.load(hparams["nmf_decoder_path"], map_location="cpu")
         # )
@@ -296,21 +278,11 @@ if __name__ == "__main__":
             hparams=hparams,
             run_opts=run_opts,
         )
-
-    # elif hparams["int_method"] == "sepformer_lmac":
-    #     class_labels = list(label_encoder.ind2lab.values())
-    #     hparams["class_labels"] = class_labels
-    #     Interpreter = SepformerLMAC(
-    #         modules=hparams["modules"],
-    #         opt_class=hparams["opt_class"],
-    #         hparams=hparams,
-    #         run_opts=run_opts
-    #     )
-
-    elif hparams["int_method"] == "lmac":
+        
+    elif hparams["int_method"] == "lmactd":
         class_labels = list(label_encoder.ind2lab.values())
         hparams["class_labels"] = class_labels
-        Interpreter = LMAC(
+        Interpreter = LMACTD(
             modules=hparams["modules"],
             opt_class=hparams["opt_class"],
             hparams=hparams,
@@ -328,8 +300,50 @@ if __name__ == "__main__":
                 else {"batch_size": 2}
             ),
         )
+    elif hparams["int_method"] != "lmactd" and hparams["single_sample"] is not None:   
+        wav, sr = torchaudio.load(hparams["single_sample"])
+        wav = T.Resample(sr, hparams["sample_rate"])(wav).to(run_opts["device"])
 
-    else:
+        with torch.no_grad():
+            X_int, _, X_stft_phase, X_orig = (
+                Interpreter.interpret_computation_steps(wav)
+            )
+
+        # make sure shapes are ok
+        X_int = X_int.transpose(1, 2)
+        X_orig = X_orig[:, : X_int.shape[1]]
+        X_stft_phase = X_stft_phase[:, : X_int.shape[1]]
+
+        def plot_spec(X, suffix=""):
+            X = X.expm1()
+            X = X ** (1 / 3)
+
+            plt.figure(figsize=(5, 5))
+            plt.matshow(
+                X.cpu().numpy()[0].T,
+                aspect="auto",
+                origin="lower",
+                cmap="inferno",
+            )
+            plt.axis("off")
+            plt.savefig(
+                ".".join(hparams["single_sample"].split(".")[:-1])
+                + f"_{suffix}.pdf"
+            )
+
+        plot_spec(X_int, "int")
+        plot_spec(X_orig, "orig")
+
+        X_int = X_int[..., None]
+        xhat_tm = Interpreter.invert_stft_with_phase(X_int, X_stft_phase).cpu()
+
+        torchaudio.save(
+            ".".join(hparams["single_sample"].split(".")[:-1]) + "_int.wav",
+            xhat_tm,
+            hparams["sample_rate"],
+        )
+
+    elif hparams["int_method"] == "lmactd" and hparams["single_sample"] is not None:
         wav, sr = torchaudio.load(hparams["single_sample"])
         wav = T.Resample(sr, hparams["sample_rate"])(wav).to(run_opts["device"])
 
@@ -337,7 +351,7 @@ if __name__ == "__main__":
             X_int, x_td = Interpreter.interpret_computation_steps(wav)
 
         torchaudio.save(
-            ".".join(hparams["single_sample"].split(".")[:-1]) + "_lmacTD.wav",
+            ".".join(hparams["single_sample"].split(".")[:-1]) + "_lmacTD_int.wav",
             x_td.cpu(),
             hparams["sample_rate"],
         )

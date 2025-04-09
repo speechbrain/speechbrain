@@ -1,15 +1,16 @@
 #!/usr/bin/python3
 """This recipe to train L-MAC to interpret audio classifiers.
 
-The command to run for this recipe, with WHAM augmentation (as used in the L-MAC paper)
-    python train_lmac.py hparams/lmac_cnn14.yaml --data_folder=/yourpath/ESC50 --add_wham_noise True --wham_folder=/yourpath/wham_noise
+The command to run for this recipe, with WHAM augmentation (as used in the LMAC-TD paper)
+    python train_lmactd.py hparams/lmactd_cnn14.yaml --data_folder=/yourpath/ESC50 --add_wham_noise True --wham_folder=/yourpath/wham_noise
 
 For more details, please refer to the README file.
 
 
 Authors
-    * Francesco Paissan 2024
-    * Cem Subakan 2024
+    * Eleonora Mancini 2025
+    * Francesco Paissan 2025
+    * Cem Subakan 2025
 """
 import os
 import sys
@@ -27,6 +28,9 @@ import speechbrain as sb
 from speechbrain.processing.NMF import spectral_phase
 from speechbrain.utils.distributed import run_on_main
 
+#from pdb import set_trace as bp
+
+
 eps = 1e-10
 
 
@@ -42,7 +46,7 @@ def tv_loss(mask, tv_weight=1, power=2, border_penalty=0.3):
     return loss
 
 
-class LMAC(InterpreterBrain):
+class LMACTD(InterpreterBrain):
 
     def crosscor(self, spectrogram, template):
         """Compute the cross correlation metric defined in the L-MAC paper, used in finetuning"""
@@ -84,12 +88,13 @@ class LMAC(InterpreterBrain):
         else:
             raise ValueError("unknown crosscor type!")
 
+    
     def interpret_computation_steps(self, wavs, print_probability=False):
         """Computation steps to get the interpretation spectrogram"""
-        X_stft_logpower, X_mel, _, X_stft_power = self.preprocess(wavs)
+        _, X_mel, _, _ = self.preprocess(wavs)
 
         # Embeddings + sound classifier
-        hcat, _, predictions, _ = self.classifier_forward(X_mel)
+        hcat, _, _, _ = self.classifier_forward(X_mel)
 
         wavs_encoded = self.modules.encoder(wavs)
         decoder_out = self.modules.convt_decoder(hcat)
@@ -100,7 +105,7 @@ class LMAC(InterpreterBrain):
         al = self.hparams.alpha_mix
         est_mask = self.modules.masknet(
             wavs_encoded * (1 - al) + decoder_out * (al)
-        ).squeeze()
+        ).squeeze(0)
 
         sep_h = wavs_encoded * est_mask
         # the [0] is bc we only have one source
@@ -130,14 +135,14 @@ class LMAC(InterpreterBrain):
 
         wavs_encoded = self.modules.encoder(wavs)
         decoder_out = self.modules.convt_decoder(hcat)
-        decoder_out = decoder_out.squeeze().permute(0, 2, 1)[
+        decoder_out = decoder_out.squeeze(1).permute(0, 2, 1)[
             :, :, : wavs_encoded.shape[-1]
         ]
 
         al = self.hparams.alpha_mix
         est_mask = self.modules.masknet(
             wavs_encoded * (1 - al) + decoder_out * (al)
-        ).squeeze()
+        ).squeeze(0)
 
         sep_h = wavs_encoded * est_mask
         # the [0] is bc we only have one source
@@ -156,12 +161,6 @@ class LMAC(InterpreterBrain):
         saliency_map = X_mel_interp / (
             X_mel + 1e-8
         )  # Add a small constant to avoid division by zero
-
-        # interp_mask = self.modules.masknet(sep_h[0], hcat)
-        # interp_mask_time_domain = self.modules.decoder(interp_mask[0])
-        # X_stft_logpower_interp_mask, _, _, X_stft_power_interp_mask = self.preprocess(interp_mask_time_domain)
-
-        # saliency_map = X_stft_logpower_interp_mask / (X_stft_power + 1e-8)  # Add a small constant to avoid division by zero
 
         if stage == sb.Stage.VALID:
             # save some samples
@@ -194,19 +193,6 @@ class LMAC(InterpreterBrain):
                 saliency_map,
                 batch,
             )
-
-        # if stage == sb.Stage.TEST and self.hparams.save_interpretations:
-        #     # During TEST save always, if required
-        #     self.viz_ints(
-        #         wavs,
-        #         X_stft_logpower,
-        #         interp,
-        #         X_stft_logpower_interp,
-        #         est_mask_time_domain,
-        #         X_stft_logpower_mask,
-        #         est_mask[0],
-        #         batch
-        #     )
 
         return ((wavs, lens), predictions, interp, hcat, est_mask, mask_out_t)
 
@@ -403,7 +389,7 @@ if __name__ == "__main__":
                 "You should specify pretrained model for finetuning."
             )
 
-    Interpreter_brain = LMAC(
+    Interpreter_brain = LMACTD(
         modules=hparams["modules"],
         opt_class=hparams["opt_class"],
         hparams=hparams,
