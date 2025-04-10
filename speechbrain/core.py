@@ -684,11 +684,13 @@ class Brain:
         if self.device == "cpu":
             self.device_type = "cpu"
         elif "cuda" in self.device:
-            self.device_type = "cuda" if self.device == "cuda" else self.device[-1]
+            self.device_type = (
+                "cuda" if self.device == "cuda" else self.device[-1]
+            )
         else:
             raise ValueError("Expected `self.device` to be `cpu` or `cuda`!")
 
-        # Switch to the right context 
+        # Switch to the right context
         if self.device == "cuda":
             torch.cuda.set_device(0)
         elif "cuda" in self.device:
@@ -754,7 +756,9 @@ class Brain:
                 "to enable mixed precision on CPU."
             )
 
-        gradscaler_enabled = self.precision == "fp16" and self.device_type == "cuda"
+        gradscaler_enabled = (
+            self.precision == "fp16" and self.device_type == "cuda"
+        )
         if self.skip_nonfinite_grads and gradscaler_enabled:
             logger.warning(
                 "The option `skip_nonfinite_grads` will be ignored "
