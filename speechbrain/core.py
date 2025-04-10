@@ -1677,6 +1677,7 @@ class Brain:
     def _wrap_distributed(self):
         """Wrap modules with distributed wrapper when requested."""
         if not self.distributed_launch and not self.data_parallel_backend:
+            self.raw_modules = self.modules
             return
         elif self.distributed_launch:
             for name, module in self.modules.items():
@@ -1701,6 +1702,7 @@ class Brain:
                 if any(p.requires_grad for p in module.parameters()):
                     module = DP(module)
                     self.modules[name] = module
+        self.raw_modules = self.modules.module
 
     def evaluate(
         self,

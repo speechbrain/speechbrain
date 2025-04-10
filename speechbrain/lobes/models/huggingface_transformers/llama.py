@@ -87,11 +87,11 @@ class LLaMA(HFTransformersInterface):
 
         self.load_tokenizer(source=source, pad_token=self.pad_token)
 
-        # We resize the token embeddings size to a factor of 8 to maximise
-        # the use of tensorcores.
-        self.model.resize_token_embeddings(
-            len(self.tokenizer), pad_to_multiple_of=8
-        )
+        # # We resize the token embeddings size to a factor of 8 to maximise
+        # # the use of tensorcores.
+        # self.model.resize_token_embeddings(
+        #     len(self.tokenizer), pad_to_multiple_of=8
+        # )
 
     def forward(self, **kwargs: dict):
         """This function wraps the HuggingFace forward function. See the HuggingFace documentation of your Llama model of interest to know which
