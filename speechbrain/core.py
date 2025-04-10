@@ -684,9 +684,7 @@ class Brain:
         if self.device == "cpu":
             self.device_type = "cpu"
         elif "cuda" in self.device:
-            self.device_type = (
-                "cuda" if self.device == "cuda" else self.device[-1]
-            )
+            self.device_type = "cuda"
         else:
             raise ValueError("Expected `self.device` to be `cpu` or `cuda`!")
 
