@@ -680,7 +680,15 @@ class Brain:
                 "Please keep only one active per experiment run."
             )
 
-        # Switch to the right context
+        # Set the right device_type
+        if self.device == "cpu":
+            self.device_type = "cpu"
+        elif "cuda" in self.device:
+            self.device_type = "cuda" if self.device == "cuda" else self.device[-1]
+        else:
+            raise ValueError("Expected `self.device` to be `cpu` or `cuda`!")
+
+        # Switch to the right context 
         if self.device == "cuda":
             torch.cuda.set_device(0)
         elif "cuda" in self.device:
@@ -736,7 +744,7 @@ class Brain:
             )
             self.precision = "bf16"
 
-        if self.device == "cpu" and (
+        if self.device_type == "cpu" and (
             self.precision == "fp16" or self.eval_precision == "fp16"
         ):
             raise ValueError(
@@ -746,7 +754,7 @@ class Brain:
                 "to enable mixed precision on CPU."
             )
 
-        gradscaler_enabled = self.precision == "fp16" and "cuda" in self.device
+        gradscaler_enabled = self.precision == "fp16" and self.device_type == "cuda"
         if self.skip_nonfinite_grads and gradscaler_enabled:
             logger.warning(
                 "The option `skip_nonfinite_grads` will be ignored "
@@ -768,11 +776,11 @@ class Brain:
 
         train_dtype = AMPConfig.from_name(self.precision).dtype
         self.training_ctx = TorchAutocast(
-            device_type=self.device, dtype=train_dtype
+            device_type=self.device_type, dtype=train_dtype
         )
         eval_dtype = AMPConfig.from_name(self.eval_precision).dtype
         self.evaluation_ctx = TorchAutocast(
-            device_type=self.device, dtype=eval_dtype
+            device_type=self.device_type, dtype=eval_dtype
         )
         if gradscaler_enabled and self.checkpointer is not None:
             self.checkpointer.add_recoverable(
