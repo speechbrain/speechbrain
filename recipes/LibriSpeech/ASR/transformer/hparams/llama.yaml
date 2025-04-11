@@ -123,7 +123,7 @@ downsampling_output_dim: 5120
 
 # Outputs
 blank_index: 0
-pad_token: 128256 #Llama 3 pad index after adding
+pad_token: 128256 #Llama 3 pad index after adding: BEURK.
 
 # Decoding parameters
 valid_search_interval: 4
@@ -144,7 +144,7 @@ ssl: !new:speechbrain.lobes.models.huggingface_transformers.wav2vec2.Wav2Vec2
     # normalize_wav: False
 
 proj: !new:speechbrain.lobes.models.VanillaNN.VanillaNN
-    input_shape: [null, null, 1024] # 5 x 1024
+    input_shape: [null, null, 5120] # 5 x 1024
     activation: !ref <activation>
     dnn_blocks: !ref <dnn_layers>
     dnn_neurons: !ref <dnn_neurons>
@@ -169,7 +169,7 @@ feat_downsampler: !new:speechbrain.lobes.downsampling.ConcatDownsampler
 
 modules:
     ssl: !ref <ssl>
-    # feat_downsampler: !ref <feat_downsampler>
+    feat_downsampler: !ref <feat_downsampler>
     llm: !ref <llm>
     proj: !ref <proj>
     normalize: !ref <normalize>

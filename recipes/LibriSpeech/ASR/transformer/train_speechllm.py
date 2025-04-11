@@ -3,6 +3,8 @@
 
 Speech Encoder -> Adapter -> LLM
 
+source $HOME/sb/bin/activate
+
 cd $SLURM_TMPDIR
 scp -r $SCRATCH/models/facebook/wav2vec2-large-960h/ .
 scp -r $SCRATCH/models/meta-llama/Llama-3.2-1B .
@@ -11,6 +13,10 @@ for f in *.tar.gz; do tar -xf "$f"; done
 
 cd $HOME/proj/speechbrain/speechbrain/recipes/LibriSpeech/ASR/transformer
 python train_speechllm.py hparams/llama.yaml --data_folder $SLURM_TMPDIR/LibriSpeech/ --output_folder $SLURM_TMPDIR/test --ssl_hub $SLURM_TMPDIR/wav2vec2-large-960h/ --llm_path $SLURM_TMPDIR/Llama-3.2-1B/ 
+
+# TODO:
+1) add max length (i.e. context length of the fine tune model)
+2) torch.compile the LLM with the fixed length
 
 Authors
  * Adel Moumen 2025
@@ -30,14 +36,14 @@ from speechbrain.utils.logger import get_logger
 logger = get_logger(__name__)
 
 
-def get_multimodal_attention_mask(wav, wav_lens, txt, txt_lens):
+def get_multimodal_attention_mask(wav, wav_lens, txt, txt_lens, device):
     batch_size = wav.size(0)
     wav_len = wav.size(1)
     txt_len = txt.size(1)
 
     # Max total length for padding
     max_total_len = int((wav_len * wav_lens.max() + txt_len * txt_lens.max()).item())
-    attention_mask = torch.zeros(batch_size, max_total_len, dtype=torch.bool)
+    attention_mask = torch.zeros(batch_size, max_total_len, dtype=torch.bool, device=device)
     for i in range(batch_size):
         actual_wav_len = int(wav_lens[i].item() * wav_len)
         actual_txt_len = int(txt_lens[i].item() * txt_len)
@@ -54,32 +60,55 @@ class ASR(sb.core.Brain):
         batch = batch.to(self.device)
         wavs, wav_lens = batch.sig
         tokens_bos, tokens_bos_lens = batch.tokens_bos
-
         wavs = self.hparams.normalize(wavs, wav_lens)
         audio_feats = self.modules.ssl(wavs, wav_lens)
-        projected_audio_feats = self.modules.proj(audio_feats)
+        audio_down_feats = self.modules.feat_downsampler(audio_feats)
+        projected_audio_feats = self.modules.proj(audio_down_feats)
         # self.raw_modules.llm
         txt_embds = self.txt_embedding(tokens_bos)
         multimodal_embds = torch.cat([projected_audio_feats, txt_embds], dim=1)
         # attention_mask should be all the true audio features + all the true text features
         attention_mask = get_multimodal_attention_mask(
-            wavs, wav_lens, tokens_bos, tokens_bos_lens
+            projected_audio_feats, wav_lens, txt_embds, tokens_bos_lens, self.device
         )
-        print(attention_mask.shape)
-        exit()
         logits = self.modules.llm(
             inputs_embeds=multimodal_embds, 
             attention_mask=attention_mask
-        )
-        return logits
+        ).logits
+        return logits 
 
     def compute_objectives(self, predictions, batch, stage):
         """Computes the loss (CTC+NLL) given predictions and targets."""
+        logits = predictions
+        tokens_eos, tokens_eos_lens = batch.tokens_eos
+        tokens, tokens_lens = batch.tokens
 
-        return None
+        # prepend `-100` to the tokens_eos to ignore them in the loss which corresponds 
+        # to the audio features
+        tokens_eos[tokens_eos == self.hparams.pad_token] = -100
+        
+        num_audio_feats = logits.shape[1] - tokens_eos.shape[1]
+        target_tokens = torch.cat([
+            torch.full((tokens_eos.shape[0], num_audio_feats), -100, device=self.device),
+            tokens_eos
+        ], dim=1).long()
+        # compute the cross entropy loss
+        loss = torch.nn.functional.cross_entropy(
+            logits.view(-1, logits.shape[-1]),
+            target_tokens.view(-1),
+            ignore_index=-100
+        )
+        return loss
 
     def on_stage_start(self, stage, epoch):
         """Gets called at the beginning of each epoch"""
+        # we save the txt embedding for easy access
+        self.txt_embedding = (
+            self.modules.llm.model.get_input_embeddings()
+            if not hasattr(self.modules.llm, "module")
+            else self.modules.llm.module.model.get_input_embeddings()
+        )
+
         if stage != sb.Stage.TRAIN:
             self.acc_metric = self.hparams.acc_computer()
             self.wer_metric = self.hparams.error_rate_computer()
@@ -319,11 +348,6 @@ if __name__ == "__main__":
         hparams=hparams,
         run_opts=run_opts,
         checkpointer=hparams["checkpointer"],
-    )
-
-    # we save the txt embedding for easy access
-    asr_brain.txt_embedding = (
-        asr_brain.raw_modules.llm.model.get_input_embeddings()
     )
 
     # adding objects to trainer:
