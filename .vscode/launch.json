@@ -1,0 +1,32 @@
+{
+    // Usare IntelliSense per informazioni sui possibili attributi.
+    // Al passaggio del mouse vengono visualizzate le descrizioni degli attributi esistenti.
+    // Per altre informazioni, visitare: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debugger Python: train_lmactd.py",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "args": ["/speechbrain_fork/recipes/ESC50/interpret/hparams/lmactd_cnn14.yaml", "--data_folder=/data/ESC50 ", "--batch_size=1"]
+        }, 
+        {
+            "name": "Debugger Python: eval.py",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "args": [
+                "/speechbrain_fork/recipes/ESC50/interpret/hparams/lmactd_cnn14.yaml",
+                "--data_folder", "/data/ESC50",
+                "--overlap_type", "mixtures",
+                "--add_wham_noise", "False",
+                "--pretrained_interpreter", "/speechbrain_fork/recipes/ESC50/interpret/results/LMACTD_cnn14/44/save/CKPT+2025-03-26+16-19-31+00"
+            ]
+        }
+    ]
+}

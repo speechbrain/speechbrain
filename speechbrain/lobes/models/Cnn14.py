@@ -420,3 +420,107 @@ class CNN14PSI_stft(nn.Module):
         xhat = self.convt9(h)
 
         return xhat
+
+
+class CNN14PSI_encoderdecoder(nn.Module):
+    """
+    This class estimates a saliency map on the STFT domain, given classifier representations.
+    It uses a progressive channel reduction approach and offers optional sigmoid activation.
+
+    Arguments
+    ---------
+    dim : int
+        Dimensionality of the input representations.
+    outdim : int
+        Defines the number of output channels in the saliency map.
+    apply_sigmoid : bool
+        Whether to apply sigmoid activation to the output saliency map.
+
+    Example
+    -------
+    >>> from speechbrain.lobes.models.Cnn14 import Cnn14, CNN14PSI_encoderdecoder
+    >>> classifier_embedder = Cnn14(mel_bins=80, emb_dim=2048, return_reps=True)
+    >>> x = torch.randn(2, 201, 80)
+    >>> _, hs = classifier_embedder(x)
+    >>> psimodel = CNN14PSI_encoderdecoder(2048, 1)
+    >>> xhat = psimodel.forward(hs)
+    >>> print(xhat.shape)
+    torch.Size([2, 1, 201, 513])
+    >>> # With sigmoid activation
+    >>> psimodel_sigmoid = CNN14PSI_encoderdecoder(2048, 1, apply_sigmoid=True)
+    >>> xhat_sigmoid = psimodel_sigmoid.forward(hs)
+    >>> print(xhat_sigmoid.shape)
+    torch.Size([2, 1, 201, 513])
+    """
+
+    def __init__(self, dim=128, outdim=1, apply_sigmoid=False):
+        super().__init__()
+
+        self.convt1 = nn.ConvTranspose2d(dim, dim // 4, 7, (3, 2), 1)
+        self.convt2 = nn.ConvTranspose2d(dim // 2, dim // 4, 7, (3, 2), 1)
+        self.convt3 = nn.ConvTranspose2d(
+            dim // 4, dim // 4, (12, 11), (3, 2), 1
+        )
+        self.convt4 = nn.ConvTranspose2d(dim // 4, dim // 4, (7, 7), (5, 4), 1)
+        self.convt5 = nn.ConvTranspose2d(dim // 4, dim // 8, 7, (2, 2), 1)
+        self.convt6 = nn.ConvTranspose2d(
+            dim // 8, dim // 8, (7, 11), (5, 4), (2, 1)
+        )
+        self.convt7 = nn.ConvTranspose2d(
+            dim // 8, dim // 8, (4, 3), (2, 2), (0, 5)
+        )
+        self.convt8 = nn.ConvTranspose2d(
+            dim // 8, dim // 16, (10, 7), (3, 1), (4, 2)
+        )
+        self.convt9 = nn.ConvTranspose2d(dim // 16, outdim, (8, 10), (7, 3), 0)
+
+        self.nonl = nn.ReLU(True)
+        self.apply_sigmoid = apply_sigmoid
+
+    def forward(self, hs):
+        """
+        Forward step to estimate the saliency map
+
+        Arguments
+        --------
+        hs : torch.Tensor
+            Classifier's representations.
+
+        Returns
+        --------
+        xhat : torch.Tensor
+            An Estimate for the saliency map
+        """
+
+        h1 = self.convt1(hs[0])
+        h1 = self.nonl(h1)
+
+        h2 = self.convt2(hs[1])
+        h2 = self.nonl(h2)
+        h = h1 + h2
+
+        h3 = self.convt3(h)
+        h3 = self.nonl(h3)
+
+        h4 = self.convt4(hs[2])
+        h4 = self.nonl(h4)
+        h = h3 + h4
+
+        h5 = self.convt5(h)
+        h5 = self.nonl(h5)
+
+        h6 = self.convt6(hs[3])
+        h6 = self.nonl(h6)
+
+        h = h5 + h6
+
+        h = self.convt7(h)
+        h = self.nonl(h)
+
+        h = self.convt8(h)
+        xhat = self.convt9(h)
+
+        if self.apply_sigmoid:
+            xhat = torch.sigmoid(xhat)
+
+        return xhat

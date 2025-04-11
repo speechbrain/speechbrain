@@ -1,29 +1,34 @@
 # #################################
 # The recipe for training LMAC on the ESC50 dataset.
 #
-# Author:
-#  * Francesco Paissan 2024
-#  * Cem Subakan 2024
+# Authors
+#     * Eleonora Mancini 2025
+#     * Francesco Paissan 2025
+#     * Cem Subakan 2025
 # #################################
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
-seed: 1234
+seed: 44
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 
 # Set up folders for reading from and writing to
 # Dataset must already exist at `audio_data_folder`
-data_folder: /mnt/data/ESC50 # e.g., /localscratch/UrbanSound8K
+data_folder: /mnt/data/ESC50 
 audio_data_folder: !ref <data_folder>/audio
+
+rec_loss: !name:speechbrain.nnet.losses.get_si_snr_with_pitwrapper
 
 single_sample: null
 
-int_method: "lmac"
+int_method: "lmactd"
 overlap_type: "mixtures"
 
 l_in_w: 4
 l_out_w: 0.2
 reg_w_tv: 0.0
 reg_w_l1: 0.4
+alpha_mix: 1
+reg_w_sum: 0.0
 
 g_w: 4 # regularization weight of oracles
 crosscor_th: 0.6
@@ -32,7 +37,7 @@ finetuning: False
 guidelosstype: binary
 crosscortype: 'dotp'
 
-experiment_name: LMAC_cnn14
+experiment_name: LMACTD_cnn14
 output_folder: !ref ./results/<experiment_name>/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
@@ -55,7 +60,7 @@ test_annotation: !ref <data_folder>/manifest/test.json
 
 # To standardize results, UrbanSound8k has pre-separated samples into
 # 10 folds for multi-fold validation
-train_fold_nums: [1, 2, 3]
+train_fold_nums: [1]#, 2, 3]
 valid_fold_nums: [4]
 test_fold_nums: [5]
 skip_manifest_creation: False
@@ -68,7 +73,7 @@ ckpt_interval_minutes: 15 # save checkpoint every N min
 
 # Training parameters
 number_of_epochs: 200
-batch_size: 16
+batch_size: 2
 lr: 0.0002
 sample_rate: 16000
 use_mask_output: True
@@ -107,31 +112,42 @@ train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     checkpoints_dir: !ref <save_folder>
     recoverables:
-        psi_model: !ref <psi_model>
         counter: !ref <epoch_counter>
-
+        masknet: !ref <MaskNet>
+        encoder: !ref <Encoder>
+        decoder: !ref <Decoder>
+        convt_decoder: !ref <convt_decoder>
+        # psi_model: !ref <psi_model>
 
 return_reps: True
+emb_dim: 2048
 embedding_model: !new:speechbrain.lobes.models.Cnn14.Cnn14
     mel_bins: !ref <n_mels>
-    emb_dim: 2048
+    emb_dim: !ref <emb_dim>
     return_reps: !ref <return_reps>
 
 classifier: !new:torch.nn.Linear
-    in_features: 2048
+    in_features: !ref <emb_dim>
     out_features: !ref <out_n_neurons>
 
 
-# this is needed when using eval.py to specify the path for the psi_model.ckpt
-# the typical path would be similar to results/LMAC_cnn14/1234/save/CKPT+2024-06-20+16-05-44+00/psi_model.ckpt
+# this is needed when using eval.py to specify the path for the encoder.ckpt and decoder.ckpt
+# the typical path would be similar to results/LMACTD_cnn14/1234/save/CKPT+2024-06-20+16-05-44+00/encoder.ckpt
+# and results/LMACTD_cnn14/1234/save/CKPT+2024-06-20+16-05-44+00/encoder.ckpt
 pretrained_interpreter: null
 
-load_pretrained: !new:speechbrain.utils.parameter_transfer.Pretrainer
+freeze_encoder: True
+freeze_decoder: True
+
+pretrained_ed_path: null
+load_encoder: !new:speechbrain.utils.parameter_transfer.Pretrainer
     collect_in: !ref <save_folder>
     loadables:
-        psi: !ref <psi_model>
+        encoder: !ref <Encoder>
+        decoder: !ref <Decoder>
     paths:
-        psi: !ref <pretrained_interpreter>
+        encoder: !ref <pretrained_ed_path>/encoder.ckpt
+        decoder: !ref <pretrained_ed_path>/decoder.ckpt
 
 use_pretrained: True
 embedding_model_path: fpaissan/r/embedding_model.ckpt
@@ -147,7 +163,7 @@ pretrained_esc50: !new:speechbrain.utils.parameter_transfer.Pretrainer
         classifier: !ref <classifier_model_path>
 
 # pre-processing
-n_fft: 1024
+n_fft: 2048
 hop_length: 11.6099
 win_length: 23.2199
 use_melspectra_log1p: True
@@ -170,11 +186,66 @@ compute_istft: !new:speechbrain.processing.features.ISTFT
     hop_length: !ref <hop_length>
     win_length: !ref <win_length>
 
-psi_model: !new:speechbrain.lobes.models.Cnn14.CNN14PSI_stft
-    dim: 2048
+
+kernel_size: 16
+kernel_stride: 8
+N_encoder_out: 256
+out_channels: 256
+num_spks: 1
+Encoder: !new:speechbrain.lobes.models.dual_path.Encoder
+    kernel_size: !ref <kernel_size>
+    out_channels: !ref <N_encoder_out>
+
+
+SBtfintra: !new:speechbrain.lobes.models.dual_path.SBTransformerBlock
+    num_layers: 4
+    d_model: !ref <out_channels>
+    nhead: 4
+    d_ffn: 128
+    dropout: 0
+    use_positional_encoding: True
+    norm_before: True
+
+SBtfinter: !new:speechbrain.lobes.models.dual_path.SBTransformerBlock
+    num_layers: 2
+    d_model: !ref <out_channels>
+    nhead: 8
+    d_ffn: 128
+    dropout: 0
+    use_positional_encoding: True
+    norm_before: True
+
+MaskNet: !new:speechbrain.lobes.models.dual_path.Dual_Path_Model
+    num_spks: !ref <num_spks>
+    in_channels: !ref <N_encoder_out>
+    out_channels: !ref <out_channels>
+    num_layers: 2
+    K: 250
+    intra_model: !ref <SBtfintra>
+    inter_model: !ref <SBtfinter>
+    norm: ln
+    linear_layer_after_inter_intra: False
+    skip_around_intra: True
+    activation_type: sigmoid
+
+
+convt_decoder: !new:speechbrain.lobes.models.Cnn14.CNN14PSI_encoderdecoder
+    dim: 2048    
+    outdim: 1 
+    apply_sigmoid: False
+
+Decoder: !new:speechbrain.lobes.models.dual_path.Decoder
+    in_channels: !ref <N_encoder_out>
+    out_channels: 1
+    kernel_size: !ref <kernel_size>
+    stride: !ref <kernel_stride>
+    bias: False
 
 modules:
     compute_stft: !ref <compute_stft>
     compute_fbank: !ref <compute_fbank>
     compute_istft: !ref <compute_istft>
-    psi: !ref <psi_model>
+    convt_decoder: !ref <convt_decoder>
+    masknet: !ref <MaskNet>
+    encoder: !ref <Encoder>
+    decoder: !ref <Decoder>

@@ -39,9 +39,12 @@ Some results that are obtained with this recipe on the OOD evaluation are as fol
 
 |Method | AI    | AD  	| AG  	|FF   	|Fid-In   | SPS | COMP |
 |---	|---	|---	|---	|---	| ----    | --   | ---  |
-|L-MAC 	| 61.62 | 3.83 | 33.48 | 0.40 | 0.82 | 0.93 | 9.77 |
-|L-MAC FT | 58.87 | 4.89 | 30.84 | 0.40 | 0.82 | 0.82 | 10.65 |
-|L2I   	| 6.75  |25.93 	|1.25  	|0.26  | 0.01  | 0.58   | 11.38  |
+|L-MAC 	| 60.63 | 4.82 | 35.85 | 0.39 | 0.81 | 0.94 | 9.61 |
+|L-MAC FT | 50.75 | 6.73 | 26.00 | 0.39 | 0.81 | 0.84 | 10.51 |
+|L-MAC TD, &alpha; = 1.00 | 56.75 | 3.62 | 16.84 | 0.42 | 0.88 | 0.89 | 10.36 |
+|L-MAC TD, &alpha; = 0.75 | 59.50 | 3.42 | 21.22 | 0.41 | 0.87 | 0.88 | 10.35 |
+|L-MAC TD, &alpha; = 0.00 | 39.88 | 7.60 | 9.30 | 0.42 | 0.82 | 0.83 | 10.69 |
+|L2I   	| 5.00  | 25.65 | 1.00  	|0.20  | 0.35  | 0.52   | 10.99  |
 
 Please, refer to the [L-MAC paper](https://arxiv.org/abs/2403.13086) for more information about the evaluation metrics.
 
@@ -71,6 +74,40 @@ python train_lmac.py hparams/lmac_cnn14.yaml --data_folder=/yourpath/ESC50 \
     --finetuning True --pretrained_interpreter=/yourLMACcheckpointpath/psi_model.ckpt --g_w 4
 ```
 where $g_w$ is the guidance weight for the interpreter.
+
+#### Specifying the pretrained classifier
+
+The pretrained classifier to be interpreted is specified with the variables `embedding_model_path`, and `classifier_model_path`. The default model is a model we trained on ESC50, however, if you would like to specify your own model just use paths that point to your own model.
+
+---------------------------------------------------------------------------------------------------------
+### LMAC-TD: Producing Time Domain Explanations for Audio Classifiers 
+
+Following the approach adopted in LMAC, LMAC-TD trains an interpreter on the classifier's representations to reconstruct interpretations based on a amortized inference loss.
+
+For more details, refer to our [LMAC-TD paper](https://arxiv.org/abs/2409.08655). You can also find samples on the [companion website](https://francescopaissan.it/lmac-td/).
+
+To train LMAC-TD on a convolutional classifier using the ESC50 dataset, use the `train_lmactd.py` script. Run the following command:
+
+```shell
+python train_lmactd.py hparams/lmactd_cnn14.yaml --data_folder=/yourpath/ESC50
+```
+
+Eventually, you can use WHAM! augmentation to boost the interpretations performance, using:
+```shell
+python  train_lmactd.py hparams/lmactd_cnn14.yaml 
+         --data_folder=/yourpath/ESC50 --add_wham_noise True \
+         --wham_folder=/yourpath/wham_noise
+```
+**Note**: The WHAM! noise dataset can be downloaded from [here](http://wham.whisper.ai/).
+
+<!-- To run the finetuning stage of the interpreter, use
+```shell
+python  train_sepformerlmac_classifierreps.py \
+    hparams/sepformerlmac_cnn14_classifierreps.yaml --data_folder=/yourpath/ESC50 \
+    --add_wham_noise True --wham_folder=/yourpath/wham_noise \
+    --finetuning True --pretrained_interpreter=/yourLMACcheckpointpath/psi_model.ckpt --g_w 4
+```
+where $g_w$ is the guidance weight for the interpreter. -->
 
 #### Specifying the pretrained classifier
 
@@ -160,6 +197,9 @@ python eval.py hparams/<config>.yaml --data_folder /yourpath/esc50 --overlap_typ
 
 Note that overlap type should be either `mixture` (for contaminating signal to be set as other signals from ESC50), `LJSpeech` (for contaminating signal to be set as speech), or `white_noise` (for contaminating signal to be set as white noise). Please refer to the L-MAC paper for the performance obtained in each setting. Note that `yourpath/psi_model.ckpt` should point to the path of the model checkpoint you would like to use. The typical path for `yourpath/psi_model.ckpt` would be similar to `results/LMAC_cnn14/1234/save/CKPT+2024-06-20+16-05-44+00/psi_model.ckpt`.
 
+**N.B.** For the **LMAC-TD** case, `yourpath/psi_model` should point to the folder of the model checkpoint you would like to use, not the `.ckpt file` itself. For example, the typical path would look like:
+`results/LMACTD_cnn14/1234/save/CKPT+2024-06-20+16-05-44+00/`.
+
 Note also that `add_wham_noise` should be set to `False`.
 
 Another thing to note is that if you use `--overlap_type LJSpeech`, you would need to specify the path via the variable `ljspeech_path`. If the LJSpeech dataset is not already downloaded on the path you specify, the code will automatically download it, and use the downloaded data.
@@ -210,6 +250,17 @@ python eval.py hparams/<config>.yaml --data_folder /yourpath/esc50 --add_wham_no
 | PIQ-ViT | [Link](https://www.dropbox.com/scl/fo/nz4lqwumgz03nanmf9xai/AI21fGwSOzsVvyegTJUEtz4?rlkey=40yjchqgkhcrhbxsa30m3rr6w&dl=0) |
 
 ## Citing
+
+Please cite our [LMAC-TD paper](https://arxiv.org/abs/2409.08655) if you use it in your research:
+
+```bibtex
+@article{mancini2024lmac,
+  title = {LMAC-TD: Producing Time Domain Explanations for Audio Classifiers},
+  author = {Mancini, Eleonora and Paissan, Francesco and Ravanelli, Mirco and Subakan, Cem},
+  journal = {arXiv preprint arXiv:2409.08655},
+  year = {2024}
+}
+```
 
 Please cite our [L-MAC paper](https://arxiv.org/abs/2403.13086) if you use it in your research:
 
