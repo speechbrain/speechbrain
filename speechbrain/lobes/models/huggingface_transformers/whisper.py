@@ -101,9 +101,10 @@ class Whisper(HFTransformersInterface):
         task="transcribe",
         **kwargs,
     ):
+        # source = "/scratch/adelmou/models/openai/whisper-tiny"
         super().__init__(
             source=source, 
-            save_path=save_path, 
+            # save_path=save_path, 
             freeze=freeze, 
             **kwargs,
         )
@@ -173,7 +174,7 @@ class Whisper(HFTransformersInterface):
         for param in model.parameters():
             param.requires_grad = False
 
-    def forward(self, wav, decoder_input_ids=None, sampling_rate=None):
+    def forward(self, mel, attention_mask, decoder_input_ids=None, sampling_rate=None):
         """Perform mel transformation and one step of the whisper (encoder-decoder).
 
         Arguments
@@ -196,13 +197,13 @@ class Whisper(HFTransformersInterface):
         """
         def _forward():
             """Forward pass of the model"""
-            # mel = self._get_mel(wav)
-            device = wav.device
-            dtype = wav.dtype
-            np_wav = wav.cpu().numpy()
-            # in speechbrain we already pad before extracting the mel. Is-it correct?
-            mel = self.feature_extractor(np_wav, sampling_rate=sampling_rate)
-
+            # # mel = self._get_mel(wav)
+            # device = wav.device
+            # dtype = wav.dtype
+            # np_wav = wav.cpu().numpy()
+            # # in speechbrain we already pad before extracting the mel. Is-it correct?
+            # mel = self.feature_extractor(np_wav, sampling_rate=sampling_rate)
+            # mel = torch.from_numpy(mel['input_features']).to(device, dtype=dtype)
             out_encoder = self.forward_encoder(mel)
             if self.encoder_only:
                 return out_encoder
@@ -213,7 +214,7 @@ class Whisper(HFTransformersInterface):
                     )
                 else:
                     decoder_logits, decoder_attn, _ = self.forward_decoder(
-                        out_encoder, decoder_input_ids
+                        out_encoder, decoder_input_ids, attention_mask=attention_mask
                     )
                 return out_encoder, decoder_logits, decoder_attn
 
@@ -223,7 +224,7 @@ class Whisper(HFTransformersInterface):
         else:
             return _forward()
 
-    def extract_mel_features(self, wav, sampling_rate):
+    def extract_mel_features(self, wav, wav_lens, sampling_rate):
         """
         Compute the mel spectrogram features from the input audio waveform.
 
@@ -237,9 +238,23 @@ class Whisper(HFTransformersInterface):
         torch.Tensor
             Mel spectrogram features computed from the input audio waveform.
         """
-        wav = wav.cpu().numpy()
-        mels = self.feature_extractor(wav, sampling_rate=sampling_rate)
-        return mels['input_features']
+        device = wav.device
+        dtype = wav.dtype
+        # wav = wav.cpu().numpy()
+        # undo padding
+        from speechbrain.utils.data_utils import undo_padding
+        # print(wav_lens)
+        wavs = undo_padding(wav, wav_lens)
+        mels = self.feature_extractor(
+            wavs, 
+            sampling_rate=sampling_rate, 
+            device=device, # on which device the log-mel spectrogram is computed
+            return_tensors="pt", 
+            do_normalize=True,
+            return_attention_mask=False, # Whisper Encoder don't need attention mask as it interpret padding as silence
+        )
+        # , mels['attention_mask'].to(device, dtype=dtype)
+        return mels['input_features'].to(device, dtype=dtype)
 
     def forward_encoder(self, mel):
         """Takes an input mel and return its corresponding encoder states.
@@ -269,6 +284,7 @@ class Whisper(HFTransformersInterface):
         self,
         encoder_states,
         decoder_input_ids,
+        attention_mask=None,
         use_cache=True,
         past_key_values=None,
     ):
@@ -306,6 +322,7 @@ class Whisper(HFTransformersInterface):
             encoder_hidden_states=encoder_states,
             input_ids=decoder_input_ids,
             past_key_values=past_key_values,
+            # attention_mask=attention_mask,
             output_attentions=self.output_attentions,
             use_cache=use_cache,
         )
