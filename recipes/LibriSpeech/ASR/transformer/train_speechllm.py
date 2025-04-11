@@ -3,6 +3,14 @@
 
 Speech Encoder -> Adapter -> LLM
 
+cd $SLURM_TMPDIR
+scp -r $SCRATCH/models/facebook/wav2vec2-large-960h/ .
+scp -r $SCRATCH/models/meta-llama/Llama-3.2-1B .
+scp $HOME/projects/def-ravanelm/datasets/librispeech-*.tar.gz .
+for f in *.tar.gz; do tar -xf "$f"; done
+
+cd $HOME/proj/speechbrain/speechbrain/recipes/LibriSpeech/ASR/transformer
+python train_speechllm.py hparams/llama.yaml --data_folder $SLURM_TMPDIR/LibriSpeech/ --output_folder $SLURM_TMPDIR/test --ssl_hub $SLURM_TMPDIR/wav2vec2-large-960h/ --llm_path $SLURM_TMPDIR/Llama-3.2-1B/ 
 
 Authors
  * Adel Moumen 2025
@@ -22,22 +30,48 @@ from speechbrain.utils.logger import get_logger
 logger = get_logger(__name__)
 
 
+def get_multimodal_attention_mask(wav, wav_lens, txt, txt_lens):
+    batch_size = wav.size(0)
+    wav_len = wav.size(1)
+    txt_len = txt.size(1)
+
+    # Max total length for padding
+    max_total_len = int((wav_len * wav_lens.max() + txt_len * txt_lens.max()).item())
+    attention_mask = torch.zeros(batch_size, max_total_len, dtype=torch.bool)
+    for i in range(batch_size):
+        actual_wav_len = int(wav_lens[i].item() * wav_len)
+        actual_txt_len = int(txt_lens[i].item() * txt_len)
+        # Fill mask: audio part
+        attention_mask[i, :actual_wav_len] = True
+        # Fill mask: text part (after audio)
+        attention_mask[i, wav_len:wav_len + actual_txt_len] = True
+    return attention_mask
+
 # Define training procedure
 class ASR(sb.core.Brain):
     def compute_forward(self, batch, stage):
         """Forward computations from the waveform batches to the output probabilities."""
         batch = batch.to(self.device)
         wavs, wav_lens = batch.sig
-        tokens_bos, _ = batch.tokens_bos
+        tokens_bos, tokens_bos_lens = batch.tokens_bos
 
         wavs = self.hparams.normalize(wavs, wav_lens)
-        feats = self.modules.ssl(wavs, wav_lens)
-        feats = self.modules.proj(feats)
+        audio_feats = self.modules.ssl(wavs, wav_lens)
+        projected_audio_feats = self.modules.proj(audio_feats)
         # self.raw_modules.llm
         txt_embds = self.txt_embedding(tokens_bos)
-        print(txt_embds.shape)
+        multimodal_embds = torch.cat([projected_audio_feats, txt_embds], dim=1)
+        # attention_mask should be all the true audio features + all the true text features
+        attention_mask = get_multimodal_attention_mask(
+            wavs, wav_lens, tokens_bos, tokens_bos_lens
+        )
+        print(attention_mask.shape)
         exit()
-        return None
+        logits = self.modules.llm(
+            inputs_embeds=multimodal_embds, 
+            attention_mask=attention_mask
+        )
+        return logits
 
     def compute_objectives(self, predictions, batch, stage):
         """Computes the loss (CTC+NLL) given predictions and targets."""

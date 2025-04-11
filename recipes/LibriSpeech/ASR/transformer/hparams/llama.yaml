@@ -164,8 +164,8 @@ llm: !new:speechbrain.lobes.models.huggingface_transformers.llama.LLaMA
 #    adapter_kwargs:
 #        rank: !ref <lora_rank>
 
-# feat_downsampler: !new:speechbrain.lobes.downsampling.ConcatDownsampler
-#     downsampling_factor: !ref <downsampling_factor>
+feat_downsampler: !new:speechbrain.lobes.downsampling.ConcatDownsampler
+    downsampling_factor: !ref <downsampling_factor>
 
 modules:
     ssl: !ref <ssl>
