@@ -18,6 +18,7 @@ Authors
  * Titouan Parcollet 2022
 """
 
+# TODO: model.config.forced_decoder_ids = None leave the decoder the possibility to predict the language and task
 import os
 import sys
 from pathlib import Path
@@ -42,12 +43,12 @@ class ASR(sb.Brain):
         bos_tokens, bos_tokens_lens = batch.tokens_bos
 
         # Add waveform augmentation if specified.
-        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "wav_augment"):
-            wavs, wav_lens = self.hparams.wav_augment(wavs, wav_lens)
-            bos_tokens = self.hparams.wav_augment.replicate_labels(bos_tokens)
-            bos_tokens_lens = self.hparams.wav_augment.replicate_labels(
-                bos_tokens_lens
-            )
+        # if stage == sb.Stage.TRAIN and hasattr(self.hparams, "wav_augment"):
+        #     wavs, wav_lens = self.hparams.wav_augment(wavs, wav_lens)
+        #     bos_tokens = self.hparams.wav_augment.replicate_labels(bos_tokens)
+        #     bos_tokens_lens = self.hparams.wav_augment.replicate_labels(
+        #         bos_tokens_lens
+        #     )
 
         # We compute the padding mask and replace the values with the pad_token_id
         # that the Whisper decoder expect to see.
@@ -59,10 +60,24 @@ class ASR(sb.Brain):
             < abs_tokens_lens[:, None]
         )
         bos_tokens[~pad_mask] = self.tokenizer.pad_token_id
+        
 
+        # normalize audio features
+        # current_epoch = self.hparams.epoch_counter.current
+        # wavs = self.modules.normalize(wavs, wav_lens, epoch=current_epoch)
+
+        # extract mel features
+        
+        mel_features = self.modules.whisper.extract_mel_features(wavs, wav_lens, self.hparams.sampling_rate)
+        # print(mel_features)
         # Forward encoder + decoder
-        enc_out, logits, _ = self.modules.whisper(wavs, bos_tokens)
-        log_probs = self.hparams.log_softmax(logits)
+        enc_out, logits, _ = self.modules.whisper(
+            mel_features, 
+            attention_mask=pad_mask, 
+            decoder_input_ids=bos_tokens
+        )
+
+        # exit()
 
         hyps = None
         if stage == sb.Stage.VALID:
@@ -71,28 +86,27 @@ class ASR(sb.Brain):
             )
         elif stage == sb.Stage.TEST:
             hyps, _, _, _ = self.hparams.test_search(enc_out.detach(), wav_lens)
-
-        return log_probs, hyps, wav_lens
+        
+        return logits, hyps, wav_lens
 
     def compute_objectives(self, predictions, batch, stage):
         """Computes the loss NLL given predictions and targets."""
 
-        (log_probs, hyps, wav_lens) = predictions
+        (logits, hyps, wav_lens) = predictions
         batch = batch.to(self.device)
         ids = batch.id
         tokens_eos, tokens_eos_lens = batch.tokens_eos
 
         # Label Augmentation
-        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "wav_augment"):
-            tokens_eos = self.hparams.wav_augment.replicate_labels(tokens_eos)
-            tokens_eos_lens = self.hparams.wav_augment.replicate_labels(
-                tokens_eos_lens
-            )
-
-        loss = self.hparams.nll_loss(
-            log_probs, tokens_eos, length=tokens_eos_lens
+        # if stage == sb.Stage.TRAIN and hasattr(self.hparams, "wav_augment"):
+        #     tokens_eos = self.hparams.wav_augment.replicate_labels(tokens_eos)
+        #     tokens_eos_lens = self.hparams.wav_augment.replicate_labels(
+        #         tokens_eos_lens
+        #     )
+        loss = torch.nn.functional.cross_entropy(
+            logits.view(-1, logits.shape[-1]),
+            tokens_eos.view(-1).long()
         )
-
         if stage != sb.Stage.TRAIN:
             tokens, tokens_lens = batch.tokens
 
@@ -107,6 +121,7 @@ class ASR(sb.Brain):
             target_words = self.tokenizer.batch_decode(
                 target_words, skip_special_tokens=True
             )
+
             if hasattr(self.hparams, "normalized_transcripts"):
 
                 if hasattr(self.tokenizer, "normalize"):
