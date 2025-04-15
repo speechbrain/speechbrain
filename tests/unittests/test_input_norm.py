@@ -40,7 +40,11 @@ def random_mask_numpy(
         for d in range(len(data_shape))
     )
 
-    return generator.integers(0, 2, size=mask_shape, dtype=bool)
+    mask = generator.integers(0, 2, size=mask_shape, dtype=bool)
+
+    if np.count_nonzero(mask) == 0:
+        return None
+    return mask
 
 
 def reference_gaussian_statistics(
@@ -272,12 +276,15 @@ def parallel_mean_var_update(rank, world_size, tmpdir, random_seed):
         if float(torch.rand(size=(), generator=generator)) < 0.3:
             return None
         else:
-            return torch.randint(
+            mask = torch.randint(
                 high=2,
                 size=main_shape + (1,),
                 generator=generator,
                 dtype=torch.bool,
             )
+            if mask.count_nonzero() == 0:
+                return None
+            return mask
 
     inputs = [
         [random_input(generator) for _ in range(num_rounds)]
