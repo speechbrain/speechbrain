@@ -188,7 +188,6 @@ def initialise_process_group(rank: int, world_size: int, tmpdir):
     os.environ["RANK"] = str(rank)
     os.environ["LOCAL_RANK"] = str(rank)
     sync_file = f"file://{tmpdir}/sync"
-    #sync_file = 'tcp://10.1.1.20:23456'
     torch.distributed.init_process_group(
         "gloo", rank=rank, world_size=world_size, init_method=sync_file
     )
