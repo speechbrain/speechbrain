@@ -1369,7 +1369,7 @@ class RoPEMHA(nn.Module):
             key=k_rotated.permute(0, 2, 1, 3),
             value=value.permute(0, 2, 1, 3),
             attn_mask=final_masks,
-            dropout_p=self.dropout,
+            dropout_p=self.dropout if self.training else 0.,
             scale=self.scale,
         )
 
