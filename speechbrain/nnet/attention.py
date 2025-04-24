@@ -1252,7 +1252,6 @@ class RoPEMHA(nn.Module):
         else:
             self.vbias = None
 
-        self.dropout_att = nn.Dropout(dropout)
         self.out_proj = nn.Linear(self.vdim, embed_dim)
 
         if next(self.parameters()).dtype == torch.float16:
@@ -1369,7 +1368,7 @@ class RoPEMHA(nn.Module):
             key=k_rotated.permute(0, 2, 1, 3),
             value=value.permute(0, 2, 1, 3),
             attn_mask=final_masks,
-            dropout_p=self.dropout,
+            dropout_p=self.dropout if self.training else 0.0,
             scale=self.scale,
         )
 
