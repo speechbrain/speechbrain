@@ -10,6 +10,7 @@ on:    # yamllint disable-line rule:truthy
 
 jobs:
     tests:
+        if: github.event.pull_request.draft == false
         name: Tests
         runs-on: ubuntu-latest
         strategy:
