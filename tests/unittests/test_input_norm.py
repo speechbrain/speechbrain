@@ -9,10 +9,281 @@ import pytest
 import torch
 
 from speechbrain.processing.features import (
+    InputNormalization,
     combine_gaussian_statistics,
     combine_gaussian_statistics_distributed,
     gaussian_statistics,
+    make_padding_mask,
 )
+
+
+class TestInputNormalization:
+    """Test suite for the InputNormalization class."""
+
+    @pytest.fixture
+    def sample_data(self):
+        """Create sample data for testing."""
+        # Create a batch of 2 sequences with 3 features and variable lengths
+        x = torch.arange(4 * 4 * 3, dtype=torch.float32).view(4, 4, 3) + 1
+
+        # Relative lengths: first has 100%, second 75%, third 50%, last 25%
+        lengths = torch.tensor([0.25, 0.5, 0.75, 1.0], dtype=torch.float32)
+
+        # Mask of the input tensor based on the lengths
+        mask = torch.triu(torch.ones(4, 4)).transpose(0, 1).bool()
+        mask = mask.unsqueeze(-1).expand_as(x)
+
+        return x, lengths, mask
+
+    def test_constructor_defaults(self):
+        """Test constructor with default parameters."""
+        norm = InputNormalization()
+        assert norm.std_norm is True
+        assert norm.norm_type == "global"
+        assert norm.update_until_epoch == 2
+        assert norm.avoid_padding_norm is False
+        assert norm.epsilon == 1e-10
+        assert norm.length_dim == 1
+
+    def test_invalid_norm_type(self):
+        """Test that invalid norm_type raises an error."""
+        with pytest.raises(ValueError):
+            InputNormalization(norm_type="invalid")
+
+    def test_sentence_normalization(self, sample_data):
+        """Test sentence-level normalization."""
+        x, lengths, mask = sample_data
+        norm = InputNormalization(norm_type="sentence", avoid_padding_norm=True)
+
+        # Manual calculation for comparison
+        mean, std = reference_sentence_norm(x, mask, avoid_padding_norm=True)
+        expected = (x - mean) / std
+
+        # Apply sentence normalization
+        output = norm(x, lengths)
+
+        # Check if output matches expected values where not padding
+        assert torch.allclose(output[mask], expected[mask], atol=1e-5)
+
+        # Check if padding values are preserved properly
+        assert torch.allclose(output[~mask], x[~mask], atol=1e-5)
+
+    def test_batch_normalization(self, sample_data):
+        """Test batch-level normalization."""
+        x, lengths, mask = sample_data
+        norm = InputNormalization(norm_type="batch", avoid_padding_norm=True)
+
+        # Padding Mask is slightly different format (singletons for non-dims)
+        padding_mask = make_padding_mask(x, lengths)
+        _, mean, var = reference_gaussian_statistics(
+            x.numpy(), (0, 1), padding_mask.numpy()
+        )
+        mean = torch.FloatTensor(mean).expand_as(x).masked_fill(~mask, 0.0)
+        var = torch.FloatTensor(var).expand_as(x).masked_fill(~mask, 1.0)
+        expected = (x - mean) / var.clamp(min=1e-8).sqrt()
+
+        # Apply normalization
+        output = norm(x, lengths)
+
+        # print(output)
+        # print(expected)
+
+        # Check normalization was applied correctly to non-padding values
+        assert torch.allclose(output[mask], expected[mask], atol=1e-3)
+
+        # Check if padding values are preserved properly
+        assert torch.allclose(output[~mask], x[~mask], atol=1e-5)
+
+    def test_global_normalization_updates(self, sample_data):
+        """Test global normalization with statistics updates."""
+        x, lengths, mask = sample_data
+        norm = InputNormalization(norm_type="global")
+
+        # Apply normalization multiple times to accumulate statistics
+        # First call (epoch 0)
+        output1 = norm(x, lengths, epoch=0)
+
+        # Second call (epoch 0) with different data
+        x2 = x + 1.0  # Shift data by 1
+        _ = norm(x2, lengths, epoch=0)
+
+        # Third call (epoch 0) with original data
+        output3 = norm(x, lengths, epoch=0)
+
+        # Check that mean and variance have been updated
+        # The running stats should be somewhere between the original x and x2
+        valid_values1 = output1[mask]
+        valid_values3 = output3[mask]
+
+        # Since we've seen the same pattern twice and the shifted pattern once,
+        # the normalized output should be different for the same input
+        assert not torch.allclose(valid_values1, valid_values3, atol=0.01)
+
+        # Check that after many trials, the overall stats match the tensor stats
+        for i in range(1000):
+            _ = norm(x, lengths)
+
+        padding_mask = make_padding_mask(x, lengths)
+        _, mean, var = reference_gaussian_statistics(
+            x.numpy(), (0, 1), padding_mask.numpy()
+        )
+        assert torch.allclose(
+            norm.glob_mean, torch.FloatTensor(mean), atol=1e-3
+        )
+        assert torch.allclose(
+            norm.glob_std, torch.FloatTensor(var).sqrt(), atol=1e-2
+        )
+
+    def test_global_normalization_stops_updates(self, sample_data):
+        """Test that global normalization stops updates after specified epoch."""
+        x, lengths, mask = sample_data
+        norm = InputNormalization(norm_type="global", update_until_epoch=2)
+
+        # First call (epoch 0) - should update statistics
+        _ = norm(x, lengths, epoch=0)
+
+        # Save statistics after first epoch
+        saved_mean = norm.glob_mean.clone()
+        saved_std = norm.glob_std.clone()
+        saved_count = norm.count
+
+        # Second call (epoch 1) - should update statistics
+        x2 = x + 2.0  # Shift data by 2
+        _ = norm(x2, lengths, epoch=1)
+
+        # Check that statistics have been updated
+        assert not torch.allclose(saved_mean, norm.glob_mean, atol=1e-5)
+        assert not torch.allclose(saved_std, norm.glob_std, atol=1e-5)
+
+        # Save statistics after second input
+        saved_mean = norm.glob_mean.clone()
+        saved_std = norm.glob_std.clone()
+        saved_count = norm.count
+
+        # Third call (epoch 2) - should not update statistics
+        x3 = x + 4.0  # Shift data by 4
+        _ = norm(x3, lengths, epoch=2)
+
+        # Check that statistics have not been updated
+        assert torch.allclose(saved_mean, norm.glob_mean, atol=1e-5)
+        assert torch.allclose(saved_std, norm.glob_std, atol=1e-5)
+        assert saved_count == norm.count
+
+    def test_no_std_normalization(self, sample_data):
+        """Test normalization with std_norm=False."""
+        x, lengths, mask = sample_data
+        norm = InputNormalization(norm_type="global", std_norm=False)
+
+        # Apply normalization
+        output = norm(x, lengths)
+
+        # Check that mean normalization was applied but std normalization wasn't
+        assert torch.allclose(output[mask].mean(), torch.zeros(1), atol=1e-5)
+        assert not torch.allclose(output[mask].std(), torch.ones(1), atol=0.1)
+
+    def test_save_load(self, tmp_path, sample_data):
+        """Test save and load functionality."""
+        x, lengths, mask = sample_data
+        norm = InputNormalization(norm_type="global")
+
+        # Train the normalizer with multiple batches
+        _ = norm(x, lengths, epoch=0)
+        _ = norm(x + 1.0, lengths, epoch=0)
+
+        # Save the statistics
+        save_path = tmp_path / "norm_stats.pt"
+        norm._save(save_path)
+
+        # Create a new normalizer and load the statistics
+        new_norm = InputNormalization(norm_type="global")
+        new_norm._load(save_path)
+
+        # Check that the loaded statistics match
+        assert torch.allclose(norm.glob_mean, new_norm.glob_mean)
+        assert torch.allclose(norm.glob_std, new_norm.glob_std)
+        assert norm.count == new_norm.count
+
+        # Ensure both normalizers produce the same output
+        output1 = norm(
+            x, lengths, epoch=3
+        )  # Beyond update epoch to avoid stats change
+        output2 = new_norm(x, lengths, epoch=3)
+        assert torch.allclose(output1, output2)
+
+    def test_to_device(self, sample_data):
+        """Test moving the normalizer to a different device."""
+        if not torch.cuda.is_available():
+            pytest.skip("CUDA not available")
+
+        x, lengths, mask = sample_data
+        norm = InputNormalization(norm_type="global")
+
+        # Update statistics
+        _ = norm(x, lengths)
+
+        # Move to GPU
+        norm = norm.to("cuda")
+
+        # Check that tensors are on the right device
+        assert norm.glob_mean.device.type == "cuda"
+        assert norm.glob_std.device.type == "cuda"
+
+        # Test on GPU
+        x_cuda = x.to("cuda")
+        lengths_cuda = lengths.to("cuda")
+        output = norm(x_cuda, lengths_cuda)
+
+        # Check output is on the right device
+        assert output.device.type == "cuda"
+
+
+def reference_sentence_norm(x, mask, avoid_padding_norm=True):
+    """Compute reference sentence norm"""
+    n = mask.sum(dim=1, keepdim=True)
+    mean = (x * mask).sum(dim=1, keepdim=True) / n
+    var = ((x - mean) * mask).square().sum(dim=1, keepdim=True) / n
+    if avoid_padding_norm:
+        var = var.masked_fill(~mask, 1.0)
+        mean = mean.masked_fill(~mask, 0.0)
+
+    return mean, var.clamp(min=1e-8).sqrt()
+
+
+# Utility tests for the helper functions
+def test_make_padding_mask():
+    """Test the make_padding_mask function."""
+
+    # Create a batch of sequences
+    x = torch.ones(3, 4, 2)  # Batch size 3, seq len 4, feature dim 2
+
+    # Relative lengths: 100%, 75%, 50%
+    lengths = torch.tensor([1.0, 0.75, 0.5])
+
+    # Get mask
+    mask = make_padding_mask(x, lengths, length_dim=1)
+
+    # Expected mask:
+    # First sequence: all True
+    # Second sequence: first 3 True, last False
+    # Third sequence: first 2 True, last 2 False
+    # Last dimension is singleton, can be broadcast to apply mask
+    expected_mask = torch.tensor(
+        [
+            [[True], [True], [True], [True]],
+            [[True], [True], [True], [False]],
+            [[True], [True], [False], [False]],
+        ]
+    )
+
+    assert torch.equal(mask, expected_mask)
+
+    # Test for potential rounding error
+    x = torch.ones(22, 22)
+    lengths = (torch.arange(22) + 1) / 22
+    mask = make_padding_mask(x, lengths, length_dim=1)
+    expected_mask = torch.triu(torch.ones(22, 22)).transpose(0, 1).bool()
+
+    assert torch.equal(mask, expected_mask)
 
 
 def normalise_dimensions(
