@@ -21,3 +21,11 @@ skip = "./tests/tmp,./**/result,*.csv,*train.txt,*test.txt"
 profile = "black"
 line_length = 80
 filter_files = true
+
+[tool.pyright]
+include = ["speechbrain", "tests", "tools"]
+
+reportMissingImports = "error"
+reportMissingTypeStubs = false
+
+pythonVersion = "3.9"

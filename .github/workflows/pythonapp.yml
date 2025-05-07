@@ -33,6 +33,9 @@ jobs:
                   uv pip install --system ctc-segmentation sacrebleu # ctc-segmentation is funky with uv due to their oldest-supported-numpy dependency
                   uv pip install --system -r requirements.txt torch==2.6.0+cpu torchaudio==2.6.0+cpu --extra-index-url https://download.pytorch.org/whl/cpu k2==1.24.4.dev20250307+cpu.torch2.6.0 --find-links https://k2-fsa.github.io/k2/cpu.html gensim==4.3.2 bitsandbytes==0.45.3 scikit-learn==1.6.1 accelerate
                   uv pip install --system --editable . --no-deps  # already installed pinned deps from requirements.txt, we're good
+                  # Fix version of Pyright for consistency.
+                  # Some later versions may not be compatible with Python 3.8.
+                  uv pip install --system pyright==1.1.389
             - name: Install sox
               run: |
                   sudo apt-get update
@@ -45,6 +48,10 @@ jobs:
             #      sudo apt-get install -y ffmpeg
             - name: Display Python version
               run: python -c "import sys; print(sys.version)"
+            - name: Type-check general code with Pyright
+              if: success() || failure()
+              run: |
+                  pyright
             - name: Consistency tests with pytest
               run: |
                   pytest tests/consistency
