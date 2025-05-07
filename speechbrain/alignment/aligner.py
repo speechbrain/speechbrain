@@ -739,7 +739,7 @@ class HMMAligner(torch.nn.Module):
             )
             v_matrix[:, :, t] = x + emiss_pred_useful[:, :, t]
 
-            backpointers[:, :, t] = argmax.type(torch.FloatTensor)
+            backpointers[:, :, t] = argmax.type(dtype=torch.float32)
 
         z_stars = []
         z_stars_loc = []
