@@ -1712,7 +1712,7 @@ class VariationalAutoencoderLoss(nn.Module):
     def _compute_components(self, predictions, targets):
         rec, _, mean, log_var, _, _ = predictions
         rec_loss = self._align_length_axis(
-            self.rec_loss(targets, rec, reduction=None)
+            self.rec_loss(targets, rec, reduction="none")
         )
         dist_loss = self._align_length_axis(
             -0.5 * (1 + log_var - mean**2 - log_var.exp())
@@ -1785,7 +1785,7 @@ class AutoencoderLoss(nn.Module):
         The computed loss.
         """
         rec_loss = self._align_length_axis(
-            self.rec_loss(targets, predictions.rec, reduction=None)
+            self.rec_loss(targets, predictions.rec, reduction="none")
         )
         return _reduce_autoencoder_loss(rec_loss, length, reduction)
 
