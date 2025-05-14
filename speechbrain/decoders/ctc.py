@@ -619,7 +619,7 @@ class CTCBaseSearcher(torch.nn.Module):
         vocab_list: List[str],
         space_token: str = " ",
         kenlm_model_path: Union[None, str] = None,
-        unigrams: Union[None, List[str]] = None,
+        unigrams: Union[None, list[str], set[str]] = None,
         alpha: float = 0.5,
         beta: float = 1.5,
         unk_score_offset: float = -10.0,
@@ -1845,13 +1845,15 @@ class CTCPrefixBeamSearcher(CTCBaseSearcher):
 
                     # blank case
                     if token_index == self.blank_index:
-                        beam.n_p_b = np.logaddexp(
-                            beam.n_p_b, beam.score_ctc + p_token
+                        beam.n_p_b = float(
+                            np.logaddexp(beam.n_p_b, beam.score_ctc + p_token)
                         )
                         continue
 
                     if token == beam.last_token:
-                        beam.n_p_nb = np.logaddexp(beam.n_p_nb, p_nb + p_token)
+                        beam.n_p_nb = float(
+                            np.logaddexp(beam.n_p_nb, p_nb + p_token)
+                        )
 
                     new_text = beam.text + token
 
@@ -1871,7 +1873,7 @@ class CTCPrefixBeamSearcher(CTCBaseSearcher):
                         n_p_nb = np.logaddexp(n_p_nb, p_b + p_token)
                     elif token_index != beam.last_token_index:
                         n_p_nb = np.logaddexp(n_p_nb, beam.score_ctc + p_token)
-                    new_beam.n_p_nb = n_p_nb
+                    new_beam.n_p_nb = float(n_p_nb)
 
             # update the CTC probabilities
             for beam in beams:
