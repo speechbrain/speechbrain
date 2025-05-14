@@ -301,14 +301,14 @@ class ConcatDatasetBatchSampler(Sampler):
             yield tot_batch
             tot_batch = []
 
-    def __len__(self):
+    def __len__(self) -> int:
 
         min_len = float("inf")
         for idx, sampler in enumerate(self.samplers):
             c_len = len(sampler) // self.batch_sizes[idx]
             min_len = min(c_len, min_len)
 
-        return min_len
+        return int(min_len)
 
 
 class DynamicBatchSampler(Sampler):
