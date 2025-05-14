@@ -128,7 +128,7 @@ class MultiProcessLoggerAdapter(logging.LoggerAdapter):
                 self.logger.log(level, msg, *args, **kwargs)
 
     @functools.lru_cache(None)
-    def warning_once(self, *args: tuple, **kwargs: dict):
+    def warning_once(self, *args: tuple, **kwargs):
         r"""
         Logs a warning message only once by using caching to prevent duplicate warnings.
 

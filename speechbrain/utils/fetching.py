@@ -174,7 +174,7 @@ def link_with_strategy(
     )
 
 
-def guess_source(source: Union[str, FetchSource]) -> FetchSource:
+def guess_source(source: Union[str, FetchSource]) -> tuple[FetchFrom, str]:
     """From a given `FetchSource` or string source identifier, attempts to guess
     the matching :class:`~FetchFrom` (e.g. local or URI).
 

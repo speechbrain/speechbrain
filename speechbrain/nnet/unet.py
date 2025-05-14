@@ -32,6 +32,7 @@ Authors
 
 import math
 from abc import abstractmethod
+from typing import Optional
 
 import torch
 import torch.nn as nn
@@ -170,7 +171,7 @@ class AttentionPool2d(nn.Module):
         spatial_dim: int,
         embed_dim: int,
         num_heads_channels: int,
-        output_dim: int = None,
+        output_dim: Optional[int] = None,
     ):
         super().__init__()
         self.positional_embedding = nn.Parameter(

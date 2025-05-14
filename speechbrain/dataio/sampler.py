@@ -13,7 +13,7 @@ Authors:
 
 from collections import Counter
 from operator import itemgetter
-from typing import List
+from typing import List, Optional, Union
 
 import numpy as np
 import torch
@@ -242,7 +242,9 @@ class ConcatDatasetBatchSampler(Sampler):
     ...         assert data_point[i] in [x for x in range(10, 40)]
     """
 
-    def __init__(self, samplers, batch_sizes: (tuple, list), epoch=0) -> None:
+    def __init__(
+        self, samplers, batch_sizes: Union[tuple, list], epoch=0
+    ) -> None:
 
         if not isinstance(samplers, (list, tuple)):
             raise ValueError(
@@ -423,13 +425,13 @@ class DynamicBatchSampler(Sampler):
         self,
         dataset,
         max_batch_length: int,
-        num_buckets: int = None,
+        num_buckets: Optional[int] = None,
         length_func=lambda x: x["duration"],
         shuffle: bool = True,
         batch_ordering: str = "random",
-        max_batch_ex: int = None,
+        max_batch_ex: Optional[int] = None,
         bucket_boundaries: List[int] = [],
-        lengths_list: List[int] = None,
+        lengths_list: Optional[list[int]] = None,
         seed: int = 42,
         epoch: int = 0,
         drop_last: bool = False,
