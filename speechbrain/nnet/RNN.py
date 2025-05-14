@@ -8,7 +8,7 @@ Authors
  * Loren Lugosch 2020
 """
 
-from typing import Optional, Tuple
+from typing import Optional
 
 import torch
 import torch.nn as nn
@@ -1949,7 +1949,7 @@ class QuasiRNNLayer(torch.nn.Module):
 
     def split_gate_inputs(
         self, y: torch.Tensor
-    ) -> Tuple[torch.Tensor, torch.Tensor, Optional[torch.Tensor]]:
+    ) -> tuple[torch.Tensor, torch.Tensor, Optional[torch.Tensor]]:
         """Splits the input gates."""
         if self.output_gate:
             z, f, o = y.chunk(3, dim=-1)
