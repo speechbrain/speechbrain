@@ -29,21 +29,24 @@ class GraphCompiler(abc.ABC):
     This abstract class is used to compile graphs for training and decoding.
     """
 
-    @abc.abstractproperty
+    @property
+    @abc.abstractmethod
     def topo(self) -> k2.Fsa:
         """
         Return the topology used to compile the graph.
         """
         pass
 
-    @abc.abstractproperty
+    @property
+    @abc.abstractmethod
     def lexicon(self) -> lexicon.Lexicon:
         """
         Return the lexicon used to compile the graph.
         """
         pass
 
-    @abc.abstractproperty
+    @property
+    @abc.abstractmethod
     def device(self):
         """
         Return the device used to compile the graph.
