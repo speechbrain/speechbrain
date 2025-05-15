@@ -694,20 +694,28 @@ class IterativeCSVWriter:
             Supply certain fields by key. The ID field is mandatory for all
             lines, but others can be left empty.
         """
-        if args and kwargs:
-            raise ValueError(
-                "Use either positional fields or named fields, but not both."
-            )
         if args:
             if len(args) != len(self.fields):
                 raise ValueError("Need consistent fields")
             to_write = [str(arg) for arg in args]
-        if kwargs:
-            if "ID" not in kwargs:
-                raise ValueError("I'll need to see some ID")
-            full_vals = self.defaults.copy()
-            full_vals.update(kwargs)
-            to_write = [str(full_vals.get(field, "")) for field in self.fields]
+            if kwargs:
+                raise ValueError(
+                    "Use either positional fields or named fields, "
+                    "but not both."
+                )
+        else:
+            if kwargs:
+                if "ID" not in kwargs:
+                    raise ValueError("I'll need to see some ID")
+                full_vals = self.defaults.copy()
+                full_vals.update(kwargs)
+                to_write = [
+                    str(full_vals.get(field, "")) for field in self.fields
+                ]
+            else:
+                raise ValueError(
+                    "Use either positional fields or named fields."
+                )
         self._outstream.write("\n")
         self._outstream.write(",".join(to_write))
 
