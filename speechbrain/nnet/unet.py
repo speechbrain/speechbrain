@@ -1341,7 +1341,7 @@ class EncoderUNetModel(nn.Module):
         h = self.middle_block(h, emb)
         if self.spatial_pooling:
             results.append(h.type(x.dtype).mean(dim=(2, 3)))
-            h = torch.cat(results, axis=-1)
+            h = torch.cat(results, dim=-1)
             return self.out(h)
         else:
             h = h.type(x.dtype)

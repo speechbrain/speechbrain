@@ -151,7 +151,7 @@ class SpeechTokenizer(nn.Module):
         ]  # Contain timbre info, complete info lost by the first quantizer
 
         # Concatenating semantic tokens (RVQ_1) and supplementary timbre tokens and then decoding
-        wav = self.model.decode(torch.cat([RVQ_1, RVQ_supplement], axis=0))
+        wav = self.model.decode(torch.cat([RVQ_1, RVQ_supplement], dim=0))
 
         # Decoding from RVQ-i:j tokens from the ith quantizers to the jth quantizers
         # wav = self.model.decode(codes[i: (j + 1)], st=i)
