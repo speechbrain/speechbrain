@@ -602,6 +602,7 @@ class Scores:
         ch += self.scoremask.__repr__() + "\n"
         ch += "scoremat:\n"
         ch += self.scoremat.__repr__() + "\n"
+        return ch
 
 
 ## PLDA and LDA functionalities starts here
