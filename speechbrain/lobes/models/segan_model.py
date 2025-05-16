@@ -240,7 +240,7 @@ def g3_loss(
             ZERO, torch.exp(ZERO) ** (1 / 2)
         )
         kl = torch.distributions.kl.kl_divergence(distq, distp)
-        kl = kl.sum(axis=1).sum(axis=1).mean()
+        kl = kl.sum(dim=1).sum(dim=1).mean()
     else:
         kl = 0
     if reduction == "mean":

@@ -310,10 +310,10 @@ def read_pkl(file, data_options={}, lab2ind=None):
     tensor_type = tensor.dtype
 
     # Conversion to 32 bit (if needed)
-    if tensor_type == "float64":
-        tensor = tensor.astype("float32")
+    if tensor_type == torch.float64:
+        tensor = tensor.to(torch.float32)
 
-    if tensor_type == "int64":
-        tensor = tensor.astype("int32")
+    if tensor_type == torch.int64:
+        tensor = tensor.to(torch.int32)
 
     return tensor

@@ -97,7 +97,7 @@ class S2UT(sb.core.Brain):
                         wav = self.test_vocoder.decode_unit(code.unsqueeze(-1))
                         wavs.append(wav.squeeze(0))
                     else:
-                        logger.warn(
+                        logger.warning(
                             f"Encountered hyp {hyp} too short for decoding, using fake blank audio for testing"
                         )
                         wavs.append(torch.zeros(40000))  # on cpu device
