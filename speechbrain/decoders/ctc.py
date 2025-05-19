@@ -452,7 +452,7 @@ class CTCBeam:
     score_ctc: float = -math.inf
 
     @classmethod
-    def from_lm_beam(self, lm_beam: "LMCTCBeam") -> "CTCBeam":
+    def from_lm_beam(cls, lm_beam: "LMCTCBeam") -> "CTCBeam":
         """Create a CTCBeam from a LMCTCBeam
 
         Arguments
