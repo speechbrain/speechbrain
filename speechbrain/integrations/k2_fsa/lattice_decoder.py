@@ -270,7 +270,7 @@ def get_lattice(
     device = log_probs_nnet_output.device
     input_lens = input_lens.to(device)
     if decoder.device != device:
-        logger.warn(
+        logger.warning(
             "Decoding graph (HL or HLG) not loaded on the same device"
             "  as nnet, this will cause decoding speed degradation"
         )

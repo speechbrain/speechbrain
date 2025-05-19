@@ -16,7 +16,7 @@ from time import time
 from hyperpyyaml import load_hyperpyyaml
 
 from speechbrain.utils.data_utils import download_file  # noqa: F401
-from speechbrain.utils.logger import get_logger
+from speechbrain.utils.logger import get_logger, setup_logging
 
 __skip_list = ["README.md", "setup"]
 
@@ -476,6 +476,8 @@ def run_recipe_tests(
     -------
     python -c 'from speechbrain.utils.recipe_tests import run_recipe_tests; print("TEST FAILED!") if not(run_recipe_tests(filters_fields=["Dataset", "Task"], filters=[["AISHELL-1", "CommonVoice"], "SSL"])) else print("TEST PASSED")'
     """
+    setup_logging()
+
     # Create the output folder (where the tests results will be saved)
     os.makedirs(output_folder, exist_ok=True)
     logger.info("Test outputs will be put in %s", output_folder)

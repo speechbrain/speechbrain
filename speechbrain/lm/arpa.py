@@ -325,6 +325,11 @@ def arpa_to_fst(
             "Install using `pip install kaldilm`."
         )
 
+    if isinstance(out_fst, str):
+        out_fst = Path(out_fst)
+    if isinstance(in_arpa, str):
+        in_arpa = Path(in_arpa)
+
     if cache and out_fst.exists():
         return
     if not in_arpa.exists():

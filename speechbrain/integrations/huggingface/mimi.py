@@ -70,7 +70,7 @@ class Mimi(HFTransformersInterface):
     def __init__(
         self,
         source,
-        save_path=None,
+        save_path,
         sample_rate=24000,
         freeze=True,
         num_codebooks=8,
@@ -78,8 +78,8 @@ class Mimi(HFTransformersInterface):
 
         super().__init__(source=source, save_path=save_path, freeze=freeze)
         self.num_codebooks = num_codebooks
-        self.sampling_rate = sample_rate
-        self.embeddings = self._compute_embedding()
+        self.sample_rate = sample_rate
+        self.embeddings = None
 
     @torch.no_grad()
     def _compute_embedding(self):
@@ -115,6 +115,7 @@ class Mimi(HFTransformersInterface):
         audio : torch.Tensor
             the reconstructed audio
         """
+
         tokens, embedding = self.encode(inputs, length)
         audio = self.decode(tokens, length)
 
@@ -139,6 +140,9 @@ class Mimi(HFTransformersInterface):
             Raw vector embeddings from the model's
             quantizers
         """
+        if self.embeddings is None:
+            self.embeddings = self._compute_embedding()
+
         if inputs.dim() == 2:
             inputs = inputs.unsqueeze(1)
         max_len = inputs.size(-1)
@@ -178,6 +182,9 @@ class Mimi(HFTransformersInterface):
         audio : torch.Tensor
             the reconstructed audio
         """
+        if self.embeddings is None:
+            self.embeddings = self._compute_embedding()
+
         result = self.model.decode(tokens)
         audio = result.audio_values
         if length is not None:

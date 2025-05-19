@@ -256,10 +256,10 @@ def format_order_of_magnitude(number, abbreviate=True):
     """
     style = ORDERS_ABBREV if abbreviate else ORDERS_WORDS
     precision = "{num:3.1f}"
-    order = 3 * math.floor(math.log(math.fabs(number), 1000))
+    order = 3 * int(math.floor(math.log(math.fabs(number), 1000)))
     # Fallback for very large numbers:
     while order not in style and order != 0:
-        order = order - math.copysign(3, order)  # Bring 3 units towards 0
+        order = order - int(math.copysign(3, order))  # Bring 3 units towards 0
     order_token = style[order]
     if order != 0:
         formatted_number = precision.format(num=number / 10**order)

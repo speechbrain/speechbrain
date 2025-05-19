@@ -536,6 +536,14 @@ def bce_loss(
         inputs, targets = truncate(inputs, targets, allowed_len_diff)
     elif length is not None:
         raise ValueError("length can be passed only for >= 2D inputs.")
+    else:
+        # In 1-dimensional case, add singleton dimension for time
+        # so that we don't run into errors with the time-masked loss
+        inputs, targets = inputs.unsqueeze(-1), targets.unsqueeze(-1)
+
+    # input / target cannot be 1D so bump weight up to match
+    if weight is not None and weight.dim() == 1:
+        weight = weight.unsqueeze(-1)
 
     # Pass the loss function but apply reduction="none" first
     loss = functools.partial(
@@ -1704,7 +1712,7 @@ class VariationalAutoencoderLoss(nn.Module):
     def _compute_components(self, predictions, targets):
         rec, _, mean, log_var, _, _ = predictions
         rec_loss = self._align_length_axis(
-            self.rec_loss(targets, rec, reduction=None)
+            self.rec_loss(targets, rec, reduction="none")
         )
         dist_loss = self._align_length_axis(
             -0.5 * (1 + log_var - mean**2 - log_var.exp())
@@ -1777,7 +1785,7 @@ class AutoencoderLoss(nn.Module):
         The computed loss.
         """
         rec_loss = self._align_length_axis(
-            self.rec_loss(targets, predictions.rec, reduction=None)
+            self.rec_loss(targets, predictions.rec, reduction="none")
         )
         return _reduce_autoencoder_loss(rec_loss, length, reduction)
 
