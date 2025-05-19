@@ -1,8 +1,14 @@
+"""Tests for NLP integrations
+
+Authors
+ * Titouan Parcollet (2025)
+"""
+
 import math
 
 
 def test_bleu(device):
-    # Test if our bleu metric stats gives same results than sacrebleu
+    """Test if our bleu metric stats gives the same results as sacrebleu"""
 
     from sacrebleu.metrics import BLEU
 
