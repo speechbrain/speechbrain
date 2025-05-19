@@ -19,7 +19,7 @@ from enum import Enum, auto
 import torch
 from hyperpyyaml import load_hyperpyyaml
 from torch.utils.data import DataLoader
-from tqdm.contrib import tqdm
+from tqdm import tqdm
 
 import speechbrain as sb
 
