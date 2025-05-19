@@ -63,7 +63,7 @@ class LLaMA(HFTransformersInterface):
         freeze: bool = False,
         pad_token: str = "[PAD]",
         torch_dtype: torch.dtype = torch.float16,
-        **kwargs: dict,
+        **kwargs,
     ) -> None:
         self.pad_token = pad_token
         self.source = source
@@ -93,7 +93,7 @@ class LLaMA(HFTransformersInterface):
             len(self.tokenizer), pad_to_multiple_of=8
         )
 
-    def forward(self, **kwargs: dict):
+    def forward(self, **kwargs):
         """This function wraps the HuggingFace forward function. See the HuggingFace documentation of your Llama model of interest to know which
         parameters to pass, typically the input tokens or embeddings and attention masks.
 
@@ -110,7 +110,7 @@ class LLaMA(HFTransformersInterface):
 
         return self.model(**kwargs)
 
-    def generate(self, **kwargs: dict):
+    def generate(self, **kwargs):
         """This function wraps the HuggingFace generate function. See the HuggingFace documentation of your Llama model of interest to know which
         parameters to pass, typically the input tokens or embeddings, attention masks and a transformers.GenerationConfig.
 

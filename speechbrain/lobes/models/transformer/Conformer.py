@@ -451,7 +451,7 @@ class ConformerEncoderLayer(nn.Module):
         x,
         src_mask: Optional[torch.Tensor] = None,
         src_key_padding_mask: Optional[torch.Tensor] = None,
-        pos_embs: torch.Tensor = None,
+        pos_embs: Optional[torch.Tensor] = None,
         dynchunktrain_config: Optional[DynChunkTrainConfig] = None,
     ):
         """
@@ -500,7 +500,7 @@ class ConformerEncoderLayer(nn.Module):
         self,
         x,
         context: ConformerEncoderLayerStreamingContext,
-        pos_embs: torch.Tensor = None,
+        pos_embs: Optional[torch.Tensor] = None,
     ):
         """Conformer layer streaming forward (typically for
         DynamicChunkTraining-trained models), which is to be used at inference

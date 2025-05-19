@@ -77,7 +77,7 @@ class Lexicon(object):
 
     def __init__(
         self,
-        lang_dir: Path,
+        lang_dir: Union[str, Path],
     ):
         self.lang_dir = lang_dir = Path(lang_dir)
         self.token_table = k2.SymbolTable.from_file(lang_dir / "tokens.txt")
