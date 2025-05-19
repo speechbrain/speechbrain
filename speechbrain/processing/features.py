@@ -1545,7 +1545,7 @@ class InputNormalization(torch.nn.Module):
         self._load_statistics_dict(stats)
 
 
-def make_padding_mask(x, lengths=None, length_dim=1, eps=1e-5):
+def make_padding_mask(x, lengths=None, length_dim=1, eps=1e-6):
     """Create a mask from relative lengths along a given dimension.
 
     Arguments
