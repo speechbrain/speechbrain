@@ -27,7 +27,7 @@ logger = get_logger(__name__)
 
 warnings.warn(
     message="speechbrain.utils.kmeans is deprecated in favor of "
-    "speechbrain.integrations.discrete.kmeans and will be removed in a future version",
+    "speechbrain.integrations.audio_tokenizers.kmeans and will be removed in a future version",
     category=DeprecationWarning,
     stacklevel=2,
 )

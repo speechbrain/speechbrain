@@ -20,6 +20,7 @@ collect_ignore = [
     "speechbrain/decoders/language_model.py",
     "speechbrain/alignment/ctc_segmentation.py",
     "speechbrain/lobes/models/fairseq_wav2vec.py",
+    "speechbrain/lobes/models/kmeans.py",
 ]
 try:
     import numba  # noqa: F401

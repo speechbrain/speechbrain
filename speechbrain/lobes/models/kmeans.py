@@ -2,10 +2,10 @@
 
 import warnings
 
-from speechbrain.integrations.discrete.kmeans import *  # noqa: F401, F403
+from speechbrain.integrations.audio_tokenizers.kmeans import *  # noqa: F401, F403
 
 warnings.warn(
-    message="speechbrain.lobes.models.kmeans has moved to speechbrain.integrations.discrete.kmeans",
+    message="speechbrain.lobes.models.kmeans has moved to speechbrain.integrations.audio_tokenizers.kmeans",
     category=DeprecationWarning,
     stacklevel=2,
 )
