@@ -375,9 +375,9 @@ def generate_lengths_optional_max_length(
 
 def test_length_to_mask(device):
     """
-    Test speechbrain.dataio.dataio.length_to_mask.
-    length_to_mask takes integer lengths and an optional max_length.
-    It also takes an explicit dtype and device.
+    Test :func:`~speechbrain.lobes.models.transformer.Transformer.get_mask_from_lengths`. 
+    The function `get_mask_from_lengths` takes integer `lengths` and an optional `max_length`. 
+    It always returns a boolean mask tensor.
     """
     from speechbrain.dataio.dataio import length_to_mask
 
@@ -411,9 +411,9 @@ def test_length_to_mask(device):
 
 def test_get_mask_from_lengths(device):
     """
-    Test speechbrain.lobes.models.transformer.Transformer.get_mask_from_lengths.
-    get_mask_from_lengths takes integer lengths and an optional max_length.
-    It always returns a boolean tensor.
+    Test :func:`~speechbrain.lobes.models.transformer.Transformer.get_mask_from_lengths`.
+    The function `get_mask_from_lengths` takes integer `lengths` and an optional `max_length`. 
+    It always returns a boolean mask tensor.
     """
     from speechbrain.lobes.models.transformer.Transformer import (
         get_mask_from_lengths,
@@ -446,9 +446,9 @@ def test_get_mask_from_lengths(device):
 
 def test_get_mask(device):
     """
-    Test speechbrain.nnet.losses.get_mask.
-    get_mask takes a single-dimensional lengths tensor with integer lengths.
-    It also takes a data tensor [T, B, C] from which the device and dtype are
+    Test :func:`~speechbrain.nnet.losses.get_mask`.
+    The function `get_mask` takes a single-dimensional lengths tensor with integer lengths.
+    It also takes a data tensor `[T, B, C]` from which the device and dtype are
     taken (not from the length tensor!).
     The features are at 1s and the padding at 0s.
     """
@@ -491,9 +491,9 @@ def test_get_mask(device):
 
 def test_compute_length_mask(device):
     """
-    Test speechbrain.nnet.losses.compute_length_mask.
-    compute_length_mask adds an extra dimension to the mask so it matches the
-    data shape.
+    Test :func:`~speechbrain.nnet.losses.compute_length_mask`.
+    The function `compute_length_mask` adds an extra dimension to the mask so it 
+    matches the data shape.
     The result has the same dtype as the data.
     """
     from speechbrain.nnet.losses import compute_length_mask
@@ -556,12 +556,12 @@ def test_compute_length_mask(device):
 
 def test_make_padding_mask(device):
     """
-    Test speechbrain.processing.features.make_padding_mask.
-    make_padding_mask takes fractional lengths between 0 and 1.
+    Test :func:`~speechbrain.processing.features.make_padding_mask`.
+    The function `make_padding_mask` takes fractional lengths between `0` and `1`.
     It always rounds the number of elements up.
-    It adds a new dimension with length 1 for the length, so that if the tensor
+    It adds a new dimension with length `1` for the length, so that if the tensor
     with features is the right shape, it can be multiplied straight away.
-    The result always has dtype bool.
+    The result always has dtype `bool`.
     """
     from speechbrain.processing.features import make_padding_mask
 
