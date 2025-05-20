@@ -176,16 +176,16 @@ class CTCSegmentation:
 
     Example
     -------
-        >>> # using example file included in the SpeechBrain repository
-        >>> from speechbrain.inference.ASR import EncoderDecoderASR
-        >>> # load an ASR model
-        >>> pre_trained = "speechbrain/asr-transformer-transformerlm-librispeech"
-        >>> asr_model = EncoderDecoderASR.from_hparams(source=pre_trained)  # doctest: +SKIP
-        >>> aligner = CTCSegmentation(asr_model, kaldi_style_text=False)  # doctest: +SKIP
-        >>> # load data
-        >>> audio_path = "tests/samples/single-mic/example1.wav"
-        >>> text = ["THE BIRCH CANOE", "SLID ON THE", "SMOOTH PLANKS"]
-        >>> segments = aligner(audio_path, text, name="example1")  # doctest: +SKIP
+    >>> # using example file included in the SpeechBrain repository
+    >>> from speechbrain.inference.ASR import EncoderDecoderASR
+    >>> # load an ASR model
+    >>> pre_trained = "speechbrain/asr-transformer-transformerlm-librispeech"
+    >>> asr_model = EncoderDecoderASR.from_hparams(source=pre_trained)
+    >>> aligner = CTCSegmentation(asr_model, kaldi_style_text=False)
+    >>> # load data
+    >>> audio_path = "tests/samples/single-mic/example1.wav"
+    >>> text = ["THE BIRCH CANOE", "SLID ON THE", "SMOOTH PLANKS"]
+    >>> segments = aligner(audio_path, text, name="example1")
 
     On multiprocessing
     ------------------

@@ -81,6 +81,20 @@ def write_ders_file(ref_rttm, DER, out_der_file):
         Array containing DER values of each recording.
     out_der_file : str
         File to write the DERs.
+
+    Example
+    -------
+    >>> rttm_file = getfixture("tmpdir").join("testfile.rttm")
+    >>> der_file = getfixture("tmpdir").join("der.txt")
+    >>> segs_list = [["recording_0", 0.0, 1.0, "speaker_0"]]
+    >>> write_rttm(segs_list, rttm_file)
+    >>> rttm = read_rttm(rttm_file)
+    >>> print(rttm)
+    ['SPEAKER recording_0 0 0.0 1.0 <NA> <NA> speaker_0 <NA> <NA>']
+    >>> write_ders_file(rttm_file, [23.5], der_file)
+    >>> der_text = der_file.read()
+    >>> print(der_text.strip())
+    OVERALL  23.5
     """
     rttm = read_rttm(ref_rttm)
     spkr_info = list(filter(lambda x: x.startswith("SPKR-INFO"), rttm))
@@ -148,10 +162,9 @@ def is_overlapped(end1, start2):
 
     Example
     -------
-    >>> from speechbrain.processing import diarization as diar
-    >>> diar.is_overlapped(5.5, 3.4)
+    >>> is_overlapped(5.5, 3.4)
     True
-    >>> diar.is_overlapped(5.5, 6.4)
+    >>> is_overlapped(5.5, 6.4)
     False
     """
     if start2 > end1:
@@ -175,14 +188,13 @@ def merge_ssegs_same_speaker(lol):
 
     Example
     -------
-    >>> from speechbrain.processing import diarization as diar
     >>> lol=[['r1', 5.5, 7.0, 's1'],
     ... ['r1', 6.5, 9.0, 's1'],
     ... ['r1', 8.0, 11.0, 's1'],
     ... ['r1', 11.5, 13.0, 's2'],
     ... ['r1', 14.0, 15.0, 's2'],
     ... ['r1', 14.5, 15.0, 's1']]
-    >>> diar.merge_ssegs_same_speaker(lol)
+    >>> merge_ssegs_same_speaker(lol)
     [['r1', 5.5, 11.0, 's1'], ['r1', 11.5, 13.0, 's2'], ['r1', 14.0, 15.0, 's2'], ['r1', 14.5, 15.0, 's1']]
     """
     new_lol = []
@@ -229,12 +241,11 @@ def distribute_overlap(lol):
 
     Example
     -------
-    >>> from speechbrain.processing import diarization as diar
     >>> lol = [['r1', 5.5, 9.0, 's1'],
     ... ['r1', 8.0, 11.0, 's2'],
     ... ['r1', 11.5, 13.0, 's2'],
     ... ['r1', 12.0, 15.0, 's1']]
-    >>> diar.distribute_overlap(lol)
+    >>> distribute_overlap(lol)
     [['r1', 5.5, 8.5, 's1'], ['r1', 8.5, 11.0, 's2'], ['r1', 11.5, 12.5, 's2'], ['r1', 12.5, 15.0, 's1']]
     """
     new_lol = []
@@ -504,7 +515,6 @@ def get_oracle_num_spkrs(rec_id, spkr_info):
 
     Example
     -------
-    >>> from speechbrain.processing import diarization as diar
     >>> spkr_info = ['SPKR-INFO ES2011a 0 <NA> <NA> <NA> unknown ES2011a.A <NA> <NA>',
     ... 'SPKR-INFO ES2011a 0 <NA> <NA> <NA> unknown ES2011a.B <NA> <NA>',
     ... 'SPKR-INFO ES2011a 0 <NA> <NA> <NA> unknown ES2011a.C <NA> <NA>',
@@ -512,9 +522,9 @@ def get_oracle_num_spkrs(rec_id, spkr_info):
     ... 'SPKR-INFO ES2011b 0 <NA> <NA> <NA> unknown ES2011b.A <NA> <NA>',
     ... 'SPKR-INFO ES2011b 0 <NA> <NA> <NA> unknown ES2011b.B <NA> <NA>',
     ... 'SPKR-INFO ES2011b 0 <NA> <NA> <NA> unknown ES2011b.C <NA> <NA>']
-    >>> diar.get_oracle_num_spkrs('ES2011a', spkr_info)
+    >>> get_oracle_num_spkrs('ES2011a', spkr_info)
     4
-    >>> diar.get_oracle_num_spkrs('ES2011b', spkr_info)
+    >>> get_oracle_num_spkrs('ES2011b', spkr_info)
     3
     """
     num_spkrs = 0
@@ -553,8 +563,6 @@ def spectral_embedding_sb(
 
     Example
     -------
-    >>> import numpy as np
-    >>> from speechbrain.processing import diarization as diar
     >>> affinity = np.array([[1, 1, 1, 0.5, 0, 0, 0, 0, 0, 0.5],
     ... [1, 1, 1, 0, 0, 0, 0, 0, 0, 0],
     ... [1, 1, 1, 0, 0, 0, 0, 0, 0, 0],
@@ -565,9 +573,9 @@ def spectral_embedding_sb(
     ... [0, 0, 0, 0, 0, 0, 1, 1, 1, 1],
     ... [0, 0, 0, 0, 0, 0, 1, 1, 1, 1],
     ... [0.5, 0, 0, 0, 0, 0, 1, 1, 1, 1]])
-    >>> embs = diar.spectral_embedding_sb(affinity, 3)
+    >>> embs = spectral_embedding_sb(affinity, 3)
     >>> # Notice similar embeddings
-    >>> print(np.around(embs , decimals=3))
+    >>> print(np.around(embs, decimals=3))
     [[ 0.075  0.244  0.285]
      [ 0.083  0.356 -0.203]
      [ 0.083  0.356 -0.203]
@@ -645,8 +653,6 @@ def spectral_clustering_sb(
 
     Example
     -------
-    >>> import numpy as np
-    >>> from speechbrain.processing import diarization as diar
     >>> affinity = np.array([[1, 1, 1, 0.5, 0, 0, 0, 0, 0, 0.5],
     ... [1, 1, 1, 0, 0, 0, 0, 0, 0, 0],
     ... [1, 1, 1, 0, 0, 0, 0, 0, 0, 0],
@@ -657,8 +663,9 @@ def spectral_clustering_sb(
     ... [0, 0, 0, 0, 0, 0, 1, 1, 1, 1],
     ... [0, 0, 0, 0, 0, 0, 1, 1, 1, 1],
     ... [0.5, 0, 0, 0, 0, 0, 1, 1, 1, 1]])
-    >>> labs = diar.spectral_clustering_sb(affinity, 3)
-    >>> # print (labs) # [2 2 2 1 1 1 0 0 0 0]
+    >>> labs = spectral_clustering_sb(affinity, 3)
+    >>> print(labs)
+    [1 1 1 0 0 0 2 2 2 2]
     """
     random_state = _check_random_state(random_state)
     n_components = n_clusters if n_components is None else n_components
@@ -736,8 +743,7 @@ class Spec_Clust_unorm:
 
     Example
     -------
-    >>> from speechbrain.processing import diarization as diar
-    >>> clust = diar.Spec_Clust_unorm(min_num_spkrs=2, max_num_spkrs=10)
+    >>> clust = Spec_Clust_unorm(min_num_spkrs=2, max_num_spkrs=10)
     >>> emb = [[ 2.1, 3.1, 4.1, 4.2, 3.1],
     ... [ 2.2, 3.1, 4.2, 4.2, 3.2],
     ... [ 2.0, 3.0, 4.0, 4.1, 3.0],
@@ -786,10 +792,12 @@ class Spec_Clust_unorm:
     3
     >>> # Clustering
     >>> clust.cluster_embs(spec_emb, num_of_spk)
-    >>> # print (clust.labels_) # [0 0 0 2 2 2 1 1 1 1]
+    >>> print(clust.labels_)
+    [0 0 0 2 2 2 1 1 1 1]
     >>> # Complete spectral clustering
     >>> clust.do_spec_clust(emb, k_oracle=3, p_val=0.3)
-    >>> # print(clust.labels_) # [0 0 0 2 2 2 1 1 1 1]
+    >>> print(clust.labels_)
+    [2 2 2 1 1 1 0 0 0 0]
     """
 
     def __init__(self, min_num_spkrs=2, max_num_spkrs=10):
