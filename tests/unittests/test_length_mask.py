@@ -374,9 +374,10 @@ def generate_lengths_optional_max_length(
 
 def test_length_to_mask(device):
     """
-    Test :func:`~speechbrain.lobes.models.transformer.Transformer.get_mask_from_lengths`.
-    The function `get_mask_from_lengths` takes integer `lengths` and an optional `max_length`.
-    It always returns a boolean mask tensor.
+    Test :func:`~speechbrain.dataio.dataio.length_to_mask`.
+    The function `length_to_mask` takes integer `lengths` and an optional
+    `max_length`.
+    It also takes an explicit `dtype` and `device`.
     """
     from speechbrain.dataio.dataio import length_to_mask
 
