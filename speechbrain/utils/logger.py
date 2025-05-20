@@ -96,7 +96,7 @@ class MultiProcessLoggerAdapter(logging.LoggerAdapter):
             main_process_only and if_main_process()
         )
 
-    def log(self, level: int, msg: str, *args: tuple, **kwargs: dict):
+    def log(self, level: int, msg: str, *args, **kwargs):
         r"""
         Logs a message with the specified log level, respecting the `main_process_only`
         flag to decide whether to log based on the current process.
@@ -128,7 +128,7 @@ class MultiProcessLoggerAdapter(logging.LoggerAdapter):
                 self.logger.log(level, msg, *args, **kwargs)
 
     @functools.lru_cache(None)
-    def warning_once(self, *args: tuple, **kwargs: dict):
+    def warning_once(self, *args, **kwargs):
         r"""
         Logs a warning message only once by using caching to prevent duplicate warnings.
 

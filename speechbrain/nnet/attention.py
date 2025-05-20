@@ -912,7 +912,7 @@ class PositionalwiseFeedForward(nn.Module):
         input_shape=None,
         input_size=None,
         dropout=0.0,
-        activation=nn.ReLU,
+        activation: type = nn.ReLU,
     ):
         super().__init__()
 

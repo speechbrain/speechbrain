@@ -533,7 +533,7 @@ class CTCHypothesis:
     last_lm_state: None
     score: float
     lm_score: float
-    text_frames: list = None
+    text_frames: Optional[list] = None
 
 
 class CTCBaseSearcher(torch.nn.Module):
@@ -625,10 +625,10 @@ class CTCBaseSearcher(torch.nn.Module):
         unk_score_offset: float = -10.0,
         score_boundary: bool = True,
         beam_size: int = 100,
-        beam_prune_logp: int = -10.0,
-        token_prune_min_logp: int = -5.0,
+        beam_prune_logp: float = -10.0,
+        token_prune_min_logp: float = -5.0,
         prune_history: bool = True,
-        blank_skip_threshold: Union[None, int] = 1.0,
+        blank_skip_threshold: float = 1.0,
         topk: int = 1,
         spm_token: str = "▁",
     ):
