@@ -8,18 +8,23 @@ and we provide integration with a fast implementation through
 Here is a record of test setup and relevant results:
 
 ```bash
-$ pip install kenlm==0.2.0
+$ pip install kenlm==0.3.0 pygtrie==2.5.0
 $ pytest --cov=speechbrain/integrations/decoders/ --cov-context=test --doctest-modules speechbrain/integrations/decoders/
 
 =================== test session starts =======================
-platform linux -- Python 3.12.7, pytest-8.3.4, pluggy-1.5.0
-plugins: hypothesis-6.112.0, cov-6.0.0, anyio-4.6.2.post1
-collected 1 item
+platform linux -- Python 3.11.11, pytest-7.4.0, pluggy-1.5.0
+rootdir: /home/competerscience/Documents/Repositories/speechbrain
+configfile: pytest.ini
+plugins: anyio-4.8.0, hydra-core-1.3.2, cov-6.1.1, typeguard-4.4.1
+collected 2 items
 
-speechbrain/integrations/decoders/kenlm_scorer.py .
+speechbrain/integrations/decoders/kenlm_scorer.py ..
 
----------- coverage: platform linux, python 3.12.7-final-0 -----------
+====================== test coverage ==========================
+_______ coverage: platform linux, python 3.11.11-final-0 ______
+
 Name                                                Stmts   Miss  Cover
 -----------------------------------------------------------------------
-speechbrain/integrations/decoders/kenlm_scorer.py     100     62    38%
+speechbrain/integrations/decoders/kenlm_scorer.py     100     29    71%
+
 ```

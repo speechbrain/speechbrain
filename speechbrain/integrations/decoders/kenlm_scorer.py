@@ -82,8 +82,8 @@ def load_unigram_set_from_arpa(arpa_path: str) -> Set[str]:
     ...     + "\n"  # Ends bigram section
     ...     + "\\end\\\n"
     ... )  # Ends whole file
-    >>> load_unigram_set_from_arpa(arpa_file)
-    {'a', 'b'}
+    >>> sorted(load_unigram_set_from_arpa(arpa_file))
+    ['a', 'b']
     """
     unigrams = set()
     with open(arpa_path, encoding="utf-8") as f:
@@ -185,7 +185,7 @@ def _get_empty_lm_state() -> "kenlm.State":
 
 
 class KenlmScorer:
-    """KenLM language model container class to consolidate functionality.
+    r"""KenLM language model container class to consolidate functionality.
 
     This class is a wrapper around the KenLM language model. It provides
     functionality to score tokens and to get the initial state.
@@ -206,6 +206,27 @@ class KenlmScorer:
         Amount of log score offset for unknown tokens.
     score_boundary : bool
         Whether to have kenlm respect boundaries when scoring.
+
+    Example
+    -------
+    >>> arpa_file = getfixture("tmpdir").join("bigram_hello.arpa")
+    >>> arpa_file.write("\\data\\\n"
+    ...   + "ngram 1=4\n"
+    ...   + "ngram 2=1\n\n"
+    ...   + "\\1-grams:\n"
+    ...   + "-1.0\t<s>\t-1.0\n"
+    ...   + "-1.0\t</s>\t-1.0\n"
+    ...   + "-1.0\tHello\t-0.23\n"
+    ...   + "-0.7\tworld\t-0.25\n\n"
+    ...   + "\\2-grams:\n"
+    ...   + "-0.3\tHello world\n\n"
+    ...   + "\\end\\")
+    >>> model = kenlm.Model(str(arpa_file))
+    >>> scorer = KenlmScorer(kenlm_model=model, unigrams=["Hello", "world"])
+    >>> state = scorer.get_start_state()
+    >>> score, new_state = scorer.score(state, "Hello")
+    >>> round(score, 3)
+    -0.803
     """
 
     def __init__(
