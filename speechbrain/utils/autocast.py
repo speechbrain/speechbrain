@@ -137,7 +137,7 @@ def fwd_default_precision(
 ):
     """Decorator for forward methods which, by default, *disables* autocast
     and casts any floating-point tensor parameters into the specified dtype
-    (much like `torch.cuda.amp.custom_fwd`).
+    (much like `torch.amp.custom_fwd`).
 
     The *wrapped forward* will gain an additional `force_allow_autocast` keyword
     parameter.
@@ -180,12 +180,13 @@ def fwd_default_precision(
     if fwd is None:
         return functools.partial(fwd_default_precision, cast_inputs=cast_inputs)
 
-    # NOTE: torch.cuda.amp.custom_fwd is written with the assumption of CUDA
-    # autocast. There does not seem to be a generic equivalent.
-    # Detecting CUDA AMP specifically also seems difficult or impossible, so we
-    # cannot even reliably warn about the issue. For now, we just document the
-    # problem.
-    wrapped_fwd = torch.cuda.amp.custom_fwd(fwd, cast_inputs=cast_inputs)
+    # NOTE: Previously used torch.cuda.amp.custom_fwd, which assumed CUDA autocast.
+    # Now updated to torch.amp.custom_fwd with explicit device_type='cuda'.
+    # There does not seem to be a generic equivalent for non-CUDA devices.
+    # Detecting active AMP device automatically is non-trivial, so for now,
+    # we assume CUDA context explicitly as before.
+
+    wrapped_fwd = torch.amp.custom_fwd(fwd, cast_inputs=cast_inputs, device_type='cuda')
 
     @functools.wraps(fwd)
     def wrapper(*args, force_allow_autocast: bool = False, **kwargs):
@@ -211,3 +212,4 @@ def fwd_default_precision(
             return wrapped_fwd(*args, **kwargs)
 
     return wrapper
+
