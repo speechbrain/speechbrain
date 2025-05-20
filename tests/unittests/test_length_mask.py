@@ -154,7 +154,6 @@ def adversarial_fractions(
     A dictionary from d to a list of n, where (n/d) * d != n when computed by
     Torch with the device and dtype passed in, and n < d.
     """
-    max_value = 32
     indices = torch.arange(1, max_value + 1, dtype=dtype, device=device)
     numerator = torch.broadcast_to(indices, (max_value, max_value))
     denominator = torch.transpose(numerator, 0, 1)
@@ -375,8 +374,8 @@ def generate_lengths_optional_max_length(
 
 def test_length_to_mask(device):
     """
-    Test :func:`~speechbrain.lobes.models.transformer.Transformer.get_mask_from_lengths`. 
-    The function `get_mask_from_lengths` takes integer `lengths` and an optional `max_length`. 
+    Test :func:`~speechbrain.lobes.models.transformer.Transformer.get_mask_from_lengths`.
+    The function `get_mask_from_lengths` takes integer `lengths` and an optional `max_length`.
     It always returns a boolean mask tensor.
     """
     from speechbrain.dataio.dataio import length_to_mask
@@ -412,7 +411,7 @@ def test_length_to_mask(device):
 def test_get_mask_from_lengths(device):
     """
     Test :func:`~speechbrain.lobes.models.transformer.Transformer.get_mask_from_lengths`.
-    The function `get_mask_from_lengths` takes integer `lengths` and an optional `max_length`. 
+    The function `get_mask_from_lengths` takes integer `lengths` and an optional `max_length`.
     It always returns a boolean mask tensor.
     """
     from speechbrain.lobes.models.transformer.Transformer import (
@@ -492,7 +491,7 @@ def test_get_mask(device):
 def test_compute_length_mask(device):
     """
     Test :func:`~speechbrain.nnet.losses.compute_length_mask`.
-    The function `compute_length_mask` adds an extra dimension to the mask so it 
+    The function `compute_length_mask` adds an extra dimension to the mask so it
     matches the data shape.
     The result has the same dtype as the data.
     """
