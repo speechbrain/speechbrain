@@ -193,8 +193,7 @@ class WordEmbeddingEncoder(nn.Module):
         emb_enc: torch.Tensor
             encoded word embeddings
         """
-        if self.norm is not None:
-            x = self.norm(emb)
+        x = emb if self.norm is None else self.norm(emb)
         x = self.lin(x)
         x = self.activation(x)
         return x

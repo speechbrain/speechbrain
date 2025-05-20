@@ -33,7 +33,7 @@ from torch.nn import DataParallel as DP
 from torch.nn import SyncBatchNorm
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data import DataLoader, DistributedSampler, IterableDataset
-from tqdm.contrib import tqdm
+from tqdm import tqdm
 
 import speechbrain as sb
 from speechbrain.dataio.dataloader import LoopedLoader, SaveableDataLoader

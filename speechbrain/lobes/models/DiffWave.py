@@ -220,10 +220,10 @@ class SpectrogramUpsampler(nn.Module):
     def __init__(self):
         super().__init__()
         self.conv1 = ConvTranspose2d(
-            1, 1, [3, 32], stride=[1, 16], padding=[1, 8]
+            1, 1, (3, 32), stride=(1, 16), padding=(1, 8)
         )
         self.conv2 = ConvTranspose2d(
-            1, 1, [3, 32], stride=[1, 16], padding=[1, 8]
+            1, 1, (3, 32), stride=(1, 16), padding=(1, 8)
         )
 
     def forward(self, x):
