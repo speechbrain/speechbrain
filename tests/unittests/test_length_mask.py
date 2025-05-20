@@ -6,7 +6,7 @@ Test functions that turn a list of lengths into a mask:
 * speechbrain.nnet.losses.compute_length_mask
 * speechbrain.processing.features.make_padding_mask
 
-Author
+Authors
  * Rogier van Dalen 2025
 """
 
