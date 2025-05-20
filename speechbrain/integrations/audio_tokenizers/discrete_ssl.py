@@ -60,6 +60,7 @@ class DiscreteSSL(nn.Module):
         The device to use for computation ('cpu' or 'cuda').
     sample_rate : int (default: 16000)
         Sample rate of the input audio.
+
     Example
     -------
     >>> import torch
