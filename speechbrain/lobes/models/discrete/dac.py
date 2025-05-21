@@ -11,7 +11,7 @@ Author
 
 import math
 from pathlib import Path
-from typing import List, Union
+from typing import List, Optional, Union
 
 import numpy as np
 import torch
@@ -120,7 +120,7 @@ def download(
     model_type: str = "44khz",
     model_bitrate: str = "8kbps",
     tag: str = "latest",
-    local_path: Path = None,
+    local_path: Optional[Path] = None,
 ):
     """
     Downloads a specified model file based on model type, bitrate, and tag, saving it to a local path.
@@ -420,7 +420,7 @@ class ResidualVectorQuantize(nn.Module):
         )
         self.quantizer_dropout = quantizer_dropout
 
-    def forward(self, z, n_quantizers: int = None):
+    def forward(self, z, n_quantizers: Optional[int] = None):
         """Quantized the input tensor using a fixed set of `n` codebooks and returns
         the corresponding codebook vectors
 
@@ -610,7 +610,7 @@ class ResidualUnit(nn.Module):
             WNConv1d(dim, dim, kernel_size=1),
         )
 
-    def forward(self, x: torch.Tensor) -> torch.tensor:
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
         Arguments
         ---------
@@ -926,7 +926,7 @@ class DAC(nn.Module):
         self,
         encoder_dim: int = 64,
         encoder_rates: List[int] = [2, 4, 8, 8],
-        latent_dim: int = None,
+        latent_dim: Optional[int] = None,
         decoder_dim: int = 1536,
         decoder_rates: List[int] = [8, 8, 4, 2],
         n_codebooks: int = 9,
@@ -937,7 +937,7 @@ class DAC(nn.Module):
         model_type: str = "44khz",
         model_bitrate: str = "8kbps",
         tag: str = "latest",
-        load_path: str = None,
+        load_path: Union[str, Path, None] = None,
         strict: bool = False,
         load_pretrained: bool = False,
     ):
@@ -992,7 +992,7 @@ class DAC(nn.Module):
     def encode(
         self,
         audio_data: torch.Tensor,
-        n_quantizers: int = None,
+        n_quantizers: Optional[int] = None,
     ):
         """Encode given audio data and return quantized latent codes
 
@@ -1046,8 +1046,8 @@ class DAC(nn.Module):
     def forward(
         self,
         audio_data: torch.Tensor,
-        sample_rate: int = None,
-        n_quantizers: int = None,
+        sample_rate: Optional[int] = None,
+        n_quantizers: Optional[int] = None,
     ):
         """Model forward pass
 

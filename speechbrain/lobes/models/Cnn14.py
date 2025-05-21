@@ -260,10 +260,6 @@ class CNN14PSI(nn.Module):
     dim : int
         Dimensionality of the embeddings
 
-    Returns
-    -------
-        Estimated saliency map (before sigmoid)
-
     Example
     -------
     >>> from speechbrain.lobes.models.Cnn14 import Cnn14

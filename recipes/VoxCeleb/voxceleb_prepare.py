@@ -14,7 +14,7 @@ import sys  # noqa F401
 import numpy as np
 import torch
 import torchaudio
-from tqdm.contrib import tqdm
+from tqdm import tqdm
 
 from speechbrain.dataio.dataio import load_pkl, save_pkl
 from speechbrain.utils.logger import get_logger

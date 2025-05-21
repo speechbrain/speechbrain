@@ -1,0 +1,4 @@
+# Needed only for quantization
+scikit-learn
+# Needed only with use_tensorboard=True
+tensorboard

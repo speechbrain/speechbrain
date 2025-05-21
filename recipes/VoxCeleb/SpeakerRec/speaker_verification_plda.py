@@ -19,7 +19,7 @@ import numpy
 import torch
 import torchaudio
 from hyperpyyaml import load_hyperpyyaml
-from tqdm.contrib import tqdm
+from tqdm import tqdm
 
 import speechbrain as sb
 from speechbrain.processing.PLDA_LDA import (

@@ -394,7 +394,7 @@ class MetricGanBrain(sb.Brain):
         for i, (name, pred_wav, length) in enumerate(zip(batch_id, wavs, lens)):
             path = os.path.join(self.hparams.MetricGAN_folder, name + ".wav")
             data = torch.unsqueeze(pred_wav[: int(length)].cpu(), 0)
-            torchaudio.save(path, data, self.hparams.Sample_rate)
+            torchaudio.save(path, data.detach(), self.hparams.Sample_rate)
 
             # Make record of path and score for historical training
             score = float(score[i][0])

@@ -187,7 +187,7 @@ def make_dataloader(dataset, looped_nominal_epoch=None, **loader_kwargs):
                 "Cannot specify both shuffle=True and a "
                 "sampler in loader_kwargs"
             )
-        seed = os.environ.get("SB_GLOBAL_SEED", 563375142)
+        seed = int(os.environ.get("SB_GLOBAL_SEED", 563375142))
         sampler = ReproducibleRandomSampler(dataset, seed=seed)
         loader_kwargs["sampler"] = sampler
         # Should delete shuffle because you can't set both Sampler and

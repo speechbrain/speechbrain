@@ -1,57 +1,42 @@
-"""Library for computing the BLEU score
+"""Library for computing the BLEU score based on SacreBLEU
+
+SacreBLEU github: https://github.com/mjpost/sacrebleu
 
 Authors
+ * Titouan Parcollet 2025
  * Mirco Ravanelli 2021
 """
 
 from speechbrain.utils.metric_stats import MetricStats
 
 
-def merge_words(sequences):
-    """Merge successive words into phrase, putting space between each word
-
-    Arguments
-    ---------
-    sequences : list
-        Each item contains a list, and this list contains a word sequence.
-
-    Returns
-    -------
-    The list contains phrase sequences.
-    """
-    results = []
-    for seq in sequences:
-        words = " ".join(seq)
-        results.append(words)
-    return results
-
-
 class BLEUStats(MetricStats):
-    """A class for tracking BLEU (https://www.aclweb.org/anthology/P02-1040.pdf).
+    """A class for tracking corpus-level BLEU (https://www.aclweb.org/anthology/P02-1040.pdf). Each hypothesis can be matched against one or multiple references.
 
     Arguments
     ---------
-    merge_words: bool
-        Whether to merge the successive words to create sentences.
-    max_ngram_order: int
-        The maximum length of the ngrams to use for scoring.
+    max_ngram_order: int, default 4
+        The maximum length of the ngrams to use for BLEU scoring. Default is 4.
 
     Example
     -------
     >>> bleu = BLEUStats()
-    >>> i2l = {0: 'a', 1: 'b'}
     >>> bleu.append(
-    ...     ids=['utterance1'],
-    ...     predict=[[0, 1, 1]],
-    ...     targets=[[[0, 1, 0]], [[0, 1, 1]], [[1, 1, 0]]],
-    ...     ind2lab=lambda batch: [[i2l[int(x)] for x in seq] for seq in batch],
+    ...     ids=['utterance1', 'utterance2'],
+    ...     predict=[
+    ...         'The dog bit the man.',
+    ...         'It was not surprising.'],
+    ...     targets=[
+    ...                ['The dog bit the man.', 'It was not unexpected.'],
+    ...                ['The dog had bit the man.', 'No one was surprised.']
+    ...             ]
     ... )
     >>> stats = bleu.summarize()
     >>> stats['BLEU']
-    0.0
+    74.19446627365011
     """
 
-    def __init__(self, merge_words=True, max_ngram_order=4):
+    def __init__(self, max_ngram_order=4):
         # Check extra-dependency for computing the bleu score
         try:
             from sacrebleu.metrics import BLEU
@@ -61,37 +46,26 @@ class BLEUStats(MetricStats):
             )
 
         self.clear()
-        self.merge_words = merge_words
         self.bleu = BLEU(max_ngram_order=max_ngram_order)
 
         self.predicts = []
         self.targets = None
 
-    def append(self, ids, predict, targets, ind2lab=None):
+    def append(self, ids, predict, targets):
         """Add stats to the relevant containers.
         * See MetricStats.append()
         Arguments
         ---------
         ids : list
             List of ids corresponding to utterances.
-        predict : torch.tensor
-            A predicted output, for comparison with the target output
-        targets : list
-            list of references (when measuring BLEU, one sentence could have more
-                                than one target translation).
-        ind2lab : callable
-            Callable that maps from indices to labels, operating on batches,
-            for writing alignments.
+        predict : list[str]
+            A str which represent the hypotheses. Of dimension [nb_hypotheses]
+        targets : list[list[str]]
+            List of list of reference. The dimensions are as follow:
+            [nb_references, nb_hypotheses].
         """
+
         self.ids.extend(ids)
-
-        if ind2lab is not None:
-            predict = ind2lab(predict)
-            targets = [ind2lab(t) for t in targets]
-
-        if self.merge_words:
-            predict = merge_words(predict)
-            targets = [merge_words(t) for t in targets]
 
         self.predicts.extend(predict)
         if self.targets is None:

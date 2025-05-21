@@ -1290,8 +1290,9 @@ class LiGRU_Layer(torch.nn.Module):
         else:
             self.act = torch.nn.ReLU()
 
-    def forward(self, x, hx: Optional[torch.Tensor] = None):
-        # type: (torch.Tensor, Optional[torch.Tensor]) -> torch.Tensor # noqa F821
+    def forward(
+        self, x: torch.Tensor, hx: Optional[torch.Tensor] = None
+    ) -> torch.Tensor:
         """Returns the output of the liGRU layer.
 
         Arguments
@@ -1722,8 +1723,9 @@ class SLiGRU_Layer(torch.nn.Module):
         else:
             self.act = torch.nn.ReLU()
 
-    def forward(self, x, hx: Optional[torch.Tensor] = None):
-        # type: (torch.Tensor, Optional[torch.Tensor]) -> torch.Tensor # noqa F821
+    def forward(
+        self, x: torch.Tensor, hx: Optional[torch.Tensor] = None
+    ) -> torch.Tensor:
         """Returns the output of the liGRU layer.
 
         Arguments
@@ -1914,8 +1916,9 @@ class QuasiRNNLayer(torch.nn.Module):
         if self.output_gate:
             self.o_gate = nn.Sigmoid()
 
-    def forgetMult(self, f, x, hidden):
-        # type: (Tensor, torch.Tensor, Optional[Tensor]) -> torch.Tensor # noqa F821
+    def forgetMult(
+        self, f: torch.Tensor, x: torch.Tensor, hidden: Optional[torch.Tensor]
+    ) -> torch.Tensor:
         """Returns the hidden states for each time step.
 
         Arguments
@@ -1944,8 +1947,9 @@ class QuasiRNNLayer(torch.nn.Module):
 
         return torch.stack(result)
 
-    def split_gate_inputs(self, y):
-        # type: (torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, Optional[torch.Tensor]] # noqa F821
+    def split_gate_inputs(
+        self, y: torch.Tensor
+    ) -> tuple[torch.Tensor, torch.Tensor, Optional[torch.Tensor]]:
         """Splits the input gates."""
         if self.output_gate:
             z, f, o = y.chunk(3, dim=-1)
@@ -1954,8 +1958,9 @@ class QuasiRNNLayer(torch.nn.Module):
             o = None
         return z, f, o
 
-    def forward(self, x, hidden=None):
-        # type: (torch.Tensor, Optional[torch.Tensor]) -> Tuple[torch.Tensor, torch.Tensor] # noqa F821
+    def forward(
+        self, x: torch.Tensor, hidden: Optional[torch.Tensor] = None
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         """Returns the output of the QRNN layer.
 
         Arguments
