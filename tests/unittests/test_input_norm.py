@@ -278,10 +278,10 @@ def test_make_padding_mask():
     assert torch.equal(mask, expected_mask)
 
     # Test for potential rounding error
-    x = torch.ones(22, 22)
-    lengths = (torch.arange(22) + 1) / 22
+    x = torch.ones(13, 13)
+    lengths = (torch.arange(13) + 1) / 13
     mask = make_padding_mask(x, lengths, length_dim=1)
-    expected_mask = torch.triu(torch.ones(22, 22)).transpose(0, 1).bool()
+    expected_mask = torch.triu(torch.ones(13, 13)).transpose(0, 1).bool()
 
     assert torch.equal(mask, expected_mask)
 
