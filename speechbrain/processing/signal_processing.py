@@ -330,8 +330,8 @@ def reverberate(waveforms, rir_waveform, rescale_amp="avg"):
         Shape should be `[batch, time]` or `[batch, time, channels]`.
     rir_waveform : tensor
         RIR tensor, shape should be [time, channels].
-    rescale_amp : str
-        Whether reverberated signal is rescaled (None) and with respect either
+    rescale_amp : str or None
+        Whether reverberated signal is rescaled (None to avoid) and with respect either
         to original signal "peak" amplitude or "avg" average amplitude.
         Choose between [None, "avg", "peak"].
 
@@ -356,10 +356,11 @@ def reverberate(waveforms, rir_waveform, rescale_amp="avg"):
     elif len(rir_waveform.shape) == 2:
         rir_waveform = rir_waveform.unsqueeze(-1)
 
-    # Compute the average amplitude of the clean
-    orig_amplitude = compute_amplitude(
-        waveforms, waveforms.size(1), rescale_amp
-    )
+    if rescale_amp is not None:
+        # Compute the average amplitude of the clean
+        orig_amplitude = compute_amplitude(
+            waveforms, waveforms.size(1), rescale_amp
+        )
 
     # Compute index of the direct signal, so we can preserve alignment
     value_max, direct_index = rir_waveform.abs().max(axis=1, keepdim=True)
@@ -376,10 +377,11 @@ def reverberate(waveforms, rir_waveform, rescale_amp="avg"):
         rotation_index=direct_index,
     )
 
-    # Rescale to the peak amplitude of the clean waveform
-    waveforms = rescale(
-        waveforms, waveforms.size(1), orig_amplitude, rescale_amp
-    )
+    if rescale_amp is not None:
+        # Rescale to the peak amplitude of the clean waveform
+        waveforms = rescale(
+            waveforms, waveforms.size(1), orig_amplitude, rescale_amp
+        )
 
     if len(orig_shape) == 1:
         waveforms = waveforms.squeeze(0).squeeze(-1)
@@ -457,7 +459,7 @@ def notch_filter(notch_freq, filter_width=101, notch_width=0.05):
             return torch.sin(x) / x
 
         # The zero is at the middle index
-        return torch.cat([_sinc(x[:pad]), torch.ones(1), _sinc(x[pad + 1 :])])
+        return torch.cat([_sinc(x[:pad]), torch.ones(1), _sinc(x[pad + 1:])])
 
     # Compute a low-pass filter with cutoff frequency notch_freq.
     hlpf = sinc(3 * (notch_freq - notch_width) * inputs)
@@ -494,7 +496,8 @@ def overlap_and_add(signal, frame_step):
     -------
     A Tensor with shape [..., output_size] containing the overlap-added frames of signal's inner-most two dimensions.
         output_size = (frames - 1) * frame_step + frame_length
-    Based on https://github.com/tensorflow/tensorflow/blob/r1.12/tensorflow/contrib/signal/python/ops/reconstruction_ops.py
+    Based on
+        https://github.com/tensorflow/tensorflow/blob/r1.12/tensorflow/contrib/signal/python/ops/reconstruction_ops.py
 
     Example
     -------
