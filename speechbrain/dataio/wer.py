@@ -8,7 +8,9 @@ contextlib.redirect_stdout, which may give a nicer syntax.
 Authors
  * Aku Rouhe 2020
 """
+
 import sys
+
 from speechbrain.utils import edit_distance
 
 
@@ -34,13 +36,15 @@ def print_wer_summary(wer_details, file=sys.stdout):
         end="",
     )
     print(
-        " [PARTIAL]"
-        if wer_details["num_scored_sents"] < wer_details["num_ref_sents"]
-        else "",
+        (
+            " [PARTIAL]"
+            if wer_details["num_scored_sents"] < wer_details["num_ref_sents"]
+            else ""
+        ),
         file=file,
     )
     print(
-        "%SER {SER:.2f} [ {num_erraneous_sents} / {num_scored_sents} ]".format(
+        "%SER {SER:.2f} [ {num_erroneous_sents} / {num_scored_sents} ]".format(
             **wer_details
         ),
         file=file,

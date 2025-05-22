@@ -1,0 +1,31 @@
+# ############################################################################
+# Tokenizer: subword BPE with unigram 500
+# Training: Tedlium2
+# Authors:  Abdel Heba 2021
+#           Shucong Zhang 2023
+# ############################################################################
+
+output_folder: results/tokenizer # folder where to store the BPE ckpt and csv files
+clipped_utt_folder: !PLACEHOLDER # folder where to store the clipped utterance-level recordings
+
+# Data files
+data_folder: !PLACEHOLDER # e.g, /path/to/TEDLIUM_release2
+skip_prep: False
+train_csv: !ref <output_folder>/train/train.csv
+valid_csv: !ref <output_folder>/dev/dev.csv
+
+####################### Training Parameters ####################################
+token_type: bpe  # ["unigram", "bpe", "char"]
+token_output: 500  # index(blank/eos/bos/unk) = 0
+character_coverage: 1.0
+csv_read: wrd
+avoid_if_shorter_than: 1.0
+
+tokenizer: !name:speechbrain.tokenizers.SentencePiece.SentencePiece
+   model_dir: !ref <output_folder>
+   vocab_size: !ref <token_output>
+   annotation_train: !ref <train_csv>
+   annotation_read: !ref <csv_read>
+   model_type: !ref <token_type> # ["unigram", "bpe", "char"]
+   character_coverage: !ref <character_coverage>
+   annotation_list_to_check: [!ref <train_csv>, !ref <valid_csv>]

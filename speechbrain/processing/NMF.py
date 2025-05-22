@@ -3,12 +3,14 @@
 Authors
  * Cem Subakan
 """
+
 import torch
-from speechbrain.processing.features import spectral_magnitude
+
 import speechbrain.processing.features as spf
+from speechbrain.processing.features import spectral_magnitude
 
 
-def spectral_phase(stft, power=2, log=False):
+def spectral_phase(stft):
     """Returns the phase of a complex spectrogram.
 
     Arguments
@@ -16,13 +18,16 @@ def spectral_phase(stft, power=2, log=False):
     stft : torch.Tensor
         A tensor, output from the stft function.
 
+    Returns
+    -------
+    phase : torch.Tensor
+
     Example
     -------
     >>> BS, nfft, T = 10, 20, 300
     >>> X_stft = torch.randn(BS, nfft//2 + 1, T, 2)
     >>> phase_mix = spectral_phase(X_stft)
     """
-
     phase = torch.atan2(stft[:, :, :, 1], stft[:, :, :, 0])
 
     return phase
@@ -38,12 +43,12 @@ def NMF_separate_spectra(Whats, Xmix):
         the NMF template matrices that correspond to source1 and source2.
         W1, W2 are of size [nfft/2 + 1, K], where nfft is the fft size for STFT,
         and K is the number of vectors (templates) in W.
-    Xmix : torch.tensor
+    Xmix : torch.Tensor
         This is the magnitude spectra for the mixtures.
         The size is [BS x T x nfft//2 + 1] where,
         BS = batch size, nfft = fft size, T = number of time steps in the spectra.
 
-    Outputs
+    Returns
     -------
     X1hat : Separated spectrum for source1
         Size = [BS x (nfft/2 +1) x T] where,
@@ -52,7 +57,7 @@ def NMF_separate_spectra(Whats, Xmix):
         The size definitions are the same as above.
 
     Example
-    --------
+    -------
     >>> BS, nfft, T = 4, 20, 400
     >>> K1, K2 = 10, 10
     >>> W1hat = torch.randn(nfft//2 + 1, K1)
@@ -61,7 +66,6 @@ def NMF_separate_spectra(Whats, Xmix):
     >>> Xmix = torch.randn(BS, T, nfft//2 + 1)
     >>> X1hat, X2hat = NMF_separate_spectra(Whats, Xmix)
     """
-
     W1, W2 = Whats
 
     nmixtures = Xmix.shape[0]
@@ -100,20 +104,24 @@ def NMF_separate_spectra(Whats, Xmix):
 
 
 def reconstruct_results(
-    X1hat, X2hat, X_stft, sample_rate, win_length, hop_length,
+    X1hat,
+    X2hat,
+    X_stft,
+    sample_rate,
+    win_length,
+    hop_length,
 ):
-
     """This function reconstructs the separated spectra into waveforms.
 
     Arguments
     ---------
-    Xhat1 : torch.tensor
+    X1hat : torch.Tensor
         The separated spectrum for source 1 of size [BS, nfft/2 + 1, T],
         where,  BS = batch size, nfft = fft size, T = length of the spectra.
-    Xhat2 : torch.tensor
+    X2hat : torch.Tensor
         The separated spectrum for source 2 of size [BS, nfft/2 + 1, T].
         The size definitions are the same as Xhat1.
-    X_stft : torch.tensor
+    X_stft : torch.Tensor
         This is the magnitude spectra for the mixtures.
         The size is [BS x nfft//2 + 1 x T x 2] where,
         BS = batch size, nfft = fft size, T = number of time steps in the spectra.
@@ -141,7 +149,6 @@ def reconstruct_results(
     >>> X_stft = torch.randn(BS, nfft//2 + 1, T, 2)
     >>> x1hats, x2hats = reconstruct_results(X1hat, X2hat, X_stft, sample_rate, win_length, hop_length)
     """
-
     ISTFT = spf.ISTFT(
         sample_rate=sample_rate, win_length=win_length, hop_length=hop_length
     )

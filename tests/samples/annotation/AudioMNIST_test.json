@@ -1,0 +1,43 @@
+{
+    "6_56_49": {
+      "file_name": "{data_root}/spk1_snt1.wav",
+      "digit": "6",
+      "speaker_id": "56",
+      "accent": "German",
+      "age": "24",
+      "gender": "female",
+      "native_speaker": false,
+      "origin": "Europe, Germany, Muenster",
+      "recording_date": "2017-09-14T13:09:37",
+      "recording_room": "vr-room",
+      "char": "SIX",
+      "phn": [
+        "S",
+        "IH1",
+        "K",
+        "S"
+      ],
+      "len": 12624,
+      "len_s": 0.789
+    },
+    "3_51_37": {
+      "file_name": "{data_root}/spk1_snt2.wav",
+      "digit": "3",
+      "speaker_id": "51",
+      "accent": "German",
+      "age": "26",
+      "gender": "male",
+      "native_speaker": false,
+      "origin": "Europe, Germany, Bremen",
+      "recording_date": "2017-09-13T09:33:15",
+      "recording_room": "vr-room",
+      "char": "THREE",
+      "phn": [
+        "TH",
+        "R",
+        "IY"
+      ],
+      "len": 9394,
+      "len_s": 0.587125
+    }
+}

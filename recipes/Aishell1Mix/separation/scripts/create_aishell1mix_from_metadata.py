@@ -1,13 +1,14 @@
-import os
 import argparse
-import soundfile as sf
-import pandas as pd
-import numpy as np
 import functools
-from scipy.signal import resample_poly
-import tqdm.contrib.concurrent
 import glob
+import os
 import shutil
+
+import numpy as np
+import pandas as pd
+import soundfile as sf
+import tqdm.contrib.concurrent
+from scipy.signal import resample_poly
 
 # eps secures log and division
 EPS = 1e-10
@@ -98,7 +99,7 @@ def main(args):
 def create_aishell1mix(
     aishell1_dir, wham_dir, out_dir, metadata_dir, freqs, n_src, modes, types
 ):
-    """ Generate sources mixtures and saves them in out_dir"""
+    """Generate sources mixtures and saves them in out_dir"""
     # Get metadata files
     md_filename_list = [
         file for file in os.listdir(metadata_dir) if "info" not in file
@@ -121,7 +122,7 @@ def create_aishell1mix(
 def process_metadata_file(
     csv_path, freqs, n_src, aishell1_dir, wham_dir, out_dir, modes, types
 ):
-    """ Process a metadata generation file to create sources and mixtures"""
+    """Process a metadata generation file to create sources and mixtures"""
     md_file = pd.read_csv(csv_path, engine="python")
     for freq in freqs:
         # Get the frequency directory path
@@ -301,7 +302,7 @@ def process_utterance(
 
 
 def create_empty_metrics_md(n_src, subdir):
-    """ Create the metrics dataframe"""
+    """Create the metrics dataframe"""
     metrics_dataframe = pd.DataFrame()
     metrics_dataframe["mixture_ID"] = {}
     if subdir == "mix_clean":
@@ -310,15 +311,15 @@ def create_empty_metrics_md(n_src, subdir):
     elif subdir == "mix_both":
         for i in range(n_src):
             metrics_dataframe[f"source_{i + 1}_SNR"] = {}
-        metrics_dataframe[f"noise_SNR"] = {}
+        metrics_dataframe["noise_SNR"] = {}
     elif subdir == "mix_single":
         metrics_dataframe["source_1_SNR"] = {}
-        metrics_dataframe[f"noise_SNR"] = {}
+        metrics_dataframe["noise_SNR"] = {}
     return metrics_dataframe
 
 
 def create_empty_mixture_md(n_src, subdir):
-    """ Create the mixture dataframe"""
+    """Create the mixture dataframe"""
     mixture_dataframe = pd.DataFrame()
     mixture_dataframe["mixture_ID"] = {}
     mixture_dataframe["mixture_path"] = {}
@@ -328,16 +329,16 @@ def create_empty_mixture_md(n_src, subdir):
     elif subdir == "mix_both":
         for i in range(n_src):
             mixture_dataframe[f"source_{i + 1}_path"] = {}
-        mixture_dataframe[f"noise_path"] = {}
+        mixture_dataframe["noise_path"] = {}
     elif subdir == "mix_single":
         mixture_dataframe["source_1_path"] = {}
-        mixture_dataframe[f"noise_path"] = {}
+        mixture_dataframe["noise_path"] = {}
     mixture_dataframe["length"] = {}
     return mixture_dataframe
 
 
 def read_sources(row, n_src, aishell1_dir, wham_dir):
-    """ Get sources and info to mix the sources """
+    """Get sources and info to mix the sources"""
     # Get info about the mixture
     mixture_id = row["mixture_ID"]
     sources_path_list = get_list_from_csv(row, "source_path", n_src)
@@ -368,7 +369,7 @@ def read_sources(row, n_src, aishell1_dir, wham_dir):
 
 
 def get_list_from_csv(row, column, n_src):
-    """ Transform a list in the .csv in an actual python list """
+    """Transform a list in the .csv in an actual python list"""
     python_list = []
     for i in range(n_src):
         current_column = column.split("_")
@@ -379,7 +380,7 @@ def get_list_from_csv(row, column, n_src):
 
 
 def extend_noise(noise, max_length):
-    """ Concatenate noise using hanning window"""
+    """Concatenate noise using hanning window"""
     noise_ex = noise
     window = np.hanning(RATE + 1)
     # Increasing window
@@ -401,7 +402,7 @@ def extend_noise(noise, max_length):
 
 
 def transform_sources(sources_list, freq, mode, gain_list):
-    """ Transform aishell1 sources to aishell1mix """
+    """Transform aishell1 sources to aishell1mix"""
     # Normalize sources
     sources_list_norm = loudness_normalize(sources_list, gain_list)
     # Resample the sources
@@ -412,7 +413,7 @@ def transform_sources(sources_list, freq, mode, gain_list):
 
 
 def loudness_normalize(sources_list, gain_list):
-    """ Normalize sources loudness"""
+    """Normalize sources loudness"""
     # Create the list of normalized sources
     normalized_list = []
     for i, source in enumerate(sources_list):
@@ -421,7 +422,7 @@ def loudness_normalize(sources_list, gain_list):
 
 
 def resample_list(sources_list, freq):
-    """ Resample the source list to the desired frequency"""
+    """Resample the source list to the desired frequency"""
     # Create the resampled list
     resampled_list = []
     # Resample each source
@@ -431,7 +432,7 @@ def resample_list(sources_list, freq):
 
 
 def fit_lengths(source_list, mode):
-    """ Make the sources to match the target length """
+    """Make the sources to match the target length"""
     sources_list_reshaped = []
     # Check the mode
     if mode == "min":
@@ -472,7 +473,7 @@ def write_noise(mix_id, transformed_sources, dir_path, freq):
 
 
 def mix(sources_list):
-    """ Do the mixing """
+    """Do the mixing"""
     # Initialize mixture
     mixture = np.zeros_like(sources_list[0])
     for source in sources_list:
@@ -500,11 +501,11 @@ def compute_snr_list(mixture, sources_list):
 
 
 def snr_xy(x, y):
-    return 10 * np.log10(np.mean(x ** 2) / (np.mean(y ** 2) + EPS) + EPS)
+    return 10 * np.log10(np.mean(x**2) / (np.mean(y**2) + EPS) + EPS)
 
 
 def add_to_metrics_metadata(metrics_df, mixture_id, snr_list):
-    """ Add a new line to metrics_df"""
+    """Add a new line to metrics_df"""
     row_metrics = [mixture_id] + snr_list
     metrics_df.loc[len(metrics_df)] = row_metrics
 
@@ -518,7 +519,7 @@ def add_to_mixture_metadata(
     length,
     subdir,
 ):
-    """ Add a new line to mixture_df """
+    """Add a new line to mixture_df"""
     sources_path = abs_sources_path
     noise_path = [abs_noise_path]
     if subdir == "mix_clean":

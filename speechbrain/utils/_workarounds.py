@@ -3,9 +3,11 @@
 Authors
  * Aku Rouhe 2022
 """
-import torch
-import weakref
+
 import warnings
+import weakref
+
+import torch
 
 WEAKREF_MARKER = "WEAKREF"
 
@@ -17,8 +19,9 @@ def _cycliclrsaver(obj, path):
     torch.save(state_dict, path)
 
 
-def _cycliclrloader(obj, path, end_of_epoch, device=None):
+def _cycliclrloader(obj, path, end_of_epoch):
     del end_of_epoch  # Unused
+    device = "cpu"
     state_dict = torch.load(path, map_location=device)
     if state_dict.get("_scale_fn_ref") == WEAKREF_MARKER:
         if not isinstance(obj._scale_fn_ref, weakref.WeakMethod):

@@ -1,14 +1,14 @@
 # ################################
 # Model: Wav2Vec + DNN + CTC + Softmax
 # Authors:
-# Gaelle Laperriere 2023
+# Gaëlle Laperrière 2023
 # ################################
 
 # ------ Paths and parameters
 
 # Seed needs to be set at top of yaml, before objects with parameters are made.
 seed: 4242
-__set_seed: !apply:torch.manual_seed [!ref <seed>]
+__set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
 output_folder: !ref results/media_SLU_wav2vec_relax/<seed>
 cer_file_test: !ref <output_folder>/cer_test.txt
 ctc_file_test: !ref <output_folder>/ctc_test.txt
@@ -18,8 +18,8 @@ save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
 data_folder: !PLACEHOLDER # Path of folders S0272 and E0024, to process ELRA original xml datasets.
-channels_path: !PLACEHOLDER # Path of the channels.csv file downloaded via https://drive.google.com/drive/u/1/folders/1z2zFZp3c0NYLFaUhhghhBakGcFdXVRyf
-concepts_path: !PLACEHOLDER # Path of the concepts_full_relax.csv file downloaded via https://drive.google.com/drive/u/1/folders/1z2zFZp3c0NYLFaUhhghhBakGcFdXVRyf
+channels_path: !PLACEHOLDER # Path of the channels.csv file downloaded via https://www.dropbox.com/sh/y7ab0lktbylz647/AADMsowYHmNYwaoL_hQt7NMha?dl=0
+concepts_path: !PLACEHOLDER # Path of the concepts_full_relax.csv file downloaded via https://www.dropbox.com/sh/y7ab0lktbylz647/AADMsowYHmNYwaoL_hQt7NMha?dl=0
 skip_wav: False # Skip the wav files storing if already done before.
 method: relax # Remove or keep specifiers in concepts. Method used by default.
 task: slu # Parse SLU or ASR data.
@@ -57,7 +57,7 @@ test_dataloader_options:
 sample_rate: 16000
 feats_dim: 1024
 
-# Training parameters:
+####################### Training Parameters ####################################:
 number_of_epochs: 30
 lr: 1
 lr_wav2vec: 0.0001
@@ -69,7 +69,7 @@ patient: 0
 patient_wav2vec: 0
 sorting: ascending
 
-# Model parameters:
+####################### Model Parameters #######################################
 activation: !name:torch.nn.LeakyReLU
 dnn_blocks: 3
 dnn_neurons: 512
@@ -88,7 +88,7 @@ output_neurons: 141
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
 
-wav2vec2: !new:speechbrain.lobes.models.huggingface_wav2vec.HuggingFaceWav2Vec2
+wav2vec2: !new:speechbrain.lobes.models.huggingface_transformers.wav2vec2.Wav2Vec2
     source: !ref <wav2vec_url>
     output_norm: True
     freeze: !ref <freeze>

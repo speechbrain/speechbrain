@@ -5,8 +5,8 @@ Author
  * Cem Subakan 2020
 """
 
-import os
 import csv
+import os
 
 
 def prepare_librimix(
@@ -96,13 +96,17 @@ def create_libri2mix_csv(
             "noise_wav_opts",
         ]
 
-        with open(savepath + "/libri2mix_" + set_type + ".csv", "w") as csvfile:
+        with open(
+            savepath + "/libri2mix_" + set_type + ".csv",
+            "w",
+            newline="",
+            encoding="utf-8",
+        ) as csvfile:
             writer = csv.DictWriter(csvfile, fieldnames=csv_columns)
             writer.writeheader()
             for i, (mix_path, s1_path, s2_path, noise_path) in enumerate(
                 zip(mix_fl_paths, s1_fl_paths, s2_fl_paths, noise_fl_paths)
             ):
-
                 row = {
                     "ID": i,
                     "duration": 1.0,
@@ -172,7 +176,12 @@ def create_libri3mix_csv(
             "noise_wav_opts",
         ]
 
-        with open(savepath + "/libri3mix_" + set_type + ".csv", "w") as csvfile:
+        with open(
+            savepath + "/libri3mix_" + set_type + ".csv",
+            "w",
+            newline="",
+            encoding="utf-8",
+        ) as csvfile:
             writer = csv.DictWriter(csvfile, fieldnames=csv_columns)
             writer.writeheader()
             for (

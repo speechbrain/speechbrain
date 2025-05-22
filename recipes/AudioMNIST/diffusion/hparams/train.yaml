@@ -1,0 +1,256 @@
+# #################################
+# Basic training parameters for a spectrogram-based
+# diffusion model
+#
+# Author:
+#  * Artem Ploujnikov 2022
+# #################################
+
+# Seed needs to be set at top of yaml, before objects with parameters are made
+seed: 1986
+__set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
+
+data_folder: !PLACEHOLDER
+metadata_folder: null
+output_folder: !ref ./results/diffusion/baseline/<seed>
+save_folder: !ref <output_folder>/save
+data_save_folder: !ref <data_folder>/audiomnist_prepared
+sample_folder: !ref <output_folder>/samples
+train_json: !ref <save_folder>/train.json
+valid_json: !ref <save_folder>/valid.json
+test_json: !ref <save_folder>/test.json
+train_log: !ref <output_folder>/train_log.txt
+skip_prep: False
+
+# The train logger writes training statistics to a file, as well as stdout.
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+    save_file: !ref <train_log>
+
+ckpt_interval_minutes: 30 # save checkpoint every N min
+
+# Preparation Parameters
+data_prepare_norm: False
+data_prepare_trim: False
+data_prepare_trim_threshold: -30.
+data_prepare_sample_rate_src: 48000
+data_prepare_sample_rate_tgt: 16000
+
+# Training Parameters
+diffusion_mode: simple
+train_len: 28520
+sort: len
+batch_shuffle: True
+number_of_epochs: 20
+batch_size: 16 # If GPU memory exceeds 32 GB, consider using batch_size: 32
+lr: 0.00020
+max_grad_norm: 0.05
+lr_warmup_steps: 500
+lr_cooldown_steps: 500
+lr_total_steps: !ref (<train_len> * <number_of_epochs>) // <batch_size>
+lr_decay_every: 1000
+train_timesteps: 250
+adam_beta1: 0.95
+adam_beta2: 0.999
+adam_weight_decay: 0.000001
+adam_epsilon: 0.00000001
+downsample_factor: 8
+enable_train_metrics: True
+enable_reference_samples: True
+loss_l2_steps: 100000
+train_log_interval: 10
+train_diffusion_start_epoch: 1
+dropout: 0.0
+overfit_test: False
+overfit_test_sample_count: 1
+overfit_test_epoch_data_count: 1000
+train_data_count: null
+dataloader_options:
+    batch_size: !ref <batch_size>
+use_tensorboard: True
+tensorboard_logs: !ref <output_folder>/logs/
+rand_amplitude: True
+min_amp: 0.1
+max_amp: 0.4
+
+# Spectrogram Parameters
+spec_n_fft: 1024
+spec_f_min: 0
+spec_f_max: 8000
+spec_n_mels: 80
+spec_power: 1
+spec_ref: 10.0
+spec_hop_length: 256
+spec_win_length: 1024
+spec_norm: "slaney"
+spec_mel_scale: "slaney"
+spec_norm_mean: 0.
+spec_norm_std: 0.5
+spec_sample_size: 80
+spec_sample_min: -4.7
+spec_sample_max: 3.0
+min_level_db: -80.0
+pad_level_db: -50.
+
+# Model Parameters
+model_channels: 128
+model_num_res_blocks: 4
+diffusion_channels: 1
+
+# Conditioning
+emb_dim: !ref <model_channels> * 4
+digit_conditioned: False
+digit_sample_count: 3
+digit_count: 10
+digit_emb_dim: !ref <emb_dim>
+speaker_conditioned: False
+speaker_count: 60
+speaker_emb_dim: !ref <emb_dim>
+speaker_sample_count: 5
+
+
+# Vocoder Settings
+vocoder_model: speechbrain/tts-hifigan-libritts-16kHz
+
+# Evaluation Parameters
+eval_num_samples: 10
+samples_interval: 5
+eval_generate_audio: True
+eval_show_progress: True
+norm_out_sample: False
+eval_time_steps: 40
+
+# Feature extraction
+compute_features: !new:speechbrain.nnet.containers.Sequential
+    spec: !new:torchaudio.transforms.MelSpectrogram
+        n_fft: !ref <spec_n_fft>
+        f_min: !ref <spec_f_min>
+        f_max: !ref <spec_f_max>
+        n_mels: !ref <spec_n_mels>
+        power: !ref <spec_power>
+        hop_length: !ref <spec_hop_length>
+        win_length: !ref <spec_win_length>
+        norm: !ref <spec_norm>
+        mel_scale: !ref <spec_mel_scale>
+    amp2db: !new:torchaudio.transforms.AmplitudeToDB
+
+min_level_norm: !new:speechbrain.processing.features.MinLevelNorm
+    min_level_db: !ref <min_level_db>
+
+global_norm: !new:speechbrain.processing.features.GlobalNorm
+    norm_mean: !ref <spec_norm_mean>
+    norm_std: !ref <spec_norm_std>
+
+dynamic_range_compression: !new:speechbrain.processing.features.DynamicRangeCompression
+
+compute_cost: !new:speechbrain.nnet.schedulers.ScheduledLoss
+    schedule:
+        - loss_fn: !name:speechbrain.nnet.losses.mse_loss
+          steps: !ref <loss_l2_steps>
+        - loss_fn: !name:speechbrain.nnet.losses.l1_loss
+
+use_cond_emb:
+    speaker: !ref <speaker_conditioned>
+    digit: !ref <digit_conditioned>
+
+cond_emb:
+    speaker:
+        emb: !ref <emb_speaker>
+        emb_dim: !ref <speaker_emb_dim>
+        key: speaker_label
+        sample_count: !ref <speaker_sample_count>
+        count: !ref <speaker_count>
+    digit:
+        emb: !ref <emb_digit>
+        emb_dim: !ref <digit_emb_dim>
+        key: digit_label
+        sample_count: !ref <digit_sample_count>
+        count: !ref <digit_count>
+
+# To design a custom model, either just edit the simple CustomModel
+# class that's listed here, or replace this `!new` call with a line
+# pointing to a different file you've defined.
+unet: !new:speechbrain.nnet.unet.UNetModel
+    in_channels: 1
+    model_channels: !ref <model_channels>
+    out_channels: 1
+    num_res_blocks: !ref <model_num_res_blocks>
+    norm_num_groups: 32
+    attention_resolutions: [8]
+    cond_emb: !ref <cond_emb>
+    use_cond_emb: !ref <use_cond_emb>
+    dropout: !ref <dropout>
+
+noise: !new:speechbrain.nnet.diffusion.LengthMaskedGaussianNoise
+    length_dim: 2
+
+emb_digit: !new:speechbrain.nnet.embedding.Embedding
+    num_embeddings: !ref <digit_count>
+    embedding_dim: !ref <digit_emb_dim>
+
+emb_speaker: !new:speechbrain.nnet.embedding.Embedding
+    num_embeddings: !ref <speaker_count>
+    embedding_dim: !ref <speaker_emb_dim>
+
+diffusion: !new:speechbrain.nnet.diffusion.DenoisingDiffusion
+    model: !ref <unet.diffusion_forward>
+    timesteps: !ref <train_timesteps>
+    noise: !ref <noise>
+    show_progress: !ref <eval_show_progress>
+    sample_min: !ref <spec_sample_min>
+    sample_max: !ref <spec_sample_max>
+
+diffusion_sample_channels: !ref <diffusion_channels>
+
+# The first object passed to the Brain class is this "Epoch Counter"
+# which is saved by the Checkpointer so that training can be resumed
+# if it gets interrupted at any point.
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+    limit: !ref <number_of_epochs>
+
+vocoder: !name:speechbrain.inference.vocoders.HIFIGAN.from_hparams
+    source: !ref <vocoder_model>
+
+
+# Objects in "modules" dict will have their parameters moved to the correct
+# device, as well as having train()/eval() called on them by the Brain class.
+modules:
+    unet: !ref <unet>
+    diffusion: !ref <diffusion>
+    diffusion_sample: !ref <diffusion>
+    compute_features: !ref <compute_features>
+    dynamic_range_compression: !ref <dynamic_range_compression>
+    min_level_norm: !ref <min_level_norm>
+    global_norm: !ref <global_norm>
+    emb_digit: !ref <emb_digit>
+    emb_speaker: !ref <emb_speaker>
+
+# This optimizer will be constructed by the Brain class after all parameters
+# are moved to the correct device. Then it will be added to the checkpointer.
+opt_class: !name:torch.optim.Adam
+    lr: !ref <lr>
+    betas: !ref (<adam_beta1>, <adam_beta2>)
+    weight_decay: !ref <adam_weight_decay>
+    eps: !ref <adam_epsilon>
+
+# This function manages learning rate annealing over the epochs.
+# We here use the simple lr annealing method that linearly decreases
+# the lr from the initial value to the final one.
+lr_annealing: !new:speechbrain.nnet.schedulers.WarmCoolDecayLRSchedule
+    lr: !ref <lr>
+    warmup: !ref <lr_warmup_steps>
+    cooldown: !ref <lr_cooldown_steps>
+    total_steps: !ref <lr_total_steps>
+    decay_every: !ref <lr_decay_every>
+
+# This object is used for saving the state of training both so that it
+# can be resumed if it gets interrupted, and also so that the best checkpoint
+# can be later loaded for evaluation or inference.
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+    checkpoints_dir: !ref <save_folder>
+    recoverables:
+        unet: !ref <unet>
+        counter: !ref <epoch_counter>
+        lr_annealing: !ref <lr_annealing>
+        global_norm: !ref <global_norm>
+        emb_digit: !ref <emb_digit>
+        emb_speaker: !ref <emb_speaker>

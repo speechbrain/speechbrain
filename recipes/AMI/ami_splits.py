@@ -19,7 +19,7 @@ def get_AMI_split(split_option):
 
     Returns
     -------
-        Meeting IDs for train, dev, and test sets for given split_option
+    Meeting IDs for train, dev, and test sets for given split_option
     """
 
     if split_option not in ALLOWED_OPTIONS:
@@ -30,7 +30,6 @@ def get_AMI_split(split_option):
         return
 
     if split_option == "scenario_only":
-
         train_set = [
             "ES2002",
             "ES2005",

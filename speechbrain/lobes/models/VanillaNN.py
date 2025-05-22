@@ -3,7 +3,9 @@
 Authors
 * Elena Rastorgueva 2020
 """
+
 import torch
+
 import speechbrain as sb
 
 
@@ -12,6 +14,8 @@ class VanillaNN(sb.nnet.containers.Sequential):
 
     Arguments
     ---------
+    input_shape : tuple
+        Expected shape of the input tensors.
     activation : torch class
         A class used for constructing the activation layers.
     dnn_blocks : int

@@ -1,6 +1,14 @@
 # SLU recipes for Timers and Such v1.0
 This folder contains recipes for spoken language understanding (SLU) with [Timers and Such v1.0](https://zenodo.org/record/4623772#.YGeMMHVKg5k), an SLU dataset with a (train/dev/test) set of synthetic speech and a (train/dev/test) set of real speech.
 
+## Installing Extra Dependencies
+
+Before proceeding, ensure you have installed the necessary additional dependencies. To do this, simply run the following command in your terminal:
+
+```
+pip install -r extra_requirements.txt
+```
+
 ### LM recipe
 This recipe trains a language model (LM) on Timers and Such transcripts. (It is not necessary to run this before running the other recipes, as they download a trained checkpoint.)
 
@@ -61,7 +69,7 @@ The third uses the "960 Hr" variant of wav2vec 2.0, which is finetuned on LibriS
 | wav2vec 2.0 "Base" | 92.7% ± 1.0% | none |
 | wav2vec 2.0 "960 Hr" | 94.0% ± 1.2% | none |
 
-You can find the output folders (model, logs, etc) [here](https://drive.google.com/drive/folders/1x2crmemZj2uxdzyOM_nlfuHxlTCP-9_-?usp=sharing)
+You can find the output folders (model, logs, etc) [here](https://www.dropbox.com/sh/gmmum179ig9wz0x/AAAOSOi11yVymGXHp9LzYNrqa?dl=0)
 
 # PreTrained Model + Easy-Inference
 You can find the pre-trained model with an easy-inference function on [HuggingFace](https://huggingface.co/speechbrain/slu-timers-and-such-direct-librispeech-asr).
@@ -75,12 +83,12 @@ The dataset and baseline models are described in the paper below. If you found t
 
 ```
 @misc{lugosch2021timers,
-      title={Timers and Such: A Practical Benchmark for Spoken Language Understanding with Numbers},
-      author={Lugosch, Loren and Papreja, Piyush and Ravanelli, Mirco and Heba, Abdelwahab and Parcollet, Titouan},
-      year={2021},
-      eprint={2104.01604},
-      archivePrefix={arXiv},
-      primaryClass={cs.CL}
+  title={Timers and Such: A Practical Benchmark for Spoken Language Understanding with Numbers},
+  author={Lugosch, Loren and Papreja, Piyush and Ravanelli, Mirco and Heba, Abdelwahab and Parcollet, Titouan},
+  year={2021},
+  eprint={2104.01604},
+  archivePrefix={arXiv},
+  primaryClass={cs.CL}
 }
 ```
 
@@ -94,6 +102,15 @@ The dataset and baseline models are described in the paper below. If you found t
 Please, cite SpeechBrain if you use it for your research or business.
 
 ```bibtex
+@misc{speechbrainV1,
+  title={Open-Source Conversational AI with SpeechBrain 1.0},
+  author={Mirco Ravanelli and Titouan Parcollet and Adel Moumen and Sylvain de Langen and Cem Subakan and Peter Plantinga and Yingzhi Wang and Pooneh Mousavi and Luca Della Libera and Artem Ploujnikov and Francesco Paissan and Davide Borra and Salah Zaiem and Zeyu Zhao and Shucong Zhang and Georgios Karakasidis and Sung-Lin Yeh and Pierre Champion and Aku Rouhe and Rudolf Braun and Florian Mai and Juan Zuluaga-Gomez and Seyed Mahed Mousavi and Andreas Nautsch and Xuechen Liu and Sangeet Sagar and Jarod Duret and Salima Mdhaffar and Gaelle Laperriere and Mickael Rouvier and Renato De Mori and Yannick Esteve},
+  year={2024},
+  eprint={2407.00463},
+  archivePrefix={arXiv},
+  primaryClass={cs.LG},
+  url={https://arxiv.org/abs/2407.00463},
+}
 @misc{speechbrain,
   title={{SpeechBrain}: A General-Purpose Speech Toolkit},
   author={Mirco Ravanelli and Titouan Parcollet and Peter Plantinga and Aku Rouhe and Samuele Cornell and Loren Lugosch and Cem Subakan and Nauman Dawalatabad and Abdelwahab Heba and Jianyuan Zhong and Ju-Chieh Chou and Sung-Lin Yeh and Szu-Wei Fu and Chien-Feng Liao and Elena Rastorgueva and François Grondin and William Aris and Hwidong Na and Yan Gao and Renato De Mori and Yoshua Bengio},

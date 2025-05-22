@@ -7,14 +7,14 @@ Does the following feature set work out together on some environment?
 Authors:
     * Andreas Nautsch 2023
 """
-import logging
-import speechbrain as sb
 from copy import deepcopy
-from speechbrain.pretrained import EncoderDecoderASR
-from speechbrain.pretrained.fetching import FetchFrom, FetchSource
 
+import speechbrain as sb
+from speechbrain.inference.ASR import EncoderDecoderASR
+from speechbrain.utils.fetching import FetchFrom, FetchSource
+from speechbrain.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def run_hf_repo_single_node(run_options):
@@ -38,7 +38,7 @@ def run_hf_repo_single_node(run_options):
 
     # Instantiate pretrained HF model
     pretrained_hf_asr = EncoderDecoderASR.from_hparams(
-        source=repo, run_opts=deepcopy(run_options),
+        source=repo, run_opts=deepcopy(run_options)
     )
 
     # From HF model card

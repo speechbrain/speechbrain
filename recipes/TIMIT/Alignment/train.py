@@ -12,9 +12,11 @@ Authors
 """
 import os
 import sys
+
 import torch
-import speechbrain as sb
 from hyperpyyaml import load_hyperpyyaml
+
+import speechbrain as sb
 from speechbrain.utils.distributed import run_on_main
 
 # Define training procedure
@@ -26,14 +28,9 @@ class AlignBrain(sb.Brain):
         batch = batch.to(self.device)
         wavs, wav_lens = batch.sig
 
-        # Adding augmentation when specified:
-        if stage == sb.Stage.TRAIN:
-            if hasattr(self.modules, "env_corrupt"):
-                wavs_noise = self.modules.env_corrupt(wavs, wav_lens)
-                wavs = torch.cat([wavs, wavs_noise], dim=0)
-                wav_lens = torch.cat([wav_lens, wav_lens])
-            if hasattr(self.hparams, "augmentation"):
-                wavs = self.hparams.augmentation(wavs, wav_lens)
+        # Add waveform augmentation if specified.
+        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "wav_augment"):
+            wavs, wav_lens = self.hparams.wav_augment(wavs, wav_lens)
 
         feats = self.hparams.compute_features(wavs)
         if hasattr(self.hparams, "normalize"):
@@ -51,9 +48,9 @@ class AlignBrain(sb.Brain):
         phns, phn_lens = batch.phn_encoded
         phn_ends, _ = batch.phn_ends
 
-        if stage == sb.Stage.TRAIN and hasattr(self.modules, "env_corrupt"):
-            phns = torch.cat([phns, phns], dim=0)
-            phn_lens = torch.cat([phn_lens, phn_lens], dim=0)
+        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "wav_augment"):
+            phns = self.hparams.wav_augment.replicate_labels(phns)
+            phn_lens = self.hparams.wav_augment.replicate_labels(phn_lens)
 
         phns, phn_lens = phns.to(self.device), phn_lens.to(self.device)
         phns_orig = sb.utils.data_utils.undo_padding(phns, phn_lens)
@@ -127,7 +124,8 @@ class AlignBrain(sb.Brain):
                 valid_stats={"loss": stage_loss, "accuracy": acc},
             )
             self.checkpointer.save_and_keep_only(
-                meta={"accuracy": acc}, max_keys=["accuracy"],
+                meta={"accuracy": acc},
+                max_keys=["accuracy"],
             )
 
         elif stage == sb.Stage.TEST:
@@ -139,7 +137,8 @@ class AlignBrain(sb.Brain):
 
 def dataio_prep(hparams):
     """This function prepares the datasets to be used in the brain class.
-    It also defines the data processing pipeline through user-defined functions."""
+    It also defines the data processing pipeline through user-defined functions.
+    """
 
     data_folder = hparams["data_folder"]
 
@@ -239,12 +238,11 @@ def dataio_prep(hparams):
 
 # Begin Recipe!
 if __name__ == "__main__":
-
     # CLI:
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
 
     # Load hyperparameters file with command-line overrides
-    with open(hparams_file) as fin:
+    with open(hparams_file, encoding="utf-8") as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
     # Dataset prep (parsing TIMIT and annotation into csv files)

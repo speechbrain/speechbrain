@@ -4,22 +4,28 @@ Combinations of processing algorithms to implement downsampling methods.
 Authors
  * Salah Zaiem
 """
+
 import torch
 import torchaudio.transforms as T
+
 from speechbrain.nnet.CNN import Conv1d
 from speechbrain.nnet.pooling import Pooling1d
 
 
 class Downsampler(torch.nn.Module):
-    """ Wrapper for downsampling techniques
-    """
+    """Wrapper for downsampling techniques"""
 
     def forward(self, x):
-        """ Downsampling function
+        """Downsampling function
+
         Arguments
         ---------
         x : tensor
             Speech samples of shape [B,n_samples] with B the batch size
+
+        Returns
+        -------
+        Downsampled outputs.
         """
 
         return self.downsampler(x)

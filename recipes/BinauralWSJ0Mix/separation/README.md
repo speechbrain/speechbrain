@@ -2,12 +2,14 @@
 This folder contains some recipes for the Binaural-WSJ0Mix task (2/3 sources). Please refer to [Real-time binaural speech separation with preserved spatial cues](https://arxiv.org/abs/2002.06637) [1] for details.
 
 
-Additional dependency:
-```
-pip install mir_eval
-pip install pyroomacoustics==0.3.1
-```
+## Installing Extra Dependencies
 
+Before proceeding, ensure you have installed the necessary additional dependencies. To do this, simply run the following command in your terminal:
+
+```
+pip install -r ../extra_requirements.txt
+
+```
 To run it:
 
 ```
@@ -18,7 +20,13 @@ python train.py hparams/convtasnet-parallel.yaml
 The training data will be automatically created from the `wsj_root`, which is the root folder that contains
 Note that during training we print the negative SNR instead of SI-SNR because the scale-invariance property of SI-SNR makes it insensitive to power rescaling of the estimated signal, which may fail in preserving the ILD between the outputs.
 
-
+If you want to run it on the test sets only, you can add the flag `--test_only` to the following command:
+```
+python train.py hparams/convtasnet-parallel.yaml
+                --data_folder yourpath/binaural-wsj0mix/2speakers
+                --wsj_root yourpath/to/wsj/
+                --test_only
+```
 # Binaural WSJ0-2mix and WSJ0-3mix dataset creation
 * The training data generation scripts can be found from [https://github.com/huangzj421/Binaural-WSJ0Mix](https://github.com/huangzj421/Binaural-WSJ0Mix). But the `train.py` also automatically downloads and generates the data. It puts the data under the path specified in `data_folder`.
 * The default command to run that automatically generate the data given wsj0 folder:`python train.py hparams/convtasnet-parallel.yaml --data_folder yourpath/binaural-wsj0mix/2speakers --wsj_root yourpath/wsj0-mix/wsj0`
@@ -47,7 +55,7 @@ Here are the SNRi results (in dB) as well as ITD and ILD errors as the metric fo
 * ConvTasnet-parallel-noise.yaml refers to the above Tasnet applied to 2 speakers with DEMAND noise.
 * ConvTasnet-parallel-reverb.yaml refers to the above Tasnet applied to 2 speakers with reverberance(RT60) from the [BRIR Sim Set](http://iosr.uk/software/index.php).
 
-The output folders with the checkpoints, logs, etc are available [here](https://drive.google.com/drive/folders/17FFwlIq6MQLHT9RXPgeYssti5TEeEXsx?usp=sharing)
+The output folders with the checkpoints, logs, etc are available [here](https://www.dropbox.com/sh/i7fhu7qswjb84gw/AABsX1zP-GOTmyl86PtU8GGua?dl=0)
 
 # Example calls for running the training scripts
 
@@ -61,10 +69,10 @@ The output folders with the checkpoints, logs, etc are available [here](https://
 
 You can run the following command to train the model using Distributed Data Parallel (DDP) with 2 GPUs:
 
+```bash
+torchrun --nproc_per_node=2 train.py hparams/convtasnet-parallel.yaml --data_folder /yourdatapath
 ```
- python -m torch.distributed.launch --nproc_per_node=2 train.py hparams/convtasnet-parallel.yaml --data_folder /yourdatapath --distributed_launch --distributed_backend='nccl'
-```
-You can add the other runtime options as appropriate. For more complete information on multi-GPU usage, take a look at this [tutorial](https://colab.research.google.com/drive/13pBUacPiotw1IvyffvGZ-HrtBr9T6l15?usp=sharing).
+You can add the other runtime options as appropriate. For more complete information on multi-GPU usage, take a look at [our documentation](https://speechbrain.readthedocs.io/en/latest/multigpu.html).
 
 
 
@@ -73,6 +81,15 @@ You can add the other runtime options as appropriate. For more complete informat
 Please, cite SpeechBrain if you use it for your research or business.
 
 ```bibtex
+@misc{speechbrainV1,
+  title={Open-Source Conversational AI with SpeechBrain 1.0},
+  author={Mirco Ravanelli and Titouan Parcollet and Adel Moumen and Sylvain de Langen and Cem Subakan and Peter Plantinga and Yingzhi Wang and Pooneh Mousavi and Luca Della Libera and Artem Ploujnikov and Francesco Paissan and Davide Borra and Salah Zaiem and Zeyu Zhao and Shucong Zhang and Georgios Karakasidis and Sung-Lin Yeh and Pierre Champion and Aku Rouhe and Rudolf Braun and Florian Mai and Juan Zuluaga-Gomez and Seyed Mahed Mousavi and Andreas Nautsch and Xuechen Liu and Sangeet Sagar and Jarod Duret and Salima Mdhaffar and Gaelle Laperriere and Mickael Rouvier and Renato De Mori and Yannick Esteve},
+  year={2024},
+  eprint={2407.00463},
+  archivePrefix={arXiv},
+  primaryClass={cs.LG},
+  url={https://arxiv.org/abs/2407.00463},
+}
 @misc{speechbrain,
   title={{SpeechBrain}: A General-Purpose Speech Toolkit},
   author={Mirco Ravanelli and Titouan Parcollet and Peter Plantinga and Aku Rouhe and Samuele Cornell and Loren Lugosch and Cem Subakan and Nauman Dawalatabad and Abdelwahab Heba and Jianyuan Zhong and Ju-Chieh Chou and Sung-Lin Yeh and Szu-Wei Fu and Chien-Feng Liao and Elena Rastorgueva and François Grondin and William Aris and Hwidong Na and Yan Gao and Renato De Mori and Yoshua Bengio},

@@ -1,27 +1,28 @@
 """
 Data preparation.
-Download: https://dvoice.ma/
+Download: https://zenodo.org/record/5482551
 
 Author
 ------
 Abdou Mohamed Naira 2022
 """
 
-import os
 import csv
-import re
-import logging
-import torchaudio
-import unicodedata
-from tqdm.contrib import tzip
+import glob
+import os
 import random
+import re
+import unicodedata
+
+import numpy as np
 import pandas as pd
 from tqdm import tqdm
-import numpy as np
-import glob
-from speechbrain.dataio.dataio import read_audio_info
+from tqdm.contrib import tzip
 
-logger = logging.getLogger(__name__)
+from speechbrain.dataio.dataio import read_audio_info
+from speechbrain.utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 def prepare_dvoice(
@@ -34,7 +35,6 @@ def prepare_dvoice(
     language="fongbe",
     skip_prep=False,
 ):
-
     if skip_prep:
         return
 
@@ -108,14 +108,13 @@ def prepare_dvoice(
         dev.to_csv(f"{data_folder}/dev.csv", index=False, sep="\t")
         test.to_csv(f"{data_folder}/test.csv", index=False, sep="\t")
 
-    # Setting ouput files
+    # Setting output files
     save_csv_train = save_folder + "/train.csv"
     save_csv_dev = save_folder + "/dev.csv"
     save_csv_test = save_folder + "/test.csv"
 
     # If csv already exists, we skip the data preparation
     if skip(save_csv_train, save_csv_dev, save_csv_test):
-
         msg = "%s already exists, skipping data preparation!" % (save_csv_train)
         logger.info(msg)
 
@@ -132,7 +131,6 @@ def prepare_dvoice(
 
     # Creating csv file for training data
     if train_csv_file is not None:
-
         create_csv(
             train_csv_file,
             save_csv_train,
@@ -143,14 +141,16 @@ def prepare_dvoice(
 
     # Creating csv file for dev data
     if dev_csv_file is not None:
-
         create_csv(
-            dev_csv_file, save_csv_dev, data_folder, accented_letters, language,
+            dev_csv_file,
+            save_csv_dev,
+            data_folder,
+            accented_letters,
+            language,
         )
 
     # Creating csv file for test data
     if test_csv_file is not None:
-
         create_csv(
             test_csv_file,
             save_csv_test,
@@ -163,15 +163,15 @@ def prepare_dvoice(
 def alffa_public_prepare(language, data_folder):
     if language == "amharic":
         wavs = glob.glob(f"{data_folder}/*/*/*.wav")
-        f_train = open(f"{data_folder}/train/text", "r")
-        f_test = open(f"{data_folder}/test/text", "r")
+        f_train = open(f"{data_folder}/train/text", "r", encoding="utf-8")
+        f_test = open(f"{data_folder}/test/text", "r", encoding="utf-8")
         text = f_train.readlines() + f_test.readlines()
         random.shuffle(text)
 
     if language == "fongbe":
         wavs = glob.glob(f"{data_folder}/*/wav/*/*.wav")
-        f_train = open(f"{data_folder}/train/text", "r")
-        f_test = open(f"{data_folder}/test/text", "r")
+        f_train = open(f"{data_folder}/train/text", "r", encoding="utf-8")
+        f_test = open(f"{data_folder}/test/text", "r", encoding="utf-8")
         text = f_train.readlines() + f_test.readlines()
         random.shuffle(text)
 
@@ -180,9 +180,9 @@ def alffa_public_prepare(language, data_folder):
         wavs_dev = glob.glob(f"{data_folder}/dev/wav/*/*.wav")
         wavs_test = glob.glob(f"{data_folder}/test/wav/*/*.wav")
         wavs = wavs_train + wavs_dev + wavs_test
-        f_train = open(f"{data_folder}/train/text", "r")
-        f_test = open(f"{data_folder}/test/text", "r")
-        f_dev = open(f"{data_folder}/dev/text", "r")
+        f_train = open(f"{data_folder}/train/text", "r", encoding="utf-8")
+        f_test = open(f"{data_folder}/test/text", "r", encoding="utf-8")
+        f_dev = open(f"{data_folder}/dev/text", "r", encoding="utf-8")
         text = f_train.readlines() + f_dev.readlines() + f_test.readlines()
         random.shuffle(text)
 
@@ -232,10 +232,14 @@ def swahili_prepare(data_folder):
     )
 
     f_train_alffa = open(
-        f"{data_folder}/ALFFA_PUBLIC/ASR/SWAHILI/data/train/text", "r"
+        f"{data_folder}/ALFFA_PUBLIC/ASR/SWAHILI/data/train/text",
+        "r",
+        encoding="utf-8",
     )
     f_test_alffa = open(
-        f"{data_folder}/ALFFA_PUBLIC/ASR/SWAHILI/data/test/text", "r"
+        f"{data_folder}/ALFFA_PUBLIC/ASR/SWAHILI/data/test/text",
+        "r",
+        encoding="utf-8",
     )
     train_alffa = f_train_alffa.readlines()
     test_alffa = f_test_alffa.readlines()
@@ -289,6 +293,16 @@ def skip(save_csv_train, save_csv_dev, save_csv_test):
     """
     Detects if the DVoice data preparation has been already done.
     If the preparation has been done, we can skip it.
+
+    Arguments
+    ---------
+    save_csv_train : str
+        Path to the train csv
+    save_csv_dev : str
+        Path to the dev csv
+    save_csv_test : str
+        Path to the test csv
+
     Returns
     -------
     bool
@@ -318,18 +332,20 @@ def create_csv(
 ):
     """
     Creates the csv file given a list of wav files.
+
     Arguments
     ---------
     orig_csv_file : str
         Path to the DVoice csv file (standard file).
+    csv_file : str
+        Path to the new DVoice csv file.
     data_folder : str
         Path of the DVoice dataset.
     accented_letters : bool, optional
         Defines if accented letters will be kept as individual letters or
         transformed to the closest non-accented letters.
-    Returns
-    -------
-    None
+    language : str
+        Language to prepare.
     """
 
     # Check if the given files exists
@@ -339,7 +355,7 @@ def create_csv(
         raise FileNotFoundError(msg)
 
     # We load and skip the header
-    loaded_csv = open(orig_csv_file, "r").readlines()[1:]
+    loaded_csv = open(orig_csv_file, "r", encoding="utf-8").readlines()[1:]
     nb_samples = str(len(loaded_csv))
     msg = "Preparing CSV files for %s samples ..." % (str(nb_samples))
     logger.info(msg)
@@ -372,12 +388,6 @@ def create_csv(
         spk_id = line.split("\t")[0].replace(".wav", "")
         snt_id = os.path.basename(file_name)
 
-        # Setting torchaudio backend to sox-io (needed to read mp3 files)
-        if torchaudio.get_audio_backend() != "sox_io":
-            logger.warning("This recipe needs the sox-io backend of torchaudio")
-            logger.warning("The torchaudio backend is changed to sox_io")
-            torchaudio.set_audio_backend("sox_io")
-
         duration = float(line.split("\t")[2])
         total_duration += duration
 
@@ -396,7 +406,7 @@ def create_csv(
             ALEF_MADDA = "\u0622"
             ALEF_HAMZA_ABOVE = "\u0623"
             letters = (
-                "ابتةثجحخدذرزسشصضطظعغفقكلمنهويءآأؤإئ"
+                "ابتةثجحخدذرزسشصضطظعغفقكلمنهويءآأؤإئ"  # cspell:disable-line
                 + HAMZA
                 + ALEF_MADDA
                 + ALEF_HAMZA_ABOVE
@@ -451,9 +461,14 @@ def check_dvoice_folders(data_folder, language):
     """
     Check if the data folder actually contains the DVoice dataset.
     If not, raises an error.
-    Returns
-    -------
-    None
+
+    Arguments
+    ---------
+    data_folder : str
+        Path to directory with data.
+    language : str
+        The language to check.
+
     Raises
     ------
     FileNotFoundError
@@ -472,7 +487,6 @@ def check_dvoice_folders(data_folder, language):
 
     # Checking clips
     if not os.path.exists(data_folder + files_str):
-
         err_msg = (
             "the folder %s does not exist (it is expected in "
             "the DVoice dataset)" % (data_folder + files_str)
@@ -481,7 +495,6 @@ def check_dvoice_folders(data_folder, language):
 
 
 def unicode_normalisation(text):
-
     try:
         text = unicode(text, "utf-8")
     except NameError:  # unicode is a default on python 3
@@ -490,7 +503,6 @@ def unicode_normalisation(text):
 
 
 def strip_accents(text):
-
     text = (
         unicodedata.normalize("NFD", text)
         .encode("ascii", "ignore")

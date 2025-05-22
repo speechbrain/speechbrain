@@ -9,9 +9,10 @@ Author
 ------
 Dominik Wagner 2022
 """
-import re
-import os
+
 import csv
+import os
+import re
 import string
 from collections import defaultdict
 
@@ -20,7 +21,9 @@ def read_glm_csv(save_folder):
     """Load the ARPA Hub4-E and Hub5-E alternate spellings and contractions map"""
 
     alternatives_dict = defaultdict(list)
-    with open(os.path.join(save_folder, "glm.csv")) as csv_file:
+    with open(
+        os.path.join(save_folder, "glm.csv"), encoding="utf-8"
+    ) as csv_file:
         csv_reader = csv.reader(csv_file, delimiter=",")
         for row in csv_reader:
             alternatives = row[1].split("|")
@@ -32,8 +35,8 @@ def expand_contractions(text) -> list:
     """
     Some regular expressions for expanding common contractions and for splitting linked words.
 
-    Parameters
-    ----------
+    Arguments
+    ---------
     text : str
         Text to process
 
@@ -42,6 +45,7 @@ def expand_contractions(text) -> list:
     A list of tokens
     """
     # Specific contractions
+    # cspell:disable
     text = re.sub(r"won\'t", "WILL NOT", text, flags=re.IGNORECASE)
     text = re.sub(r"can\'t", "CAN NOT", text, flags=re.IGNORECASE)
     text = re.sub(r"let\'s", "LET US", text, flags=re.IGNORECASE)
@@ -71,6 +75,7 @@ def expand_contractions(text) -> list:
     text = re.sub(r"im", "I AM", text, flags=re.IGNORECASE)
     text = re.sub(r"ive", "I HAVE", text, flags=re.IGNORECASE)
     text = re.sub(r"youre", "YOU ARE", text, flags=re.IGNORECASE)
+    # cspell:enable
 
     # More general contractions
     text = re.sub(r"n\'t", " NOT", text, flags=re.IGNORECASE)
@@ -127,20 +132,18 @@ def normalize_words(
 
     The procedure is adapted from Kaldi's local/score.sh script.
 
-    Parameters
-    ----------
-    glm_alternatives : dict
-        Dictionary containing valid word alternatives
+    Arguments
+    ---------
     target_words_batch : list
         List of length <batch_size> containing lists of target words for each utterance
     predicted_words_batch : list of list
         List of length <batch_size> containing lists of predicted words for each utterance
+    glm_alternatives : dict
+        Dictionary containing valid word alternatives
 
     Returns
     -------
-
     A new list containing the filtered predicted words.
-
     """
     excluded_words = [
         "<UNK>",

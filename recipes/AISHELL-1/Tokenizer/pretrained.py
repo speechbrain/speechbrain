@@ -5,9 +5,12 @@ Authors
  * Mirco Ravanelli 2020
  * Abdel Heba 2020
 """
+
 import os
-from speechbrain.utils.data_utils import download_file
+
 import sentencepiece as spm
+
+from speechbrain.utils.data_utils import download_file
 
 
 class tokenizer:
@@ -28,7 +31,9 @@ class tokenizer:
 
         save_file = os.path.join(save_folder, "tok.model")
         download_file(
-            source=tokenizer_file, dest=save_file, replace_existing=True,
+            source=tokenizer_file,
+            dest=save_file,
+            replace_existing=True,
         )
         tokenizer_file = save_file
 

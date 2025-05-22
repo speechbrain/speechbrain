@@ -3,7 +3,9 @@
 Authors
 * Jianyuan Zhong 2020
 """
+
 import torch
+
 from speechbrain.dataio.dataio import length_to_mask
 
 
@@ -11,13 +13,20 @@ def Accuracy(log_probabilities, targets, length=None):
     """Calculates the accuracy for predicted log probabilities and targets in a batch.
 
     Arguments
-    ----------
-    log_probabilities : tensor
+    ---------
+    log_probabilities : torch.Tensor
         Predicted log probabilities (batch_size, time, feature).
-    targets : tensor
+    targets : torch.Tensor
         Target (batch_size, time).
-    length : tensor
+    length : torch.Tensor
         Length of target (batch_size,).
+
+    Returns
+    -------
+    numerator : float
+        The number of correct samples
+    denominator : float
+        The total number of samples
 
     Example
     -------
@@ -28,7 +37,8 @@ def Accuracy(log_probabilities, targets, length=None):
     """
     if length is not None:
         mask = length_to_mask(
-            length * targets.shape[1], max_len=targets.shape[1],
+            length * targets.shape[1],
+            max_len=targets.shape[1],
         ).bool()
         if len(targets.shape) == 3:
             mask = mask.unsqueeze(2).repeat(1, 1, targets.shape[2])
@@ -68,12 +78,12 @@ class AccuracyStats:
         and target in the current batch.
 
         Arguments
-        ----------
-        log_probabilities : tensor
+        ---------
+        log_probabilities : torch.Tensor
             Predicted log probabilities (batch_size, time, feature).
-        targets : tensor
+        targets : torch.Tensor
             Target (batch_size, time).
-        length: tensor
+        length : torch.Tensor
             Length of target (batch_size,).
         """
         numerator, denominator = Accuracy(log_probabilities, targets, length)
@@ -81,5 +91,5 @@ class AccuracyStats:
         self.total += denominator
 
     def summarize(self):
-        """Computes the accuract metric."""
+        """Computes the accuracy metric."""
         return self.correct / self.total

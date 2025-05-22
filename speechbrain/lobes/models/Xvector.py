@@ -8,11 +8,12 @@ Authors
 # import os
 import torch  # noqa: F401
 import torch.nn as nn
+
 import speechbrain as sb
-from speechbrain.nnet.pooling import StatisticsPooling
 from speechbrain.nnet.CNN import Conv1d
 from speechbrain.nnet.linear import Linear
 from speechbrain.nnet.normalization import BatchNorm1d
+from speechbrain.nnet.pooling import StatisticsPooling
 
 
 class Xvector(torch.nn.Module):
@@ -34,6 +35,8 @@ class Xvector(torch.nn.Module):
         List of dilations for kernels in each TDNN layer.
     lin_neurons : int
         Number of neurons in linear layers.
+    in_channels : int
+        Expected size of input features.
 
     Example
     -------
@@ -55,7 +58,6 @@ class Xvector(torch.nn.Module):
         lin_neurons=512,
         in_channels=40,
     ):
-
         super().__init__()
         self.blocks = nn.ModuleList()
 
@@ -95,6 +97,14 @@ class Xvector(torch.nn.Module):
         Arguments
         ---------
         x : torch.Tensor
+            Inputs features for extracting x-vectors.
+        lens : torch.Tensor
+            The corresponding relative lengths of the inputs.
+
+        Returns
+        -------
+        x : torch.Tensor
+            X-vectors.
         """
 
         for layer in self.blocks:
@@ -178,14 +188,16 @@ class Discriminator(sb.nnet.containers.Sequential):
 
     Arguments
     ---------
-    device : str
-        Device used e.g. "cpu" or "cuda"
+    input_shape : tuple
+        Expected shape of the input tensor.
     activation : torch class
         A class for constructing the activation layers.
     lin_blocks : int
         Number of linear layers.
     lin_neurons : int
         Number of neurons in linear layers.
+    out_neurons : int
+        Size of the output vector.
 
     Example
     -------

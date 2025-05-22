@@ -3,10 +3,12 @@
 Authors:
 * Szu-Wei Fu 2020
 """
+
 import torch
-import speechbrain as sb
 from torch import nn
 from torch.nn.utils import spectral_norm
+
+import speechbrain as sb
 
 
 def xavier_init_layer(
@@ -90,7 +92,7 @@ class EnhancementGenerator(nn.Module):
         self.sigmoid = nn.Sigmoid()
 
     def forward(self, x, lengths):
-        """ Processes the input tensor x and returns an output tensor."""
+        """Processes the input tensor x and returns an output tensor."""
         out, _ = self.blstm(x, lengths=lengths)
 
         out = self.linear1(out)
@@ -116,11 +118,12 @@ class MetricDiscriminator(nn.Module):
         The dimensions of the 2-d kernel used for convolution.
     base_channels : int
         Number of channels used in each conv layer.
+    activation : Callable
+        Function to apply between layers.
     lin_dim1: int
         Dimensionality of the first linear layer.
     lin_dim2: int
         Dimensionality of the second linear layer.
-
 
     Example
     -------
@@ -164,7 +167,7 @@ class MetricDiscriminator(nn.Module):
         self.Linear3 = xavier_init_layer(in_size=lin_dim2, out_size=1)
 
     def forward(self, x):
-        """ Processes the input tensor x and returns an output tensor."""
+        """Processes the input tensor x and returns an output tensor."""
         out = self.conv1(x)
         out = self.activation(out)
 

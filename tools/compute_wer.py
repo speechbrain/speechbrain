@@ -36,14 +36,14 @@ Usage
 Authors:
  * Aku Rouhe 2020
 """
-import speechbrain.utils.edit_distance as edit_distance
 import speechbrain.dataio.wer as wer_io
+import speechbrain.utils.edit_distance as edit_distance
 
 
 # These internal utilities read Kaldi-style text/utt2spk files:
 def _plain_text_reader(path):
     # yields key, token_list
-    with open(path, "r") as fi:
+    with open(path, "r", encoding="utf-8") as fi:
         for line in fi:
             key, *tokens = line.strip().split()
             yield key, tokens
@@ -58,7 +58,7 @@ def _plain_text_keydict(path):
 
 def _utt2spk_keydict(path):
     utt2spk = {}
-    with open(path, "r") as fi:
+    with open(path, "r", encoding="utf-8") as fi:
         for line in fi:
             utt, spk = line.strip().split()
             utt2spk[utt] = spk

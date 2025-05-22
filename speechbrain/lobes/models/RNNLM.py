@@ -7,8 +7,10 @@ Authors
  * Titouan Parcollet 2020
  * Abdel 2020
 """
+
 import torch
 from torch import nn
+
 import speechbrain as sb
 
 
@@ -35,7 +37,7 @@ class RNNLM(nn.Module):
         Number of neurons in each layer of the RNN.
     rnn_re_init : bool
         Whether to initialize rnn with orthogonal initialization.
-    rnn_return_hidden : bool
+    return_hidden : bool
         Whether to return hidden states (default True).
     dnn_blocks : int
         The number of linear neural blocks to include.
@@ -99,7 +101,7 @@ class RNNLM(nn.Module):
         )
 
     def forward(self, x, hx=None):
-        """ Processes the input tensor x and returns an output tensor."""
+        """Processes the input tensor x and returns an output tensor."""
         x = self.embedding(x)
         x = self.dropout(x)
 

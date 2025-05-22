@@ -4,9 +4,10 @@ Authors
  * Titouan Parcollet 2020
 """
 
+import numpy as np
 import torch
 from torch.nn import Parameter
-import numpy as np
+
 from speechbrain.nnet.complex_networks.c_ops import multi_mean
 
 
@@ -47,7 +48,6 @@ class CBatchNorm(torch.nn.Module):
     >>> out_tensor = CBN(inp_tensor)
     >>> out_tensor.shape
     torch.Size([10, 16, 30])
-
     """
 
     def __init__(
@@ -90,7 +90,6 @@ class CBatchNorm(torch.nn.Module):
             self.register_parameter("beta", None)
 
         if self.track_running_stats:
-
             self.register_buffer(
                 "num_batches_tracked", torch.tensor(0, dtype=torch.long)
             )
@@ -159,6 +158,10 @@ class CBatchNorm(torch.nn.Module):
         ---------
         input : torch.Tensor (batch, time, [channels])
             Input to normalize. It can be 2d, 3d, 4d.
+
+        Returns
+        -------
+        The normalized output tensor.
         """
         exponential_average_factor = 0.0
 
@@ -190,7 +193,7 @@ class CBatchNorm(torch.nn.Module):
         input_centred = input - mu
 
         if self.scale:
-            centred_squared = input_centred ** 2
+            centred_squared = input_centred**2
 
         # Retrieve the real and image parts of the input tensor w.r.t the
         # dimension
@@ -370,7 +373,6 @@ class CLayerNorm(torch.nn.Module):
         scale=True,
         center=True,
     ):
-
         super().__init__()
         self.dim = dim
         self.eps = eps
@@ -423,7 +425,7 @@ class CLayerNorm(torch.nn.Module):
         else:
             input_centred = input
 
-        centred_squared = input_centred ** 2
+        centred_squared = input_centred**2
 
         if self.dim == 1 or ndim == 2:
             centred_squared_real = centred_squared[:, :input_dim]
@@ -484,13 +486,12 @@ class CLayerNorm(torch.nn.Module):
         )
 
     def _check_input(self, input_shape):
-        """Checks the input and returns the number of complex values.
-        """
+        """Checks the input and returns the number of complex values."""
 
         if input_shape[self.dim] % 2 == 0:
             return input_shape[self.dim] // 2
         else:
-            msg = "ComplexBatchNorm dim must be dividble by 2 ! Got " + str(
+            msg = "ComplexBatchNorm dim must be divisible by 2 ! Got " + str(
                 input_shape[self.dim]
             )
             raise ValueError(msg)
@@ -510,7 +511,6 @@ def c_norm(
     layernorm=False,
     dim=-1,
 ):
-
     """This function is used to apply the complex normalization
     as introduced by "Deep Complex Networks", Trabelsi C. et al.
 
@@ -533,11 +533,11 @@ def c_norm(
         batch-normalization, but in the complex-valued space.
     gamma_rr : torch.Tensor
         It is a tensor that contains the gamma between real-parts.
-    gamma_ii : torch.Tensor
-        It is a tensor that contains the gamma between imaginary-parts.
     gamma_ri : torch.Tensor
         It is a tensor that contains the gamma between real-parts and
         imaginary-parts.
+    gamma_ii : torch.Tensor
+        It is a tensor that contains the gamma between imaginary-parts.
     scale : bool, optional
         It defines if scaling should be used or not. It is
         equivalent to the real-valued batchnormalization
@@ -552,6 +552,10 @@ def c_norm(
     dim : int, optional
         It defines the axis that should be considered as the complex-valued
         axis (divided by 2 to get r and i) (default -1).
+
+    Returns
+    -------
+    The complex normed tensor.
     """
 
     ndim = input_centred.dim()
@@ -628,7 +632,7 @@ def c_norm(
 
 
 def c_standardization(input_centred, Vrr, Vii, Vri, layernorm=False, dim=-1):
-    """This function is used to standardize a centred tensor of
+    """This function is used to standardize a centered tensor of
     complex numbers (mean of the set must be 0).
 
     Arguments
@@ -651,6 +655,10 @@ def c_standardization(input_centred, Vrr, Vii, Vri, layernorm=False, dim=-1):
     dim : int, optional
         It defines the axis that should be considered as the complex-valued
         axis (divided by 2 to get r and i) (default -1).
+
+    Returns
+    -------
+    The standardizes centered tensor.
     """
     ndim = input_centred.dim()
     input_dim = input_centred.size(dim) // 2
@@ -668,7 +676,7 @@ def c_standardization(input_centred, Vrr, Vii, Vri, layernorm=False, dim=-1):
     tau = Vrr + Vii
 
     # delta = (Vrr * Vii) - (Vri ** 2) = Determinant
-    delta = (Vrr * Vii) - (Vri ** 2)
+    delta = (Vrr * Vii) - (Vri**2)
 
     s = delta.sqrt()
     t = (tau + 2 * s).sqrt()

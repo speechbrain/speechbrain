@@ -5,7 +5,7 @@ avoid_if_longer_than: 6.283
 # below from: tests/integration/VAD/hyperparams.yaml
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 1234
-__set_seed: !apply:torch.manual_seed [!ref <seed>]
+__set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
 sample_rate: 16000
 
 

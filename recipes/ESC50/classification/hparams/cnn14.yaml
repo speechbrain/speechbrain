@@ -1,0 +1,165 @@
+# #################################
+# Basic training parameters for sound classification using the ESC50 dataset.
+# This recipe uses the ecapa-tdnn backbone for classification.
+#
+# Authors:
+#  * Cem Subakan 2022, 2023
+#  * Francesco Paissan 2022, 2023, 2024
+#  (based on the SpeechBrain UrbanSound8k recipe)
+# #################################
+
+# Seed needs to be set at top of yaml, before objects with parameters are made
+seed: 1234
+__set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
+
+# Set up folders for reading from and writing to
+data_folder: !PLACEHOLDER  # e.g., /localscratch/ESC-50-master
+audio_data_folder: !ref <data_folder>/audio
+
+experiment_name: !ref cnn14-esc50
+output_folder: !ref ./results/<experiment_name>/<seed>
+save_folder: !ref <output_folder>/save
+train_log: !ref <output_folder>/train_log.txt
+
+add_wham_noise: False
+test_only: False
+
+wham_folder: null # Set it if add_wham_noise is True.
+wham_audio_folder: !ref <wham_folder>/tr
+
+
+sample_rate: 16000
+signal_length_s: 5
+
+# Tensorboard logs
+use_tensorboard: False
+tensorboard_logs_folder: !ref <output_folder>/tb_logs/
+
+# Path where data manifest files will be stored
+train_annotation: !ref <data_folder>/manifest/train.json
+valid_annotation: !ref <data_folder>/manifest/valid.json
+test_annotation: !ref <data_folder>/manifest/test.json
+
+# To standardize results, UrbanSound8k has pre-separated samples into
+# 10 folds for multi-fold validation
+train_fold_nums: [1, 2, 3]
+valid_fold_nums: [4]
+test_fold_nums: [5]
+skip_manifest_creation: False
+
+ckpt_interval_minutes: 15 # save checkpoint every N min
+
+# Training parameters
+number_of_epochs: 200
+batch_size: 32
+lr: 0.0002
+base_lr: 0.00000001
+max_lr: !ref <lr>
+step_size: 65000
+
+
+# Feature parameters
+n_mels: 80
+left_frames: 0
+right_frames: 0
+deltas: False
+
+use_melspectra: True
+use_log1p_mel: True
+
+# Number of classes
+out_n_neurons: 50
+
+# Note that it's actually important to shuffle the data here
+shuffle: True
+dataloader_options:
+    batch_size: !ref <batch_size>
+    shuffle: !ref <shuffle>
+    num_workers: 0
+
+# Functions
+compute_features: !new:speechbrain.lobes.features.Fbank
+    n_mels: !ref <n_mels>
+    left_frames: !ref <left_frames>
+    right_frames: !ref <right_frames>
+    deltas: !ref <deltas>
+    sample_rate: !ref <sample_rate>
+    n_fft: 1024
+    win_length: 20
+    hop_length: 10
+
+embedding_model: !new:speechbrain.lobes.models.Cnn14.Cnn14
+    mel_bins: !ref <n_mels>
+    emb_dim: 2048
+
+classifier: !new:torch.nn.Linear
+    in_features: 2048
+    out_features: !ref <out_n_neurons>
+
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+    limit: !ref <number_of_epochs>
+
+# pre-processing
+n_fft: 1024
+spec_mag_power: 0.5
+hop_length: 11.6099
+win_length: 23.2199
+compute_stft: !new:speechbrain.processing.features.STFT
+    n_fft: !ref <n_fft>
+    hop_length: !ref <hop_length>
+    win_length: !ref <win_length>
+    sample_rate: !ref <sample_rate>
+
+compute_fbank: !new:speechbrain.processing.features.Filterbank
+    n_mels: 80
+    n_fft: !ref <n_fft>
+    sample_rate: !ref <sample_rate>
+    log_mel: False
+
+modules:
+    compute_stft: !ref <compute_stft>
+    compute_fbank: !ref <compute_fbank>
+    compute_features: !ref <compute_features>
+    embedding_model: !ref <embedding_model>
+    classifier: !ref <classifier>
+
+compute_cost: !new:speechbrain.nnet.losses.LogSoftmaxWrapper
+    loss_fn: !new:speechbrain.nnet.losses.AdditiveAngularMargin
+        margin: 0.2
+        scale: 30
+
+opt_class: !name:torch.optim.Adam
+    lr: !ref <lr>
+    weight_decay: 0.000002
+
+lr_annealing: !new:speechbrain.nnet.schedulers.CyclicLRScheduler
+    base_lr: !ref <base_lr>
+    max_lr: !ref <max_lr>
+    step_size: !ref <step_size>
+
+# Logging + checkpoints
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+    save_file: !ref <train_log>
+
+error_stats: !name:speechbrain.utils.metric_stats.MetricStats
+    metric: !name:speechbrain.nnet.losses.classification_error
+        reduction: batch
+
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+    checkpoints_dir: !ref <save_folder>
+    recoverables:
+        embedding_model: !ref <embedding_model>
+        classifier: !ref <classifier>
+        counter: !ref <epoch_counter>
+
+use_pretrained: True
+# If you do not want to use the pretrained encoder
+# you can simply delete pretrained_encoder field,
+# or set use_pretrained=False
+embedding_model_path: speechbrain/cnn14-esc50/embedding_model.ckpt
+pretrained_encoder: !new:speechbrain.utils.parameter_transfer.Pretrainer
+    collect_in: !ref <save_folder>
+    loadables:
+        embedding_model: !ref <embedding_model>
+    paths:
+        embedding_model: !ref <embedding_model_path>

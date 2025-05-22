@@ -1,12 +1,8 @@
 """ Package containing the different neural networks layers
 """
-import os
 
-__all__ = []
-for filename in os.listdir(os.path.dirname(__file__)):
-    filename = os.path.basename(filename)
-    if filename.endswith(".py") and not filename.startswith("__"):
-        __all__.append(filename[:-3])
+from speechbrain.utils.importutils import lazy_export_all
 
-from . import *  # noqa
+lazy_export_all(__file__, __name__, export_subpackages=True)
+
 from .loss import stoi_loss  # noqa

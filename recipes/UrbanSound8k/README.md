@@ -19,6 +19,15 @@ UrbanSound8k is divided into 10 classes, one of which (engine_idling) receives s
 9 = car_horn
 ```
 
+## Installing Extra Dependencies
+
+Before proceeding, ensure you have installed the necessary additional dependencies. To do this, simply run the following command in your terminal:
+
+```
+pip install -r extra_requirements.txt
+```
+
+
 # Multiclass Classification
 
 Run the following command to train using the ECAPA-TDNN network architecture:
@@ -83,12 +92,12 @@ Per Class Accuracy:
  [ 3  1  4  2  0  1  3  6 79  1]
  [ 1  0  0  0  0  0  0  0  1 31]]
 
-Please, take a look [here](https://drive.google.com/drive/folders/1sItfg_WNuGX6h2dCs8JTGq2v2QoNTaUg?usp=sharing) for the full experiment folder (with pre-trained models).
+Please, take a look [here](https://www.dropbox.com/sh/f61325e3w8h5yy2/AADm3E3PXFi1NYA7-QW3H-Ata?dl=0) for the full experiment folder (with pre-trained models).
 
 
 Classification performance and f-scores are output to the console and log file for each epoch using a passed validation set, and after training using the passed test set.
 
-The default hyperparameter settings will output Tensorboard logs to `<output_folder>/tb_logs/` and can be viewed simply using:
+The default hyperparameter settings will output torch.Tensorboard logs to `<output_folder>/tb_logs/` and can be viewed simply using:
 
  `tensorboard --logdir=<YOUR_PATH_TO_OUTPUT_FOLDER>/tb_logs/`
 
@@ -97,7 +106,7 @@ The default hyperparameter settings will output Tensorboard logs to `<output_fol
 You can find the pre-trained model with an easy-inference function on HuggingFace:
 - https://huggingface.co/speechbrain/urbansound8k_ecapa
 You can find the full experiment folder (i.e., checkpoints, logs, etc) here:
-- https://drive.google.com/drive/folders/1sItfg_WNuGX6h2dCs8JTGq2v2QoNTaUg?usp=sharing
+- https://www.dropbox.com/sh/f61325e3w8h5yy2/AADm3E3PXFi1NYA7-QW3H-Ata?dl=0
 
 
 
@@ -147,6 +156,15 @@ While all of the above hyperparameter files listed above (except the 10-fold-cv)
 Please, cite SpeechBrain if you use it for your research or business.
 
 ```bibtex
+@misc{speechbrainV1,
+  title={Open-Source Conversational AI with SpeechBrain 1.0},
+  author={Mirco Ravanelli and Titouan Parcollet and Adel Moumen and Sylvain de Langen and Cem Subakan and Peter Plantinga and Yingzhi Wang and Pooneh Mousavi and Luca Della Libera and Artem Ploujnikov and Francesco Paissan and Davide Borra and Salah Zaiem and Zeyu Zhao and Shucong Zhang and Georgios Karakasidis and Sung-Lin Yeh and Pierre Champion and Aku Rouhe and Rudolf Braun and Florian Mai and Juan Zuluaga-Gomez and Seyed Mahed Mousavi and Andreas Nautsch and Xuechen Liu and Sangeet Sagar and Jarod Duret and Salima Mdhaffar and Gaelle Laperriere and Mickael Rouvier and Renato De Mori and Yannick Esteve},
+  year={2024},
+  eprint={2407.00463},
+  archivePrefix={arXiv},
+  primaryClass={cs.LG},
+  url={https://arxiv.org/abs/2407.00463},
+}
 @misc{speechbrain,
   title={{SpeechBrain}: A General-Purpose Speech Toolkit},
   author={Mirco Ravanelli and Titouan Parcollet and Peter Plantinga and Aku Rouhe and Samuele Cornell and Loren Lugosch and Cem Subakan and Nauman Dawalatabad and Abdelwahab Heba and Jianyuan Zhong and Ju-Chieh Chou and Sung-Lin Yeh and Szu-Wei Fu and Chien-Feng Liao and Elena Rastorgueva and François Grondin and William Aris and Hwidong Na and Yan Gao and Renato De Mori and Yoshua Bengio},

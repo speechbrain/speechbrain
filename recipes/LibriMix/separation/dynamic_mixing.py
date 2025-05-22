@@ -1,14 +1,16 @@
-import speechbrain as sb
-import numpy as np
-import torch
-import torchaudio
 import glob
 import os
-from speechbrain.dataio.batch import PaddedBatch
-from tqdm import tqdm
-import warnings
-import pyloudnorm
 import random
+import warnings
+
+import numpy as np
+import pyloudnorm
+import torch
+import torchaudio
+from tqdm import tqdm
+
+import speechbrain as sb
+from speechbrain.dataio.batch import PaddedBatch
 
 """
 The functions to implement Dynamic Mixing For SpeechSeparation
@@ -35,7 +37,6 @@ def build_spk_hashtable_librimix(hparams):
         == hparams["sample_rate"]
     )
     for utt in tqdm(libri_utterances):
-
         path = os.path.normpath(utt)
         path_list = path.split(os.sep)
         spk_id = path_list[-3]
@@ -174,7 +175,9 @@ def dynamic_mix_data_prep_librimix(hparams):
                 stop = start + minlen
 
             tmp, fs_read = torchaudio.load(
-                spk_file, frame_offset=start, num_frames=stop - start,
+                spk_file,
+                frame_offset=start,
+                num_frames=stop - start,
             )
             tmp = tmp[0].numpy()
             tmp = normalize(tmp)

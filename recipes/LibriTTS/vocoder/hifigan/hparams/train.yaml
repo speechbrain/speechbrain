@@ -2,14 +2,14 @@
 # Experiment Parameters and setup #
 ###################################
 seed: 1234
-__set_seed: !apply:torch.manual_seed [!ref <seed>]
+__set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
 output_folder: !ref ./results/hifi_gan/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 progress_sample_path: !ref <output_folder>/samples
 epochs: 100
 keep_checkpoint_interval: 50
-use_tensorboard: True
+use_tensorboard: False
 
 #################################
 # Data files and pre-processing #

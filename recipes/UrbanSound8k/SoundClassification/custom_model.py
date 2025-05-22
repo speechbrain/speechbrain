@@ -15,14 +15,14 @@ Adapted From:
  * Mirco Ravanelli 2020
 """
 
-
 import torch  # noqa: F401
 import torch.nn as nn
+
 import speechbrain as sb
-from speechbrain.nnet.pooling import StatisticsPooling
 from speechbrain.nnet.CNN import Conv1d
 from speechbrain.nnet.linear import Linear
 from speechbrain.nnet.normalization import BatchNorm1d
+from speechbrain.nnet.pooling import StatisticsPooling
 
 
 class Xvector(torch.nn.Module):
@@ -30,6 +30,8 @@ class Xvector(torch.nn.Module):
 
     Arguments
     ---------
+    device : str
+        The device to use for computation, e.g. "cpu", "cuda"
     activation : torch class
         A class for constructing the activation layers.
     tdnn_blocks : int
@@ -42,6 +44,8 @@ class Xvector(torch.nn.Module):
         List of dilations for kernels in each TDNN layer.
     lin_neurons : int
         Number of neurons in linear layers.
+    in_channels : int
+        Number of channels expected in the input.
 
     Example
     -------
@@ -63,7 +67,6 @@ class Xvector(torch.nn.Module):
         lin_neurons=512,
         in_channels=40,
     ):
-
         super().__init__()
         self.blocks = nn.ModuleList()
 
@@ -109,6 +112,14 @@ class Xvector(torch.nn.Module):
         Arguments
         ---------
         x : torch.Tensor
+            Input features for extracting x-vectors
+        lens : torch.Tensor
+            Corresponding lengths of input sequences.
+
+        Returns
+        -------
+        x : torch.Tensor
+            x-vectors.
         """
 
         for layer in self.blocks:

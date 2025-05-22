@@ -1,0 +1,333 @@
+# #################################
+# Basic training parameters for a spectrogram-based
+# diffusion model
+#
+# Author:
+#  * Artem Ploujnikov 2022
+# #################################
+
+# Seed needs to be set at top of yaml, before objects with parameters are made
+seed: 1986
+__set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
+
+data_folder: !PLACEHOLDER
+metadata_folder: null
+output_folder: !ref ./results/diffusion-latent-ae/<seed>
+save_folder: !ref <output_folder>/save
+data_save_folder: !ref <data_folder>/audiomnist_prepared
+sample_folder: !ref <output_folder>/samples
+train_json: !ref <save_folder>/train.json
+valid_json: !ref <save_folder>/valid.json
+test_json: !ref <save_folder>/test.json
+train_log: !ref <output_folder>/train_log.txt
+skip_prep: False
+
+# The train logger writes training statistics to a file, as well as stdout.
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+    save_file: !ref <train_log>
+
+ckpt_interval_minutes: 15 # save checkpoint every N min
+
+# Preparation Parameters
+data_prepare_norm: True
+data_prepare_trim: True
+data_prepare_trim_threshold: -30.
+data_prepare_sample_rate_src: 48000
+data_prepare_sample_rate_tgt: 16000
+
+# Training Parameters
+diffusion_mode: latent
+train_len: 28520
+sort: null
+batch_shuffle: True
+number_of_epochs: 20
+batch_size: 16 # If GPU memory exceeds 32 GB, consider using batch_size: 32
+lr: 0.0005
+lr_warmup_steps: 500
+lr_cooldown_steps: 500
+lr_total_steps: !ref <train_len> * <number_of_epochs>
+lr_decay_every: 1000
+lr_autoencoder: 0.001
+lr_autoencoder_warmup_steps: 500
+lr_autoencoder_cooldown_steps: 500
+lr_autoencoder_total_steps: !ref <train_len> * <number_of_epochs>
+lr_autoencoder_decay_every: 1000
+max_grad_norm: 0.05
+train_timesteps: 250
+adam_beta1: 0.95
+adam_beta2: 0.999
+adam_weight_decay: 0.000001
+adam_epsilon: 0.00000001
+downsample_factor: 8
+latent_downsample_factor: 4
+enable_train_metrics: True
+enable_reference_samples: True
+enable_reconstruction_sample: True
+loss_l2_steps: 100000
+loss_laplacian_weight: 0.1
+autoencoder_rec_loss_l2_steps: 1000
+train_log_interval: 50
+train_diffusion_start_epoch: 2
+train_autoencoder_stop_epoch: 10
+latent_mask_recompute_steps: 20
+latent_mask_offset: 3
+overfit_test: False
+overfit_test_sample_count: 1
+overfit_test_epoch_data_count: 1000
+train_data_count: null
+dataloader_options:
+    batch_size: !ref <batch_size>
+use_tensorboard: True
+tensorboard_logs: !ref <output_folder>/logs/
+rand_amplitude: True
+min_amp: 0.1
+max_amp: 0.4
+
+# Spectrogram Parameters
+spec_n_fft: 1024
+spec_f_min: 0
+spec_f_max: 8000
+spec_n_mels: 80
+spec_power: 1
+spec_ref: 10.0
+spec_hop_length: 256
+spec_win_length: 1024
+spec_norm: "slaney"
+spec_mel_scale: "slaney"
+spec_norm_mean: 0.
+spec_norm_std: 0.5
+spec_sample_size: 20
+spec_min_sample_size: 10
+spec_sample_min: -4.7
+spec_sample_max: 3.0
+min_level_db: -80.0
+pad_level_db: -50.
+done_random_start_offset: 0.
+done_random_end_offset: .5
+
+
+# Model Parameters
+model_channels: 64
+model_norm_num_groups: 32
+model_num_res_blocks: 2
+model_dropout: 0.
+autoencoder_channels: 32
+autoencoder_norm_num_groups: 32
+autoencoder_num_res_blocks: 1
+autoencoder_encoder_out_channels: 32
+autoencoder_latent_channels: 2
+autoencoder_dropout: 0.1
+latent_mask_value: -3.
+autoencoder_use_fixup_norm: False
+diffusion_channels: !ref <autoencoder_latent_channels>
+done_cnn_blocks: 2
+done_cnn_kernelsize: 3
+done_cnn_channels: [32, 32]
+done_rnn_layers: 2
+done_rnn_neurons: 32
+done_dnn_blocks: 1
+done_dnn_neurons: 32
+
+# Vocoder Settings
+vocoder_model: speechbrain/tts-hifigan-libritts-16kHz
+
+# Evaluation Parameters
+eval_num_samples: 10
+samples_interval: 5
+eval_generate_audio: True
+eval_show_progress: True
+norm_out_sample: True
+eval_time_steps: 6
+
+# Feature extraction
+compute_features: !new:speechbrain.nnet.containers.Sequential
+    spec: !new:torchaudio.transforms.MelSpectrogram
+        n_fft: !ref <spec_n_fft>
+        f_min: !ref <spec_f_min>
+        f_max: !ref <spec_f_max>
+        n_mels: !ref <spec_n_mels>
+        power: !ref <spec_power>
+        hop_length: !ref <spec_hop_length>
+        win_length: !ref <spec_win_length>
+        norm: !ref <spec_norm>
+        mel_scale: !ref <spec_mel_scale>
+    amp2db: !new:torchaudio.transforms.AmplitudeToDB
+
+min_level_norm: !new:speechbrain.processing.features.MinLevelNorm
+    min_level_db: !ref <min_level_db>
+
+global_norm: !new:speechbrain.processing.features.GlobalNorm
+    norm_mean: !ref <spec_norm_mean>
+    norm_std: !ref <spec_norm_std>
+
+dynamic_range_compression: !new:speechbrain.processing.features.DynamicRangeCompression
+
+compute_cost_autoencoder_rec: !new:speechbrain.nnet.schedulers.ScheduledLoss
+    schedule:
+        - loss_fn: !name:speechbrain.nnet.losses.mse_loss
+          steps: !ref <autoencoder_rec_loss_l2_steps>
+        - loss_fn: !name:speechbrain.nnet.losses.l1_loss
+
+compute_cost_autoencoder: !new:speechbrain.nnet.losses.AutoencoderLoss
+    rec_loss: !ref <compute_cost_autoencoder_rec>
+
+compute_cost_laplacian: !new:speechbrain.nnet.losses.LaplacianVarianceLoss
+    len_dim: 2
+
+compute_cost_done: !name:speechbrain.nnet.losses.distance_diff_loss
+
+compute_cost: !new:speechbrain.nnet.schedulers.ScheduledLoss
+    schedule:
+        - loss_fn: !name:speechbrain.nnet.losses.mse_loss
+          steps: !ref <loss_l2_steps>
+        - loss_fn: !name:speechbrain.nnet.losses.l1_loss
+
+
+# To design a custom model, either just edit the simple CustomModel
+# class that's listed here, or replace this `!new` call with a line
+# pointing to a different file you've defined.
+unet: !new:speechbrain.nnet.unet.UNetModel
+    in_channels: !ref <autoencoder_latent_channels>
+    model_channels: !ref <model_channels>
+    norm_num_groups: !ref <model_norm_num_groups>
+    out_channels: !ref <autoencoder_latent_channels>
+    num_res_blocks: !ref <model_num_res_blocks>
+    attention_resolutions: [1, 2]
+    channel_mult: [1, 2]
+    dropout: !ref <model_dropout>
+
+autoencoder: !new:speechbrain.nnet.unet.UNetNormalizingAutoencoder
+    in_channels: 1
+    channel_mult: [1, 2, 4]
+    model_channels: !ref <autoencoder_channels>
+    norm_num_groups: !ref <autoencoder_norm_num_groups>
+    encoder_num_res_blocks: !ref <autoencoder_num_res_blocks>
+    encoder_attention_resolutions: [1, 2, 4]
+    decoder_num_res_blocks: !ref <autoencoder_num_res_blocks>
+    decoder_attention_resolutions: [1, 2, 4]
+    encoder_out_channels: !ref <autoencoder_encoder_out_channels>
+    latent_channels: !ref <autoencoder_latent_channels>
+    resblock_updown: True
+    len_dim: 2
+    latent_mask_value: !ref <latent_mask_value>
+    dropout: !ref <autoencoder_dropout>
+    use_fixup_norm: !ref <autoencoder_use_fixup_norm>
+
+noise: !new:speechbrain.nnet.diffusion.LengthMaskedGaussianNoise
+    length_dim: 2
+
+diffusion: !new:speechbrain.nnet.diffusion.DenoisingDiffusion
+    model: !ref <unet.diffusion_forward>
+    timesteps: !ref <train_timesteps>
+    noise: !ref <noise>
+    show_progress: !ref <eval_show_progress>
+    sample_min: !ref <spec_sample_min>
+    sample_max: !ref <spec_sample_max>
+
+diffusion_latent: !new:speechbrain.nnet.diffusion.LatentDiffusion
+    autoencoder: !ref <autoencoder>
+    diffusion: !ref <diffusion>
+    latent_downsample_factor: !ref <latent_downsample_factor>
+    latent_pad_dim: [2, 3]
+
+
+diffusion_sample_channels: !ref <diffusion_channels>
+
+
+done_detector: !new:speechbrain.nnet.utils.DoneDetector
+    model: !new:speechbrain.nnet.containers.Sequential
+        input_shape: [null, null, !ref <spec_n_mels>]
+        crdnn: !new:speechbrain.lobes.models.CRDNN.CRDNN
+            input_size: !ref <spec_n_mels>
+            cnn_blocks: !ref <done_cnn_blocks>
+            cnn_kernelsize: !ref <done_cnn_kernelsize>
+            cnn_channels: !ref <done_cnn_channels>
+            rnn_layers: !ref <done_rnn_layers>
+            rnn_neurons: !ref <done_rnn_neurons>
+            dnn_blocks: !ref <done_dnn_blocks>
+            dnn_neurons: !ref <done_dnn_neurons>
+        out: !new:torch.nn.Linear
+            in_features: !ref <done_dnn_neurons>
+            out_features: 1
+        act: !new:torch.nn.Sigmoid
+    out: !new:speechbrain.nnet.activations.Softmax
+        apply_log: False
+        dim: 1
+        reshape: False
+
+# The first object passed to the Brain class is this "Epoch Counter"
+# which is saved by the Checkpointer so that training can be resumed
+# if it gets interrupted at any point.
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+    limit: !ref <number_of_epochs>
+
+vocoder: !name:speechbrain.inference.vocoders.HIFIGAN.from_hparams
+    source: !ref <vocoder_model>
+
+
+# Objects in "modules" dict will have their parameters moved to the correct
+# device, as well as having train()/eval() called on them by the Brain class.
+modules:
+    unet: !ref <unet>
+    autoencoder: !ref <autoencoder>
+    diffusion: !ref <diffusion>
+    diffusion_latent: !ref <diffusion_latent>
+    diffusion_sample: !ref <diffusion_latent>
+    compute_features: !ref <compute_features>
+    compute_cost_laplacian: !ref <compute_cost_laplacian>
+    dynamic_range_compression: !ref <dynamic_range_compression>
+    min_level_norm: !ref <min_level_norm>
+    global_norm: !ref <global_norm>
+    done_detector: !ref <done_detector>
+
+# This optimizer will be constructed by the Brain class after all parameters
+# are moved to the correct device. Then it will be added to the checkpointer.
+opt_class: !name:torch.optim.AdamW
+    lr: !ref <lr>
+    betas: !ref (<adam_beta1>, <adam_beta2>)
+    weight_decay: !ref <adam_weight_decay>
+    eps: !ref <adam_epsilon>
+
+opt_class_autoencoder: !name:torch.optim.AdamW
+    lr: !ref <lr_autoencoder>
+    betas: !ref (<adam_beta1>, <adam_beta2>)
+    weight_decay: !ref <adam_weight_decay>
+    eps: !ref <adam_epsilon>
+
+opt_class_done: !name:torch.optim.AdamW
+    lr: !ref <lr>
+    betas: !ref (<adam_beta1>, <adam_beta2>)
+    weight_decay: !ref <adam_weight_decay>
+    eps: !ref <adam_epsilon>
+
+# This function manages learning rate annealing over the epochs.
+# We here use the simple lr annealing method that linearly decreases
+# the lr from the initial value to the final one.
+lr_annealing: !new:speechbrain.nnet.schedulers.WarmCoolDecayLRSchedule
+    lr: !ref <lr>
+    warmup: !ref <lr_warmup_steps>
+    cooldown: !ref <lr_cooldown_steps>
+    total_steps: !ref <lr_total_steps>
+    decay_every: !ref <lr_decay_every>
+
+lr_annealing_autoencoder: !new:speechbrain.nnet.schedulers.WarmCoolDecayLRSchedule
+    lr: !ref <lr_autoencoder>
+    warmup: !ref <lr_autoencoder_warmup_steps>
+    cooldown: !ref <lr_autoencoder_cooldown_steps>
+    total_steps: !ref <lr_autoencoder_total_steps>
+    decay_every: !ref <lr_autoencoder_decay_every>
+
+
+# This object is used for saving the state of training both so that it
+# can be resumed if it gets interrupted, and also so that the best checkpoint
+# can be later loaded for evaluation or inference.
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+    checkpoints_dir: !ref <save_folder>
+    recoverables:
+        unet: !ref <unet>
+        autoencoder: !ref <autoencoder>
+        counter: !ref <epoch_counter>
+        lr_annealing: !ref <lr_annealing>
+        lr_annealing_autoencoder: !ref <lr_annealing_autoencoder>
+        global_norm: !ref <global_norm>
+        done_detector: !ref <done_detector>

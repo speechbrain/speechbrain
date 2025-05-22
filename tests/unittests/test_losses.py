@@ -1,5 +1,5 @@
-import torch
 import pytest
+import torch
 
 
 def test_nll(device):
@@ -63,6 +63,19 @@ def test_bce_loss(device):
     with pytest.raises(ValueError):
         bce_loss(predictions, targets, length=torch.ones(5, device=device))
 
+    # Try with weight
+    weight = torch.full((5,), 0.5)
+    out_cost = bce_loss(predictions, targets, weight=weight)
+    assert torch.allclose(
+        torch.exp(out_cost), torch.tensor(2.0, device=device).sqrt()
+    )
+
+    # Try with smoothing
+    out_cost = bce_loss(predictions, targets, label_smoothing=0.5)
+    assert torch.allclose(
+        torch.exp(out_cost), torch.tensor(2.0, device=device).sqrt()
+    )
+
 
 def test_classification_error(device):
     from speechbrain.nnet.losses import classification_error
@@ -76,9 +89,10 @@ def test_classification_error(device):
 
 
 def test_pitwrapper(device):
-    from speechbrain.nnet.losses import PitWrapper
     import torch
     from torch import nn
+
+    from speechbrain.nnet.losses import PitWrapper
 
     base_loss = nn.MSELoss(reduction="none")
     pit = PitWrapper(base_loss)

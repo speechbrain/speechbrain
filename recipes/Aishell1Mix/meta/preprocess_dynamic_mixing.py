@@ -8,18 +8,18 @@ Author
 Samuele Cornell, 2020
 """
 
-import os
 import argparse
-from pathlib import Path
-import tqdm
-import torchaudio
 import glob
+import os
+from pathlib import Path
+
+import numpy as np
+import torch
+import torchaudio
+import tqdm
 
 # from oct2py import octave
 from scipy import signal
-import numpy as np
-import torch
-
 
 parser = argparse.ArgumentParser(
     "utility for resampling all audio files in a folder recursively"
@@ -45,7 +45,7 @@ def resample_folder(input_folder, output_folder, fs, regex):
         Path of the output folder with the resampled data.
     fs : int
         Target sampling frequency.
-    reg_exp: str
+    regex : str
         Regular expression for search.
     """
     # filedir = os.path.dirname(os.path.realpath(__file__))
@@ -54,7 +54,6 @@ def resample_folder(input_folder, output_folder, fs, regex):
 
     files = glob.glob(os.path.join(input_folder, regex), recursive=True)
     for f in tqdm.tqdm(files):
-
         audio, fs_read = torchaudio.load(f)
         audio = audio[0].numpy()
         audio = signal.resample_poly(audio, fs, fs_read)
@@ -91,7 +90,6 @@ def resample_folder(input_folder, output_folder, fs, regex):
 
 
 if __name__ == "__main__":
-
     args = parser.parse_args()
     resample_folder(
         args.input_folder, args.output_folder, int(args.fs), args.regex

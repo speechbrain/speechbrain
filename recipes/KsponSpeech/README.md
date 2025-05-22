@@ -12,7 +12,7 @@ Training and evaluation transcripts were generated the same way as in the above 
 
 ## Prepare data
 
-You can download KsponSpeech at https://aihub.or.kr/aidata/105/download
+You can download KsponSpeech at [Link](https://aihub.or.kr/aihubdata/data/view.do?currMenu=115&topMenu=100&aihubDataSe=realm&dataSetSn=123)
 
 Run following script to unzip the downloaded file
 
@@ -23,7 +23,15 @@ Run following script to unzip the downloaded file
 pcm files need to be converted to wav for training. Run following script for the conversion.
 
 ```bash
-python conert_to_wav.py --dirpath PATH_TO_UNZIPPED --nj num_processes
+python convert_to_wav.py --dirpath PATH_TO_UNZIPPED --nj num_processes
+```
+
+## Installing Extra Dependencies
+
+Before proceeding, ensure you have installed the necessary additional dependencies. To do this, simply run the following command in your terminal:
+
+```
+pip install -r extra_requirements.txt
 ```
 
 ## How to run an ASR experiment with KsponSpeech
@@ -47,12 +55,21 @@ SpeechBrain provides a simple interface to transcribe audio files with pretraine
 can be found on the HuggingFace repositories corresponding to our models for KsponSpeech:
 
 - [Conformer + ctc + TransformerLM](https://huggingface.co/speechbrain/asr-conformer-transformerlm-ksponspeech)
-- [Colab example](https://colab.research.google.com/drive/10N98aGoeLGfh6Hu6xOCH5BbjVTVYgCyB?usp=sharing)
+- [Colab example](https://colab.research.google.com/drive/1finp9pfmGRzWHCAPNkqAH2yGH6k_BbPA?usp=sharing)
 
 # Citing SpeechBrain
 Please, cite SpeechBrain if you use it for your research or business.
 
 ```bibtex
+@misc{speechbrainV1,
+  title={Open-Source Conversational AI with SpeechBrain 1.0},
+  author={Mirco Ravanelli and Titouan Parcollet and Adel Moumen and Sylvain de Langen and Cem Subakan and Peter Plantinga and Yingzhi Wang and Pooneh Mousavi and Luca Della Libera and Artem Ploujnikov and Francesco Paissan and Davide Borra and Salah Zaiem and Zeyu Zhao and Shucong Zhang and Georgios Karakasidis and Sung-Lin Yeh and Pierre Champion and Aku Rouhe and Rudolf Braun and Florian Mai and Juan Zuluaga-Gomez and Seyed Mahed Mousavi and Andreas Nautsch and Xuechen Liu and Sangeet Sagar and Jarod Duret and Salima Mdhaffar and Gaelle Laperriere and Mickael Rouvier and Renato De Mori and Yannick Esteve},
+  year={2024},
+  eprint={2407.00463},
+  archivePrefix={arXiv},
+  primaryClass={cs.LG},
+  url={https://arxiv.org/abs/2407.00463},
+}
 @misc{speechbrain,
   title={{SpeechBrain}: A General-Purpose Speech Toolkit},
   author={Mirco Ravanelli and Titouan Parcollet and Peter Plantinga and Aku Rouhe and Samuele Cornell and Loren Lugosch and Cem Subakan and Nauman Dawalatabad and Abdelwahab Heba and Jianyuan Zhong and Ju-Chieh Chou and Sung-Lin Yeh and Szu-Wei Fu and Chien-Feng Liao and Elena Rastorgueva and François Grondin and William Aris and Hwidong Na and Yan Gao and Renato De Mori and Yoshua Bengio},
@@ -68,7 +85,7 @@ Please, cite SpeechBrain if you use it for your research or business.
 ```bibtex
 @misc{returnzero,
   title = {ReturnZero Conformer Korean ASR model},
-  author = {Dongwon Kim and Dongwoo Kim and Roh Jeongkyu},
+  author = {Dongwon Kim and Dongwoo Kim and Jeongkyu Roh},
   year = {2021},
   howpublished = {\url{https://huggingface.co/ddwkim/asr-conformer-transformerlm-ksponspeech}},
 }

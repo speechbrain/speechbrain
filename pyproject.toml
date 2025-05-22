@@ -13,3 +13,11 @@ exclude = '''
   )/
 )
 '''
+
+[tool.codespell]
+skip = "./tests/tmp,./**/result,*.csv,*train.txt,*test.txt"
+
+[tool.isort]
+profile = "black"
+line_length = 80
+filter_files = true

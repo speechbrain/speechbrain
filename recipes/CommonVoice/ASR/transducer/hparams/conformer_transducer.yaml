@@ -1,0 +1,339 @@
+# ############################################################################
+# Model: E2E ASR with transformer and transducer
+# Encoder: Conformer
+# Decoder: LSTM + beamsearch
+# Tokens: BPE with unigram
+# losses: Transducer + CTC + CE (optional)
+# Training: CommonVoince
+# Authors:  Titouan Parcollet 2024
+# ############################################################################
+
+# Seed needs to be set at top of yaml, before objects with parameters are made
+seed: 3407
+__set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
+output_folder: !ref results/conformer_transducer_large/<seed>
+save_folder: !ref <output_folder>/save
+train_log: !ref <output_folder>/train_log.txt
+test_wer_file: !ref <output_folder>/wer_test.txt
+
+# Data files
+data_folder: !PLACEHOLDER  # e.g, /localscratch/cv-corpus-5.1-2020-06-22/fr
+train_tsv_file: !ref <data_folder>/train.tsv  # Standard CommonVoice .tsv files
+dev_tsv_file: !ref <data_folder>/dev.tsv  # Standard CommonVoice .tsv files
+test_tsv_file: !ref <data_folder>/test.tsv  # Standard CommonVoice .tsv files
+accented_letters: False
+language: fr # use 'it' for Italian, 'rw' for Kinyarwanda, 'en' for english
+train_csv: !ref <save_folder>/train.csv
+valid_csv: !ref <save_folder>/dev.csv
+test_csv: !ref <save_folder>/test.csv
+skip_prep: False # Skip data preparation
+avoid_if_longer_than: 10
+
+# BPE parameters
+token_type: unigram  # ["unigram", "bpe", "char"]
+character_coverage: 1.0
+
+####################### Training Parameters ####################################
+
+number_of_epochs: 100 # Will not be reached due to next hparams
+optimizer_step_limit: 90000
+warmup_steps: 25000
+augment_warmup: 5000 # Data augmentation is switched on after these steps.
+num_workers: 4
+batch_size_valid: 4
+batch_size_test: 4
+lr: 0.0008
+weight_decay: 0.01
+number_of_ctc_epochs: 10
+ctc_weight: 0.4 # Multitask with CTC for the encoder (0.0 = disabled)
+ce_weight: 0.0 # Multitask with CE for the decoder (0.0 = disabled)
+max_grad_norm: 10.0
+loss_reduction: 'batchmean'
+precision: fp32 # bf16, fp16 or fp32
+
+# The batch size is used if and only if dynamic batching is set to False
+# Validation and testing are done with fixed batches and not dynamic batching.
+batch_size: 1
+grad_accumulation_factor: 1
+sorting: random
+avg_checkpoints: 5 # Number of checkpoints to average for evaluation
+
+# Feature parameters
+sample_rate: 16000
+n_fft: 512
+n_mels: 80
+win_length: 32
+
+# Streaming & dynamic chunk training options
+# At least for the current architecture on LibriSpeech, we found out that
+# non-streaming accuracy is very similar between `streaming: True` and
+# `streaming: False`.
+streaming: True  # controls all Dynamic Chunk Training & chunk size & left context mechanisms
+
+# Configuration for Dynamic Chunk Training.
+# In this model, a chunk is roughly equivalent to 40ms of audio.
+dynchunktrain_config_sampler: !new:speechbrain.utils.dynamic_chunk_training.DynChunkTrainConfigRandomSampler # yamllint disable-line rule:line-length
+   chunkwise_prob: 0.6 # Probability during a batch to limit attention and sample a random chunk size in the following range
+   chunk_size_min: 8 # Minimum chunk size (if in a DynChunkTrain batch)
+   chunk_size_max: 32 # Maximum chunk size (if in a DynChunkTrain batch)
+   limited_left_context_prob: 0.75 # If in a DynChunkTrain batch, the probability during a batch to restrict left context to a random number of chunks
+   left_context_chunks_min: 2 # Minimum left context size (in # of chunks)
+   left_context_chunks_max: 32 # Maximum left context size (in # of chunks)
+   # If you specify a valid/test config, you can optionally have evaluation be
+   # done with a specific DynChunkTrain configuration.
+   # valid_config: !new:speechbrain.utils.dynamic_chunk_training.DynChunkTrainConfig
+   #    chunk_size: 24
+   #    left_context_size: 16
+   # test_config: ...
+   #    chunk_size: 24
+   #    left_context_size: 16
+
+# Dataloader options
+train_dataloader_opts:
+   batch_size: !ref <batch_size>
+   num_workers: !ref <num_workers>
+
+valid_dataloader_opts:
+   batch_size: !ref <batch_size_valid>
+
+test_dataloader_opts:
+   batch_size: !ref <batch_size_test>
+
+# This setup works well for 3090 24GB GPU, adapt it to your needs.
+# Adjust grad_accumulation_factor depending on the DDP node count (here 3)
+# Or turn it off (but training speed will decrease)
+dynamic_batching: True
+max_batch_len: 200 # Should fit 32GB of VRAM
+max_batch_len_val: 150 # we reduce it as the beam is much wider (VRAM)
+num_bucket: 200
+
+dynamic_batch_sampler:
+   max_batch_len: !ref <max_batch_len>
+   max_batch_len_val: !ref <max_batch_len_val>
+   num_buckets: !ref <num_bucket>
+   shuffle_ex: True # if true re-creates batches at each epoch shuffling examples.
+   batch_ordering: random
+   max_batch_ex: 256
+
+####################### Model Parameters #######################################
+
+# Transformer
+d_model: 512
+joint_dim: 512
+nhead: 8
+num_encoder_layers: 12
+num_decoder_layers: 0
+d_ffn: 2048
+transformer_dropout: 0.1
+activation: !name:torch.nn.GELU
+output_neurons: 1024
+dec_dim: 512
+dec_emb_dropout: 0.1
+dec_dropout: 0.1
+attention_type: RelPosMHAXL
+
+# Decoding parameters
+blank_index: 0
+bos_index: 1
+eos_index: 2
+pad_index: 0
+
+# If True uses torchaudio loss. Otherwise, the numba one
+use_torchaudio: False
+
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+   limit: !ref <number_of_epochs>
+
+normalize: !new:speechbrain.processing.features.InputNormalization
+   norm_type: global
+   update_until_epoch: 4
+
+compute_features: !new:speechbrain.lobes.features.Fbank
+   sample_rate: !ref <sample_rate>
+   n_fft: !ref <n_fft>
+   n_mels: !ref <n_mels>
+   win_length: !ref <win_length>
+
+############################## Augmentations ###################################
+
+# Time Drop
+time_drop: !new:speechbrain.augment.freq_domain.SpectrogramDrop
+   drop_length_low: 15
+   drop_length_high: 25
+   drop_count_low: 3
+   drop_count_high: 3
+   replace: "zeros"
+   dim: 1
+
+# Frequency Drop
+freq_drop: !new:speechbrain.augment.freq_domain.SpectrogramDrop
+   drop_length_low: 25
+   drop_length_high: 35
+   drop_count_low: 2
+   drop_count_high: 2
+   replace: "zeros"
+   dim: 2
+
+# Time warp
+time_warp: !new:speechbrain.augment.freq_domain.Warping
+
+fea_augment: !new:speechbrain.augment.augmenter.Augmenter
+   parallel_augment: False
+   concat_original: False
+   repeat_augment: 1
+   shuffle_augmentations: False
+   min_augmentations: 3
+   max_augmentations: 3
+   augment_prob: 1.0
+   augmentations: [
+      !ref <time_drop>,
+      !ref <freq_drop>,
+      !ref <time_warp>]
+
+############################## Models ##########################################
+
+CNN: !new:speechbrain.lobes.models.convolution.ConvolutionFrontEnd
+   input_shape: (8, 10, 80)
+   num_blocks: 2
+   num_layers_per_block: 1
+   out_channels: (64, 32)
+   kernel_sizes: (3, 3)
+   strides: (2, 2)
+   residuals: (False, False)
+
+Transformer: !new:speechbrain.lobes.models.transformer.TransformerASR.TransformerASR # yamllint disable-line rule:line-length
+   input_size: 640
+   tgt_vocab: !ref <output_neurons>
+   d_model: !ref <d_model>
+   nhead: !ref <nhead>
+   num_encoder_layers: !ref <num_encoder_layers>
+   num_decoder_layers: !ref <num_decoder_layers>
+   d_ffn: !ref <d_ffn>
+   dropout: !ref <transformer_dropout>
+   activation: !ref <activation>
+   encoder_module: conformer
+   attention_type: !ref <attention_type>
+   normalize_before: True
+   causal: False
+   max_length: 6000 # For absolute positional encoding
+
+# We must call an encoder wrapper so the decoder isn't run (we don't have any)
+enc: !new:speechbrain.lobes.models.transformer.TransformerASR.EncoderWrapper
+   transformer: !ref <Transformer>
+
+# For MTL CTC over the encoder
+proj_ctc: !new:speechbrain.nnet.linear.Linear
+   input_size: !ref <joint_dim>
+   n_neurons: !ref <output_neurons>
+
+# Define some projection layers to make sure that enc and dec
+# output dim are the same before joining
+proj_enc: !new:speechbrain.nnet.linear.Linear
+   input_size: !ref <d_model>
+   n_neurons: !ref <joint_dim>
+   bias: False
+
+proj_dec: !new:speechbrain.nnet.linear.Linear
+   input_size: !ref <dec_dim>
+   n_neurons: !ref <joint_dim>
+   bias: False
+
+# Uncomment for MTL with CTC
+ctc_cost: !name:speechbrain.nnet.losses.ctc_loss
+   blank_index: !ref <blank_index>
+   reduction: !ref <loss_reduction>
+
+emb: !new:speechbrain.nnet.embedding.Embedding
+   num_embeddings: !ref <output_neurons>
+   consider_as_one_hot: True
+   blank_id: !ref <blank_index>
+
+dec: !new:speechbrain.nnet.RNN.LSTM
+   input_shape: [null, null, !ref <output_neurons> - 1]
+   hidden_size: !ref <dec_dim>
+   num_layers: 1
+   re_init: True
+
+# For MTL with LM over the decoder (need to uncomment to activate)
+# dec_lin: !new:speechbrain.nnet.linear.Linear
+#   input_size: !ref <joint_dim>
+#   n_neurons: !ref <output_neurons>
+#   bias: False
+
+# For MTL
+ce_cost: !name:speechbrain.nnet.losses.nll_loss
+   label_smoothing: 0.1
+
+Tjoint: !new:speechbrain.nnet.transducer.transducer_joint.Transducer_joint
+   joint: sum # joint [sum | concat]
+   nonlinearity: !ref <activation>
+
+transducer_lin: !new:speechbrain.nnet.linear.Linear
+   input_size: !ref <joint_dim>
+   n_neurons: !ref <output_neurons>
+   bias: False
+
+log_softmax: !new:speechbrain.nnet.activations.Softmax
+   apply_log: True
+
+transducer_cost: !name:speechbrain.nnet.losses.transducer_loss
+   blank_index: !ref <blank_index>
+   use_torchaudio: !ref <use_torchaudio>
+
+# for MTL
+# update model if any HEAD module is added
+modules:
+   CNN: !ref <CNN>
+   enc: !ref <enc>
+   emb: !ref <emb>
+   dec: !ref <dec>
+   Tjoint: !ref <Tjoint>
+   transducer_lin: !ref <transducer_lin>
+   normalize: !ref <normalize>
+   proj_ctc: !ref <proj_ctc>
+   proj_dec: !ref <proj_dec>
+   proj_enc: !ref <proj_enc>
+#   dec_lin: !ref <dec_lin>
+
+# for MTL
+# update model if any HEAD module is added
+model: !new:torch.nn.ModuleList
+   - [!ref <CNN>, !ref <enc>, !ref <emb>, !ref <dec>, !ref <proj_enc>, !ref <proj_dec>, !ref <proj_ctc>, !ref <transducer_lin>]
+
+############################## Decoding & optimiser ############################
+
+Greedysearcher: !new:speechbrain.decoders.transducer.TransducerBeamSearcher
+   decode_network_lst: [!ref <emb>, !ref <dec>, !ref <proj_dec>]
+   tjoint: !ref <Tjoint>
+   classifier_network: [!ref <transducer_lin>]
+   blank_id: !ref <blank_index>
+   beam_size: 1
+   nbest: 1
+
+opt_class: !name:torch.optim.AdamW
+   lr: !ref <lr>
+   betas: (0.9, 0.98)
+   eps: 1.e-8
+   weight_decay: !ref <weight_decay>
+
+noam_annealing: !new:speechbrain.nnet.schedulers.WarmAndExpDecayLRSchedule
+   lr: !ref <lr>
+   n_warmup_steps: !ref <warmup_steps>
+   total_steps: !ref <optimizer_step_limit>
+   decay_factor: 0.05
+
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+   checkpoints_dir: !ref <save_folder>
+   recoverables:
+      model: !ref <model>
+      scheduler: !ref <noam_annealing>
+      normalizer: !ref <normalize>
+      counter: !ref <epoch_counter>
+
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+   save_file: !ref <train_log>
+
+error_rate_computer: !name:speechbrain.utils.metric_stats.ErrorRateStats
+
+cer_computer: !name:speechbrain.utils.metric_stats.ErrorRateStats
+   split_tokens: True

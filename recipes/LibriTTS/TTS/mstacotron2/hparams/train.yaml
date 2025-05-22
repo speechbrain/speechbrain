@@ -1,0 +1,283 @@
+############################################################################
+# Model: Zero-Shot Multi-Speaker Tacotron2
+# Tokens: ARPAbet Phonemes
+# Training: LibriTTS
+# Authors: Georges Abous-Rjeili, Artem Ploujnikov, Yingzhi Wang, Pradnya Kandarkar
+# ############################################################################
+
+
+###################################
+# Experiment Parameters and setup #
+###################################
+seed: 1234
+__set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
+output_folder: !ref ./results/tacotron2/<seed>
+save_folder: !ref <output_folder>/save
+train_log: !ref <output_folder>/train_log.txt
+epochs: 700
+keep_checkpoint_interval: 50
+use_tensorboard: False
+
+# Vocoder is used to convert the intermediate mel-spectrogram into the final waveform
+log_audio_samples: True
+vocoder: speechbrain/tts-hifigan-libritts-16kHz
+vocoder_savedir: tmpdir_vocoder_16k
+
+###################################
+# Progress Samples                #
+###################################
+# Progress samples are used to monitor the progress
+# of an ongoing training session by outputting samples
+# of spectrogram, alignment, etc. at regular intervals
+
+# Whether to enable progress samples
+progress_samples: True
+
+# The path where the samples will be stored
+progress_sample_path: !ref <output_folder>/samples
+
+# The interval, in epochs. For instance, if it is set to 5,
+# progress samples will be output every 5 epochs
+progress_samples_interval: 10
+
+# The sample size for raw batch samples saved in batch.pth
+# (useful mostly for model debugging)
+progress_batch_sample_size: 3
+
+#################################
+# Data files and pre-processing #
+#################################
+data_folder: !PLACEHOLDER # e.g, /localscratch/LibriTTS/
+
+# Files to hold the manifest data
+train_json: !ref <save_folder>/train.json
+valid_json: !ref <save_folder>/valid.json
+test_json: !ref <save_folder>/test.json
+
+# Files to hold the speaker embeddings - corresponding to the data manifest files
+train_speaker_embeddings_pickle: !ref <save_folder>/train_speaker_embeddings.pickle
+valid_speaker_embeddings_pickle: !ref <save_folder>/valid_speaker_embeddings.pickle
+test_speaker_embeddings_pickle: !ref <save_folder>/test_speaker_embeddings.pickle
+
+# Data splits
+skip_prep: False
+splits: ["train", "valid", "test"]
+
+# train_split: ["train-clean-100", "train-clean-360"]
+train_split: ["train-clean-100"]
+valid_split: ["dev-clean"]
+test_split: ["test-clean"]
+
+# Use the original preprocessing from nvidia
+# The cleaners to be used (applicable to nvidia only)
+text_cleaners: ['english_cleaners']
+
+# Avoid audios longer than x seconds
+avoid_if_longer_than: 10.0
+################################
+# Audio Parameters             #
+################################
+sample_rate: 16000
+hop_length: 256
+win_length: 1024
+n_mel_channels: 80
+n_fft: 1024
+mel_fmin: 0.0
+mel_fmax: 8000.0
+mel_normalized: False
+power: 1
+norm: "slaney"
+mel_scale: "slaney"
+dynamic_range_compression: True
+
+################################
+# Speaker Embedding Parameters #
+################################
+spk_emb_size: 192
+spk_emb_sample_rate: 16000
+custom_mel_spec_encoder: False
+spk_emb_encoder: speechbrain/spkrec-ecapa-voxceleb
+
+# To use the custom mel-spectrogram based encoder - for compatibility with future speaker consistency loss work
+# 1. Change "custom_mel_spec_encoder" to True
+# 2. Change the path for "spk_emb_encoder".
+# The ECAPA-TDNN model used for the Zero-Shot Multi-Speaker Tacotron2 experiments is available here: speechbrain/spkrec-ecapa-voxceleb-mel-spec
+
+################################
+# Optimization Hyperparameters #
+################################
+learning_rate: 0.001
+weight_decay: 0.000006
+batch_size: 32 #minimum 2
+mask_padding: True
+guided_attention_sigma: 0.2
+guided_attention_weight: 25.0
+guided_attention_weight_half_life: 25.
+guided_attention_hard_stop: 50
+gate_loss_weight: 1.0
+spk_emb_loss_weight: 1.0
+
+train_dataloader_opts:
+  batch_size: !ref <batch_size>
+  drop_last: True  #True #False
+  num_workers: 8
+  collate_fn: !new:speechbrain.lobes.models.MSTacotron2.TextMelCollate
+    speaker_embeddings_pickle: !ref <train_speaker_embeddings_pickle>
+
+valid_dataloader_opts:
+  batch_size: !ref <batch_size>
+  drop_last: True
+  num_workers: 8
+  collate_fn: !new:speechbrain.lobes.models.MSTacotron2.TextMelCollate
+    speaker_embeddings_pickle: !ref <valid_speaker_embeddings_pickle>
+
+test_dataloader_opts:
+  batch_size: !ref <batch_size>
+  drop_last: True
+  num_workers: 8
+  collate_fn: !new:speechbrain.lobes.models.MSTacotron2.TextMelCollate
+    speaker_embeddings_pickle: !ref <test_speaker_embeddings_pickle>
+
+###############################
+# Model Parameters and model  #
+###############################
+n_symbols: 148 #fixed depending on symbols in textToSequence
+symbols_embedding_dim: 1024
+
+# Encoder parameters
+encoder_kernel_size: 5
+encoder_n_convolutions: 6
+encoder_embedding_dim: 1024
+
+# Decoder parameters
+# The number of frames in the target per encoder step
+n_frames_per_step: 1
+decoder_rnn_dim: 2048
+prenet_dim: 512
+max_decoder_steps: 1500
+gate_threshold: 0.5
+p_attention_dropout: 0.1
+p_decoder_dropout: 0.1
+decoder_no_early_stopping: False
+
+# Attention parameters
+attention_rnn_dim: 2048
+attention_dim: 256
+
+# Location Layer parameters
+attention_location_n_filters: 32
+attention_location_kernel_size: 31
+
+# Mel-post processing network parameters
+postnet_embedding_dim: 1024
+postnet_kernel_size: 5
+postnet_n_convolutions: 10
+
+# To compute the mel-spectrogram for an audio
+mel_spectogram: !name:speechbrain.lobes.models.Tacotron2.mel_spectogram
+  sample_rate: !ref <sample_rate>
+  hop_length: !ref <hop_length>
+  win_length: !ref <win_length>
+  n_fft: !ref <n_fft>
+  n_mels: !ref <n_mel_channels>
+  f_min: !ref <mel_fmin>
+  f_max: !ref <mel_fmax>
+  power: !ref <power>
+  normalized: !ref <mel_normalized>
+  norm: !ref <norm>
+  mel_scale: !ref <mel_scale>
+  compression: !ref <dynamic_range_compression>
+
+# Zero-Shot Multi-Speaker Tacotron2 model
+model: !new:speechbrain.lobes.models.MSTacotron2.Tacotron2
+  mask_padding: !ref <mask_padding>
+  n_mel_channels: !ref <n_mel_channels>
+  # Symbols
+  n_symbols: !ref <n_symbols>
+  symbols_embedding_dim: !ref <symbols_embedding_dim>
+  # Encoder
+  encoder_kernel_size: !ref <encoder_kernel_size>
+  encoder_n_convolutions: !ref <encoder_n_convolutions>
+  encoder_embedding_dim: !ref <encoder_embedding_dim>
+  # Attention
+  attention_rnn_dim: !ref <attention_rnn_dim>
+  attention_dim: !ref <attention_dim>
+  # Attention location
+  attention_location_n_filters: !ref <attention_location_n_filters>
+  attention_location_kernel_size: !ref <attention_location_kernel_size>
+  # Decoder
+  n_frames_per_step: !ref <n_frames_per_step>
+  decoder_rnn_dim: !ref <decoder_rnn_dim>
+  prenet_dim: !ref <prenet_dim>
+  max_decoder_steps: !ref <max_decoder_steps>
+  gate_threshold: !ref <gate_threshold>
+  p_attention_dropout: !ref <p_attention_dropout>
+  p_decoder_dropout: !ref <p_decoder_dropout>
+  # Postnet
+  postnet_embedding_dim: !ref <postnet_embedding_dim>
+  postnet_kernel_size: !ref <postnet_kernel_size>
+  postnet_n_convolutions: !ref <postnet_n_convolutions>
+  decoder_no_early_stopping: !ref <decoder_no_early_stopping>
+  # Speaker embeddings
+  spk_emb_size: !ref <spk_emb_size>
+
+# Scheduler for guided attention
+guided_attention_scheduler: !new:speechbrain.nnet.schedulers.StepScheduler
+  initial_value: !ref <guided_attention_weight>
+  half_life: !ref <guided_attention_weight_half_life>
+
+# Loss function
+criterion: !new:speechbrain.lobes.models.MSTacotron2.Loss
+  gate_loss_weight: !ref <gate_loss_weight>
+  guided_attention_weight: !ref <guided_attention_weight>
+  guided_attention_sigma: !ref <guided_attention_sigma>
+  guided_attention_scheduler: !ref <guided_attention_scheduler>
+  guided_attention_hard_stop: !ref <guided_attention_hard_stop>
+  spk_emb_loss_weight: !ref <spk_emb_loss_weight>
+
+# Overall modules used
+modules:
+  model: !ref <model>
+
+# Optimizer
+opt_class: !name:torch.optim.Adam
+  lr: !ref <learning_rate>
+  weight_decay: !ref <weight_decay>
+
+# To keep track of the epochs
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+  limit: !ref <epochs>
+
+# To log training information
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+  save_file: !ref <train_log>
+
+# # Learning rate annealing function
+lr_annealing: !new:speechbrain.nnet.schedulers.NoamScheduler
+  lr_initial: !ref <learning_rate>
+  n_warmup_steps: 4000
+
+# Checkpointer
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+  checkpoints_dir: !ref <save_folder>
+  recoverables:
+    model: !ref <model>
+    counter: !ref <epoch_counter>
+    scheduler: !ref <lr_annealing>
+
+# Progress sample logger
+progress_sample_logger: !new:speechbrain.utils.train_logger.ProgressSampleLogger
+  output_path: !ref <progress_sample_path>
+  batch_sample_size: !ref <progress_batch_sample_size>
+  formats:
+    raw_batch: raw
+
+
+# Pretrained separator - Use when fine-tuning - REMOVE IF NOT REQUIRED
+# tacotron2_model_path: !PLACEHOLDER
+# pretrained_separator: !new:speechbrain.utils.parameter_transfer.Pretrainer
+#   collect_in: !ref <save_folder>
+#   loadables:
+#     model: !ref <model>
+#   paths:
+#     model: !ref <tacotron2_model_path>/model.ckpt

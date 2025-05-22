@@ -5,16 +5,17 @@ Authors
 """
 
 import torch
-import logging
+
 from speechbrain.nnet.complex_networks.c_ops import (
     affect_init,
-    complex_init,
-    unitary_init,
-    complex_linear_op,
     check_complex_input,
+    complex_init,
+    complex_linear_op,
+    unitary_init,
 )
+from speechbrain.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class CLinear(torch.nn.Module):
@@ -113,6 +114,10 @@ class CLinear(torch.nn.Module):
         ---------
         x : torch.Tensor
             Input to transform linearly.
+
+        Returns
+        -------
+        The complex linear transformation of the inputs.
         """
         wx = complex_linear_op(x, self.real_weight, self.imag_weight, self.b)
 

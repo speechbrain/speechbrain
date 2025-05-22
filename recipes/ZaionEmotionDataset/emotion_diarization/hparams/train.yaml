@@ -1,0 +1,149 @@
+# #######################################
+# Model: wavlm for Emotion Diarization
+# Authors:
+#  * Yingzhi Wang 2023
+# ################################
+
+# Seed needs to be set at top of yaml, before objects with parameters are made
+seed: 78
+__set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
+output_folder: !ref results/zed_wavlm_large/<seed>
+eder_file: !ref <output_folder>/eder.txt
+save_folder: !ref <output_folder>/save
+train_log: !ref <output_folder>/train_log.txt
+
+wav2vec2_hub: "microsoft/wavlm-large" # "facebook/wav2vec2-large" "facebook/hubert-large-ll60k"
+wav2vec2_folder: !ref <save_folder>/wav2vec2_checkpoint
+# Data files
+zed_folder: !PLACEHOLDER # e,g./path/to/ZED
+
+emovdb_folder: !PLACEHOLDER # e,g./path/to/EmoV-DB
+esd_folder: !PLACEHOLDER # e,g./path/to/ESD
+iemocap_folder: !PLACEHOLDER # e,g./path/to/IEMOCAP_full_release
+jlcorpus_folder: !PLACEHOLDER # e,g./path/to/JL_corpus
+ravdess_folder: !PLACEHOLDER # e,g./path/to/RAVDESS
+
+split_ratio: [90, 10]
+skip_prep: False
+
+train_annotation: !ref <output_folder>/train.json
+valid_annotation: !ref <output_folder>/valid.json
+test_annotation: !ref <output_folder>/test.json
+
+####################### Training Parameters ####################################
+number_of_epochs: 15
+lr: 0.0001
+lr_wav2vec: 0.00001
+# precision: fp32 # bf16, fp16 or fp32
+# do_resample: False
+# sample_rate: 16000
+
+# With data_parallel batch_size is split into N jobs
+# With DDP batch_size is multiplied by N jobs
+# Must be 3 per GPU to fit 32GB of VRAM
+batch_size: 2
+test_batch_size: 1
+
+#freeze all wav2vec2
+freeze_wav2vec2: False
+freeze_wav2vec2_conv: True
+
+window_length: 1 # win_len = 0.02 * 1 = 0.02s
+stride: 1 # stride = 0.02 * 1 = 0.02s
+
+encoder_dim: 1024
+# Outputs
+out_n_neurons: 4  # BPE size, index(blank/eos/bos) = 0
+
+use_threshold: False
+threshold: -0.05
+
+# Dataloader options
+dataloader_options:
+    batch_size: !ref <batch_size>
+    shuffle: True
+    num_workers: 2  # 2 on linux but 0 works on windows
+    drop_last: False
+
+test_dataloader_opts:
+    batch_size: !ref <test_batch_size>
+
+# # DER evaluation parameters
+# ignore_overlap: True
+# forgiveness_collar: 0.25
+
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+    limit: !ref <number_of_epochs>
+
+
+input_norm: !new:speechbrain.processing.features.InputNormalization
+    norm_type: sentence
+    std_norm: False
+
+wav2vec2: !new:speechbrain.lobes.models.huggingface_transformers.wavlm.WavLM
+    source: !ref <wav2vec2_hub>
+    output_norm: True
+    freeze: !ref <freeze_wav2vec2>
+    freeze_feature_extractor: !ref <freeze_wav2vec2_conv>
+    save_path: !ref <wav2vec2_folder>
+    # output_all_hiddens: False
+
+avg_pool: !new:speechbrain.nnet.pooling.Pooling1d
+    pool_type: "avg"
+    kernel_size: !ref <window_length>
+    stride: !ref <stride>
+    ceil_mode: True
+
+output_mlp: !new:speechbrain.nnet.linear.Linear
+    input_size: !ref <encoder_dim>
+    n_neurons: !ref <out_n_neurons>
+    bias: False
+
+log_softmax: !new:speechbrain.nnet.activations.Softmax
+    apply_log: True
+
+compute_cost: !name:speechbrain.nnet.losses.nll_loss
+
+modules:
+    input_norm: !ref <input_norm>
+    wav2vec2: !ref <wav2vec2>
+    output_mlp: !ref <output_mlp>
+
+model: !new:torch.nn.ModuleList
+    - [!ref <output_mlp>]
+
+opt_class: !name:torch.optim.Adam
+    lr: !ref <lr>
+
+wav2vec2_opt_class: !name:torch.optim.Adam
+    lr: !ref <lr_wav2vec>
+
+lr_annealing: !new:speechbrain.nnet.schedulers.NewBobScheduler
+    initial_value: !ref <lr>
+    improvement_threshold: 0.0025
+    annealing_factor: 0.8
+    patient: 0
+
+lr_annealing_wav2vec2: !new:speechbrain.nnet.schedulers.NewBobScheduler
+    initial_value: !ref <lr_wav2vec>
+    improvement_threshold: 0.0025
+    annealing_factor: 0.9
+    patient: 0
+
+
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+    checkpoints_dir: !ref <save_folder>
+    recoverables:
+        input_norm: !ref <input_norm>
+        wav2vec2: !ref <wav2vec2>
+        model: !ref <model>
+        scheduler_model: !ref <lr_annealing>
+        scheduler_wav2vec: !ref <lr_annealing_wav2vec2>
+        counter: !ref <epoch_counter>
+
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+    save_file: !ref <train_log>
+
+error_stats: !name:speechbrain.utils.metric_stats.MetricStats
+    metric: !name:speechbrain.nnet.losses.classification_error
+        reduction: batch

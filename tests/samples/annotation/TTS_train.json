@@ -1,0 +1,18 @@
+{
+  "LJ050-0131": {
+    "uttid": "LJ050-0131",
+    "wav": "{data_root}/LJ050-0131.wav",
+    "label": "unless a system is established for the frequent formal review of activities thereunder. in this regard",
+    "segment": true,
+    "label_phoneme": "AH N L EH S AH S IH S T AH M IH Z IH S T AE B L IH SH T spn F ER DH AH F R IY K W AH N T F AO R M AH L R IY V Y UW spn AH V AE K T IH V IH T IY Z DH EH R AH N D ER spn IH N DH IH S R AH G AA R D",
+    "phonemes": ["AH", "N", "L", "EH", "S", " ", "AH", " ", "S", "IH", "S", "T", "AH", "M", " ", "IH", "Z", " ", "IH", "S", "T", "AE", "B", "L", "IH", "SH", "T", " ", "F", "AO", "R", " ", "DH", "AH", " ", "F", "R", "IY", "K", "W", "AH", "N", "T", " ", "F", "AO", "R", "M", "AH", "L", " ", "R", "IY", "V", "Y", "UW", " ", "AH", "V", " ", "AE", "K", "T", "IH", "V", "IH", "T", "IY", "Z", " ", "DH", "EH", "R", "AH", "N", "D", "ER", ".", " ", "IH", "N", " ", "DH", "IH", "S", " ", "R", "AH", "G", "AA", "R", "D"],
+    "spn_labels": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    "start": 0.0,
+    "end": 7.58,
+    "duration": 7.58,
+    "durations": "{data_root}/d_LJ050-0131.npy",
+    "pitch": "{data_root}/LJ050-0131.npy",
+    "last_phoneme_flags": [0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 1, 1],
+    "spk_id": "0000"
+  }
+}

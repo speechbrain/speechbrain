@@ -21,6 +21,10 @@ def choice(value, choices, default=None):
     default: any
         the default value
 
+    Returns
+    -------
+    The selected option out of the choices
+
     Example
     -------
     model: !new:speechbrain.lobes.models.g2p.model.TransformerG2P

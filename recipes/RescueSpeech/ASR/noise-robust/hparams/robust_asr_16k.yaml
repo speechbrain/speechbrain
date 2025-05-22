@@ -1,0 +1,182 @@
+# Model: wav2vec2 + DNN + CTC
+# Augmentation: SpecAugment
+# Authors: Sangeet Sagar 2023
+# ################################
+
+# Seed needs to be set at top of yaml, before objects with parameters are made
+seed: 8200
+__set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
+output_folder: !ref results/robust_asr/<seed>
+test_wer_file: !ref <output_folder>/wer_test.txt
+save_folder: !ref <output_folder>/save
+train_log: !ref <output_folder>/train_log.txt
+
+# URL for the biggest whisper model.
+whisper_hub: !ref openai/whisper-large-v2
+whisper_folder: !ref <save_folder>/whisper_checkpoint
+language: german
+
+
+# Path to pre-trained models
+pretrained_whisper_path: speechbrain/whisper_rescuespeech
+pretrained_enhance_path: speechbrain/sepformer_rescuespeech
+
+epochs_before_lr_drop: 2
+unfreeze_epoch: !ref <epochs_before_lr_drop> + 1
+frozen_models: [encoder, decoder, masknet, whisper]
+unfrozen_models: [masknet, whisper]
+
+# Dataset prep parameters
+data_folder: !PLACEHOLDER
+train_tsv_file: !ref <data_folder>/train.tsv
+dev_tsv_file: !ref <data_folder>/dev.tsv
+test_tsv_file: !ref <data_folder>/test.tsv
+accented_letters: True
+train_csv: !ref <output_folder>/train.csv
+valid_csv: !ref <output_folder>/dev.csv
+test_csv: !ref <output_folder>/test.csv
+skip_prep: False
+
+# We remove utterance slonger than 10s in the train/dev/test sets as
+# longer sentences certainly correspond to "open microphones".
+avoid_if_longer_than: 10.0
+
+## Model Parameters- Enhance model
+dereverberate: False
+save_audio: True
+sample_rate: 16000
+enhance_sample_rate: 16000
+limit_training_signal_len: False
+training_signal_len: 64000
+use_speedperturb: True
+use_freq_domain: False
+use_rand_shift: False
+min_shift: -8000
+max_shift: 8000
+
+######################## Training Parameters ####################################- ASR
+number_of_epochs: 10
+lr_whisper: 0.00003
+sorting: ascending
+precision: fp32 # bf16, fp16 or fp32
+asr_sample_rate: 16000
+ckpt_interval_minutes: 30 # save checkpoint every N min
+checkpoint_avg: 5
+
+# With data_parallel batch_size is split into N jobs
+# With DDP batch_size is multiplied by N jobs
+# Must be 6 per GPU to fit 16GB of VRAM
+batch_size: 2
+test_batch_size: 2
+
+# Decoding parameters
+min_decode_ratio: 0.0
+max_decode_ratio: 1.0
+test_beam_size: 8
+
+# Whisper model parameters
+freeze_whisper: False
+freeze_encoder_only: False
+freeze_encoder: True
+
+train_loader_kwargs:
+    batch_size: !ref <batch_size>
+
+valid_loader_kwargs:
+    batch_size: !ref <batch_size>
+
+test_loader_kwargs:
+    batch_size: !ref <test_batch_size>
+
+# Loss weights
+sepformer_weight: 0.1
+asr_weight: 1
+
+# Speed perturbation
+speed_changes: [95, 100, 105]  # List of speed changes for time-stretching
+
+speed_perturb: !new:speechbrain.augment.time_domain.SpeedPerturb
+    orig_freq: !ref <sample_rate>
+    speeds: !ref <speed_changes>
+
+enhance_model: !include:../models/sepformer.yaml
+
+
+whisper: !new:speechbrain.lobes.models.huggingface_transformers.whisper.Whisper
+    source: !ref <whisper_hub>
+    freeze: !ref <freeze_whisper>
+    save_path: !ref <whisper_folder>
+    encoder_only: !ref <freeze_encoder_only>
+    freeze_encoder: !ref <freeze_encoder>
+    language: !ref <language>
+    task: transcribe
+
+log_softmax: !new:speechbrain.nnet.activations.Softmax
+    apply_log: True
+
+nll_loss: !name:speechbrain.nnet.losses.nll_loss
+
+whisper_opt_class: !name:torch.optim.AdamW
+    lr: !ref <lr_whisper>
+    weight_decay: 0.01
+
+valid_greedy_searcher: !new:speechbrain.decoders.seq2seq.S2SWhisperGreedySearcher
+    model: !ref <whisper>
+    min_decode_ratio: !ref <min_decode_ratio>
+    max_decode_ratio: !ref <max_decode_ratio>
+
+test_beam_searcher: !new:speechbrain.decoders.seq2seq.S2SWhisperBeamSearcher
+    module: [!ref <whisper>]
+    min_decode_ratio: !ref <min_decode_ratio>
+    max_decode_ratio: !ref <max_decode_ratio>
+    beam_size: !ref <test_beam_size>
+
+lr_annealing_whisper: !new:speechbrain.nnet.schedulers.NewBobScheduler
+    initial_value: !ref <lr_whisper>
+    improvement_threshold: 0.0025
+    annealing_factor: 0.9
+    patient: 0
+
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+    limit: !ref <number_of_epochs>
+
+# Enhance loss
+enhance_loss: !name:speechbrain.nnet.losses.get_si_snr_with_pitwrapper
+
+# Change the path to use a local model instead of the remote one
+asr_pretrained: !new:speechbrain.utils.parameter_transfer.Pretrainer
+    collect_in: !ref <save_folder>
+    loadables:
+        encoder: !ref <enhance_model[Encoder]>
+        masknet: !ref <enhance_model[MaskNet]>
+        decoder: !ref <enhance_model[Decoder]>
+        whisper: !ref <whisper>
+    paths:
+        encoder: !ref <pretrained_enhance_path>/encoder.ckpt
+        decoder: !ref <pretrained_enhance_path>/decoder.ckpt
+        masknet: !ref <pretrained_enhance_path>/masknet.ckpt
+        whisper: !ref <pretrained_whisper_path>/whisper.ckpt
+
+modules:
+    encoder: !ref <enhance_model[Encoder]>
+    masknet: !ref <enhance_model[MaskNet]>
+    decoder: !ref <enhance_model[Decoder]>
+    whisper: !ref <whisper>
+
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+    checkpoints_dir: !ref <save_folder>
+    recoverables:
+        encoder: !ref <enhance_model[Encoder]>
+        decoder: !ref <enhance_model[Decoder]>
+        masknet: !ref <enhance_model[MaskNet]>
+        whisper: !ref <whisper>
+        scheduler_whisper: !ref <lr_annealing_whisper>
+        counter: !ref <epoch_counter>
+
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+    save_file: !ref <train_log>
+
+error_rate_computer: !name:speechbrain.utils.metric_stats.ErrorRateStats
+
+cer_computer: !name:speechbrain.utils.metric_stats.ErrorRateStats
+    split_tokens: True

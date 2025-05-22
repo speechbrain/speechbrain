@@ -7,7 +7,7 @@
 # Seed needs to be set at top of yaml, before objects with parameters are made
 #
 seed: 1234
-__set_seed: !apply:torch.manual_seed [!ref <seed>]
+__set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
 
 # Data params
 
@@ -32,13 +32,12 @@ skip_prep: False
 
 
 # Experiment params
-auto_mix_prec: False # Set it to True for mixed precision
-test_only: False
+precision: fp32 # bf16, fp16 or fp32
 num_spks: 2 # set to 3 for wsj0-3mix
 save_audio: False # Save estimated sources on disk
 sample_rate: 8000
 
-# Training parameters
+####################### Training Parameters ####################################
 N_epochs: 200
 batch_size: 1
 lr: 0.00015
@@ -60,18 +59,38 @@ use_rand_shift: False
 min_shift: -8000
 max_shift: 8000
 
-speedperturb: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
-    perturb_prob: 1.0
-    drop_freq_prob: 0.0
-    drop_chunk_prob: 0.0
-    sample_rate: !ref <sample_rate>
-    speeds: [95, 100, 105]
+# Speed perturbation
+speed_changes: [95, 100, 105]  # List of speed changes for time-stretching
 
-wavedrop: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
-    perturb_prob: 0.0
-    drop_freq_prob: 1.0
-    drop_chunk_prob: 1.0
-    sample_rate: !ref <sample_rate>
+speed_perturb: !new:speechbrain.augment.time_domain.SpeedPerturb
+    orig_freq: !ref <sample_rate>
+    speeds: !ref <speed_changes>
+
+# Frequency drop: randomly drops a number of frequency bands to zero.
+drop_freq_low: 0  # Min frequency band dropout probability
+drop_freq_high: 1  # Max frequency band dropout probability
+drop_freq_count_low: 1  # Min number of frequency bands to drop
+drop_freq_count_high: 3  # Max number of frequency bands to drop
+drop_freq_width: 0.05  # Width of frequency bands to drop
+
+drop_freq: !new:speechbrain.augment.time_domain.DropFreq
+    drop_freq_low: !ref <drop_freq_low>
+    drop_freq_high: !ref <drop_freq_high>
+    drop_freq_count_low: !ref <drop_freq_count_low>
+    drop_freq_count_high: !ref <drop_freq_count_high>
+    drop_freq_width: !ref <drop_freq_width>
+
+# Time drop: randomly drops a number of temporal chunks.
+drop_chunk_count_low: 1  # Min number of audio chunks to drop
+drop_chunk_count_high: 5  # Max number of audio chunks to drop
+drop_chunk_length_low: 1000  # Min length of audio chunks to drop
+drop_chunk_length_high: 2000  # Max length of audio chunks to drop
+
+drop_chunk: !new:speechbrain.augment.time_domain.DropChunk
+    drop_length_low: !ref <drop_chunk_length_low>
+    drop_length_high: !ref <drop_chunk_length_high>
+    drop_count_low: !ref <drop_chunk_count_low>
+    drop_count_high: !ref <drop_chunk_count_high>
 
 # loss thresholding -- this thresholds the training loss
 threshold_byloss: True
@@ -82,6 +101,10 @@ N_encoder_out: 256
 out_channels: 256
 kernel_size: 16
 kernel_stride: 8
+
+# Other architectural parameters
+num_layers_intra: 8
+num_layers_inter: 8
 
 # Dataloader options
 # Set num_workers: 0 on MacOS due to behavior of the multiprocessing library
@@ -98,7 +121,7 @@ Encoder: !new:speechbrain.lobes.models.dual_path.Encoder
 #longformer_intra: !new:speechbrain.lobes.models.dual_path.SBTransformerBlock
 #intra: !new:speechbrain.lobes.models.efficient_separators.LongformerBlock
 intra: !new:speechbrain.lobes.models.dual_path.SBConformerEncoderBlock
-    num_layers: 8
+    num_layers: !ref <num_layers_intra>
     d_model: !ref <N_encoder_out>
     nhead: 8
     d_ffn: 1024
@@ -107,7 +130,7 @@ intra: !new:speechbrain.lobes.models.dual_path.SBConformerEncoderBlock
 
 
 inter: !new:speechbrain.lobes.models.dual_path.SBTransformerBlock
-    num_layers: 8
+    num_layers: !ref <num_layers_inter>
     d_model: !ref <out_channels>
     nhead: 8
     d_ffn: 1024

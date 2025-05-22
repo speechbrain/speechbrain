@@ -8,8 +8,10 @@ Samuele Cornell, 2020
 
 import argparse
 import os
-from speechbrain.utils.data_utils import download_file
+
 from local.resample_folder import resample_folder
+
+from speechbrain.utils.data_utils import download_file
 
 LIBRISPEECH_URLS = [
     "http://www.openslr.org/resources/12/test-clean.tar.gz",

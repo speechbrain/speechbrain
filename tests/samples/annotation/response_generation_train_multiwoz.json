@@ -1,0 +1,74 @@
+{
+    "PMUL0698.json_1": {
+        "history": [
+            "i am looking for a local place to dine in the centre that serves chinese food ."
+        ],
+        "reply": "i have restaurants matching your criteria in all price ranges . do you have a preference on price ?",
+        "length": 178
+    },
+    "PMUL0698.json_3": {
+        "history": [
+            "i am looking for a local place to dine in the centre that serves chinese food .",
+            "i have restaurants matching your criteria in all price ranges . do you have a preference on price ?",
+            "i need the address , postcode and the price range ."
+        ],
+        "reply": "ok how about charlie chan , located at regent street city centre . postcode is cb21db with a cheap price . can i help you further today ?",
+        "length": 213.33333333333331
+    },
+    "PMUL0698.json_5": {
+        "history": [
+            "i am looking for a local place to dine in the centre that serves chinese food .",
+            "i have restaurants matching your criteria in all price ranges . do you have a preference on price ?",
+            "i need the address , postcode and the price range .",
+            "ok how about charlie chan , located at regent street city centre . postcode is cb21db with a cheap price . can i help you further today ?",
+            "i also need a train . the train should leave after 16:15 and should leave on sunday ."
+        ],
+        "reply": "can i have more information for the train you are needing ? where are you departing from and arriving to ?",
+        "length": 196.2
+    },
+    "PMUL0698.json_7": {
+        "history": [
+            "i am looking for a local place to dine in the centre that serves chinese food .",
+            "i have restaurants matching your criteria in all price ranges . do you have a preference on price ?",
+            "i need the address , postcode and the price range .",
+            "ok how about charlie chan , located at regent street city centre . postcode is cb21db with a cheap price . can i help you further today ?",
+            "i also need a train . the train should leave after 16:15 and should leave on sunday .",
+            "can i have more information for the train you are needing ? where are you departing from and arriving to ?",
+            "i am leaving from cambridge and going to norwich ."
+        ],
+        "reply": "i have train tr1840 leaving at 16:36 is that okay ?",
+        "length": 137.71428571428572
+    },
+    "PMUL0698.json_9": {
+        "history": [
+            "i am looking for a local place to dine in the centre that serves chinese food .",
+            "i have restaurants matching your criteria in all price ranges . do you have a preference on price ?",
+            "i need the address , postcode and the price range .",
+            "ok how about charlie chan , located at regent street city centre . postcode is cb21db with a cheap price . can i help you further today ?",
+            "i also need a train . the train should leave after 16:15 and should leave on sunday .",
+            "can i have more information for the train you are needing ? where are you departing from and arriving to ?",
+            "i am leaving from cambridge and going to norwich .",
+            "i have train tr1840 leaving at 16:36 is that okay ?",
+            "book for 5 people and get me the reference number"
+        ],
+        "reply": "you are all set . reference number is njb87pap . is there anything else i can help you with today ?",
+        "length": 177.55555555555554
+    },
+    "PMUL0698.json_11": {
+        "history": [
+            "i am looking for a local place to dine in the centre that serves chinese food .",
+            "i have restaurants matching your criteria in all price ranges . do you have a preference on price ?",
+            "i need the address , postcode and the price range .",
+            "ok how about charlie chan , located at regent street city centre . postcode is cb21db with a cheap price . can i help you further today ?",
+            "i also need a train . the train should leave after 16:15 and should leave on sunday .",
+            "can i have more information for the train you are needing ? where are you departing from and arriving to ?",
+            "i am leaving from cambridge and going to norwich .",
+            "i have train tr1840 leaving at 16:36 is that okay ?",
+            "book for 5 people and get me the reference number",
+            "you are all set . reference number is njb87pap . is there anything else i can help you with today ?",
+            "no , this is all i will need . thank you ."
+        ],
+        "reply": "thank for calling us today . i hope you have a good trip .",
+        "length": 135.0909090909091
+    }
+}

@@ -2,6 +2,7 @@
 Authors
  * Artem Ploujnikov 2021
 """
+
 import torch
 from torch import nn
 
@@ -21,6 +22,7 @@ class SubsequenceLoss(nn.Module):
     Important! This loss can be used for fine-tuning only
     The model is expected to be able to already be able
     to correctly predict word boundaries
+
     Arguments
     ---------
     seq_cost: callable
@@ -177,7 +179,7 @@ class SubsequenceExtractor:
     ---------
     word_separator: int
         the index of the word separator (used in p_seq)
-    word_separator_base int
+    word_separator_base: int
         the index of word separators used in unprocessed
         targets (if different)
 
@@ -252,6 +254,8 @@ class SubsequenceExtractor:
         """
         Extracts the subsequence from the complete sequence
 
+        Arguments
+        ---------
         phns: torch.Tensor
             the phoneme tensor (batch x length)
         phn_lens: torch.Tensor
@@ -357,10 +361,15 @@ class SubsequenceExtractor:
 
         Arguments
         ---------
-        sequence: torch.tensor
+        sequence: torch.Tensor
             the sequence to be padded
         longest_subsequence: int
             the length of the longest subsequence
+
+        Returns
+        -------
+        sequence: torch.Tensor
+            The padded sequence
         """
         if longest_subsequence > 0:
             sequence = torch.nn.functional.pad(
@@ -498,12 +507,13 @@ class SubsequenceExtractor:
             the beginning of the subsequence
         word_separator: int
             the word separator being used
+        phn_lens: torch.Tensor
+            Lengths corresponding to input phns
 
         Returns
         -------
         word_indexes: torch.Tensor
             the word index tensor
-
         """
         end_of_sequence = (
             (range_phns == ((phn_lens).unsqueeze(-1) * phns.size(1)).long())
@@ -526,7 +536,7 @@ class SubsequenceExtractor:
         ---------
         seq: torch.Tensor
             a sequence (phonemes or graphemes)
-        word_indexes:
+        word_indexes: torch.Tensor
             the word indexes
         edge: int
             a tensor indicating the last position
@@ -573,7 +583,6 @@ class SubsequenceExtractor:
         index_match: torch.Tensor
             a mask where positions matching the word index are
             indicated as a 1 and the remaining positions are 0
-
         words_range: torch.Tensor
             a range tensor over the tokens
         aggregation: callable
@@ -583,6 +592,9 @@ class SubsequenceExtractor:
             happen when searching in model outputs rather than
             in source data)
 
+        Returns
+        -------
+        Start or end positions of specific words.
         """
         positions = torch.where(index_match, words_range, no_match_value)
         positions = aggregation(positions, dim=-1).values
@@ -591,8 +603,9 @@ class SubsequenceExtractor:
     def extract_hyps(
         self, ref_seq, hyps, subsequence_phn_start, use_base=False
     ):
-        """Extracts a subsequnce from hypotheses (e.g. the result of a beam
-        search) based on a refernece sequence, which can be either a sequence of phonemes (the target during training)
+        """Extracts a subsequence from hypotheses (e.g. the result of a beam
+        search) based on a reference sequence, which can be either a sequence of phonemes (the target during training)
+
         Arguments
         ---------
         ref_seq: torch.Tensor
@@ -600,10 +613,15 @@ class SubsequenceExtractor:
         hyps: list
             a batch of hypotheses, a list of list of
             integer indices (usually of phonemes)
-        subsequence_phn_start: torch.tensor
+        subsequence_phn_start: torch.Tensor
             the index of the beginning of the subsequence to
         use_base: bool
             whether to use the raw (token) space for word separators
+
+        Returns
+        -------
+        result: torch.Tensor
+            The extracted subsequence.
         """
         range_phns = torch.arange(
             ref_seq.size(1), device=ref_seq.device
@@ -626,9 +644,9 @@ class SubsequenceExtractor:
         ]
         result = [
             self._extract_hyp_word(
-                item_hyps, item_separtaor_indexes, word_index
+                item_hyps, item_separator_indexes, word_index
             )
-            for item_hyps, item_separtaor_indexes, word_index in zip(
+            for item_hyps, item_separator_indexes, word_index in zip(
                 hyps, separator_indexes, target_word_indexes
             )
         ]

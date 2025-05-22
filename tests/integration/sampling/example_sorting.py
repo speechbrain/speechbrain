@@ -1,19 +1,21 @@
 """This minimal example checks on sampling with ascending/descending sorting and random shuffling; w/ & w/o DDP.
 """
 
-import os
-import torch
-import pickle
-import pathlib
 import itertools
-import speechbrain as sb
+import os
+import pathlib
+import pickle
+
+import torch
 import torch.multiprocessing as mp
 from hyperpyyaml import load_hyperpyyaml
+
+import speechbrain as sb
 
 
 class SamplingBrain(sb.Brain):
     def compute_forward(self, batch, stage):
-        "Given an input batch it computes the binary probability."
+        """Given an input batch it computes the binary probability."""
         batch = batch.to(self.device)
         lens = batch.duration
 
@@ -49,14 +51,14 @@ class SamplingBrain(sb.Brain):
         return lens
 
     def compute_objectives(self, predictions, batch, stage=True):
-        "Given the network predictions and targets computed the binary CE"
+        """Given the network predictions and targets computed the binary CE"""
         inputs = torch.tensor([10.0, -6.0], requires_grad=True)
         targets = torch.tensor([1, 0])
         loss = self.hparams.compute_loss(inputs, targets)
         return loss
 
     def on_stage_start(self, stage, epoch=None):
-        "Gets called when a stage (either training, validation, test) starts."
+        """Gets called when a stage (either training, validation, test) starts."""
         if stage == sb.Stage.TRAIN:
             self.ids_list = []
 
@@ -77,8 +79,7 @@ class SamplingBrain(sb.Brain):
 
 
 def data_prep(data_folder, hparams):
-    "Creates the datasets and their data processing pipelines."
-
+    """Creates the datasets and their data processing pipelines."""
     train_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
         csv_path=data_folder / "annotation/dev-clean.csv",
         replacements={"data_root": data_folder},
@@ -141,7 +142,7 @@ def recipe(device="cpu", yaml_file="hyperparams.yaml", run_opts=None):
     hparams_file = os.path.join(experiment_dir, yaml_file)
     data_folder = "../../samples/"
     data_folder = (experiment_dir / data_folder).resolve()
-    with open(hparams_file) as fin:
+    with open(hparams_file, encoding="utf-8") as fin:
         hparams = load_hyperpyyaml(fin)
 
     # usually here: sb.utils.distributed.ddp_init_group(run_opts)
@@ -153,11 +154,14 @@ def recipe(device="cpu", yaml_file="hyperparams.yaml", run_opts=None):
     if run_opts is None:
         run_opts = {}
     else:
-        hparams["rank"] = run_opts["local_rank"]
+        hparams["rank"] = os.environ["RANK"]
     run_opts["device"] = device
 
     ctc_brain = SamplingBrain(
-        hparams["modules"], hparams["opt_class"], hparams, run_opts=run_opts,
+        hparams["modules"],
+        hparams["opt_class"],
+        hparams,
+        run_opts=run_opts,
     )
 
     # Training/validation loop
@@ -183,16 +187,16 @@ def test_error(device):
 
 
 def ddp_recipes(rank, size, backend="gloo"):
-    """ Initialize the distributed environment. """
+    """Initialize the distributed environment."""
     os.environ["WORLD_SIZE"] = f"{size}"
     os.environ["RANK"] = f"{rank}"
+    os.environ["LOCAL_RANK"] = f"{rank}"
     os.environ["MASTER_ADDR"] = "127.0.0.1"
     os.environ["MASTER_PORT"] = "29500"
 
     run_opts = dict()
     run_opts["distributed_launch"] = True
     run_opts["distributed_backend"] = backend
-    run_opts["local_rank"] = rank
 
     sb.utils.distributed.ddp_init_group(run_opts)
 

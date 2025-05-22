@@ -5,6 +5,7 @@ Authors
  * Guillermo Cámbara 2021
  * Sarthak Yadav 2022
 """
+
 import torch
 import torch.nn as nn
 
@@ -30,6 +31,8 @@ class BatchNorm1d(nn.Module):
         and when set to False, this module does not track such statistics.
     combine_batch_time : bool
         When true, it combines batch an time axis.
+    skip_transpose : bool
+        Whether to skip the transposition.
 
 
     Example
@@ -77,6 +80,11 @@ class BatchNorm1d(nn.Module):
         x : torch.Tensor (batch, time, [channels])
             input to normalize. 2d or 3d tensors are expected in input
             4d tensors can be used when combine_dims=True.
+
+        Returns
+        -------
+        x_n : torch.Tensor
+            The normalized outputs.
         """
         shape_or = x.shape
         if self.combine_batch_time:
@@ -161,6 +169,11 @@ class BatchNorm2d(nn.Module):
         ---------
         x : torch.Tensor (batch, time, channel1, channel2)
             input to normalize. 4d tensors are expected.
+
+        Returns
+        -------
+        x_n : torch.Tensor
+            The normalized outputs.
         """
         x = x.transpose(-1, 1)
         x_n = self.norm(x)
@@ -174,6 +187,8 @@ class LayerNorm(nn.Module):
 
     Arguments
     ---------
+    input_size : int
+        The expected size of the dimension to be normalized.
     input_shape : tuple
         The expected shape of the input.
     eps : float
@@ -219,6 +234,10 @@ class LayerNorm(nn.Module):
         ---------
         x : torch.Tensor (batch, time, channels)
             input to normalize. 3d or 4d tensors are expected.
+
+        Returns
+        -------
+        The normalized outputs.
         """
         return self.norm(x)
 
@@ -286,6 +305,11 @@ class InstanceNorm1d(nn.Module):
         ---------
         x : torch.Tensor (batch, time, channels)
             input to normalize. 3d tensors are expected.
+
+        Returns
+        -------
+        x_n : torch.Tensor
+            The normalized outputs.
         """
         x = x.transpose(-1, 1)
         x_n = self.norm(x)
@@ -357,6 +381,11 @@ class InstanceNorm2d(nn.Module):
         ---------
         x : torch.Tensor (batch, time, channel1, channel2)
             input to normalize. 4d tensors are expected.
+
+        Returns
+        -------
+        x_n : torch.Tensor
+            The normalized outputs.
         """
         x = x.transpose(-1, 1)
         x_n = self.norm(x)
@@ -380,8 +409,9 @@ class GroupNorm(nn.Module):
         This value is added to std deviation estimation to improve the numerical
         stability.
     affine : bool
-         A boolean value that when set to True, this module has learnable per-channel
-         affine parameters initialized to ones (for weights) and zeros (for biases).
+        A boolean value that when set to True, this module has learnable per-channel
+        affine parameters initialized to ones (for weights) and zeros (for biases).
+
     Example
     -------
     >>> input = torch.randn(100, 101, 128)
@@ -413,7 +443,10 @@ class GroupNorm(nn.Module):
             input_size = input_shape[-1]
 
         self.norm = torch.nn.GroupNorm(
-            num_groups, input_size, eps=self.eps, affine=self.affine,
+            num_groups,
+            input_size,
+            eps=self.eps,
+            affine=self.affine,
         )
 
     def forward(self, x):
@@ -423,6 +456,11 @@ class GroupNorm(nn.Module):
         ---------
         x : torch.Tensor (batch, time, channels)
             input to normalize. 3d or 4d tensors are expected.
+
+        Returns
+        -------
+        x_n : torch.Tensor
+            The normalized outputs.
         """
         x = x.transpose(-1, 1)
         x_n = self.norm(x)
@@ -467,13 +505,19 @@ class ExponentialMovingAverage(nn.Module):
         trainable: bool = True,
         skip_transpose: bool = False,
     ):
-        super(ExponentialMovingAverage, self).__init__()
+        super().__init__()
         self._coeff_init = coeff_init
         self._per_channel = per_channel
         self.skip_transpose = skip_transpose
         self.trainable = trainable
         weights = (
-            torch.ones(input_size,) if self._per_channel else torch.ones(1,)
+            torch.ones(
+                input_size,
+            )
+            if self._per_channel
+            else torch.ones(
+                1,
+            )
         )
         self._weights = nn.Parameter(
             weights * self._coeff_init, requires_grad=trainable
@@ -482,10 +526,10 @@ class ExponentialMovingAverage(nn.Module):
     def forward(self, x):
         """Returns the normalized input tensor.
 
-       Arguments
-        ---------
-        x : torch.Tensor (batch, time, channels)
-            input to normalize.
+        Arguments
+         ---------
+         x : torch.Tensor (batch, time, channels)
+             input to normalize.
         """
         if not self.skip_transpose:
             x = x.transpose(1, -1)
@@ -567,7 +611,7 @@ class PCEN(nn.Module):
         per_channel_smooth_coef: bool = True,
         skip_transpose: bool = False,
     ):
-        super(PCEN, self).__init__()
+        super().__init__()
         self._smooth_coef = smooth_coef
         self._floor = floor
         self._per_channel_smooth_coef = per_channel_smooth_coef
@@ -597,6 +641,11 @@ class PCEN(nn.Module):
         ---------
         x : torch.Tensor (batch, time, channels)
             input to normalize.
+
+        Returns
+        -------
+        output : torch.Tensor
+            The normalized outputs.
         """
         if not self.skip_transpose:
             x = x.transpose(1, -1)

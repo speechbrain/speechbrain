@@ -1,14 +1,19 @@
 """Chaining together callables, if some require relative lengths"""
+
 import inspect
 
 
 def lengths_arg_exists(func):
-    """Returns True if func takes ``lengths`` keyword argument.
+    """Check if func takes ``lengths`` keyword argument.
 
     Arguments
     ---------
     func : callable
         The function, method, or other callable to search for the lengths arg.
+
+    Returns
+    -------
+    True if func takes ``lengths`` keyword argument.
     """
     spec = inspect.getfullargspec(func)
     return "lengths" in spec.args + spec.kwonlyargs
@@ -25,12 +30,6 @@ class LengthsCapableChain:
     *funcs : list, optional
         Any number of functions or other callables, given in order of
         execution.
-
-    Returns
-    -------
-    Any
-        The input as processed by each function. If no functions were given,
-        simply returns the input.
     """
 
     def __init__(self, *funcs):
@@ -50,6 +49,11 @@ class LengthsCapableChain:
             The lengths argument which will be conditionally passed to
             any functions in the chain that take a 'lengths' argument.
             In SpeechBrain the convention is to use relative lengths.
+
+        Returns
+        -------
+        The input as processed by each function. If no functions were given,
+        simply returns the input.
 
         Note
         ----

@@ -11,6 +11,7 @@ tests/.run-linters.sh
 pytest tests/consistency
 tests/.run-doctests.sh
 tests/.run-unittests.sh
+tests/.run-recipe-tests.sh
 pytest tests/integration
 ```
 

@@ -4,6 +4,7 @@ N-gram language model query interface
 Authors
  * Aku Rouhe 2020
 """
+
 import collections
 
 NEGINFINITY = float("-inf")
@@ -196,5 +197,5 @@ def ngram_perplexity(eval_details, logbase=10.0):
     """
     counter = sum(eval_details, collections.Counter())
     exponent = counter["neglogprob"] / counter["num_tokens"]
-    perplexity = logbase ** exponent
+    perplexity = logbase**exponent
     return perplexity
