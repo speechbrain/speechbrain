@@ -30,7 +30,7 @@ from speechbrain.dataio.preprocess import AudioNormalizer
 from speechbrain.utils.data_pipeline import DataPipeline
 from speechbrain.utils.data_utils import split_path
 from speechbrain.utils.distributed import run_on_main
-from speechbrain.utils.fetching import FetchConfig, fetch
+from speechbrain.utils.fetching import FetchConfig, LocalStrategy, fetch
 from speechbrain.utils.logger import get_logger
 from speechbrain.utils.superpowers import import_from_path
 
@@ -43,6 +43,7 @@ def foreign_class(
     pymodule_file="custom.py",
     classname="CustomInterface",
     savedir=None,
+    local_strategy=LocalStrategy.SYMLINK,
     fetch_config=FetchConfig(),
     **kwargs,
 ):
@@ -69,6 +70,8 @@ def foreign_class(
         The name of the Class, of which an instance is created and returned.
     savedir : str or Path
         Where to put the pretraining material. If not given, just use cache.
+    local_strategy : LocalStrategy, default LocalStrategy.SYMLINK
+        Type of caching to use for keeping a local copy.
     fetch_config : FetchConfig
         Configuration options for caching and other fetch behavior.
     **kwargs
@@ -82,9 +85,10 @@ def foreign_class(
     pymodule_local_path = fetch(
         filename=pymodule_file,
         source=source,
-        savedir=kwargs["savedir"],
+        savedir=savedir,
         save_filename=None,
-        fetch_config=kwargs["fetch_config"],
+        local_strategy=local_strategy,
+        fetch_config=fetch_config,
     )
     sys.path.append(str(pymodule_local_path.parent))
 
@@ -95,6 +99,9 @@ def foreign_class(
         cls=cls,
         source=source,
         hparams_file=hparams_file,
+        savedir=savedir,
+        local_strategy=local_strategy,
+        fetch_config=fetch_config,
         **kwargs,
     )
 
@@ -107,6 +114,7 @@ def pretrained_from_hparams(
     overrides_must_match=True,
     savedir=None,
     download_only=False,
+    local_strategy=LocalStrategy.SYMLINK,
     fetch_config=FetchConfig(),
     **kwargs,
 ):
@@ -140,6 +148,8 @@ def pretrained_from_hparams(
         Where to put the pretraining material. If not given, just use cache.
     download_only : bool (default: False)
         If true, class and instance creation is skipped.
+    local_strategy : LocalStrategy, default LocalStrategy.SYMLINK
+        Type of caching to use for keeping a local copy.
     fetch_config : FetchConfig
         Configuration options for caching and other fetch behavior.
     **kwargs : dict

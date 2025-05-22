@@ -186,7 +186,12 @@ class Pretrainer:
         else:
             return split(path)
 
-    def collect_files(self, default_source=None, fetch_config=FetchConfig()):
+    def collect_files(
+        self,
+        default_source=None,
+        local_strategy=LocalStrategy.SYMLINK,
+        fetch_config=FetchConfig(),
+    ):
         """Fetches parameters from known paths with fallback default_source
 
         The actual parameter files may reside elsewhere, but this ensures a
@@ -204,6 +209,8 @@ class Pretrainer:
             specified.
             e.g. if the loadable has key `"asr"`, then the file to look for is
             `<default_source>/asr.ckpt`
+        local_strategy : LocalStrategy
+            How to perform caching on the file for local storage.
         fetch_config : FetchConfig
             Configuration options like caching strategy for fetching files.
 
@@ -223,7 +230,7 @@ class Pretrainer:
 
             if (
                 platform.system() == "Windows"
-                and fetch_config.local_strategy == LocalStrategy.SYMLINK
+                and local_strategy == LocalStrategy.SYMLINK
             ):
                 warnings.warn(
                     "Requested Pretrainer collection using symlinks on Windows. This might not work; see `LocalStrategy` documentation. Consider unsetting `collect_in` in Pretrainer to avoid symlinking altogether."
@@ -254,6 +261,7 @@ class Pretrainer:
                 "source": source,
                 "savedir": self.collect_in,
                 "save_filename": save_filename,
+                "local_strategy": local_strategy,
                 "fetch_config": fetch_config,
             }
 

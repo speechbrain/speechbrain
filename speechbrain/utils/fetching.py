@@ -245,10 +245,6 @@ class FetchConfig:
         Ignored if using `LocalStrategy.COPY_SKIP_CACHE`.
         Please prefer to let the user specify the cache directory themselves
         through the environment.
-    local_strategy : LocalStrategy, optional
-        Which strategy to use for local file storage -- see `LocalStrategy` for options.
-        Ignored by `fetch` unless `savedir` is provided, default is `LocalStrategy.SYMLINK` which
-        adds a link to the downloaded/cached file in the `savedir`.
     """
 
     overwrite: bool = False
@@ -257,7 +253,6 @@ class FetchConfig:
     use_auth_token: bool = False
     revision: str = None
     huggingface_cache_dir: str = None
-    local_strategy: LocalStrategy = LocalStrategy.SYMLINK
 
 
 def fetch(
@@ -265,7 +260,8 @@ def fetch(
     source: Union[str, FetchSource],
     savedir: Optional[Union[str, pathlib.Path]] = None,
     save_filename: Optional[str] = None,
-    fetch_config: Optional[FetchConfig] = FetchConfig(),
+    local_strategy: LocalStrategy = LocalStrategy.SYMLINK,
+    fetch_config: FetchConfig = FetchConfig(),
 ):
     """Fetches a local path, remote URL or remote HuggingFace file, downloading
     it locally if necessary and returns the local path.
@@ -295,9 +291,12 @@ def fetch(
     save_filename : str, optional, defaults to `None`
         The filename to use for saving this file. Defaults to the `filename`
         argument if not given or `None`.
-    fetch_config : FetchConfig, optional
-        A configuration for how to perform fetching, including local strategy.
-        See `FetchConfig` dataclass for details.
+    local_strategy : LocalStrategy, optional
+        Which strategy to use for local file storage -- see `LocalStrategy` for options.
+        Ignored by `fetch` unless `savedir` is provided, default is `LocalStrategy.SYMLINK` which
+        adds a link to the downloaded/cached file in the `savedir`.
+    fetch_config : FetchConfig
+        A configuration for how to perform fetching, see `FetchConfig` dataclass for details.
 
     Returns
     -------
@@ -320,7 +319,6 @@ def fetch(
         savedir = pathlib.Path(savedir)
         savedir.mkdir(parents=True, exist_ok=True)
         destination = (savedir / save_filename).absolute()
-        local_strategy = fetch_config.local_strategy
     else:
         destination = None
         local_strategy = LocalStrategy.NO_LINK
