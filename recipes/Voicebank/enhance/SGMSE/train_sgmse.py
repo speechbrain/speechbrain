@@ -1,3 +1,4 @@
+import os
 import sys
 import speechbrain as sb
 import numpy as np
@@ -57,12 +58,10 @@ def dataio_prep(hparams):
         sig = pad_or_crop_waveform(sig, target_len, random_crop)
         return sig
 
-    # Next, normalize both signals by the same factor.
-    # (The original code chooses either the noisy or clean maximum.)
+    # normalize both signals by the same factor.
     @sb.utils.data_pipeline.takes("noisy_sig", "clean_sig")
     @sb.utils.data_pipeline.provides("noisy_sig", "clean_sig")
     def normalization_pipeline(noisy_sig, clean_sig):
-        # Choose normalization mode: "noisy", "clean", or "not"
         norm_mode = hparams.get("normalize", "noisy")
         if norm_mode == "noisy":
             normfac = noisy_sig.abs().max()
@@ -74,7 +73,7 @@ def dataio_prep(hparams):
             raise ValueError("Invalid normalization mode")
         return noisy_sig / normfac, clean_sig / normfac
 
-    # Build datasets (for each split) using the above pipelines.
+    # Build datasets
     datasets = {}
     for split in ["train", "valid", "test"]:
         json_path = hparams[f"{split}_annotation"]

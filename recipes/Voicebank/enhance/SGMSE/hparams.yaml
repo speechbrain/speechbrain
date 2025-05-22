@@ -1,9 +1,7 @@
-output_folder: results/SGMSE    # Main directory to store experiment results
+output_folder: /export/home/1rochdi/speechbrain/results/SGMSE    # Main directory to store experiment results
 save_folder: !ref <output_folder>/save    # Directory to save checkpoints
 train_log: !ref <output_folder>/train_log.txt    # Path to the file where training logs are written
 enhanced_folder: !ref <output_folder>/enhanced   # Directory to store enhanced/tested waveforms
-
-use_tensorboard: True    # Whether to use TensorBoard for visualization
 tensorboard_logs: !ref <output_folder>/logs/    # Directory for TensorBoard logs
 
 data_folder: /data/datasets/noisy-vctk-16k    # Root folder for the dataset
@@ -17,8 +15,8 @@ random_crop: True    # Whether to crop segments randomly from longer waveforms
 
 normalize: noisy    # Indicates how waveforms are normalized (noisy, clean)
 sample_rate: 16000  # Sampling rate (in Hz) for audio data
-batch_size: 1       # Batch size for the training set
-number_of_epochs: 50    # Total epochs to train
+batch_size: 8       # Batch size for the training set
+number_of_epochs: 200    # Total epochs to train
 lr: 0.0001          # Learning rate
 sorting: ascending  # Sorting strategy for data loading (e.g., ascending, descending)
 

@@ -9,7 +9,7 @@ import speechbrain as sb
 # -----------------------
 # Configuration variables
 # -----------------------
-CHECKPOINT_FOLDER = "/export/home/1rochdi/speechbrain/recipes/Voicebank/enhance/SGMSE/results/SGMSE/save/CKPT+2025-03-12+14-24-36+00"
+CHECKPOINT_FOLDER = "/export/home/1rochdi/speechbrain/results/SGMSE/save/run_2025-04-07_21-44-45/CKPT+2025-04-09+13-34-18+00"
 SCORE_MODEL_FILE = "score_model.ckpt"  # Contains raw model weights
 CONFIG_PATH = "/export/home/1rochdi/speechbrain/recipes/Voicebank/enhance/SGMSE/hparams.yaml"
 NUM_FILES = 10  # Number of test files to process
@@ -168,7 +168,7 @@ def main():
 
         # Enhance using the model's enhance() method.
         with torch.no_grad():
-            enh_stft = model.enhance(y_stft, N=model.sde.N)  # (1,1,F,T)
+            enh_stft = model.enhance(y_stft, N=model.sde.N, sampler_type="pc")  # (1,1,F,T)
 
         # Remove channel dimension.
         enh_stft = enh_stft.squeeze(1)  # (1, F, T)
@@ -186,12 +186,16 @@ def main():
         # Write out the results.
         enh_name = f"{uttid}_enhanced.wav"
         clean_name = f"{uttid}_clean.wav"
+        noisy_name = f"{uttid}_noisy.wav"
         enh_path = os.path.join(enhanced_folder, enh_name)
         clean_path = os.path.join(enhanced_folder, clean_name)
+        noisy_path = os.path.join(enhanced_folder, noisy_name)
+
 
         sf.write(enh_path, enh_wav, sample_rate)
         sf.write(clean_path, x_wav, sample_rate)
-        print(f"Enhanced {uttid}: wrote {enh_path} and {clean_path}")
+        sf.write(noisy_path, y_wav, sample_rate)
+        print(f"Enhanced {uttid}: wrote {enh_name}, {clean_name} and {noisy_name}")
 
     print("Inference finished.")
 

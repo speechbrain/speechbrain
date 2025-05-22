@@ -1,3 +1,5 @@
+import datetime
+from pathlib import Path
 import torch
 import speechbrain as sb
 import torch.nn.functional as F
@@ -7,9 +9,10 @@ import numpy as np
 
 from speechbrain.nnet.loss.stoi_loss import stoi_loss
 from pesq import pesq
+from torch.utils.tensorboard import SummaryWriter 
 
 from speechbrain.utils.metric_stats import MetricStats
-from speechbrain.lobes.models.sgmse.util.other import pad_spec # input needs to be padded to certain length to go trhough backbone
+from speechbrain.lobes.models.sgmse.util.other import pad_spec # input needs to be padded to certain length to go through backbone
 
 class SGMSEBrain(sb.Brain):
     """
@@ -26,11 +29,25 @@ class SGMSEBrain(sb.Brain):
         - None
         """
         super().on_fit_start()
+
+        # Build a unique run name: e.g. run_2023-04-10_13-40-55
+        timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        run_name = f"run_{timestamp}"
+
+        # Logging
+        log_dir = os.path.join(self.hparams.tensorboard_logs, run_name)
+        os.makedirs(log_dir, exist_ok=True)
+        self.writer = SummaryWriter(log_dir=log_dir)
+
+        # Checkpointing
+        checkpoints_dir = Path(self.hparams.save_folder) / run_name
+        os.makedirs(checkpoints_dir, exist_ok=True)
+        self.checkpointer.checkpoints_dir = checkpoints_dir # Override the path where Checkpointer saves files
+
+        # STFT
         n_fft = self.hparams.n_fft
         hop_length = self.hparams.hop_length
         window_type = self.hparams.window_type
-
-        # Create the STFT window and store kwargs
         self.window = self.get_window(window_type, n_fft).to(self.device)
         self.stft_kwargs = {
             "n_fft": n_fft,
@@ -117,74 +134,44 @@ class SGMSEBrain(sb.Brain):
         outs = self._step(x, y, model) 
 
         if stage != sb.Stage.TRAIN:  # Validation and Testing require enhancement process
-            if self.first_val_batch and model.num_eval_files != 0:
+            if stage == sb.Stage.TEST or self.first_val_batch and model.num_eval_files != 0:
                 self.first_val_batch = False
-                x_wav = batch.clean_sig.data[:model.num_eval_files]  # (num_files,S)
-                y_wav = batch.noisy_sig.data[:model.num_eval_files]  # (num_files,S)
+                x_wav = batch.clean_sig.data  # (num_files,S) # TODO: implement only using num_eval_files
+                y_wav = batch.noisy_sig.data  # (num_files,S)
 
-                # Save original length in time dimension and normalize 
-                # TODO: unnecessary because files from the dataset are normalized and fixed length? If so, 
-                # the transformations below are redundant and x, y from above can be used.
+                # Save original length in time dimension
                 T_orig = y_wav.size(1)
-                norm_factor = 1 # y_wav.abs().max().item()
-                y_wav = y_wav / norm_factor
-
-                print("x_wav", x_wav.shape)
 
                 # STFT
                 x = self.stft(x_wav) # (num_files,F,T) 
                 y = self.stft(y_wav) # (num_files,F,T) 
 
-
-                print("x_stft", x.shape)
-
                 # Spec transformations
                 x = self.spec_fwd(x) # (num_files,F,T) 
                 y = self.spec_fwd(y) # (num_files,F,T) 
 
-
-                print("x spec fwd", x.shape)
-
                 # Adding channel dimension needed because backbone expects 4 dimensions
-                x = x.unsqueeze(1) # (num_files,1,F,T) TODO: squeeze 0 or 1?
+                x = x.unsqueeze(1) # (num_files,1,F,T) 
                 y = y.unsqueeze(1) # (num_files,1,F,T) 
 
-
-                print("x unsqueeze", x.shape)
-                
-                # Pad to make data fit for the backbone
-                x = pad_spec(x) # (num_files,1,F,T) 
-                y = pad_spec(y) # (num_files,1,F,T) 
-
-
-                print("x pad spec", x.shape)
+                # TODO: needed? Pad to make data fit for the backbone
+                # x = pad_spec(x) # (num_files,1,F,T) 
+                # y = pad_spec(y) # (num_files,1,F,T) 
 
                 # Enhancement 
                 x_hat = model.enhance(y, N=model.sde.N) # (num_files, 1, F, T)
-
-
-                print("x hat", x_hat.shape)
 
                 # Squeeze out the channel dimension before iSTFT:
                 x_hat = x_hat.squeeze(1) # (num_files, F, T)
                 x = x.squeeze(1) # (num_files, F, T)
 
-                print("x hat squeeze", x_hat.shape)
-                
                 # Reverse spech transformations
                 x_hat = self.spec_back(x_hat) # (num_files, F, T)
                 x = self.spec_back(x) # (num_files, F, T)
 
-                print("x hat spec back", x_hat.shape)
-
                 # iSTFT
                 x_hat_wav = self.istft(x_hat, T_orig) # (num_files, S)
                 x_wav = self.istft(x, T_orig) # (num_files, S)
-
-                print("x hat istft", x_hat_wav.shape)
-
-                x_hat_wav = x_hat_wav * norm_factor
-                x_wav = x_wav * norm_factor
 
                 outs.update({
                 "x_hat_wav": x_hat_wav,
@@ -230,14 +217,17 @@ class SGMSEBrain(sb.Brain):
             x_wav = predictions.get("x_wav", None)
             x_hat_wav = predictions.get("x_hat_wav", None)
             if x_wav is not None and x_hat_wav is not None:
-                # TODO: Process or save the enhanced files as needed
-                lens = torch.ones(x_wav.shape[0], device=x_wav.device)
-                # self.stoi_metric.append(batch.id, target=x_wav, predict=x_hat_wav, lens=lens)
+                # STOI
+                lens = torch.full((x_wav.shape[0],), x_wav.shape[1], device=x_wav.device) # TODO: data pipeline provide the true lengths
+                self.stoi_metric.append(batch.id, x_wav, x_hat_wav, lens, reduction="batch")
+
+                # PESQ
                 x_wav_cpu = x_wav.cpu()
                 x_hat_wav_cpu = x_hat_wav.cpu()
                 self.pesq_metric.append(batch.id, target=x_wav_cpu, predict=x_hat_wav_cpu)
 
-                save_folder = os.path.join(self.hparams.output_folder, "enhanced_wavs")
+                # Build saving directory
+                save_folder = os.path.join(self.hparams.output_folder, "validation_enhanced_wavs")
                 os.makedirs(save_folder, exist_ok=True)
 
                 # Retrieve sample rate from hparams
@@ -245,19 +235,17 @@ class SGMSEBrain(sb.Brain):
 
                 # Loop through each item in the batch
                 for i, uttid in enumerate(batch.id[: x_wav_cpu.shape[0]]):
-                    # Construct file names
                     clean_fname = f"{uttid}_clean.wav"
                     enh_fname   = f"{uttid}_enhanced.wav"
 
                     clean_path = os.path.join(save_folder, clean_fname)
                     enh_path   = os.path.join(save_folder, enh_fname)
 
-                    # x_wav_cpu[i] is shape (time,)
                     clean_waveform = x_wav_cpu[i].numpy()
                     enh_waveform   = x_hat_wav_cpu[i].numpy()
 
                     # Write waveforms 
-                    sf.write(clean_path, clean_waveform, sr)
+                    sf.write(clean_path, clean_waveform, sr) #TODO: use proprietary func for that instead of sf
                     sf.write(enh_path,  enh_waveform,   sr)
         return loss
 
@@ -302,7 +290,7 @@ class SGMSEBrain(sb.Brain):
                 self.modules["score_model"].compute_loss(forward_out, x_t, z, t, mean, x, reduction="none")
         )
         
-        self.stoi_metric = MetricStats(metric=stoi_loss, batch_eval=False, n_jobs=1)
+        self.stoi_metric = MetricStats(metric=stoi_loss)
 
         # Define function taking (prediction, target) for parallel eval
         def pesq_eval(pred_wav, target_wav):
@@ -314,14 +302,17 @@ class SGMSEBrain(sb.Brain):
                 mode="wb",
             )
         
-        if stage == sb.Stage.VALID:
-            # Set a flag so the first valid batch triggers enhancement
-            self.first_val_batch = True   
-
         if stage != sb.Stage.TRAIN:
             self.pesq_metric = MetricStats(
                 metric=pesq_eval, batch_eval=False, n_jobs=1
             )
+    
+            if stage == sb.Stage.VALID:
+                # Set a flag so the first valid batch triggers enhancement
+                self.first_val_batch = True   
+                # Swap in the EMA weights for evaluation
+                self.modules["score_model"].store_ema()    
+
 
     def on_stage_end(self, stage, stage_loss, epoch=None):
         """
@@ -338,9 +329,6 @@ class SGMSEBrain(sb.Brain):
         Returns:
         - None
         """
-        # Save checkpoint once every epoch
-        if stage == sb.Stage.TRAIN:
-            self.checkpointer.save_checkpoint()
         
         # Get a human-readable name for the stage:
         stage_name = stage.name if hasattr(stage, "name") else str(stage)
@@ -348,17 +336,70 @@ class SGMSEBrain(sb.Brain):
         # Summarize the loss metric (average loss over the stage)
         avg_loss = self.loss_metric.summarize("average")
         
+        # Print to console
         if epoch is not None:
             print(f"Epoch {epoch} | Avg {stage_name} Loss: {avg_loss:.4f}")
         else:
             print(f"Avg {stage_name} Loss: {avg_loss:.4f}")
 
-        # For validation and test stages, print additional metrics.
-        if stage != sb.Stage.TRAIN:
+        # Tensorboard logging and additional metrices
+        if stage == sb.Stage.TRAIN:
+            # Log training loss
+            self.writer.add_scalar("Loss/train", avg_loss, epoch) # TODO: if fails, reintroduce the below
+            # if epoch is not None:
+            #     self.writer.add_scalar("Loss/train", avg_loss, epoch)
+            # else:
+            #     self.writer.add_scalar("Loss/train", avg_loss)
+
+        elif stage == sb.Stage.VALID:
+            # TODO: ema here?
+            self.modules["score_model"].restore_ema()
+
+            # Summarize PESQ
             avg_pesq = self.pesq_metric.summarize("average")
             print(f"Avg PESQ: {avg_pesq:.4f}")
-            # avg_stoi = self.stoi_metric.summarize("average")
-            # print(f"Avg STOI: {avg_stoi:.4f}")
+
+            # Summarize STOI
+            avg_stoi = self.stoi_metric.summarize("average")
+            print(f"Avg STOI: {avg_stoi:.4f}")
+            
+            # TODO: if this fails, reuse the below
+            self.writer.add_scalar("Loss/valid", avg_loss, epoch)
+            self.writer.add_scalar("Metric/PESQ_valid", avg_pesq, epoch)
+            self.writer.add_scalar("Metric/STOI_valid", avg_stoi, epoch)
+            
+            # if epoch is not None:
+            #     self.writer.add_scalar("Loss/valid", avg_loss, epoch)
+            #     self.writer.add_scalar("Metric/PESQ_valid", avg_pesq, epoch)
+            #     self.writer.add_scalar("Metric/STOI_valid", avg_stoi, epoch)
+            # else:
+            #     self.writer.add_scalar("Loss/valid", avg_loss)
+            #     self.writer.add_scalar("Metric/PESQ_valid", avg_pesq)
+            #     self.writer.add_scalar("Metric/STOI_valid", avg_stoi)
+
+            self.checkpointer.save_and_keep_only(
+                meta={"valid_loss": avg_loss}, 
+                min_keys=["valid_loss"], 
+                num_to_keep=2 # TODO: read from hparams
+            )
+
+        elif stage == sb.Stage.TEST:
+            # TODO: ema here?
+            # Summarize the PESQ
+            avg_pesq = self.pesq_metric.summarize("average")
+            print(f"Avg PESQ: {avg_pesq:.4f}")
+
+            # Summarize STOI
+            avg_stoi = self.stoi_metric.summarize("average")
+            print(f"Avg STOI: {avg_stoi:.4f}")
+
+            # TODO: Typically there's no 'epoch' concept in test stage so I take 0:
+            self.writer.add_scalar("Loss/test", avg_loss, 0)
+            self.writer.add_scalar("Metric/PESQ_test", avg_pesq, 0)
+            self.writer.add_scalar("Metric/STOI_test", avg_stoi, 0)
+
+        # Manually write to disk to ensure real time updates
+        self.writer.flush()
 
     def on_evaluate_start(self, max_key=None, min_key=None):
         """
