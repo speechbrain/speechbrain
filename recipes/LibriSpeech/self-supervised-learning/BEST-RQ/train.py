@@ -170,7 +170,7 @@ class BestRQBrain(sb.core.Brain):
 
             self.checkpointer.save_and_keep_only(
                 end_of_epoch=True,
-                num_to_keep=10,
+                num_to_keep=3,
                 meta={
                     "valid_loss": stage_loss,
                     "epoch": epoch,
@@ -305,7 +305,7 @@ def main():
 
     sb.utils.distributed.ddp_init_group(run_opts)
 
-    with open(hparams_file) as fin:
+    with open(hparams_file, encoding="utf-8") as fin:
         hparams = load_hyperpyyaml(fin, overrides)
     hparams.update(run_opts)
 
