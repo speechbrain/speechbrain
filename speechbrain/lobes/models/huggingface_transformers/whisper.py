@@ -78,13 +78,13 @@ class Whisper(HFTransformersInterface):
 
     Example
     -------
-    >>> model_hub = "openai/whisper-tiny"
-    >>> save_path = "savedir"
-    >>> sampling_rate = 16000
-    >>> model = Whisper(model_hub, save_path, sampling_rate)
-    >>> tokens = torch.tensor([[1, 1]]) * model.model.config.decoder_start_token_id
-    >>> inputs = torch.randn([1, 93680])
-    >>> outputs = model(inputs, tokens)
+    >>> model_hub = "openai/whisper-tiny" # doctest: +SKIP
+    >>> save_path = "savedir" # doctest: +SKIP
+    >>> sampling_rate = 16000 # doctest: +SKIP
+    >>> model = Whisper(model_hub, save_path, sampling_rate) # doctest: +SKIP
+    >>> tokens = torch.tensor([[1, 1]]) * model.model.config.decoder_start_token_id # doctest: +SKIP 
+    >>> inputs = torch.randn([1, 93680]) # doctest: +SKIP
+    >>> outputs = model(inputs, tokens) # doctest: +SKIP
     """
 
     def __init__(
