@@ -28,7 +28,7 @@ import sys
 import numpy as np
 import torch
 from hyperpyyaml import load_hyperpyyaml
-from tqdm.contrib import tqdm
+from tqdm import tqdm
 
 import speechbrain as sb
 from speechbrain.dataio.dataio import read_audio, read_audio_multichannel

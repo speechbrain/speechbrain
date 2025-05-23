@@ -380,7 +380,7 @@ def get_activation_fn(activation: str):
     elif activation == "gelu":
         return gelu
     elif activation == "gelu_fast":
-        logger.warn(
+        logger.warning(
             "--activation-fn=gelu_fast has been renamed to gelu_accurate"
         )
         return gelu_accurate
