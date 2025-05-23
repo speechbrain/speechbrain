@@ -7,7 +7,7 @@ Author
 
 import os
 
-from tqdm.contrib import tqdm
+from tqdm import tqdm
 
 from speechbrain.utils.logger import get_logger
 

@@ -118,7 +118,7 @@ def removeSilentFrames(x, y, dyn_range=40, N=256, K=128):
             (x_sil[0:K, 1:] + x_sil[K:, 0:-1]).T.flatten(),
             x_sil[K:N, -1],
         ),
-        axis=0,
+        dim=0,
     )
     y_sil = torch.cat(
         (
@@ -126,7 +126,7 @@ def removeSilentFrames(x, y, dyn_range=40, N=256, K=128):
             (y_sil[0:K, 1:] + y_sil[K:, 0:-1]).T.flatten(),
             y_sil[K:N, -1],
         ),
-        axis=0,
+        dim=0,
     )
 
     return [x_sil, y_sil]

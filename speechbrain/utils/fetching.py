@@ -174,7 +174,7 @@ def link_with_strategy(
     )
 
 
-def guess_source(source: Union[str, FetchSource]) -> FetchSource:
+def guess_source(source: Union[str, FetchSource]) -> tuple[FetchFrom, str]:
     """From a given `FetchSource` or string source identifier, attempts to guess
     the matching :class:`~FetchFrom` (e.g. local or URI).
 
@@ -218,7 +218,7 @@ def fetch(
     source: Union[str, FetchSource],
     savedir: Optional[Union[str, pathlib.Path]] = None,
     overwrite: bool = False,
-    allow_updates: bool = True,
+    allow_updates: bool = False,
     allow_network: bool = True,
     save_filename: Optional[str] = None,
     use_auth_token: bool = False,

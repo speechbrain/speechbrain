@@ -118,7 +118,6 @@ def brq_mask_collate_fn(
     wavs_padded, wav_lens = batch_pad_right(wav_lst)
 
     batch_time_len = max(latent_length_lst)
-    batch_time_len
     mask = compute_mask(
         (bs, batch_time_len, n_mels), latent_length_lst, mask_prob, mask_length
     )

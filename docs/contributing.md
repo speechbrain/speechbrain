@@ -30,7 +30,9 @@ on GitHub under your own account.
     `git add files-you-changed ...`
     `git commit -m "Short message about what you did"`
 5. Push the branch to your GitHub repository.
-    `git push origin your-branch-name`
+    `git push -u origin your-branch-name`
+    (This uploads your branch to your GitHub repository and sets the upstream tracking reference,
+so future `git push` or `git pull` commands will automatically know which remote branch to sync with.)
 6. Navigate to GitHub, and create a pull request from your branch to the upstream
 repository speechbrain/speechbrain, to the "develop" branch.
 7. The Pull Request (PR) appears on the upstream repository. Discuss your contribution

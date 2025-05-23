@@ -1552,9 +1552,9 @@ def sphere(levels_count=4):
         subtrs[3 * trs_count + torch.arange(0, trs_count), 5] = trs[:, 0]
 
         subtrs_flatten = torch.cat(
-            (subtrs[:, [0, 1]], subtrs[:, [2, 3]], subtrs[:, [4, 5]]), axis=0
+            (subtrs[:, [0, 1]], subtrs[:, [2, 3]], subtrs[:, [4, 5]]), dim=0
         )
-        subtrs_sorted, _ = torch.sort(subtrs_flatten, axis=1)
+        subtrs_sorted, _ = torch.sort(subtrs_flatten, dim=1)
 
         index_max = torch.max(subtrs_sorted)
 
@@ -1581,7 +1581,7 @@ def sphere(levels_count=4):
 
         pts = pts[unique_values[:, 0], :] + pts[unique_values[:, 1], :]
         pts /= torch.repeat_interleave(
-            torch.unsqueeze(torch.sum(pts**2, axis=1) ** 0.5, 1), 3, 1
+            torch.unsqueeze(torch.sum(pts**2, dim=1) ** 0.5, 1), 3, 1
         )
 
     return pts

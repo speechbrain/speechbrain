@@ -7,6 +7,8 @@ Authors:
  * Georgios Karakasidis 2023
 """
 
+from typing import Literal
+
 import torch
 
 from . import k2  # import k2 from ./__init__.py
@@ -17,7 +19,7 @@ def ctc_k2(
     input_lens,
     graph_compiler,
     texts,
-    reduction="mean",
+    reduction: Literal["none", "mean", "sum"] = "mean",
     beam_size=10,
     use_double_scores=True,
     is_training=True,
