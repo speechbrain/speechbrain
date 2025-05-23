@@ -96,7 +96,7 @@ class MultiProcessLoggerAdapter(logging.LoggerAdapter):
             main_process_only and if_main_process()
         )
 
-    def log(self, level: int, msg: str, *args: tuple, **kwargs: dict):
+    def log(self, level: int, msg: str, *args, **kwargs):
         r"""
         Logs a message with the specified log level, respecting the `main_process_only`
         flag to decide whether to log based on the current process.
@@ -128,7 +128,7 @@ class MultiProcessLoggerAdapter(logging.LoggerAdapter):
                 self.logger.log(level, msg, *args, **kwargs)
 
     @functools.lru_cache(None)
-    def warning_once(self, *args: tuple, **kwargs: dict):
+    def warning_once(self, *args, **kwargs):
         r"""
         Logs a warning message only once by using caching to prevent duplicate warnings.
 
@@ -170,16 +170,16 @@ def get_logger(name: str) -> MultiProcessLoggerAdapter:
     logger = logging.getLogger(name)
     log_level = os.environ.get("SB_LOG_LEVEL", None)
     if log_level is None:
-        log_level = logging.INFO
-        os.environ["SB_LOG_LEVEL"] = str(log_level)
-    logging.basicConfig(level=int(log_level))
+        log_level = "DEBUG"
+        os.environ["SB_LOG_LEVEL"] = log_level
+    logger.setLevel(log_level.upper())
     return MultiProcessLoggerAdapter(logger, {})
 
 
 def setup_logging(
     config_path="log-config.yaml",
     overrides={},
-    default_level=logging.INFO,
+    default_level="DEBUG",
 ):
     """Setup logging configuration.
 
@@ -190,8 +190,13 @@ def setup_logging(
     overrides : dict
         A dictionary of the same structure as the config dict
         with any updated values that need to be applied.
-    default_level : int
-        The level to use if the config file is not found.
+    default_level : str
+        The log level to use if the config file is not found.
+        Python logging allows ints or strings:
+        https://docs.python.org/3/library/logging.html#logging.Logger.setLevel
+        but strings are used here as environment variables have to be
+        strings. The available levels are listed here:
+        https://docs.python.org/3/library/logging.html#levels
     """
     if os.path.exists(config_path):
         with open(config_path, "rt", encoding="utf-8") as f:
@@ -200,7 +205,7 @@ def setup_logging(
         logging.config.dictConfig(config)
     else:
         logging.basicConfig(level=default_level)
-    os.environ["SB_LOG_LEVEL"] = str(default_level)
+    os.environ["SB_LOG_LEVEL"] = default_level
 
 
 class TqdmCompatibleStreamHandler(logging.StreamHandler):
@@ -251,10 +256,10 @@ def format_order_of_magnitude(number, abbreviate=True):
     """
     style = ORDERS_ABBREV if abbreviate else ORDERS_WORDS
     precision = "{num:3.1f}"
-    order = 3 * math.floor(math.log(math.fabs(number), 1000))
+    order = 3 * int(math.floor(math.log(math.fabs(number), 1000)))
     # Fallback for very large numbers:
     while order not in style and order != 0:
-        order = order - math.copysign(3, order)  # Bring 3 units towards 0
+        order = order - int(math.copysign(3, order))  # Bring 3 units towards 0
     order_token = style[order]
     if order != 0:
         formatted_number = precision.format(num=number / 10**order)

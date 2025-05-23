@@ -759,7 +759,7 @@ class Conv2d(nn.Module):
             in_channels = shape[3]
 
         else:
-            raise ValueError("Expected 3d or 4d inputs. Got " + len(shape))
+            raise ValueError(f"Expected 3d or 4d inputs. Got {len(shape)}")
 
         # Kernel size must be odd
         if not self.padding == "valid" and (

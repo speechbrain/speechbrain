@@ -2,6 +2,7 @@
 Authors
 * Jianyuan Zhong 2020
 * Samuele Cornell 2021
+* Shucong Zhang 2024
 """
 
 import math
@@ -103,26 +104,26 @@ class TransformerInterface(nn.Module):
         num_decoder_layers=6,
         d_ffn=2048,
         dropout=0.1,
-        activation=nn.ReLU,
+        activation: type = nn.ReLU,
         custom_src_module=None,
         custom_tgt_module=None,
         positional_encoding="fixed_abs_sine",
         normalize_before=True,
-        kernel_size: Optional[int] = 31,
-        bias: Optional[bool] = True,
-        encoder_module: Optional[str] = "transformer",
-        conformer_activation: Optional[nn.Module] = Swish,
-        branchformer_activation: Optional[nn.Module] = nn.GELU,
-        attention_type: Optional[str] = "regularMHA",
-        max_length: Optional[int] = 2500,
-        causal: Optional[bool] = False,
+        kernel_size: int = 31,
+        bias: bool = True,
+        encoder_module: str = "transformer",
+        conformer_activation: type = Swish,
+        branchformer_activation: type = nn.GELU,
+        attention_type: str = "regularMHA",
+        max_length: int = 2500,
+        causal: bool = False,
         encoder_kdim: Optional[int] = None,
         encoder_vdim: Optional[int] = None,
         decoder_kdim: Optional[int] = None,
         decoder_vdim: Optional[int] = None,
-        csgu_linear_units: Optional[int] = 3072,
-        gate_activation: Optional[nn.Module] = nn.Identity,
-        use_linear_after_conv: Optional[bool] = False,
+        csgu_linear_units: int = 3072,
+        gate_activation: type = nn.Identity,
+        use_linear_after_conv: bool = False,
         output_hidden_states=False,
         layerdrop_prob=0.0,
     ):
@@ -137,7 +138,12 @@ class TransformerInterface(nn.Module):
         self.output_hidden_states = output_hidden_states
         self.layerdrop_prob = layerdrop_prob
 
-        assert attention_type in ["regularMHA", "RelPosMHAXL", "hypermixing"]
+        assert attention_type in [
+            "regularMHA",
+            "RelPosMHAXL",
+            "hypermixing",
+            "RoPEMHA",
+        ]
         assert positional_encoding in ["fixed_abs_sine", None]
 
         assert (
@@ -153,6 +159,11 @@ class TransformerInterface(nn.Module):
         # overrides any other pos_embedding
         if attention_type == "RelPosMHAXL":
             self.positional_encoding = RelPosEncXL(d_model)
+            self.positional_encoding_decoder = PositionalEncoding(
+                d_model, max_length
+            )
+
+        if attention_type == "RoPEMHA":
             self.positional_encoding_decoder = PositionalEncoding(
                 d_model, max_length
             )
@@ -344,7 +355,7 @@ class TransformerEncoderLayer(nn.Module):
         kdim=None,
         vdim=None,
         dropout=0.0,
-        activation=nn.ReLU,
+        activation: type = nn.ReLU,
         normalize_before=False,
         attention_type="regularMHA",
         ffn_type="regularFFN",
@@ -373,6 +384,12 @@ class TransformerEncoderLayer(nn.Module):
                 tied=False,
                 num_heads=nhead,
                 fix_tm_hidden_size=False,
+            )
+        elif attention_type == "RoPEMHA":
+            self.self_att = sb.nnet.attention.RoPEMHA(
+                d_model,
+                nhead,
+                dropout,
             )
 
         if ffn_type == "regularFFN":
@@ -704,7 +721,6 @@ class TransformerDecoderLayer(nn.Module):
                 vdim=vdim,
                 dropout=dropout,
             )
-
         elif attention_type == "RelPosMHAXL":
             self.self_attn = sb.nnet.attention.RelPosMHAXL(
                 d_model, nhead, dropout, mask_pos_future=causal
@@ -787,7 +803,6 @@ class TransformerDecoderLayer(nn.Module):
             tgt1 = tgt
 
         # multi-head attention over the target sequence and encoder states
-
         tgt2, multihead_attention = self.multihead_attn(
             query=tgt1,
             key=memory,

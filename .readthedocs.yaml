@@ -13,3 +13,8 @@ python:
 
 # Don't build any extra formats
 formats: []
+
+# Path to sphinx config file, as per the change outlined in
+# https://about.readthedocs.com/blog/2024/12/deprecate-config-files-without-sphinx-or-mkdocs-config/
+sphinx:
+  configuration: docs/conf.py

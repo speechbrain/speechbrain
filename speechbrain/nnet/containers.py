@@ -246,7 +246,7 @@ class ModuleList(torch.nn.Module):
 
     def insert(self, index, module):
         """Inserts module to the layers list."""
-        self.layers.insert(module)
+        self.layers.insert(index, module)
 
 
 class ConnectBlocks(torch.nn.Module):
