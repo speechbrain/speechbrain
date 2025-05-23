@@ -4,11 +4,11 @@ The system employs whisper from OpenAI (https://cdn.openai.com/papers/whisper.pd
 This recipe take the whisper encoder-decoder to fine-tune on.
 
 To run this recipe, do the following:
-> python train_with_whisper.py hparams/train_hf_whisper.yaml
 
-Authors
- * Pooneh Mousavi 2022
- * Adel Moumen 2024
+12.54 dev clean
+==
+python train_with_whisper.py hparams/train_hf_whisper.yaml --data_folder $SLURM_TMPDIR/cv-corpus-14.0-2023-06-23/fr --output_folder $SCRATCH/results/whisper_medium_debug_v2
+
 """
 
 import sys
@@ -21,7 +21,7 @@ import speechbrain as sb
 from speechbrain.utils.data_utils import undo_padding
 from speechbrain.utils.distributed import if_main_process, run_on_main
 from speechbrain.utils.logger import get_logger
-
+from torch.nn import functional as F
 logger = get_logger(__name__)
 
 
@@ -30,16 +30,17 @@ class ASR(sb.Brain):
     def compute_forward(self, batch, stage):
         """Forward computations from the waveform batches to the output probabilities."""
         batch = batch.to(self.device)
-        wavs, wav_lens = batch.sig
+        mel_features, mel_features_lens = batch.mel_features
         bos_tokens, bos_tokens_lens = batch.tokens_bos
 
         # Add waveform augmentation if specified.
-        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "wav_augment"):
-            wavs, wav_lens = self.hparams.wav_augment(wavs, wav_lens)
-            bos_tokens = self.hparams.wav_augment.replicate_labels(bos_tokens)
-            bos_tokens_lens = self.hparams.wav_augment.replicate_labels(
-                bos_tokens_lens
-            )
+        # TODO: make the code bellow 
+        # if stage == sb.Stage.TRAIN and hasattr(self.hparams, "wav_augment"):
+        # wavs, wav_lens = self.hparams.wav_augment(wavs, wav_lens)
+        # bos_tokens = self.hparams.wav_augment.replicate_labels(bos_tokens)
+        # bos_tokens_lens = self.hparams.wav_augment.replicate_labels(
+        #     bos_tokens_lens
+        # )
 
         # We compute the padding mask and replace the values with the pad_token_id
         # that the Whisper decoder expect to see.
@@ -51,38 +52,46 @@ class ASR(sb.Brain):
         bos_tokens[~pad_mask] = self.tokenizer.pad_token_id
 
         # Forward encoder + decoder
-        enc_out, logits, _ = self.modules.whisper(wavs, bos_tokens)
-        log_probs = self.hparams.log_softmax(logits)
-
+        enc_out = self.modules.whisper.forward_encoder(mel_features)
+        logits, _, _ = self.modules.whisper.forward_decoder(
+            enc_out, 
+            decoder_input_ids=bos_tokens
+        )
+        
         hyps = None
         if stage == sb.Stage.VALID:
             hyps, _, _, _ = self.hparams.valid_search(
-                enc_out.detach(), wav_lens
+                enc_out.detach(), mel_features_lens
             )
         elif stage == sb.Stage.TEST:
-            hyps, _, _, _ = self.hparams.test_search(enc_out.detach(), wav_lens)
+            hyps, _, _, _ = self.hparams.test_search(enc_out.detach(), mel_features_lens)
 
-        return log_probs, hyps, wav_lens
+        return logits, hyps, mel_features_lens
 
     def compute_objectives(self, predictions, batch, stage):
         """Computes the loss NLL given predictions and targets."""
-
-        (log_probs, hyps, wav_lens) = predictions
+        # TODO: I think the loss is incorrect. we are BP on the promtped tokens as well.
+        # is it supposed to be the case? i dont think so. 
+        (logits, hyps, wav_lens) = predictions
         batch = batch.to(self.device)
         ids = batch.id
+        tokens_bos, tokens_bos_lens = batch.tokens_bos
         tokens_eos, tokens_eos_lens = batch.tokens_eos
+        tokens_list = batch.tokens_list
 
         # Augment Labels
-        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "wav_augment"):
-            tokens_eos = self.hparams.wav_augment.replicate_labels(tokens_eos)
-            tokens_eos_lens = self.hparams.wav_augment.replicate_labels(
-                tokens_eos_lens
-            )
+        # if stage == sb.Stage.TRAIN and hasattr(self.hparams, "wav_augment"):
+        #     tokens_eos = self.hparams.wav_augment.replicate_labels(tokens_eos)
+        #     tokens_eos_lens = self.hparams.wav_augment.replicate_labels(
+        #         tokens_eos_lens
+        #     )
 
-        loss = self.hparams.nll_loss(
-            log_probs, tokens_eos, length=tokens_eos_lens
+        loss = F.cross_entropy(
+            logits.view(-1, self.modules.whisper.config.vocab_size), 
+            tokens_eos.reshape(-1), 
+            ignore_index=-100, 
+            reduction='mean'
         )
-
         if stage != sb.Stage.TRAIN:
             tokens, tokens_lens = batch.tokens
 
@@ -98,7 +107,7 @@ class ASR(sb.Brain):
                 target_words, skip_special_tokens=True
             )
 
-            if hasattr(self.hparams, "normalized_transcripts"):
+            if hasattr(self.hparams, "normalized_transcripts") and self.hparams.normalized_transcripts:
                 predicted_words = [
                     self.tokenizer.normalize(text).split(" ")
                     for text in predicted_words
@@ -210,15 +219,17 @@ def dataio_prepare(hparams, tokenizer):
 
     # 2. Define audio pipeline:
     @sb.utils.data_pipeline.takes("wav")
-    @sb.utils.data_pipeline.provides("sig")
+    @sb.utils.data_pipeline.provides("mel_features")
     def audio_pipeline(wav):
         info = torchaudio.info(wav)
+        # read_audio should return the info?
         sig = sb.dataio.dataio.read_audio(wav)
-        if info.sample_rate != hparams["sample_rate"]:
-            sig = torchaudio.transforms.Resample(
-                info.sample_rate, hparams["sample_rate"]
-            )(sig)
-        return sig
+        sig = torchaudio.transforms.Resample(
+            info.sample_rate, hparams["sample_rate"]
+        )(sig)
+        # extract mel.
+        mel_features = hparams["whisper"].extract_mel_features(sig, hparams["sample_rate"])[0]
+        return mel_features
 
     sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline)
 
@@ -228,7 +239,9 @@ def dataio_prepare(hparams, tokenizer):
         "wrd", "tokens_list", "tokens_bos", "tokens_eos", "tokens"
     )
     def text_pipeline(wrd):
-        if hasattr(hparams, "normalized_transcripts"):
+
+        # Check if normalized_transcripts is True in hparams
+        if "normalized_transcripts" in hparams and hparams["normalized_transcripts"]:
             wrd = tokenizer.normalize(wrd)
         yield wrd
         tokens_list = tokenizer.encode(wrd, add_special_tokens=False)
@@ -246,7 +259,7 @@ def dataio_prepare(hparams, tokenizer):
     # 4. Set output:
     sb.dataio.dataset.set_output_keys(
         datasets,
-        ["id", "sig", "tokens_list", "tokens_bos", "tokens_eos", "tokens"],
+        ["id", "mel_features", "tokens_list", "tokens_bos", "tokens_eos", "tokens"],
     )
 
     return train_data, valid_data, test_data
@@ -277,7 +290,7 @@ if __name__ == "__main__":
         prepare_common_voice,
         kwargs={
             "data_folder": hparams["data_folder"],
-            "save_folder": hparams["save_folder"],
+            "save_folder": hparams["output_folder"],
             "train_tsv_file": hparams["train_tsv_file"],
             "dev_tsv_file": hparams["dev_tsv_file"],
             "test_tsv_file": hparams["test_tsv_file"],
@@ -291,7 +304,9 @@ if __name__ == "__main__":
 
     # here we create the datasets objects as well as tokenization and encoding
     train_data, valid_data, test_data = dataio_prepare(hparams, tokenizer)
-
+    hparams["whisper"].config.forced_decoder_ids = None
+    hparams["whisper"].config.suppress_tokens = []
+    
     # Trainer initialization
     asr_brain = ASR(
         modules=hparams["modules"],
