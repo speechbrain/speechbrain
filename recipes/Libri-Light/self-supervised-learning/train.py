@@ -40,6 +40,13 @@ class BestRQBrain(sb.core.Brain):
             mask.to(self.device),
         )
 
+        if self.hparams.streaming:
+            dynchunktrain_config = self.hparams.dynchunktrain_config_sampler(
+                stage
+            )
+        else:
+            dynchunktrain_config = None
+
         ### get fbanks and normalize
         feats = self.hparams.compute_features(wavs)
         current_epoch = self.hparams.epoch_counter.current
@@ -73,7 +80,9 @@ class BestRQBrain(sb.core.Brain):
         src = self.modules.CNN(feats)
 
         ##### transformer
-        enc_out = self.modules.wrapper(src, wav_lens)  # only use encoder
+        enc_out = self.modules.wrapper(
+            src, wav_lens, dynchunktrain_config=dynchunktrain_config
+        )  # only use encoder
 
         ##### linear
         logits = self.modules.linear(enc_out)
