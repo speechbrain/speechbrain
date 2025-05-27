@@ -15,20 +15,29 @@ save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
 # Data files
-# Whether to use HuggingFace or SpeechBrain data loader. This depends on how your LargeScaleASR has been prepared.
-tls_subset: !PLACEHOLDER
-hf_hub: speechbrain/LargeScaleASR  # path to the dataset
+# Whether to use HuggingFace or SpeechBrain data loader. This depends on how your The Loquacious Set has been prepared.
+use_huggingface: False
+tls_subset: large
+hf_hub: speechbrain/LoquaciousSet
 hf_caching_dir: !PLACEHOLDER # path to where the dataset will be extracted by HF.
-
-# Necessary for the BPE tokenization
 train_csv: !PLACEHOLDER
 
+# We remove utterance slonger than 10s in the train/dev/test sets as
+# longer sentences certainly correspond to "open microphones".
+avoid_if_longer_than: 100.0
+
+# THIS IS TERRIBLE BUT WE HAVE NO CHOICE.
+# Some version of the CV dataset may contain one or two files of more than
+# 2 min in the validation and or test. This is an error by design of the dataset
+# as these files contain 90% of silence. We exclude them.
+avoid_if_longer_than_val_test: 100.0
 
 ckpt_interval_minutes: 15 # save checkpoint every N min
 
 ####################### Training Parameters ####################################
-number_of_epochs: 100
+number_of_epochs: 10
 optimizer_step_limit: 500000
+batch_size: 32 # This works with a 32GB GPU ! (bs * nb_gpu * accum) > 128 !
 ctc_weight: 0.3
 grad_accumulation_factor: 1
 loss_reduction: 'batchmean'
@@ -37,10 +46,10 @@ num_workers: 6
 precision: fp16 # bf16, fp16 or fp32
 
 # stages related parameters
-lr_adam: 0.0007
-weight_decay: 0.001
-warmup_steps: 60000
-augment_warmup: 80000
+lr_adam: 0.0008
+weight_decay: 0.003
+warmup_steps: 40000
+augment_warmup: 500000
 
 # BPE parameters
 token_type: bpe  # ["unigram", "bpe", "char"]
@@ -52,6 +61,8 @@ n_fft: 400
 n_mels: 80
 
 # This setup works well for A100 80GB GPU, adapts it to your needs.
+# Or turn it off (but training speed will decrease)
+dynamic_batching: True
 max_batch_length_train: 300
 max_batch_length_val: 100 # we reduce it as the beam is much wider (VRAM)
 num_bucket: 200
@@ -73,23 +84,29 @@ dynamic_batch_sampler_valid:
     batch_ordering: !ref <batch_ordering>
     max_batch_ex: !ref <max_batch_ex>
 
+# Dataloader options
 train_dataloader_opts:
+    batch_size: !ref <batch_size>
+    shuffle: True
     num_workers: !ref <num_workers>
 
+valid_dataloader_opts:
+    batch_size: 8
+
 test_dataloader_opts:
-    batch_size: 2
+    batch_size: 8
 
 
 ####################### Model Parameters ###########################
 # Transformer
-d_model: 1024
-nhead: 16
-num_encoder_layers: 18
+d_model: 256
+nhead: 4
+num_encoder_layers: 12
 num_decoder_layers: 6
-d_ffn: 3072
+d_ffn: 1024
 transformer_dropout: 0.1
 activation: !name:torch.nn.GELU
-output_neurons: 5120
+output_neurons: 1024
 
 # Outputs
 blank_index: 3
@@ -228,8 +245,8 @@ normalize: !new:speechbrain.processing.features.InputNormalization
 time_drop: !new:speechbrain.augment.freq_domain.SpectrogramDrop
     drop_length_low: 15
     drop_length_high: 25
-    drop_count_low: 2
-    drop_count_high: 2
+    drop_count_low: 3
+    drop_count_high: 3
     replace: "zeros"
     dim: 1
 
@@ -245,14 +262,14 @@ freq_drop: !new:speechbrain.augment.freq_domain.SpectrogramDrop
 # Time warp
 time_warp: !new:speechbrain.augment.freq_domain.Warping
 
-fea_augment: !new:speechbrain.augment.augmenter.Augmenter
-    min_augmentations: 1
-    max_augmentations: 3
-    augment_prob: 1.0
-    augmentations: [
-        !ref <time_drop>,
-        !ref <freq_drop>,
-        !ref <time_warp>]
+# fea_augment: !new:speechbrain.augment.augmenter.Augmenter
+#    min_augmentations: 3
+#    max_augmentations: 3
+#    augment_prob: 1.0
+#    augmentations: [
+#        !ref <time_drop>,
+#        !ref <freq_drop>,
+#        !ref <time_warp>]
 
 compute_features: !new:speechbrain.lobes.features.Fbank
     sample_rate: !ref <sample_rate>

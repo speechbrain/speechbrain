@@ -1,5 +1,5 @@
-"""Simple utilities to load the mysterious LargeScaleASR dataset from HuggingFace.
-This does not actually prepare the LargeScaleASR dataset. For this, please refer to the dataset_preparation folder.
+"""Simple utilities to load the mysterious Loquacious dataset from HuggingFace.
+This does not actually prepare the Loquacious dataset. For this, please refer to the dataset_preparation folder.
 This only load the prepared dataset to be used in a SpeechBrain recipe.
 
 Authors
@@ -16,7 +16,7 @@ logger = get_logger(__name__)
 
 
 def load_datasets(subset, hf_download_folder, hf_caching_dir):
-    """Load and create the HuggingFace dataset for the LargeScaleASR. It must
+    """Load and create the HuggingFace dataset for the Loquacious. It must
     have been downloaded manually into hf_download_folder first. This function
     operates in an "offline" mode and will not try to download the dataset.
 

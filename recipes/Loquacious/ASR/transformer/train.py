@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Recipe for training a Transformer ASR system with The LargeScaleASR Set.
+"""Recipe for training a Transformer ASR system with The Loquacious Set.
 
 Authors
 -------
@@ -225,9 +225,9 @@ class ASR(sb.core.Brain):
 def dataio_prepare_hf(hparams, tokenizer):
     """This function prepares the datasets to be used in the brain class.
     It also defines the data processing pipeline through user-defined functions.
-    This is valid for The LargeScaleASR Set prepared with HuggingFace
+    This is valid for The Loquacious Set prepared with HuggingFace
     """
-    from large_scale_ASR_prepare import load_datasets
+    from loquacious_set_prepare import load_datasets
 
     hf_data_dict = load_datasets(
         hparams["tls_subset"],

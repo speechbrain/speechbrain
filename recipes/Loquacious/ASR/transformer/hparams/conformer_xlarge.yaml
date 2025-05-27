@@ -9,19 +9,20 @@
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 3407
 __set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
-output_folder: !ref results/conformer_en_med/<seed>
+output_folder: !ref results/conformer_en/<seed>
 output_wer_folder: !ref <output_folder>/
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
 # Data files
-# Whether to use HuggingFace or SpeechBrain data loader. This depends on how your LargeScaleASR has been prepared.
+# Whether to use HuggingFace or SpeechBrain data loader. This depends on how your LoquaciousSet has been prepared.
 tls_subset: !PLACEHOLDER
-hf_hub: speechbrain/LargeScaleASR   # path to the dataset
+hf_hub: speechbrain/LoquaciousSet  # path to the dataset
 hf_caching_dir: !PLACEHOLDER # path to where the dataset will be extracted by HF.
 
 # Necessary for the BPE tokenization
 train_csv: !PLACEHOLDER
+
 
 ckpt_interval_minutes: 15 # save checkpoint every N min
 
@@ -36,10 +37,10 @@ num_workers: 6
 precision: fp16 # bf16, fp16 or fp32
 
 # stages related parameters
-lr_adam: 0.0008
-weight_decay: 0.003
-warmup_steps: 40000
-augment_warmup: 30000
+lr_adam: 0.0007
+weight_decay: 0.001
+warmup_steps: 60000
+augment_warmup: 80000
 
 # BPE parameters
 token_type: bpe  # ["unigram", "bpe", "char"]
@@ -78,13 +79,14 @@ train_dataloader_opts:
 test_dataloader_opts:
     batch_size: 2
 
+
 ####################### Model Parameters ###########################
 # Transformer
-d_model: 512
-nhead: 8
-num_encoder_layers: 12
+d_model: 1024
+nhead: 16
+num_encoder_layers: 18
 num_decoder_layers: 6
-d_ffn: 2048
+d_ffn: 3072
 transformer_dropout: 0.1
 activation: !name:torch.nn.GELU
 output_neurons: 5120
@@ -175,6 +177,7 @@ valid_search: !new:speechbrain.decoders.S2STransformerBeamSearcher
     beam_size: !ref <valid_beam_size>
     using_eos_threshold: False
     length_normalization: True
+    # scorer: !ref <scorer>
 
 test_search: !new:speechbrain.decoders.S2STransformerBeamSearcher
     modules: [!ref <Transformer>, !ref <seq_lin>]

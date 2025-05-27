@@ -1,12 +1,12 @@
-# LargeScale ASR with CTC + Attention Transformers
+# Loquacious Set ASR with CTC + Attention Transformers
 
-This repository provides the scripts needed to run an Automatic Speech Recognition (ASR) experiment using the [LargeScaleASR dataset](https://huggingface.co/datasets/speechbrain/LargeScaleASR). The experiment leverages a combination of Connectionist Temporal Classification (CTC) and attention-based transformer models.
+This repository provides the scripts needed to run an Automatic Speech Recognition (ASR) experiment using the [Loquacious Set](https://huggingface.co/datasets/speechbrain/LoquaciousSet). The experiment leverages a combination of Connectionist Temporal Classification (CTC) and attention-based transformer models.
 
 ## Table of Contents
 
 - [How to Run](#how-to-run)
 - [Results](#results)
-- [LargeScaleASR Dataset](#largescaleasr-dataset)
+- [Loquacious Set](#loquacious-set)
   - [Description](#description)
   - [Downloading the Data](#downloading-the-data)
   - [Obtaining the CSV Files for Tokenization](#obtaining-the-csv-files-for-tokenization)
@@ -36,13 +36,13 @@ Below is a summary of experimental results:
 | `conformer_base.yaml`   | 100M         | Small (250h)      | 22.3           | 22.7     | 4xV100 32GB   | N/A                                                                          |
 | `conformer_large.yaml`  | 250M         | Medium (2,500h)   | 10.7           | 11.9     | 4xV100 32GB   | N/A                                                                          |
 | `conformer_large.yaml`  | 250M         | Large (25,000h)   | 7.9            | 8.8      | 8xV100 32GB   | N/A                                                                          |
-| `conformer_xlarge.yaml` | 480M         | Large (25,000h)   | 6.8            | 7.5      | 8xV100 32GB   | [Model](https://huggingface.co/speechbrain/asr-conformer-largescaleasr)        |
+| `conformer_xlarge.yaml` | 480M         | Large (25,000h)   | 6.8            | 7.5      | 8xV100 32GB   | [Model](https://huggingface.co/speechbrain/asr-conformer-loquacious)        |
 
-## LargeScaleASR Dataset
+## Loquacious Set
 
 ### Description
 
-The LargeScaleASR dataset is a curated blend of five permissively licensed datasets. The table below summarizes its composition:
+The Loquacious set is a curated blend of five permissively licensed datasets. The table below summarizes its composition:
 
 | Dataset                      | Amount Taken (large/medium/small/dev/test) | License   |
 | ---------------------------- | ------------------------------------------ | --------- |
@@ -57,32 +57,32 @@ For the **development** and **test** splits, only data from the respective `dev`
 
 ### Downloading the Data
 
-**Note:** Downloading and extracting the large subset of the LargeScaleASR dataset requires approximately **4 TB** of storage.
+**Note:** Downloading and extracting the large subset of the Loquacious dataset requires approximately **4 TB** of storage.
 
-As with other SpeechBrain projects, this recipe does not include a data download script. Please refer to the [HuggingFace webpage](https://huggingface.co/datasets/speechbrain/LargeScaleASR) for instructions on downloading the dataset using the `datasets` library or `huggingface-cli`.
+As with other SpeechBrain projects, this recipe does not include a data download script. Please refer to the [HuggingFace webpage](https://huggingface.co/datasets/speechbrain/LoquaciousSet) for instructions on downloading the dataset using the `datasets` library or `huggingface-cli`.
 
 ### Obtaining the CSV Files for Tokenization
 
-The tokenizer requires CSV files (available [in the repository](https://huggingface.co/datasets/speechbrain/LargeScaleASR/tree/main)) for training. You have two options:
+The tokenizer requires CSV files (available [in the repository](https://huggingface.co/datasets/speechbrain/LoquaciousSet/tree/main)) for training. You have two options:
 
 1. **Clone the entire repository:**
 
     ```bash
-    git clone https://huggingface.co/datasets/speechbrain/LargeScaleASR
+    git clone https://huggingface.co/datasets/speechbrain/LoquaciousSet
     ```
 
 2. **Download specific CSV files:**
 
     ```bash
-    wget https://huggingface.co/datasets/speechbrain/LargeScaleASR/resolve/main/largescaleasr_large_train.csv?download=true
-    wget https://huggingface.co/datasets/speechbrain/LargeScaleASR/resolve/main/largescaleasr_medium_train.csv?download=true
-    wget https://huggingface.co/datasets/speechbrain/LargeScaleASR/resolve/main/largescaleasr_small_train.csv?download=true
+    wget https://huggingface.co/datasets/speechbrain/LoquaciousSet/resolve/main/loquacious_large_train.csv?download=true
+    wget https://huggingface.co/datasets/speechbrain/LoquaciousSet/resolve/main/loquacious_medium_train.csv?download=true
+    wget https://huggingface.co/datasets/speechbrain/LoquaciousSet/resolve/main/loquacious_small_train.csv?download=true
     ```
 
 Alternatively, download only the CSV files using `huggingface-cli`:
 
 ```bash
-huggingface-cli download speechbrain/LargeScaleASR --include="*.csv" --repo-type dataset
+huggingface-cli download speechbrain/LoquaciousSet --include="*.csv" --repo-type dataset
 ```
 
 ## About SpeechBrain
@@ -96,6 +96,12 @@ huggingface-cli download speechbrain/LargeScaleASR --include="*.csv" --repo-type
 If you use SpeechBrain for your research or business, please cite it:
 
 ```bibtex
+@inproceedings{Loquacious,
+  title     = {Loquacious Set: 25,000 Hours of Transcribed and Diverse English Speech Recognition Data for Research and Commercial Use},
+  author    = {Titouan Parcollet and Yuan Tseng and Shucong Zhang and Rogier van Dalen},
+  year      = {2025},
+  booktitle = {Interspeech 2025},
+}
 @misc{speechbrainV1,
   title={Open-Source Conversational AI with SpeechBrain 1.0},
   author={Mirco Ravanelli and Titouan Parcollet and Adel Moumen and Sylvain de Langen and Cem Subakan and Peter Plantinga and Yingzhi Wang and Pooneh Mousavi and Luca Della Libera and Artem Ploujnikov and Francesco Paissan and Davide Borra and Salah Zaiem and Zeyu Zhao and Shucong Zhang and Georgios Karakasidis and Sung-Lin Yeh and Pierre Champion and Aku Rouhe and Rudolf Braun and Florian Mai and Juan Zuluaga-Gomez and Seyed Mahed Mousavi and Andreas Nautsch and Xuechen Liu and Sangeet Sagar and Jarod Duret and Salima Mdhaffar and Gaelle Laperriere and Mickael Rouvier and Renato De Mori and Yannick Esteve},
@@ -104,14 +110,5 @@ If you use SpeechBrain for your research or business, please cite it:
   archivePrefix={arXiv},
   primaryClass={cs.LG},
   url={https://arxiv.org/abs/2407.00463},
-}
-@misc{speechbrain,
-  title={{SpeechBrain}: A General-Purpose Speech Toolkit},
-  author={Mirco Ravanelli and Titouan Parcollet and Peter Plantinga and Aku Rouhe and Samuele Cornell and Loren Lugosch and Cem Subakan and Nauman Dawalatabad and Abdelwahab Heba and Jianyuan Zhong and Ju-Chieh Chou and Sung-Lin Yeh and Szu-Wei Fu and Chien-Feng Liao and Elena Rastorgueva and François Grondin and William Aris and Hwidong Na and Yan Gao and Renato De Mori and Yoshua Bengio},
-  year={2021},
-  eprint={2106.04624},
-  archivePrefix={arXiv},
-  primaryClass={eess.AS},
-  note={arXiv:2106.04624}
 }
 ```

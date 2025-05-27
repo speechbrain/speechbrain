@@ -15,9 +15,9 @@ save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
 # Data files
-# Whether to use HuggingFace or SpeechBrain data loader. This depends on how your LargeScaleASR has been prepared.
+# Whether to use HuggingFace or SpeechBrain data loader. This depends on how your LoquaciousSet has been prepared.
 tls_subset: !PLACEHOLDER
-hf_hub: speechbrain/LargeScaleASR   # path to the dataset
+hf_hub: speechbrain/LoquaciousSet   # path to the dataset
 hf_caching_dir: !PLACEHOLDER # path to where the dataset will be extracted by HF.
 
 # Necessary for the BPE tokenization
