@@ -72,13 +72,19 @@ These checks are run and enforced on the CI.
 ### Adding dependencies
 
 In general, we strive to have as few dependencies as possible. However, we will
-debate dependencies on a case-by-case basis. We value easy installability via
-pip.
+debate new dependencies on a case-by-case basis. We value keeping the toolkit
+lightweight to preserve easy installability via pip and to reduce the work
+needed to maintain the tool in the face of conflicting dependencies.
 
-In case the dependency is only needed for a specific recipe or specific niche
-module, we suggest the extra tools pattern: don't add the dependency to general
+In case the dependency is only needed for a specific recipe, we suggest using
+the extra tools pattern: don't add the dependency to general
 requirements, but add it in the `extra-requirements.txt` file of that specific
 recipe.
+
+Finally, if you want to add to the speechbrain core tools but a dependency
+cannot be added to the full toolkit dependency list, you can add the tool to
+the `speechbrain/integrations` folder, which requires more tests and will
+only be verified to work before each release, not on every CI run.
 
 ## Important documentation guidelines
 

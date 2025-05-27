@@ -20,10 +20,10 @@ from train import dataio_prep, load_dependencies
 
 import speechbrain as sb
 from speechbrain.dataio.batch import PaddedBatch
+from speechbrain.integrations.huggingface.wordemb.util import expand_to_chars
 from speechbrain.lobes.models.g2p.dataio import get_sequence_key
 from speechbrain.utils import hpopt as hp
 from speechbrain.utils.logger import get_logger
-from speechbrain.wordemb.util import expand_to_chars
 
 logger = get_logger(__name__)
 
