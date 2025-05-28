@@ -675,8 +675,8 @@ class CTCBaseSearcher(torch.nn.Module):
             try:
                 import kenlm  # type: ignore
 
-                from speechbrain.decoders.language_model import (
-                    LanguageModel,
+                from speechbrain.integrations.decoders.kenlm_scorer import (
+                    KenlmScorer,
                     load_unigram_set_from_arpa,
                 )
             except ImportError:
@@ -702,7 +702,7 @@ class CTCBaseSearcher(torch.nn.Module):
                 )
 
         if self.kenlm_model is not None:
-            self.lm = LanguageModel(
+            self.lm = KenlmScorer(
                 kenlm_model=self.kenlm_model,
                 unigrams=unigrams,
                 alpha=self.alpha,
