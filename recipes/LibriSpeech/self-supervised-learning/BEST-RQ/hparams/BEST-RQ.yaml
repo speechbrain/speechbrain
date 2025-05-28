@@ -27,16 +27,19 @@ avoid_if_longer_than: 60.0
 avoid_if_shorter_than: 2.0
 log_interval: 500 # Logging every N optimizer steps
 max_grad_norm: 10
-precision: fp16 # bf16, fp16 or fp32
+precision: bf16 # bf16, fp16 or fp32
 
 # The training will either stops at number_of_epochs or optimizer_step_limit
 # I.e. the first that is reached.
 number_of_epochs: 3000
 optimizer_step_limit: 300000
 
-# This setup is for 8 V100.
-max_batch_len: 400 # In second and per gpu
-train_num_buckets: 150
+# Ideally you want the total batch to be around 2 hours. So you must do
+# seconds_per_batch * nb_gpus * grad_accumulation factor = ~7200 seconds.
+# If your dataset is bigger, we recommend increasing this batch size to 3 to 4
+# hours.
+max_batch_len: 400
+train_num_buckets: 200
 grad_accumulation_factor: 2
 
 train_dataloader_options:
@@ -59,6 +62,23 @@ hop_length: 10
 # so the input to quantizer also needs to reduce dim by 4
 pad_to_divisible_by: 4
 
+# Streaming & dynamic chunk training options
+# At least for the current architecture on LibriSpeech, we found out that
+# non-streaming accuracy is very similar between `streaming: True` and
+# `streaming: False`.
+streaming: True  # controls all Dynamic Chunk Training & chunk size & left context mechanisms
+
+# Configuration for Dynamic Chunk Training.
+dynchunktrain_config_sampler: !new:speechbrain.utils.dynamic_chunk_training.DynChunkTrainConfigRandomSampler # yamllint disable-line rule:line-length
+    chunkwise_prob: 0.6 # Probability during a batch to limit attention and sample a random chunk size in the following range
+    chunk_size_min: 8 # Minimum chunk size (if in a DynChunkTrain batch)
+    chunk_size_max: 32 # Maximum chunk size (if in a DynChunkTrain batch)
+    limited_left_context_prob: 0.75 # If in a DynChunkTrain batch, the probability during a batch to restrict left context to a random number of chunks
+    left_context_chunks_min: 2 # Minimum left context size (in # of chunks)
+    left_context_chunks_max: 32 # Maximum left context size (in # of chunks)
+    valid_config: !new:speechbrain.utils.dynamic_chunk_training.DynChunkTrainConfig
+        chunk_size: 8
+        left_context_size: 16
 ####################### Model parameters ###########################
 # Transformer
 d_model: 576
@@ -68,7 +88,7 @@ num_decoder_layers: 0
 d_ffn: 2048
 transformer_dropout: 0.1
 activation: !name:torch.nn.GELU
-output_neurons: 5000
+output_neurons: 2048
 encoder_layerdrop: 0.0
 
 # Masking parameters
@@ -146,8 +166,7 @@ compute_features: !new:speechbrain.lobes.features.Fbank
     n_mels: !ref <n_mels>
 
 normalize: !new:speechbrain.processing.features.InputNormalization
-    norm_type: global
-    update_until_epoch: 4
+    norm_type: sentence
 
 ############################## running ################################
 
