@@ -146,9 +146,11 @@ class MultiProcessLoggerAdapter(logging.LoggerAdapter):
         This method uses a set to track issued warnings, ensuring that the same warning is not logged multiple times.
         This is a workaround for the fact that `functools.lru_cache(None)` is not thread-safe.
         """
-        if msg in self._issued_warnings:
+        # Use the logger name as part of the warning key to make it unique per logger
+        warning_key = f"{self.logger.name}:{msg}"
+        if warning_key in self._issued_warnings:
             return
-        self._issued_warnings.add(msg)
+        self._issued_warnings.add(warning_key)
         main_process_only = kwargs.pop("main_process_only", True)
         if self._should_log(main_process_only):
             self.warning(msg, *args, **kwargs)

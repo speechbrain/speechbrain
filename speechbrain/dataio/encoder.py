@@ -18,6 +18,7 @@ from speechbrain.utils.checkpoints import (
     register_checkpoint_hooks,
 )
 from speechbrain.utils.logger import get_logger
+import warnings
 
 logger = get_logger(__name__)
 
@@ -734,7 +735,7 @@ class CategoricalEncoder:
                     f"but {real_len} categories found"
                 )
         else:
-            logger.warning_once(
+            warnings.warn(
                 "CategoricalEncoder.expect_len was never called: "
                 "assuming category count to be correct! "
                 "Sanity check your encoder using `.expect_len`. "
