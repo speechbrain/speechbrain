@@ -138,6 +138,7 @@ class CategoricalEncoder:
 
     VALUE_SEPARATOR = " => "
     EXTRAS_SEPARATOR = "================\n"
+    _warning_shown = False  # Class-level flag to track warning state
 
     def __init__(self, starting_index=0, **special_labels):
         self.lab2ind = {}
@@ -736,7 +737,7 @@ class CategoricalEncoder:
                     f"but {real_len} categories found"
                 )
         else:
-            warnings.warn(
+            logger.debug(
                 "CategoricalEncoder.expect_len was never called: "
                 "assuming category count to be correct! "
                 "Sanity check your encoder using `.expect_len`. "
