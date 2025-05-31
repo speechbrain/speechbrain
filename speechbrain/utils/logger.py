@@ -74,6 +74,7 @@ class MultiProcessLoggerAdapter(logging.LoggerAdapter):
     This class is heavily inspired by HuggingFace Accelerate toolkit:
     https://github.com/huggingface/accelerate/blob/85b1a03552cf8d58e036634e004220c189bfb247/src/accelerate/logging.py#L22
     """
+    _issued_warnings = set()
 
     @staticmethod
     def _should_log(main_process_only: bool) -> bool:
@@ -127,13 +128,14 @@ class MultiProcessLoggerAdapter(logging.LoggerAdapter):
                 msg, kwargs = self.process(msg, kwargs)
                 self.logger.log(level, msg, *args, **kwargs)
 
-    @functools.lru_cache(None)
-    def warning_once(self, *args, **kwargs):
+    def warning_once(self, msg, *args, **kwargs):
         r"""
         Logs a warning message only once by using caching to prevent duplicate warnings.
 
         Arguments
         ---------
+        msg: str
+            The message to log.
         *args : tuple
             Positional arguments passed to the warning log.
         **kwargs : dict
@@ -141,10 +143,13 @@ class MultiProcessLoggerAdapter(logging.LoggerAdapter):
 
         Notes
         -----
-        This method is decorated with `functools.lru_cache(None)`, ensuring that the warning
-        message is logged only once regardless of how many times the method is called.
+        This method uses a set to track issued warnings, ensuring that the same warning is not logged multiple times.
+        This is a workaround for the fact that `functools.lru_cache(None)` is not thread-safe.
         """
-        self.warning(*args, **kwargs)
+        if msg in self._issued_warnings:
+            return
+        self._issued_warnings.add(msg)
+        self.warning(msg, *args, **kwargs)
 
 
 def get_logger(name: str) -> MultiProcessLoggerAdapter:
