@@ -8,6 +8,7 @@ Authors
 import ast
 import collections
 import itertools
+import warnings
 
 import torch
 
@@ -18,7 +19,6 @@ from speechbrain.utils.checkpoints import (
     register_checkpoint_hooks,
 )
 from speechbrain.utils.logger import get_logger
-import warnings
 
 warnings.simplefilter("once")
 logger = get_logger(__name__)

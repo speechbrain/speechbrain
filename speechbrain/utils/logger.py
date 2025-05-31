@@ -6,7 +6,6 @@ Author
  * Aku Rouhe 2020
 """
 
-import functools
 import logging
 import logging.config
 import math
@@ -74,6 +73,7 @@ class MultiProcessLoggerAdapter(logging.LoggerAdapter):
     This class is heavily inspired by HuggingFace Accelerate toolkit:
     https://github.com/huggingface/accelerate/blob/85b1a03552cf8d58e036634e004220c189bfb247/src/accelerate/logging.py#L22
     """
+
     _issued_warnings = set()
 
     @staticmethod
@@ -140,6 +140,10 @@ class MultiProcessLoggerAdapter(logging.LoggerAdapter):
             Positional arguments passed to the warning log.
         **kwargs : dict
             Keyword arguments passed to the warning log.
+
+        Returns
+        -------
+        None
 
         Notes
         -----
