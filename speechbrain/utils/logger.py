@@ -148,7 +148,6 @@ class MultiProcessLoggerAdapter(logging.LoggerAdapter):
         """
         if msg in self._issued_warnings:
             return
-        print("test")
         self._issued_warnings.add(msg)
         main_process_only = kwargs.pop("main_process_only", True)
         if self._should_log(main_process_only):
