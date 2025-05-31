@@ -20,6 +20,7 @@ from speechbrain.utils.checkpoints import (
 from speechbrain.utils.logger import get_logger
 import warnings
 
+warnings.simplefilter("once")
 logger = get_logger(__name__)
 
 # NOTE: Changing these does NOT change the defaults in the classes.
