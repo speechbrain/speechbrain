@@ -138,7 +138,6 @@ class CategoricalEncoder:
 
     VALUE_SEPARATOR = " => "
     EXTRAS_SEPARATOR = "================\n"
-    _warning_shown = False  # Class-level flag to track warning state
 
     def __init__(self, starting_index=0, **special_labels):
         self.lab2ind = {}
@@ -738,8 +737,8 @@ class CategoricalEncoder:
                 )
         else:
             logger.debug(
-                "CategoricalEncoder.expect_len was never called: "
-                "assuming category count to be correct! "
+                f"{self.__class__.__name__}.expect_len was never called: "
+                f"assuming category count of {len(self)} to be correct! "
                 "Sanity check your encoder using `.expect_len`. "
                 "Ensure that downstream code also uses the correct size. "
                 "If you are sure this does not apply to you, use `.ignore_len`."
