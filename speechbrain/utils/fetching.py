@@ -215,7 +215,7 @@ def guess_source(source: Union[str, FetchSource]) -> tuple[FetchFrom, str]:
     return FetchFrom.HUGGING_FACE, source
 
 
-@dataclass
+@dataclass(frozen=True)
 class FetchConfig:
     """A dataclass containing all the configurations for fetching, such as caching strategy.
 
@@ -288,7 +288,7 @@ def fetch(
     savedir: Optional[Union[str, pathlib.Path]] = None,
     save_filename: Optional[str] = None,
     local_strategy: LocalStrategy = LocalStrategy.SYMLINK,
-    fetch_config: Optional[FetchConfig] = None,
+    fetch_config: FetchConfig = FetchConfig(),
 ):
     """Fetches a local path, remote URL or remote HuggingFace file, downloading
     it locally if necessary and returns the local path.
@@ -322,7 +322,7 @@ def fetch(
         Which strategy to use for local file storage -- see `LocalStrategy` for options.
         Ignored by `fetch` unless `savedir` is provided, default is `LocalStrategy.SYMLINK` which
         adds a link to the downloaded/cached file in the `savedir`.
-    fetch_config : Optional[FetchConfig]
+    fetch_config : FetchConfig
         A configuration for how to perform fetching, see `FetchConfig` dataclass for details.
 
     Returns
@@ -352,10 +352,8 @@ def fetch(
         destination = None
         local_strategy = LocalStrategy.NO_LINK
 
-    if fetch_config is None:
-        fetch_config = FetchConfig()
-    else:
-        assert isinstance(fetch_config, FetchConfig)
+    # Check fetch_config type
+    assert isinstance(fetch_config, FetchConfig)
 
     # HF is the only download method that supports updates
     should_try_update = fetch_config.overwrite or (

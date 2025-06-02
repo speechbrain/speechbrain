@@ -19,7 +19,12 @@ from speechbrain.utils.checkpoints import (
     PARAMFILE_EXT,
     get_default_hook,
 )
-from speechbrain.utils.fetching import FetchSource, LocalStrategy, fetch
+from speechbrain.utils.fetching import (
+    FetchConfig,
+    FetchSource,
+    LocalStrategy,
+    fetch,
+)
 from speechbrain.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -184,7 +189,7 @@ class Pretrainer:
         self,
         default_source=None,
         local_strategy=LocalStrategy.SYMLINK,
-        fetch_config=None,
+        fetch_config=FetchConfig(),
     ):
         """Fetches parameters from known paths with fallback default_source
 
@@ -205,7 +210,7 @@ class Pretrainer:
             `<default_source>/asr.ckpt`
         local_strategy : LocalStrategy
             How to perform caching on the file for local storage.
-        fetch_config : Optional[FetchConfig]
+        fetch_config : FetchConfig
             Configuration options like caching strategy for fetching files.
 
         Returns

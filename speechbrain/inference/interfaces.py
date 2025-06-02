@@ -39,7 +39,7 @@ logger = get_logger(__name__)
 
 def foreign_class(
     source,
-    hparams_file,
+    hparams_file="hyperparams.yaml",
     pymodule_file="custom.py",
     classname="CustomInterface",
     savedir=None,
@@ -55,6 +55,11 @@ def foreign_class(
     before the Hyperparams YAML file is loaded, so it can contain any custom
     implementations that are needed.
 
+    .. warning::
+        Caution should be used with this function as it can download and run
+        arbitrary code onto the machine this function is used on. Only use
+        this function when the target module is from a highly trusted source!
+
     Arguments
     ---------
     source : str or Path or FetchSource
@@ -63,12 +68,14 @@ def foreign_class(
     hparams_file : str
         The name of the hyperparameters file to use for constructing
         the modules necessary for inference. Must contain two keys:
-        "modules" and "pretrainer", as described.
+        "modules" and "pretrainer", as described in `pretrained_from_hparams`.
     pymodule_file : str
-        The name of the Python file that should be fetched.
+        The name of the Python file containing the model's python class. The file
+        will be fetched from `source` and will be used to load the class code.
     classname : str
-        The name of the Class, of which an instance is created and returned.
-    savedir : str or Path
+        The name of the model's Python class, which should be present in the
+        code of the `pymodule_file`.
+    savedir : Optional[Union[str, Path]]
         Where to put the pretraining material. If not given, just use cache.
     local_strategy : LocalStrategy, default LocalStrategy.SYMLINK
         Type of caching to use for keeping a local copy.
@@ -92,7 +99,10 @@ def foreign_class(
     )
     sys.path.append(str(pymodule_local_path.parent))
 
-    # Import class and create instance
+    # Dynamically import the specified Python module and retrieve the class by name.
+    # This allows users to define custom model interfaces outside of SpeechBrain.
+    # After importing, passes the class (not an instance) to pretrained_from_hparams,
+    # which will handle loading and instantiation with the appropriate hyperparameters.
     module = import_from_path(pymodule_local_path)
     cls = getattr(module, classname)
     return pretrained_from_hparams(
@@ -128,6 +138,11 @@ def pretrained_from_hparams(
     The hyperparams file should contain a "pretrainer" key, which is a
     speechbrain.utils.parameter_transfer.Pretrainer
 
+    .. warning::
+        Caution should be used with this function as it can download and run
+        arbitrary code onto the machine this function is used on. Only use
+        this function when the target hparams file is from a highly trusted source!
+
     Arguments
     ---------
     cls : Type[Pretrained]
@@ -157,8 +172,9 @@ def pretrained_from_hparams(
 
     Returns
     -------
-    object : Pretrained
+    object : Optional[Pretrained]
         An instance of a Pretrained class, constructed from the hparams.
+        None is returned if the argument `download_only` is `True`.
     """
     hparams_local_path = fetch(
         filename=hparams_file,
@@ -438,6 +454,11 @@ class Pretrained(torch.nn.Module):
 
         The hyperparams file should contain a "pretrainer" key, which is a
         speechbrain.utils.parameter_transfer.Pretrainer
+
+        .. warning::
+            Caution should be used with this function as it can download and run
+            arbitrary code onto the machine this function is used on. Only use
+            this function when the target hparams file is from a highly trusted source!
 
         Arguments
         ---------
