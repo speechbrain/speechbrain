@@ -29,7 +29,6 @@ from speechbrain.dataio.batch import PaddedBatch, PaddedData
 from speechbrain.dataio.preprocess import AudioNormalizer
 from speechbrain.utils.data_pipeline import DataPipeline
 from speechbrain.utils.data_utils import split_path
-from speechbrain.utils.distributed import run_on_main
 from speechbrain.utils.fetching import FetchConfig, LocalStrategy, fetch
 from speechbrain.utils.logger import get_logger
 from speechbrain.utils.superpowers import import_from_path
@@ -43,8 +42,8 @@ def foreign_class(
     pymodule_file="custom.py",
     classname="CustomInterface",
     savedir=None,
-    local_strategy=LocalStrategy.SYMLINK,
-    fetch_config=FetchConfig(),
+    local_strategy: LocalStrategy = LocalStrategy.SYMLINK,
+    fetch_config: FetchConfig = FetchConfig(),
     **kwargs,
 ):
     """Thin wrapper for `pretrained_from_hparams()` that fetches and loads a custom class.
@@ -124,8 +123,8 @@ def pretrained_from_hparams(
     overrides_must_match=True,
     savedir=None,
     download_only=False,
-    local_strategy=LocalStrategy.SYMLINK,
-    fetch_config=FetchConfig(),
+    local_strategy: LocalStrategy = LocalStrategy.SYMLINK,
+    fetch_config: FetchConfig = FetchConfig(),
     **kwargs,
 ):
     """Fetch and load an interface from an outside source
@@ -181,6 +180,7 @@ def pretrained_from_hparams(
         source=source,
         savedir=savedir,
         save_filename=None,
+        local_strategy=local_strategy,
         fetch_config=fetch_config,
     )
 
@@ -192,10 +192,10 @@ def pretrained_from_hparams(
     # Pretraining:
     pretrainer = hparams["pretrainer"]
     pretrainer.set_collect_in(savedir)
-    # For distributed setups, have this here:
-    run_on_main(
-        pretrainer.collect_files,
-        kwargs={"default_source": source, "fetch_config": fetch_config},
+    pretrainer.collect_files(
+        default_source=source,
+        local_strategy=local_strategy,
+        fetch_config=fetch_config,
     )
     # Load on the CPU. Later the params can be moved elsewhere by specifying
     if not download_only:
