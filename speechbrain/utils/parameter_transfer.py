@@ -19,13 +19,7 @@ from speechbrain.utils.checkpoints import (
     PARAMFILE_EXT,
     get_default_hook,
 )
-from speechbrain.utils.distributed import run_on_main
-from speechbrain.utils.fetching import (
-    FetchConfig,
-    FetchSource,
-    LocalStrategy,
-    fetch,
-)
+from speechbrain.utils.fetching import FetchSource, LocalStrategy, fetch
 from speechbrain.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -190,7 +184,7 @@ class Pretrainer:
         self,
         default_source=None,
         local_strategy=LocalStrategy.SYMLINK,
-        fetch_config=FetchConfig(),
+        fetch_config=None,
     ):
         """Fetches parameters from known paths with fallback default_source
 
@@ -211,7 +205,7 @@ class Pretrainer:
             `<default_source>/asr.ckpt`
         local_strategy : LocalStrategy
             How to perform caching on the file for local storage.
-        fetch_config : FetchConfig
+        fetch_config : Optional[FetchConfig]
             Configuration options like caching strategy for fetching files.
 
         Returns
@@ -256,40 +250,14 @@ class Pretrainer:
                     "and no default_source given!"
                 )
 
-            fetch_kwargs = {
-                "filename": filename,
-                "source": source,
-                "savedir": self.collect_in,
-                "save_filename": save_filename,
-                "local_strategy": local_strategy,
-                "fetch_config": fetch_config,
-            }
-
-            path = None
-
-            def run_fetch(**kwargs):
-                """Very basic local wrapper to fetch to store the path in a
-                local of collect_files
-
-                Arguments
-                ---------
-                **kwargs : dict
-                    Arguments to forward to fetch"""
-                nonlocal path
-                path = fetch(**kwargs)
-
-            # run fetch() on the main process, potentially performing downloading
-            # which we do NOT want to happen concurrently.
-            #
-            # then, if there are any non-main processes, run fetch() on them to
-            # resolve the path.
-            #
-            # path needs to be available only if it is a local source w/o symlink
-            run_on_main(
-                run_fetch,
-                kwargs=fetch_kwargs,
-                post_func=run_fetch,
-                post_kwargs=fetch_kwargs,
+            # Fetch now handles multiprocessing!
+            path = fetch(
+                filename=filename,
+                source=source,
+                savedir=self.collect_in,
+                save_filename=save_filename,
+                local_strategy=local_strategy,
+                fetch_config=fetch_config,
             )
 
             loadable_paths[name] = path
