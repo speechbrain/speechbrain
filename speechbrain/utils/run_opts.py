@@ -162,6 +162,10 @@ class RunOptions:
         """
         return asdict(self)
 
+    def __getitem__(self, key):
+        """Make items accessible via dict notation, to maintain backwards compat."""
+        return getattr(self, key)
+
     @classmethod
     def from_command_line_args(cls, arg_list=None):
         """Parse command-line arguments to the experiment.
