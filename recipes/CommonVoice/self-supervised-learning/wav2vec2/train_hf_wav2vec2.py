@@ -26,7 +26,6 @@ Authors
  * Titouan Parcollet 2021
  * Yan Gao 2021
 """
-
 import sys
 
 import torch
@@ -172,7 +171,9 @@ def dataio_prepare(hparams):
         hparams["dataloader_options"]["shuffle"] = False
 
     else:
-        raise NotImplementedError("sorting must be random, ascending or descending")
+        raise NotImplementedError(
+            "sorting must be random, ascending or descending"
+        )
 
     valid_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
         csv_path=hparams["valid_csv"],

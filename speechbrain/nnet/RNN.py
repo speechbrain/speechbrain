@@ -56,7 +56,9 @@ def pad_packed_sequence(inputs):
     outputs : torch.Tensor
         The padded sequences.
     """
-    outputs, lengths = torch.nn.utils.rnn.pad_packed_sequence(inputs, batch_first=True)
+    outputs, lengths = torch.nn.utils.rnn.pad_packed_sequence(
+        inputs, batch_first=True
+    )
     return outputs
 
 
@@ -864,7 +866,9 @@ class AttentionalRNNDecoder(nn.Module):
         self.kernel_size = kernel_size
 
         # Combining the context vector and output of rnn
-        self.proj = nn.Linear(self.hidden_size + self.attn_dim, self.hidden_size)
+        self.proj = nn.Linear(
+            self.hidden_size + self.attn_dim, self.hidden_size
+        )
 
         if self.attn_type == "content":
             self.attn = ContentBasedAttention(
@@ -986,7 +990,9 @@ class AttentionalRNNDecoder(nn.Module):
 
         # initialization
         self.attn.reset()
-        c = torch.zeros(enc_states.shape[0], self.attn_dim, device=enc_states.device)
+        c = torch.zeros(
+            enc_states.shape[0], self.attn_dim, device=enc_states.device
+        )
         hs = None
 
         # store predicted tokens
@@ -1172,7 +1178,9 @@ class LiGRU(torch.nn.Module):
         h = []
         if hx is not None:
             if self.bidirectional:
-                hx = hx.reshape(self.num_layers, self.batch_size * 2, self.hidden_size)
+                hx = hx.reshape(
+                    self.num_layers, self.batch_size * 2, self.hidden_size
+                )
         # Processing the different layers
         for i, ligru_lay in enumerate(self.rnn):
             if hx is not None:
@@ -1382,7 +1390,9 @@ class LiGRU_Layer(torch.nn.Module):
             if self.drop_mask_cnt + self.batch_size > self.N_drop_masks:
                 self.drop_mask_cnt = 0
                 self.drop_masks = self.drop(
-                    torch.ones(self.N_drop_masks, self.hidden_size, device=w.device)
+                    torch.ones(
+                        self.N_drop_masks, self.hidden_size, device=w.device
+                    )
                 ).data
 
             # Sampling the mask
@@ -1589,7 +1599,9 @@ class SLiGRU(torch.nn.Module):
         h = []
         if hx is not None:
             if self.bidirectional:
-                hx = hx.reshape(self.num_layers, self.batch_size * 2, self.hidden_size)
+                hx = hx.reshape(
+                    self.num_layers, self.batch_size * 2, self.hidden_size
+                )
         # Processing the different layers
         for i, sligru_lay in enumerate(self.rnn):
             if hx is not None:
@@ -1811,7 +1823,9 @@ class SLiGRU_Layer(torch.nn.Module):
             if self.drop_mask_cnt + self.batch_size > self.N_drop_masks:
                 self.drop_mask_cnt = 0
                 self.drop_masks = self.drop(
-                    torch.ones(self.N_drop_masks, self.hidden_size, device=w.device)
+                    torch.ones(
+                        self.N_drop_masks, self.hidden_size, device=w.device
+                    )
                 ).data
 
             # Sampling the mask
@@ -1983,7 +1997,9 @@ class QuasiRNNLayer(torch.nn.Module):
         if self.zoneout:
             if self.training:
                 mask = (
-                    torch.empty(f.shape).bernoulli_(1 - self.zoneout).to(f.get_device())
+                    torch.empty(f.shape)
+                    .bernoulli_(1 - self.zoneout)
+                    .to(f.get_device())
                 ).detach()
                 f = f * mask
             else:

@@ -3,6 +3,7 @@ import torch.nn
 
 
 def test_BatchNorm1d(device):
+
     from speechbrain.nnet.normalization import BatchNorm1d
 
     input = torch.randn(100, 10, device=device) + 2.0
@@ -28,7 +29,9 @@ def test_BatchNorm1d(device):
 
     # Test with combined dimensions
     input = torch.randn(100, 10, 20, device=device) + 2.0
-    norm = BatchNorm1d(input_shape=input.shape, combine_batch_time=True).to(device)
+    norm = BatchNorm1d(input_shape=input.shape, combine_batch_time=True).to(
+        device
+    )
     output = norm(input)
     assert input.shape == output.shape
 
@@ -39,7 +42,9 @@ def test_BatchNorm1d(device):
     assert torch.abs(1.0 - current_std) < 0.01
 
     input = torch.randn(100, 40, 20, 30, device=device) + 2.0
-    norm = BatchNorm1d(input_shape=input.shape, combine_batch_time=True).to(device)
+    norm = BatchNorm1d(input_shape=input.shape, combine_batch_time=True).to(
+        device
+    )
     output = norm(input)
     assert input.shape == output.shape
 
@@ -53,6 +58,7 @@ def test_BatchNorm1d(device):
 
 
 def test_BatchNorm2d(device):
+
     from speechbrain.nnet.normalization import BatchNorm2d
 
     input = torch.randn(100, 10, 4, 20, device=device) + 2.0
@@ -70,6 +76,7 @@ def test_BatchNorm2d(device):
 
 
 def test_LayerNorm(device):
+
     from speechbrain.nnet.normalization import LayerNorm
 
     input = torch.randn(4, 101, 256, device=device) + 2.0
@@ -98,6 +105,7 @@ def test_LayerNorm(device):
 
 
 def test_InstanceNorm1d(device):
+
     from speechbrain.nnet.normalization import InstanceNorm1d
 
     input = torch.randn(100, 10, 128, device=device) + 2.0
@@ -115,6 +123,7 @@ def test_InstanceNorm1d(device):
 
 
 def test_InstanceNorm2d(device):
+
     from speechbrain.nnet.normalization import InstanceNorm2d
 
     input = torch.randn(100, 10, 20, 2, device=device) + 2.0
@@ -132,6 +141,7 @@ def test_InstanceNorm2d(device):
 
 
 def test_GroupNorm(device):
+
     from speechbrain.nnet.normalization import GroupNorm
 
     input = torch.randn(4, 101, 256, device=device) + 2.0

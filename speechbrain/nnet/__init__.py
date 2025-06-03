@@ -1,4 +1,5 @@
-"""Package containing the different neural networks layers"""
+""" Package containing the different neural networks layers
+"""
 
 from speechbrain.utils.importutils import lazy_export_all
 

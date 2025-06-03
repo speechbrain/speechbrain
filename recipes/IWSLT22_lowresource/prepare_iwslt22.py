@@ -37,7 +37,9 @@ def generate_json(folder_path, split):
             folder_path.replace("/txt", "/wav") + "/" + utt_id + ".wav"
         )
         output_json[utt_id]["trans"] = translations_file[i]
-        output_json[utt_id]["duration"] = content.split("{duration: ")[1].split(",")[0]
+        output_json[utt_id]["duration"] = content.split("{duration: ")[1].split(
+            ","
+        )[0]
 
     return output_json
 
@@ -60,7 +62,9 @@ def data_proc(dataset_folder, output_folder):
     try:
         os.mkdir(output_folder)
     except OSError:
-        print("Tried to create " + output_folder + ", but folder already exists.")
+        print(
+            "Tried to create " + output_folder + ", but folder already exists."
+        )
 
     for split in ["train", "valid", "test"]:
         split_folder = "/".join([dataset_folder, split, "txt"])

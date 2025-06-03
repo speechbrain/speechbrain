@@ -134,7 +134,9 @@ class SincConv(nn.Module):
             x = x.unsqueeze(1)
 
         if self.padding == "same":
-            x = self._manage_padding(x, self.kernel_size, self.dilation, self.stride)
+            x = self._manage_padding(
+                x, self.kernel_size, self.dilation, self.stride
+            )
 
         elif self.padding == "causal":
             num_pad = (self.kernel_size - 1) * self.dilation
@@ -145,7 +147,8 @@ class SincConv(nn.Module):
 
         else:
             raise ValueError(
-                "Padding must be 'same', 'valid' or 'causal'. Got %s." % (self.padding)
+                "Padding must be 'same', 'valid' or 'causal'. Got %s."
+                % (self.padding)
             )
 
         sinc_filters = self._get_sinc_filters()
@@ -174,7 +177,9 @@ class SincConv(nn.Module):
         elif len(shape) == 3:
             in_channels = shape[-1]
         else:
-            raise ValueError("sincconv expects 2d or 3d inputs. Got " + str(len(shape)))
+            raise ValueError(
+                "sincconv expects 2d or 3d inputs. Got " + str(len(shape))
+            )
 
         # Kernel size must be odd
         if self.kernel_size % 2 == 0:
@@ -205,7 +210,8 @@ class SincConv(nn.Module):
 
         # Left part of the filters.
         band_pass_left = (
-            (torch.sin(f_times_t_high) - torch.sin(f_times_t_low)) / (self.n_ / 2)
+            (torch.sin(f_times_t_high) - torch.sin(f_times_t_low))
+            / (self.n_ / 2)
         ) * self.window_
 
         # Central element of the filter
@@ -253,11 +259,15 @@ class SincConv(nn.Module):
         n_lin = torch.linspace(
             0, (self.kernel_size / 2) - 1, steps=int((self.kernel_size / 2))
         )
-        self.window_ = 0.54 - 0.46 * torch.cos(2 * math.pi * n_lin / self.kernel_size)
+        self.window_ = 0.54 - 0.46 * torch.cos(
+            2 * math.pi * n_lin / self.kernel_size
+        )
 
         # Time axis  (only half is needed due to symmetry)
         n = (self.kernel_size - 1) / 2.0
-        self.n_ = 2 * math.pi * torch.arange(-n, 0).view(1, -1) / self.sample_rate
+        self.n_ = (
+            2 * math.pi * torch.arange(-n, 0).view(1, -1) / self.sample_rate
+        )
 
     def _to_mel(self, hz):
         """Converts frequency in Hz to the mel scale."""
@@ -425,7 +435,9 @@ class Conv1d(nn.Module):
             x = x.unsqueeze(1)
 
         if self.padding == "same":
-            x = self._manage_padding(x, self.kernel_size, self.dilation, self.stride)
+            x = self._manage_padding(
+                x, self.kernel_size, self.dilation, self.stride
+            )
 
         elif self.padding == "causal":
             num_pad = (self.kernel_size - 1) * self.dilation
@@ -436,7 +448,8 @@ class Conv1d(nn.Module):
 
         else:
             raise ValueError(
-                "Padding must be 'same', 'valid' or 'causal'. Got " + self.padding
+                "Padding must be 'same', 'valid' or 'causal'. Got "
+                + self.padding
             )
 
         wx = self.conv(x)
@@ -492,7 +505,9 @@ class Conv1d(nn.Module):
         elif len(shape) == 3:
             in_channels = shape[2]
         else:
-            raise ValueError("conv1d expects 2d, 3d inputs. Got " + str(len(shape)))
+            raise ValueError(
+                "conv1d expects 2d, 3d inputs. Got " + str(len(shape))
+            )
 
         # Kernel size must be odd
         if not self.padding == "valid" and self.kernel_size % 2 == 0:
@@ -656,7 +671,9 @@ class Conv2d(nn.Module):
             x = x.unsqueeze(1)
 
         if self.padding == "same":
-            x = self._manage_padding(x, self.kernel_size, self.dilation, self.stride)
+            x = self._manage_padding(
+                x, self.kernel_size, self.dilation, self.stride
+            )
 
         elif self.padding == "causal":
             num_pad = (self.kernel_size[0] - 1) * self.dilation[1]
@@ -667,7 +684,8 @@ class Conv2d(nn.Module):
 
         else:
             raise ValueError(
-                "Padding must be 'same','valid' or 'causal'. Got " + self.padding
+                "Padding must be 'same','valid' or 'causal'. Got "
+                + self.padding
             )
 
         if self.max_norm is not None:
@@ -716,9 +734,13 @@ class Conv2d(nn.Module):
         L_in = self.in_channels
 
         # Time padding
-        padding_time = get_padding_elem(L_in, stride[-1], kernel_size[-1], dilation[-1])
+        padding_time = get_padding_elem(
+            L_in, stride[-1], kernel_size[-1], dilation[-1]
+        )
 
-        padding_freq = get_padding_elem(L_in, stride[-2], kernel_size[-2], dilation[-2])
+        padding_freq = get_padding_elem(
+            L_in, stride[-2], kernel_size[-2], dilation[-2]
+        )
         padding = padding_time + padding_freq
 
         # Applying padding
@@ -964,7 +986,9 @@ class ConvTranspose1d(nn.Module):
         elif len(shape) == 3:
             in_channels = shape[2]
         else:
-            raise ValueError("conv1d expects 2d, 3d inputs. Got " + str(len(shape)))
+            raise ValueError(
+                "conv1d expects 2d, 3d inputs. Got " + str(len(shape))
+            )
 
         return in_channels
 
@@ -1311,7 +1335,9 @@ class GaborConv1d(nn.Module):
         elif self.padding == "valid":
             pass
         else:
-            raise ValueError("Padding must be 'same' or 'valid'. Got " + self.padding)
+            raise ValueError(
+                "Padding must be 'same' or 'valid'. Got " + self.padding
+            )
 
         output = F.conv1d(
             x, stacked_filters, bias=self.bias, stride=self.stride, padding=0
@@ -1325,15 +1351,21 @@ class GaborConv1d(nn.Module):
         mu_upper = math.pi
         sigma_lower = (
             4
-            * torch.sqrt(2.0 * torch.log(torch.tensor(2.0, device=kernel_data.device)))
+            * torch.sqrt(
+                2.0 * torch.log(torch.tensor(2.0, device=kernel_data.device))
+            )
             / math.pi
         )
         sigma_upper = (
             self.kernel_size
-            * torch.sqrt(2.0 * torch.log(torch.tensor(2.0, device=kernel_data.device)))
+            * torch.sqrt(
+                2.0 * torch.log(torch.tensor(2.0, device=kernel_data.device))
+            )
             / math.pi
         )
-        clipped_mu = torch.clamp(kernel_data[:, 0], mu_lower, mu_upper).unsqueeze(1)
+        clipped_mu = torch.clamp(
+            kernel_data[:, 0], mu_lower, mu_upper
+        ).unsqueeze(1)
         clipped_sigma = torch.clamp(
             kernel_data[:, 1], sigma_lower, sigma_upper
         ).unsqueeze(1)
@@ -1347,7 +1379,9 @@ class GaborConv1d(nn.Module):
             device=kernel.device,
         )
         if not self.use_legacy_complex:
-            return gabor_impulse_response(t, center=kernel[:, 0], fwhm=kernel[:, 1])
+            return gabor_impulse_response(
+                t, center=kernel[:, 0], fwhm=kernel[:, 1]
+            )
         else:
             return gabor_impulse_response_legacy_complex(
                 t, center=kernel[:, 0], fwhm=kernel[:, 1]
@@ -1365,7 +1399,10 @@ class GaborConv1d(nn.Module):
 
             conv_padding = reduce(
                 __add__,
-                [(k // 2 + (k - 2 * (k // 2)) - 1, k // 2) for k in kernel_sizes[::-1]],
+                [
+                    (k // 2 + (k - 2 * (k // 2)) - 1, k // 2)
+                    for k in kernel_sizes[::-1]
+                ],
             )
             return conv_padding
 
@@ -1454,7 +1491,9 @@ def get_padding_elem(L_in: int, stride: int, kernel_size: int, dilation: int):
         padding = [math.floor(kernel_size / 2), math.floor(kernel_size / 2)]
 
     else:
-        L_out = math.floor((L_in - dilation * (kernel_size - 1) - 1) / stride) + 1
+        L_out = (
+            math.floor((L_in - dilation * (kernel_size - 1) - 1) / stride) + 1
+        )
         padding = [
             math.floor((L_in - L_out) / 2),
             math.floor((L_in - L_out) / 2),
@@ -1488,6 +1527,10 @@ def get_padding_elem_transposed(
     """
 
     padding = -0.5 * (
-        L_out - (L_in - 1) * stride - dilation * (kernel_size - 1) - output_padding - 1
+        L_out
+        - (L_in - 1) * stride
+        - dilation * (kernel_size - 1)
+        - output_padding
+        - 1
     )
     return int(padding)

@@ -93,7 +93,9 @@ def build_audio(is_clean, params, index, audio_samples_length=-1):
         input_audio = batch["sig"].numpy()
 
         if input_audio is None:
-            sys.stderr.write("\nWARNING: Cannot read file: %s\n" % batch["__key__"])
+            sys.stderr.write(
+                "\nWARNING: Cannot read file: %s\n" % batch["__key__"]
+            )
             continue
         if fs_input != fs_output:
             input_audio = librosa.resample(
@@ -216,7 +218,9 @@ def main_gen(params):
 
     while file_num <= params["fileindex_end"]:
         print(
-            "\rFiles synthesized {:4d}/{:4d}".format(file_num, params["fileindex_end"]),
+            "\rFiles synthesized {:4d}/{:4d}".format(
+                file_num, params["fileindex_end"]
+            ),
             end="",
         )
         # CLEAN SPEECH GENERATION
@@ -273,7 +277,11 @@ def main_gen(params):
         #                                                          noise=noise,
         #                                                         snr=snr)
         # unexpected clipping
-        if is_clipped(clean_snr) or is_clipped(noise_snr) or is_clipped(noisy_snr):
+        if (
+            is_clipped(clean_snr)
+            or is_clipped(noise_snr)
+            or is_clipped(noisy_snr)
+        ):
             print(
                 "\nWarning: File #"
                 + str(file_num)
@@ -287,10 +295,18 @@ def main_gen(params):
 
         # write resultant audio streams to files
         hyphen = "-"
-        clean_source_filenamesonly = [i[:-4].split(os.path.sep)[-1] for i in clean_sf]
-        clean_files_joined = hyphen.join(clean_source_filenamesonly)[:MAXFILELEN]
-        noise_source_filenamesonly = [i[:-4].split(os.path.sep)[-1] for i in noise_sf]
-        noise_files_joined = hyphen.join(noise_source_filenamesonly)[:MAXFILELEN]
+        clean_source_filenamesonly = [
+            i[:-4].split(os.path.sep)[-1] for i in clean_sf
+        ]
+        clean_files_joined = hyphen.join(clean_source_filenamesonly)[
+            :MAXFILELEN
+        ]
+        noise_source_filenamesonly = [
+            i[:-4].split(os.path.sep)[-1] for i in noise_sf
+        ]
+        noise_files_joined = hyphen.join(noise_source_filenamesonly)[
+            :MAXFILELEN
+        ]
 
         noisyfilename = (
             clean_files_joined
@@ -427,7 +443,10 @@ def main_body():  # noqa
     params["rir_table_csv"] = str(hparams["rir_table_csv"])
 
     # File Indexing
-    if hparams["fileindex_start"] != "None" and hparams["fileindex_end"] != "None":
+    if (
+        hparams["fileindex_start"] != "None"
+        and hparams["fileindex_end"] != "None"
+    ):
         params["num_files"] = int(hparams["fileindex_end"]) - int(
             params["fileindex_start"]
         )
@@ -444,8 +463,12 @@ def main_body():  # noqa
 
     # Data Generation and Synthesis Settings
     params["is_test_set"] = utils.str2bool(str(hparams["is_test_set"]))
-    params["clean_activity_threshold"] = float(hparams["clean_activity_threshold"])
-    params["noise_activity_threshold"] = float(hparams["noise_activity_threshold"])
+    params["clean_activity_threshold"] = float(
+        hparams["clean_activity_threshold"]
+    )
+    params["noise_activity_threshold"] = float(
+        hparams["noise_activity_threshold"]
+    )
     params["snr_lower"] = int(hparams["snr_lower"])
     params["snr_upper"] = int(hparams["snr_upper"])
     params["randomize_snr"] = utils.str2bool(str(hparams["randomize_snr"]))
@@ -652,8 +675,12 @@ def main_body():  # noqa
     )
     pct_clean_clipped = round(len(clean_clipped_files) / total_clean * 100, 1)
     pct_noise_clipped = round(len(noise_clipped_files) / total_noise * 100, 1)
-    pct_clean_low_activity = round(len(clean_low_activity_files) / total_clean * 100, 1)
-    pct_noise_low_activity = round(len(noise_low_activity_files) / total_noise * 100, 1)
+    pct_clean_low_activity = round(
+        len(clean_low_activity_files) / total_clean * 100, 1
+    )
+    pct_noise_low_activity = round(
+        len(noise_low_activity_files) / total_noise * 100, 1
+    )
 
     print(
         "\nOf the "

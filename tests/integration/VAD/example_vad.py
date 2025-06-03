@@ -39,7 +39,9 @@ class VADBrain(sb.Brain):
         )
 
         # compute metrics
-        self.binary_metrics.append(batch.id, torch.sigmoid(predictions), targets)
+        self.binary_metrics.append(
+            batch.id, torch.sigmoid(predictions), targets
+        )
 
         return loss
 
@@ -111,6 +113,7 @@ def data_prep(data_folder, hparams):
 
 
 def main(device="cpu"):
+
     experiment_dir = os.path.dirname(os.path.abspath(__file__))
     hparams_file = os.path.join(experiment_dir, "hyperparams.yaml")
     data_folder = "/../../samples/VAD"

@@ -195,7 +195,9 @@ def prepare_esc50(
     metadata = load_data_csv(esc50_speechbrain_metadata_csv_path)
 
     # List files and create manifest from list
-    logger.info(f"Creating {save_json_train}, {save_json_valid}, and {save_json_test}")
+    logger.info(
+        f"Creating {save_json_train}, {save_json_valid}, and {save_json_test}"
+    )
 
     # Creating json files
     create_json(metadata, audio_data_folder, train_fold_nums, save_json_train)
@@ -359,7 +361,9 @@ def create_metadata_speechbrain_file(data_folder):
     esc50_metadata_df["ID"] = esc50_metadata_df.apply(
         lambda row: removesuffix(row["filename"], ".wav"), axis=1
     )
-    esc50_metadata_df = esc50_metadata_df.rename(columns={"category": "class_string"})
+    esc50_metadata_df = esc50_metadata_df.rename(
+        columns={"category": "class_string"}
+    )
 
     esc50_speechbrain_metadata_csv_path = os.path.join(
         os.path.abspath(data_folder), "meta/", MODIFIED_METADATA_FILE_NAME
@@ -394,7 +398,9 @@ def dataio_prep(hparams):
     data_audio_folder = hparams["audio_data_folder"]
     config_sample_rate = hparams["sample_rate"]
     label_encoder = sb.dataio.encoder.CategoricalEncoder()
-    hparams["resampler"] = torchaudio.transforms.Resample(new_freq=config_sample_rate)
+    hparams["resampler"] = torchaudio.transforms.Resample(
+        new_freq=config_sample_rate
+    )
 
     # 2. Define audio pipeline:
     @sb.utils.data_pipeline.takes("wav")

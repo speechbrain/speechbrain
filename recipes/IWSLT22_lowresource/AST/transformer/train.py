@@ -70,7 +70,9 @@ class ST(sb.core.Brain):
 
         if stage != sb.Stage.TRAIN:
             predictions = [
-                fr_detokenizer.detokenize(tokenizer.sp.decode_ids(utt_seq).split(" "))
+                fr_detokenizer.detokenize(
+                    tokenizer.sp.decode_ids(utt_seq).split(" ")
+                )
                 for utt_seq in hyps
             ]
 
@@ -106,7 +108,9 @@ class ST(sb.core.Brain):
         """Freezes the wav2vec2 optimizer according to the warmup steps"""
         valid_optimizers = {}
         if not self.hparams.wav2vec2_frozen:
-            valid_optimizers["wav2vec_optimizer"] = optimizers["wav2vec_optimizer"]
+            valid_optimizers["wav2vec_optimizer"] = optimizers[
+                "wav2vec_optimizer"
+            ]
         valid_optimizers["model_optimizer"] = optimizers["model_optimizer"]
         return valid_optimizers
 
@@ -137,7 +141,9 @@ class ST(sb.core.Brain):
             old_lr_adam, new_lr_adam = self.hparams.lr_annealing_adam(
                 stage_stats["BLEU"]
             )
-            sb.nnet.schedulers.update_learning_rate(self.adam_optimizer, new_lr_adam)
+            sb.nnet.schedulers.update_learning_rate(
+                self.adam_optimizer, new_lr_adam
+            )
 
             if not self.hparams.wav2vec2_frozen:
                 (
@@ -207,7 +213,9 @@ def dataio_prepare(hparams):
     # encode it using the tokenizer. The tokens with BOS are used for feeding
     # decoder during training, the tokens with EOS for computing the cost function.
     @sb.utils.data_pipeline.takes("trans")
-    @sb.utils.data_pipeline.provides("trans", "tokens_list", "tokens_bos", "tokens_eos")
+    @sb.utils.data_pipeline.provides(
+        "trans", "tokens_list", "tokens_bos", "tokens_eos"
+    )
     def reference_text_pipeline(translation):
         """Processes the transcriptions to generate proper labels"""
         yield translation
@@ -290,8 +298,12 @@ def dataio_prepare(hparams):
                 reverse=True,
             )
         else:
-            datasets["train"] = datasets["train"].filtered_sorted(sort_key="duration")
-            datasets["valid"] = datasets["valid"].filtered_sorted(sort_key="duration")
+            datasets["train"] = datasets["train"].filtered_sorted(
+                sort_key="duration"
+            )
+            datasets["valid"] = datasets["valid"].filtered_sorted(
+                sort_key="duration"
+            )
 
         hparams["dataloader_options"]["shuffle"] = False
         hparams["dataloader_options"]["shuffle"] = False
@@ -336,7 +348,9 @@ def dataio_prepare(hparams):
 
         hparams["dataloader_options"]["shuffle"] = True
     else:
-        raise NotImplementedError("sorting must be random, ascending or descending")
+        raise NotImplementedError(
+            "sorting must be random, ascending or descending"
+        )
 
     return datasets, tokenizer
 
@@ -385,7 +399,9 @@ if __name__ == "__main__":
 
     # Before training, we drop some of the wav2vec 2.0 Transformer Encoder layers
     st_brain.modules.wav2vec2.model.encoder.layers = (
-        st_brain.modules.wav2vec2.model.encoder.layers[: hparams["keep_n_layers"]]
+        st_brain.modules.wav2vec2.model.encoder.layers[
+            : hparams["keep_n_layers"]
+        ]
     )
 
     # Training

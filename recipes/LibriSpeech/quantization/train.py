@@ -187,7 +187,9 @@ def dataio_prepare(hparams):
         )
         yield sig
 
-    sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline, takes, provides)
+    sb.dataio.dataset.add_dynamic_item(
+        datasets, audio_pipeline, takes, provides
+    )
 
     # Set output
     sb.dataio.dataset.set_output_keys(datasets, ["id"] + provides)

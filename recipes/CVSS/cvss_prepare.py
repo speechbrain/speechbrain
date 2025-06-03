@@ -223,7 +223,9 @@ def prepare_json(
         )
     )
 
-    limit_to_n_sample = len(tgt_meta) if not limit_to_n_sample else limit_to_n_sample
+    limit_to_n_sample = (
+        len(tgt_meta) if not limit_to_n_sample else limit_to_n_sample
+    )
 
     for i in tqdm.tqdm(range(limit_to_n_sample)):
         session_id = tgt_meta[i][0].split(".")[0]

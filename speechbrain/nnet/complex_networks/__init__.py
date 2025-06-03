@@ -1,1 +1,2 @@
-"""Package containing complex neural networks"""
+"""Package containing complex neural networks
+"""

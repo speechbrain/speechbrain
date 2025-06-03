@@ -82,7 +82,9 @@ class RNNLM(nn.Module):
         self.return_hidden = return_hidden
         self.reshape = False
 
-        self.dnn = sb.nnet.containers.Sequential(input_shape=[None, None, rnn_neurons])
+        self.dnn = sb.nnet.containers.Sequential(
+            input_shape=[None, None, rnn_neurons]
+        )
         for block_index in range(dnn_blocks):
             self.dnn.append(
                 sb.nnet.linear.Linear,

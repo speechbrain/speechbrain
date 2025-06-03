@@ -55,7 +55,9 @@ class MiniBatchKMeansSklearn(torch.nn.Module):
         super().__init__()
         self.kmeans = MiniBatchKMeans(*args, **kwargs)
         self.device = torch.device("cpu")
-        self.register_buffer("cluster_centers", self.cluster_centers_, persistent=False)
+        self.register_buffer(
+            "cluster_centers", self.cluster_centers_, persistent=False
+        )
 
     def to(self, device=None, **kwargs):
         """See documentation of `torch.nn.Module.to`."""
@@ -168,7 +170,9 @@ class MiniBatchKMeansSklearn(torch.nn.Module):
         """
         if hasattr(self.kmeans, "cluster_centers_"):
             cluster_centers = self.kmeans.cluster_centers_
-            cluster_centers = torch.tensor(cluster_centers, device=self.device).float()
+            cluster_centers = torch.tensor(
+                cluster_centers, device=self.device
+            ).float()
         else:
             cluster_centers = torch.tensor(0.0, device=self.device)
         return cluster_centers

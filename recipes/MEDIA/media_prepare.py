@@ -139,7 +139,9 @@ def prepare_media(
             data_folder + "/E0024/MEDIA1FR_00/MEDIA1FR/DATA/" + xml,
             0,
         )
-        data = parse(root, channels, filenames, save_folder, method, task, xmls[xml])
+        data = parse(
+            root, channels, filenames, save_folder, method, task, xmls[xml]
+        )
         if xmls[xml] == "train":
             train_data.extend(data)
         elif xmls[xml] == "dev":
@@ -256,7 +258,9 @@ def parse(root, channels, filenames, save_folder, method, task, corpus):
                 time_beg = turn.getAttribute("startTime")
                 time_end = turn.getAttribute("endTime")
 
-                sentences = parse_sentences(turn, time_beg, time_end, method, task)
+                sentences = parse_sentences(
+                    turn, time_beg, time_end, method, task
+                )
 
                 data.append([channel, filename, speaker_name, sentences])
 
@@ -328,7 +332,10 @@ def parse_test2(
                 task,
             )
 
-            if filename == "70" and sentences[len(sentences) - 1][3] == "344.408":
+            if (
+                filename == "70"
+                and sentences[len(sentences) - 1][3] == "344.408"
+            ):
                 sentences[len(sentences) - 1][3] = "321.000"
 
             data.append([channel, filename, speaker_name, sentences])
@@ -453,7 +460,8 @@ def parse_sentences(turn, time_beg, time_end, method, task):
                         # Check transcription
                         if (
                             node.nodeType == node.TEXT_NODE
-                            and node.data.replace("\n", "").replace(" ", "") != ""
+                            and node.data.replace("\n", "").replace(" ", "")
+                            != ""
                         ):
                             (
                                 sentences,
@@ -557,10 +565,15 @@ def parse_sentences_test2(
         if task == "slu" and node.nodeName == "SemDebut":
             concept = node.getAttribute("concept")
             if method == "relax":
-                concept = get_concept_relax(concept, concepts_full, concepts_relax)
+                concept = get_concept_relax(
+                    concept, concepts_full, concepts_relax
+                )
 
         # Check transcription
-        if node.nodeType == node.TEXT_NODE and node.data.replace("\n", "") != "":
+        if (
+            node.nodeType == node.TEXT_NODE
+            and node.data.replace("\n", "") != ""
+        ):
             (
                 sentences,
                 has_speech,

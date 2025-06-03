@@ -106,7 +106,9 @@ class ASR_Brain(sb.Brain):
                 test_stats={"loss": stage_loss, "PER": per},
             )
             if if_main_process():
-                with open(self.hparams.test_wer_file, "w", encoding="utf-8") as w:
+                with open(
+                    self.hparams.test_wer_file, "w", encoding="utf-8"
+                ) as w:
                     w.write("CTC loss stats:\n")
                     self.ctc_metrics.write_stats(w)
                     w.write("\nPER stats:\n")
@@ -135,7 +137,9 @@ def dataio_prep(hparams):
         hparams["train_dataloader_opts"]["shuffle"] = False
 
     elif hparams["sorting"] == "descending":
-        train_data = train_data.filtered_sorted(sort_key="duration", reverse=True)
+        train_data = train_data.filtered_sorted(
+            sort_key="duration", reverse=True
+        )
         # when sorting do not shuffle in dataloader ! otherwise is pointless
         hparams["train_dataloader_opts"]["shuffle"] = False
 
@@ -143,7 +147,9 @@ def dataio_prep(hparams):
         pass
 
     else:
-        raise NotImplementedError("sorting must be random, ascending or descending")
+        raise NotImplementedError(
+            "sorting must be random, ascending or descending"
+        )
 
     valid_data = sb.dataio.dataset.DynamicItemDataset.from_json(
         json_path=hparams["valid_annotation"],

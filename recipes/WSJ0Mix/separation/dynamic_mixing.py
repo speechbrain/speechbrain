@@ -67,7 +67,9 @@ def get_wham_noise_filenames(hparams):
         else:
             raise ValueError("Unsupported Sampling Rate")
 
-    noise_files = glob.glob(os.path.join(hparams["data_folder"], noise_path, "*.wav"))
+    noise_files = glob.glob(
+        os.path.join(hparams["data_folder"], noise_path, "*.wav")
+    )
     return noise_files
 
 
@@ -120,7 +122,8 @@ def dynamic_mix_data_prep(hparams):
         first_lvl = None
 
         spk_files = [
-            np.random.choice(spk_hashtable[spk], 1, False)[0] for spk in speakers
+            np.random.choice(spk_hashtable[spk], 1, False)[0]
+            for spk in speakers
         ]
 
         minlen = min(
@@ -150,7 +153,9 @@ def dynamic_mix_data_prep(hparams):
                 # assert not torch.all(torch.isnan(tmp))
                 first_lvl = gain
             else:
-                gain = np.clip(first_lvl + random.normalvariate(-2.51, 2.66), -45, 0)
+                gain = np.clip(
+                    first_lvl + random.normalvariate(-2.51, 2.66), -45, 0
+                )
                 tmp = rescale(tmp, torch.tensor(len(tmp)), gain, scale="dB")
                 # assert not torch.all(torch.isnan(tmp))
             sources.append(tmp)

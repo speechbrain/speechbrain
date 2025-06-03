@@ -180,7 +180,9 @@ class QLSTM(torch.nn.Module):
         h = []
         if hx is not None:
             if self.bidirectional:
-                hx = hx.reshape(self.num_layers, self.batch_size * 2, self.hidden_size)
+                hx = hx.reshape(
+                    self.num_layers, self.batch_size * 2, self.hidden_size
+                )
 
         # Processing the different layers
         for i, rnn_lay in enumerate(self.rnn):
@@ -380,7 +382,9 @@ class QLSTM_Layer(torch.nn.Module):
             ot = torch.sigmoid(torch.cat([otr, oti, otj, otk], dim=-1))
 
             ct = (
-                it * torch.tanh(torch.cat([ctr, cti, ctj, ctk], dim=-1)) * drop_mask
+                it
+                * torch.tanh(torch.cat([ctr, cti, ctj, ctk], dim=-1))
+                * drop_mask
                 + ft * ct
             )
             ht = ot * torch.tanh(ct)
@@ -411,7 +415,9 @@ class QLSTM_Layer(torch.nn.Module):
             if self.drop_mask_cnt + self.batch_size > self.N_drop_masks:
                 self.drop_mask_cnt = 0
                 self.drop_masks = self.drop(
-                    torch.ones(self.N_drop_masks, self.hidden_size * 4, device=w.device)
+                    torch.ones(
+                        self.N_drop_masks, self.hidden_size * 4, device=w.device
+                    )
                 ).data
 
             # Sampling the mask
@@ -437,7 +443,9 @@ class QLSTM_Layer(torch.nn.Module):
 
             if self.training:
                 self.drop_masks = self.drop(
-                    torch.ones(self.N_drop_masks, self.hidden_size * 4, device=x.device)
+                    torch.ones(
+                        self.N_drop_masks, self.hidden_size * 4, device=x.device
+                    )
                 ).data
 
 
@@ -608,7 +616,9 @@ class QRNN(torch.nn.Module):
         h = []
         if hx is not None:
             if self.bidirectional:
-                hx = hx.reshape(self.num_layers, self.batch_size * 2, self.hidden_size)
+                hx = hx.reshape(
+                    self.num_layers, self.batch_size * 2, self.hidden_size
+                )
 
         # Processing the different layers
         for i, rnn_lay in enumerate(self.rnn):
@@ -820,7 +830,9 @@ class QRNN_Layer(torch.nn.Module):
             if self.drop_mask_cnt + self.batch_size > self.N_drop_masks:
                 self.drop_mask_cnt = 0
                 self.drop_masks = self.drop(
-                    torch.ones(self.N_drop_masks, self.hidden_size * 4, device=w.device)
+                    torch.ones(
+                        self.N_drop_masks, self.hidden_size * 4, device=w.device
+                    )
                 ).data
 
             # Sampling the mask
@@ -846,7 +858,9 @@ class QRNN_Layer(torch.nn.Module):
 
             if self.training:
                 self.drop_masks = self.drop(
-                    torch.ones(self.N_drop_masks, self.hidden_size * 2, device=x.device)
+                    torch.ones(
+                        self.N_drop_masks, self.hidden_size * 2, device=x.device
+                    )
                 ).data
 
 
@@ -1023,7 +1037,9 @@ class QLiGRU(torch.nn.Module):
         h = []
         if hx is not None:
             if self.bidirectional:
-                hx = hx.reshape(self.num_layers, self.batch_size * 2, self.hidden_size)
+                hx = hx.reshape(
+                    self.num_layers, self.batch_size * 2, self.hidden_size
+                )
         # Processing the different layers
         for i, ligru_lay in enumerate(self.rnn):
             if hx is not None:
@@ -1262,7 +1278,9 @@ class QLiGRU_Layer(torch.nn.Module):
             if self.drop_mask_cnt + self.batch_size > self.N_drop_masks:
                 self.drop_mask_cnt = 0
                 self.drop_masks = self.drop(
-                    torch.ones(self.N_drop_masks, self.hidden_size * 4, device=w.device)
+                    torch.ones(
+                        self.N_drop_masks, self.hidden_size * 4, device=w.device
+                    )
                 ).data
 
             # Sampling the mask
@@ -1289,5 +1307,7 @@ class QLiGRU_Layer(torch.nn.Module):
 
             if self.training:
                 self.drop_masks = self.drop(
-                    torch.ones(self.N_drop_masks, self.hidden_size * 4, device=x.device)
+                    torch.ones(
+                        self.N_drop_masks, self.hidden_size * 4, device=x.device
+                    )
                 ).data

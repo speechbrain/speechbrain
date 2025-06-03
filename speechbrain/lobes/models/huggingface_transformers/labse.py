@@ -86,7 +86,9 @@ class LaBSE(HFTransformersInterface):
                 )
                 # Set the right device for the input.
                 for key in input_texts.keys():
-                    input_texts[key] = input_texts[key].to(device=self.model.device)
+                    input_texts[key] = input_texts[key].to(
+                        device=self.model.device
+                    )
                     input_texts[key].requires_grad = False
 
                 embeddings = self.model(**input_texts).pooler_output
@@ -98,7 +100,9 @@ class LaBSE(HFTransformersInterface):
                 return embeddings
 
         # Tokenize the input text before feeding to LaBSE model.
-        input_texts = self.tokenizer(input_texts, return_tensors="pt", padding=True)
+        input_texts = self.tokenizer(
+            input_texts, return_tensors="pt", padding=True
+        )
         # Set the right device for the input.
         for key in input_texts.keys():
             input_texts[key] = input_texts[key].to(device=self.model.device)

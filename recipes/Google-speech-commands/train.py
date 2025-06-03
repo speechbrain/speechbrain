@@ -15,7 +15,6 @@ Author
     * Sarthak Yadav 2022
     Script adapted by David Raby-Pepin 2021
 """
-
 import os
 import sys
 
@@ -43,7 +42,9 @@ class SpeakerBrain(sb.core.Brain):
         if stage == sb.Stage.TRAIN and hasattr(self.hparams, "wav_augment"):
             wavs, lens = self.hparams.wav_augment(wavs, lens)
 
-        if isinstance(self.modules.compute_features, speechbrain.lobes.features.Leaf):
+        if isinstance(
+            self.modules.compute_features, speechbrain.lobes.features.Leaf
+        ):
             # if leaf, first normalize the wavs before feeding them to leaf
             # no normalization is needed after LEAF
             feats = self.modules.mean_var_norm(wavs, lens)
@@ -153,7 +154,9 @@ def dataio_prep(hparams):
         start = int(start)
         stop = int(stop)
         num_frames = stop - start
-        sig, fs = torchaudio.load(wav, num_frames=num_frames, frame_offset=start)
+        sig, fs = torchaudio.load(
+            wav, num_frames=num_frames, frame_offset=start
+        )
         sig = sig.transpose(0, 1).squeeze(1)
         return sig
 
@@ -179,7 +182,9 @@ def dataio_prep(hparams):
     )
 
     # 4. Set output:
-    sb.dataio.dataset.set_output_keys(datasets, ["id", "sig", "command_encoded"])
+    sb.dataio.dataset.set_output_keys(
+        datasets, ["id", "sig", "command_encoded"]
+    )
 
     return train_data, valid_data, test_data, label_encoder
 

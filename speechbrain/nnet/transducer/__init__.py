@@ -1,1 +1,2 @@
-"""Package containing transducer neural networks"""
+"""Package containing transducer neural networks
+"""

@@ -26,7 +26,9 @@ def test_data_pipeline():
     from unittest.mock import MagicMock, Mock
 
     watcher = Mock()
-    pipeline.add_dynamic_item(provides="foobar", func=watcher, takes=["foo", "bar"])
+    pipeline.add_dynamic_item(
+        provides="foobar", func=watcher, takes=["foo", "bar"]
+    )
     result = pipeline({"foo": 1, "bar": 2})
     assert not watcher.called
     pipeline = DataPipeline(["foo", "bar"])
@@ -39,8 +41,12 @@ def test_data_pipeline():
     assert result["truebar"] == 3
     pipeline = DataPipeline(["foo", "bar"])
     watcher = MagicMock(return_value=3)
-    pipeline.add_dynamic_item(func=watcher, takes=["foo", "bar"], provides="foobar")
-    pipeline.add_dynamic_item(func=lambda x: x, takes=["foo"], provides="truebar")
+    pipeline.add_dynamic_item(
+        func=watcher, takes=["foo", "bar"], provides="foobar"
+    )
+    pipeline.add_dynamic_item(
+        func=lambda x: x, takes=["foo"], provides="truebar"
+    )
     pipeline.set_output_keys(("truebar",))
     result = pipeline({"foo": 1, "bar": 2})
     assert not watcher.called
@@ -48,7 +54,9 @@ def test_data_pipeline():
 
     pipeline = DataPipeline(["foo", "bar"])
     watcher = MagicMock(return_value=3)
-    pipeline.add_dynamic_item(func=watcher, takes=["foo", "bar"], provides="foobar")
+    pipeline.add_dynamic_item(
+        func=watcher, takes=["foo", "bar"], provides="foobar"
+    )
     pipeline.set_output_keys(("foobar", "foo"))
     result = pipeline({"foo": 1, "bar": 2})
     assert watcher.called
@@ -125,7 +133,9 @@ def test_MIMO_pipeline():
     result = pipeline({"text": "abc", "other-text": "def"})
     assert result["reversed"] == "cba"
     assert result["reversed_twice"] == "abc"
-    result = pipeline.compute_specific(["concat"], {"text": "abc", "other-text": "def"})
+    result = pipeline.compute_specific(
+        ["concat"], {"text": "abc", "other-text": "def"}
+    )
     assert result["concat"] == "abcdef"
     result = pipeline.compute_specific(
         ["double_concat"], {"text": "abc", "other-text": "def"}
@@ -136,7 +146,9 @@ def test_MIMO_pipeline():
     # Add messenger but not provider, so "hello-world" is unaccounted for:
     pipeline.add_dynamic_item(messenger)
     with pytest.raises(RuntimeError):
-        pipeline.compute_specific(["message"], {"text": "abc", "other-text": "def"})
+        pipeline.compute_specific(
+            ["message"], {"text": "abc", "other-text": "def"}
+        )
     # Now add provider, so that the unaccounted for hello-world key gets accounted for.
     pipeline.add_dynamic_item(provider)
     result = pipeline.compute_specific(

@@ -73,7 +73,8 @@ def dynamic_mix_data_prep(hparams):
         first_lvl = None
 
         spk_files = [
-            np.random.choice(spk_hashtable[spk], 1, False)[0] for spk in speakers
+            np.random.choice(spk_hashtable[spk], 1, False)[0]
+            for spk in speakers
         ]
 
         minlen = min(
@@ -104,12 +105,16 @@ def dynamic_mix_data_prep(hparams):
                 # assert not torch.all(torch.isnan(tmp))
                 first_lvl = gain
             else:
-                gain = np.clip(first_lvl + random.normalvariate(-2.51, 2.66), -45, 0)
+                gain = np.clip(
+                    first_lvl + random.normalvariate(-2.51, 2.66), -45, 0
+                )
                 tmp = rescale(tmp, torch.tensor(len(tmp)), gain, scale="dB")
 
             if "reverb" in hparams["experiment_name"]:
                 tmp = torch.stack((tmp, tmp), 1)
-                reverb_time = np.random.choice(["0_1s", "0_2s", "0_4s", "0_7s", "0_8s"])
+                reverb_time = np.random.choice(
+                    ["0_1s", "0_2s", "0_4s", "0_7s", "0_8s"]
+                )
                 azimuth = np.random.choice(list(range(-90, 91, 5)))
                 hrtf_file = os.path.join(
                     hparams["hrtf_wav_path"],
@@ -128,7 +133,9 @@ def dynamic_mix_data_prep(hparams):
                     os.path.join(hparams["hrtf_wav_path"], "subject*")
                 )
                 subject_path = np.random.choice(subject_path_list)
-                azimuth_list = [-80, -65, -55] + list(range(-45, 46, 5)) + [55, 65, 80]
+                azimuth_list = (
+                    [-80, -65, -55] + list(range(-45, 46, 5)) + [55, 65, 80]
+                )
                 azimuth = np.random.choice(azimuth_list)
 
                 for i, loc in enumerate(["left", "right"]):
@@ -146,7 +153,9 @@ def dynamic_mix_data_prep(hparams):
                     )
 
             # Make relative source energy same with original
-            spatial_scaling = torch.sqrt(torch.sum(tmp**2) * 2 / torch.sum(tmp_bi**2))
+            spatial_scaling = torch.sqrt(
+                torch.sum(tmp**2) * 2 / torch.sum(tmp_bi**2)
+            )
             sources.append(tmp_bi * spatial_scaling)
 
         # we mix the sources together
@@ -168,7 +177,10 @@ def dynamic_mix_data_prep(hparams):
 
         max_amp = max(
             torch.abs(mixture).max().item(),
-            *[x.item() for x in torch.abs(sources).max(dim=-1)[0].max(dim=-1)[0]],
+            *[
+                x.item()
+                for x in torch.abs(sources).max(dim=-1)[0].max(dim=-1)[0]
+            ],
         )
         mix_scaling = 1 / max_amp * 0.9
         sources = mix_scaling * sources

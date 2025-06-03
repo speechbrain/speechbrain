@@ -54,7 +54,9 @@ def find_urls_in_file(path, line_exclude_regex):
 
     lines = text.split("\n")
     if line_exclude_regex is not None:
-        lines = [line for line in lines if not re.search(line_exclude_regex, line)]
+        lines = [
+            line for line in lines if not re.search(line_exclude_regex, line)
+        ]
     text = "\n".join(lines)
 
     # Set up Regex for URL detection
@@ -190,7 +192,9 @@ def check_links(
     print(f"Unfiltered file count: {len(file_lst)}")
 
     if file_match_regex is not None:
-        file_lst = [path for path in file_lst if re.search(file_match_regex, path)]
+        file_lst = [
+            path for path in file_lst if re.search(file_match_regex, path)
+        ]
         print(f"Filtered file count: {len(file_lst)}")
 
     # Get urls for the list of files - unique list
@@ -204,8 +208,11 @@ def check_links(
     # Check all the urls
     for url, err in zip(
         all_urls.keys(),
-        parallel_map(check_url, list(all_urls.keys()), chunk_size=1, process_count=8),
+        parallel_map(
+            check_url, list(all_urls.keys()), chunk_size=1, process_count=8
+        ),
     ):
+
         if err is not None:
             print(f"WARNING: {url} is DOWN! got {err}")
             for path in all_urls[url]:

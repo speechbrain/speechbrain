@@ -179,7 +179,9 @@ class CLSTM(torch.nn.Module):
         h = []
         if hx is not None:
             if self.bidirectional:
-                hx = hx.reshape(self.num_layers, self.batch_size * 2, self.hidden_size)
+                hx = hx.reshape(
+                    self.num_layers, self.batch_size * 2, self.hidden_size
+                )
 
         # Processing the different layers
         for i, rnn_lay in enumerate(self.rnn):
@@ -352,7 +354,10 @@ class CLSTM_Layer(torch.nn.Module):
             ft = torch.sigmoid(torch.cat([ftr, fti], dim=-1))
             ot = torch.sigmoid(torch.cat([otr, oti], dim=-1))
 
-            ct = it * torch.tanh(torch.cat([ctr, cti], dim=-1)) * drop_mask + ft * ct
+            ct = (
+                it * torch.tanh(torch.cat([ctr, cti], dim=-1)) * drop_mask
+                + ft * ct
+            )
             ht = ot * torch.tanh(ct)
             hiddens.append(ht)
 
@@ -384,7 +389,9 @@ class CLSTM_Layer(torch.nn.Module):
             if self.drop_mask_cnt + self.batch_size > self.N_drop_masks:
                 self.drop_mask_cnt = 0
                 self.drop_masks = self.drop(
-                    torch.ones(self.N_drop_masks, self.hidden_size * 2, device=w.device)
+                    torch.ones(
+                        self.N_drop_masks, self.hidden_size * 2, device=w.device
+                    )
                 ).data
 
             # Sampling the mask
@@ -584,7 +591,9 @@ class CRNN(torch.nn.Module):
         h = []
         if hx is not None:
             if self.bidirectional:
-                hx = hx.reshape(self.num_layers, self.batch_size * 2, self.hidden_size)
+                hx = hx.reshape(
+                    self.num_layers, self.batch_size * 2, self.hidden_size
+                )
 
         # Processing the different layers
         for i, rnn_lay in enumerate(self.rnn):
@@ -789,7 +798,9 @@ class CRNN_Layer(torch.nn.Module):
             if self.drop_mask_cnt + self.batch_size > self.N_drop_masks:
                 self.drop_mask_cnt = 0
                 self.drop_masks = self.drop(
-                    torch.ones(self.N_drop_masks, self.hidden_size * 2, device=w.device)
+                    torch.ones(
+                        self.N_drop_masks, self.hidden_size * 2, device=w.device
+                    )
                 ).data
 
             # Sampling the mask
@@ -1004,7 +1015,9 @@ class CLiGRU(torch.nn.Module):
         h = []
         if hx is not None:
             if self.bidirectional:
-                hx = hx.reshape(self.num_layers, self.batch_size * 2, self.hidden_size)
+                hx = hx.reshape(
+                    self.num_layers, self.batch_size * 2, self.hidden_size
+                )
         # Processing the different layers
         for i, ligru_lay in enumerate(self.rnn):
             if hx is not None:
@@ -1108,7 +1121,9 @@ class CLiGRU_Layer(torch.nn.Module):
         self.normalize = False
 
         if self.normalization == "batchnorm":
-            self.norm = CBatchNorm(input_size=hidden_size * 2, dim=-1, momentum=0.05)
+            self.norm = CBatchNorm(
+                input_size=hidden_size * 2, dim=-1, momentum=0.05
+            )
             self.normalize = True
 
         elif self.normalization == "layernorm":
@@ -1242,7 +1257,9 @@ class CLiGRU_Layer(torch.nn.Module):
             if self.drop_mask_cnt + self.batch_size > self.N_drop_masks:
                 self.drop_mask_cnt = 0
                 self.drop_masks = self.drop(
-                    torch.ones(self.N_drop_masks, self.hidden_size * 2, device=w.device)
+                    torch.ones(
+                        self.N_drop_masks, self.hidden_size * 2, device=w.device
+                    )
                 ).data
 
             # Sampling the mask

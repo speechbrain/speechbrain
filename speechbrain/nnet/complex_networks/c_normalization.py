@@ -210,11 +210,15 @@ class CBatchNorm(torch.nn.Module):
         # We compute the mean for each component
         if self.scale:
             Vrr = (
-                multi_mean(centred_squared_real, axes=reduction_axes, keepdim=True)
+                multi_mean(
+                    centred_squared_real, axes=reduction_axes, keepdim=True
+                )
                 + self.eps
             )
             Vii = (
-                multi_mean(centred_squared_imag, axes=reduction_axes, keepdim=True)
+                multi_mean(
+                    centred_squared_imag, axes=reduction_axes, keepdim=True
+                )
                 + self.eps
             )
 
@@ -306,7 +310,9 @@ class CBatchNorm(torch.nn.Module):
             tensor_real = tensor[:, :, :, :input_dim]
             tensor_imag = tensor[:, :, :, input_dim:]
         else:
-            msg = "Retrieve_real_imag expects 2d to 4d inputs. Got " + str(len(tensor))
+            msg = "Retrieve_real_imag expects 2d to 4d inputs. Got " + str(
+                len(tensor)
+            )
             raise ValueError(msg)
 
         return tensor_real, tensor_imag
@@ -444,11 +450,15 @@ class CLayerNorm(torch.nn.Module):
 
         if self.scale:
             Vrr = (
-                multi_mean(centred_squared_real, axes=reduction_axes, keepdim=True)
+                multi_mean(
+                    centred_squared_real, axes=reduction_axes, keepdim=True
+                )
                 + self.eps
             )
             Vii = (
-                multi_mean(centred_squared_imag, axes=reduction_axes, keepdim=True)
+                multi_mean(
+                    centred_squared_imag, axes=reduction_axes, keepdim=True
+                )
                 + self.eps
             )
 
@@ -578,8 +588,12 @@ def c_norm(
         broadcast_gamma_ri = gamma_ri.view(gamma_broadcast_shape)
         broadcast_gamma_ii = gamma_ii.view(gamma_broadcast_shape)
 
-        cat_gamma_4_real = torch.cat([broadcast_gamma_rr, broadcast_gamma_ii], dim=dim)
-        cat_gamma_4_imag = torch.cat([broadcast_gamma_ri, broadcast_gamma_ri], dim=dim)
+        cat_gamma_4_real = torch.cat(
+            [broadcast_gamma_rr, broadcast_gamma_ii], dim=dim
+        )
+        cat_gamma_4_imag = torch.cat(
+            [broadcast_gamma_ri, broadcast_gamma_ri], dim=dim
+        )
         if dim == 0:
             centred_real = standardized_output[:input_dim]
             centred_imag = standardized_output[input_dim:]
@@ -596,7 +610,9 @@ def c_norm(
             centred_real = standardized_output[:, :, :, :, :input_dim]
             centred_imag = standardized_output[:, :, :, :, input_dim:]
 
-        rolled_standardized_output = torch.cat([centred_imag, centred_real], dim=dim)
+        rolled_standardized_output = torch.cat(
+            [centred_imag, centred_real], dim=dim
+        )
         if center:
             broadcast_beta = beta.view(broadcast_beta_shape)
             a = cat_gamma_4_real * standardized_output

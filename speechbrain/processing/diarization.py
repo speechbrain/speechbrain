@@ -250,6 +250,7 @@ def distribute_overlap(lol):
         # This is because similar speaker's adjacent sub-segments are already merged by "merge_ssegs_same_speaker()"
 
         if is_overlapped(sseg[2], next_sseg[1]):
+
             # Get overlap duration.
             # Now this overlap will be divided equally between adjacent segments.
             overlap = sseg[2] - next_sseg[1]
@@ -478,7 +479,7 @@ def _check_random_state(seed):
     if isinstance(seed, np.random.RandomState):
         return seed
     raise ValueError(
-        "%r cannot be used to seed a np.random.RandomState instance" % seed
+        "%r cannot be used to seed a np.random.RandomState" " instance" % seed
     )
 
 
@@ -584,7 +585,8 @@ def spectral_embedding_sb(
 
     if not _graph_is_connected(adjacency):
         warnings.warn(
-            "Graph is not fully connected, spectral embedding may not work as expected."
+            "Graph is not fully connected, spectral embedding"
+            " may not work as expected."
         )
 
     laplacian, dd = csgraph_laplacian(
@@ -667,7 +669,9 @@ def spectral_clustering_sb(
         drop_first=False,
     )
 
-    _, labels, _ = k_means(maps, n_clusters, random_state=random_state, n_init=n_init)
+    _, labels, _ = k_means(
+        maps, n_clusters, random_state=random_state, n_init=n_init
+    )
 
     return labels
 
@@ -789,6 +793,7 @@ class Spec_Clust_unorm:
     """
 
     def __init__(self, min_num_spkrs=2, max_num_spkrs=10):
+
         self.min_num_spkrs = min_num_spkrs
         self.max_num_spkrs = max_num_spkrs
 
@@ -922,7 +927,9 @@ class Spec_Clust_unorm:
 
             num_of_spk = (
                 np.argmax(
-                    lambda_gap_list[: min(self.max_num_spkrs, len(lambda_gap_list))]
+                    lambda_gap_list[
+                        : min(self.max_num_spkrs, len(lambda_gap_list))
+                    ]
                 )
                 if lambda_gap_list
                 else 0
@@ -1042,7 +1049,9 @@ def do_spec_clustering(
     write_rttm(lol, out_rttm_file)
 
 
-def do_kmeans_clustering(diary_obj, out_rttm_file, rec_id, k_oracle=4, p_val=0.3):
+def do_kmeans_clustering(
+    diary_obj, out_rttm_file, rec_id, k_oracle=4, p_val=0.3
+):
     """Performs kmeans clustering on embeddings.
 
     Arguments

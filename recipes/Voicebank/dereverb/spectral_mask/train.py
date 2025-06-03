@@ -7,7 +7,6 @@ To run this recipe, do the following:
 Authors
  * Szu-Wei Fu 2020
 """
-
 import os
 import sys
 
@@ -37,7 +36,9 @@ class SEBrain(sb.Brain):
         predict_spec = torch.mul(mask, noisy_feats)
 
         # Also return predicted wav
-        predict_wav = self.hparams.resynth(torch.expm1(predict_spec), noisy_wavs)
+        predict_wav = self.hparams.resynth(
+            torch.expm1(predict_spec), noisy_wavs
+        )
 
         return predict_spec, predict_wav
 
@@ -79,7 +80,9 @@ class SEBrain(sb.Brain):
                 lens = lens * clean_wavs.shape[1]
                 for name, pred_wav, length in zip(batch.id, predict_wav, lens):
                     name += ".wav"
-                    enhance_path = os.path.join(self.hparams.enhanced_folder, name)
+                    enhance_path = os.path.join(
+                        self.hparams.enhanced_folder, name
+                    )
                     torchaudio.save(
                         enhance_path,
                         torch.unsqueeze(pred_wav[: int(length)].cpu(), 0),
@@ -143,7 +146,9 @@ class SEBrain(sb.Brain):
 
     def init_optimizers(self):
         "Initializes the generator and discriminator optimizers"
-        self.optimizer = self.hparams.g_opt_class(self.modules.generator.parameters())
+        self.optimizer = self.hparams.g_opt_class(
+            self.modules.generator.parameters()
+        )
         self.optimizers_dict = {
             "optimizer": self.optimizer,
         }
@@ -187,7 +192,9 @@ def dataio_prep(hparams):
         )
         hparams["dataloader_options"]["shuffle"] = False
     elif hparams["sorting"] != "random":
-        raise NotImplementedError("Sorting must be random, ascending, or descending")
+        raise NotImplementedError(
+            "Sorting must be random, ascending, or descending"
+        )
 
     return datasets
 

@@ -86,7 +86,9 @@ class Wav2Vec2(HFTransformersInterface):
         output_all_hiddens=False,
         **kwargs,
     ):
-        super().__init__(source=source, save_path=save_path, freeze=freeze, **kwargs)
+        super().__init__(
+            source=source, save_path=save_path, freeze=freeze, **kwargs
+        )
 
         self.model.config.apply_spec_augment = apply_spec_augment
 
@@ -241,7 +243,9 @@ class Wav2Vec2Pretrain(HFTransformersInterface):
         mask_length=10,
         normalize_wav=True,
     ):
-        super().__init__(source=source, save_path=save_path, for_pretraining=True)
+        super().__init__(
+            source=source, save_path=save_path, for_pretraining=True
+        )
 
         self.mask_prob = mask_prob
         self.mask_length = mask_length

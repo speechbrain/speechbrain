@@ -119,6 +119,7 @@ class Covariance(torch.nn.Module):
     """
 
     def __init__(self, average=True):
+
         super().__init__()
         self.average = average
 
@@ -229,6 +230,7 @@ class DelaySum(torch.nn.Module):
     """
 
     def __init__(self):
+
         super().__init__()
 
     def forward(
@@ -375,6 +377,7 @@ class Mvdr(torch.nn.Module):
     """
 
     def __init__(self, eps=1e-20):
+
         super().__init__()
 
         self.eps = eps
@@ -501,7 +504,8 @@ class Mvdr(torch.nn.Module):
 
         # Compute the gain
         alpha = 1.0 / (
-            torch.matmul(AsT_re, NNs_inv_AsC_re) - torch.matmul(AsT_im, NNs_inv_AsC_im)
+            torch.matmul(AsT_re, NNs_inv_AsC_re)
+            - torch.matmul(AsT_im, NNs_inv_AsC_im)
         )
 
         # Get the unmixing coefficients
@@ -560,6 +564,7 @@ class Gev(torch.nn.Module):
     """
 
     def __init__(self):
+
         super().__init__()
 
     def forward(self, Xs, SSs, NNs):
@@ -620,7 +625,9 @@ class Gev(torch.nn.Module):
 
         # Computing the eigenvectors
         SSs_NNs = torch.cat((SSs, NNs), dim=4)
-        SSs_NNs_val, SSs_NNs_idx = torch.unique(SSs_NNs, return_inverse=True, dim=1)
+        SSs_NNs_val, SSs_NNs_idx = torch.unique(
+            SSs_NNs, return_inverse=True, dim=1
+        )
 
         SSs = SSs_NNs_val[..., range(0, n_mics_pairs)]
         NNs = SSs_NNs_val[..., range(n_mics_pairs, 2 * n_mics_pairs)]
@@ -695,6 +702,7 @@ class GccPhat(torch.nn.Module):
     """
 
     def __init__(self, tdoa_max=None, eps=1e-20):
+
         super().__init__()
         self.tdoa_max = tdoa_max
         self.eps = eps
@@ -930,6 +938,7 @@ class SrpPhat(torch.nn.Module):
         speed_sound=343.0,
         eps=1e-20,
     ):
+
         super().__init__()
 
         # Generate the doas
@@ -940,7 +949,9 @@ class SrpPhat(torch.nn.Module):
             pass
 
         # Generate associated taus with the doas
-        self.taus = doas2taus(self.doas, mics=mics, fs=sample_rate, c=speed_sound)
+        self.taus = doas2taus(
+            self.doas, mics=mics, fs=sample_rate, c=speed_sound
+        )
 
         # Save epsilon
         self.eps = eps
@@ -1127,6 +1138,7 @@ class Music(torch.nn.Module):
         eps=1e-20,
         n_sig=1,
     ):
+
         super().__init__()
 
         # Generate the doas
@@ -1137,7 +1149,9 @@ class Music(torch.nn.Module):
             pass
 
         # Generate associated taus with the doas
-        self.taus = doas2taus(self.doas, mics=mics, fs=sample_rate, c=speed_sound)
+        self.taus = doas2taus(
+            self.doas, mics=mics, fs=sample_rate, c=speed_sound
+        )
 
         # Save epsilon
         self.eps = eps
@@ -1224,7 +1238,12 @@ class Music(torch.nn.Module):
         Us_im = Us[..., range(0, svd_range), 1]
 
         # Fixing the format of the steering vector
-        As = As.unsqueeze(0).unsqueeze(0).unsqueeze(6).permute(0, 1, 2, 3, 6, 5, 4)
+        As = (
+            As.unsqueeze(0)
+            .unsqueeze(0)
+            .unsqueeze(6)
+            .permute(0, 1, 2, 3, 6, 5, 4)
+        )
         As = As.repeat(Us.shape[0], Us.shape[1], 1, 1, 1, 1, 1)
 
         As_re = As[..., 0]
@@ -1396,7 +1415,9 @@ def steering(taus, n_fft):
     # Computing the different parts of the steering vector
     omegas = 2 * pi * torch.arange(0, n_fft, device=taus.device) / frame_size
     omegas = omegas.repeat(taus.shape + (1,))
-    taus = taus.unsqueeze(len(taus.shape)).repeat((1,) * len(taus.shape) + (n_fft,))
+    taus = taus.unsqueeze(len(taus.shape)).repeat(
+        (1,) * len(taus.shape) + (n_fft,)
+    )
 
     # Assembling the steering vector
     a_re = torch.cos(-omegas * taus)
@@ -1451,8 +1472,12 @@ def sphere(levels_count=4):
     pts[range(1, 6), 0] = r * torch.sin(2.0 * pi * torch.arange(0, 5) / 5.0)
     pts[range(1, 6), 1] = r * torch.cos(2.0 * pi * torch.arange(0, 5) / 5.0)
     pts[range(1, 6), 2] = h
-    pts[range(6, 11), 0] = -1.0 * r * torch.sin(2.0 * pi * torch.arange(0, 5) / 5.0)
-    pts[range(6, 11), 1] = -1.0 * r * torch.cos(2.0 * pi * torch.arange(0, 5) / 5.0)
+    pts[range(6, 11), 0] = (
+        -1.0 * r * torch.sin(2.0 * pi * torch.arange(0, 5) / 5.0)
+    )
+    pts[range(6, 11), 1] = (
+        -1.0 * r * torch.cos(2.0 * pi * torch.arange(0, 5) / 5.0)
+    )
     pts[range(6, 11), 2] = -1.0 * h
 
     # Generate triangles at level 0
@@ -1486,6 +1511,7 @@ def sphere(levels_count=4):
     # Generate next levels
 
     for levels_index in range(0, levels_count):
+
         #      0
         #     / \
         #    A---B
@@ -1532,9 +1558,13 @@ def sphere(levels_count=4):
 
         index_max = torch.max(subtrs_sorted)
 
-        subtrs_scalar = subtrs_sorted[:, 0] * (index_max + 1) + subtrs_sorted[:, 1]
+        subtrs_scalar = (
+            subtrs_sorted[:, 0] * (index_max + 1) + subtrs_sorted[:, 1]
+        )
 
-        unique_scalar, unique_indices = torch.unique(subtrs_scalar, return_inverse=True)
+        unique_scalar, unique_indices = torch.unique(
+            subtrs_scalar, return_inverse=True
+        )
 
         unique_values = torch.zeros(
             (unique_scalar.shape[0], 2), dtype=unique_scalar.dtype
@@ -1543,7 +1573,9 @@ def sphere(levels_count=4):
         unique_values[:, 0] = torch.div(
             unique_scalar, index_max + 1, rounding_mode="floor"
         )
-        unique_values[:, 1] = unique_scalar - unique_values[:, 0] * (index_max + 1)
+        unique_values[:, 1] = unique_scalar - unique_values[:, 0] * (
+            index_max + 1
+        )
 
         trs = torch.transpose(torch.reshape(unique_indices, (3, -1)), 0, 1)
 

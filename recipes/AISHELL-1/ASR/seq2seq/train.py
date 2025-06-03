@@ -75,14 +75,18 @@ class ASR(sb.Brain):
                 tokens, tokens_lens, tokens_eos, tokens_eos_lens
             )
 
-        loss_seq = self.hparams.seq_cost(p_seq, tokens_eos, length=tokens_eos_lens)
+        loss_seq = self.hparams.seq_cost(
+            p_seq, tokens_eos, length=tokens_eos_lens
+        )
 
         # Add ctc loss if necessary
         if (
             stage == sb.Stage.TRAIN
             and current_epoch <= self.hparams.number_of_ctc_epochs
         ):
-            loss_ctc = self.hparams.ctc_cost(p_ctc, tokens, wav_lens, tokens_lens)
+            loss_ctc = self.hparams.ctc_cost(
+                p_ctc, tokens, wav_lens, tokens_lens
+            )
             loss = self.hparams.ctc_weight * loss_ctc
             loss += (1 - self.hparams.ctc_weight) * loss_seq
         else:
@@ -91,7 +95,8 @@ class ASR(sb.Brain):
         if stage != sb.Stage.TRAIN:
             # Decode token terms to words
             predicted_words = [
-                tokenizer.decode_ids(utt_seq).split(" ") for utt_seq in predicted_tokens
+                tokenizer.decode_ids(utt_seq).split(" ")
+                for utt_seq in predicted_tokens
             ]
             target_words = [wrd.split(" ") for wrd in batch.wrd]
             if self.hparams.remove_spaces:
@@ -158,7 +163,9 @@ def dataio_prepare(hparams):
         hparams["train_dataloader_opts"]["shuffle"] = False
 
     elif hparams["sorting"] == "descending":
-        train_data = train_data.filtered_sorted(sort_key="duration", reverse=True)
+        train_data = train_data.filtered_sorted(
+            sort_key="duration", reverse=True
+        )
         # when sorting do not shuffle in dataloader ! otherwise is pointless
         hparams["train_dataloader_opts"]["shuffle"] = False
 
@@ -166,7 +173,9 @@ def dataio_prepare(hparams):
         pass
 
     else:
-        raise NotImplementedError("sorting must be random, ascending or descending")
+        raise NotImplementedError(
+            "sorting must be random, ascending or descending"
+        )
 
     valid_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
         csv_path=hparams["valid_data"],

@@ -171,7 +171,9 @@ class HMMAligner(torch.nn.Module):
         """
 
         number_of_states = 0
-        words_prime = []  # This will contain one "word" for each optional silence and pronunciation.
+        words_prime = (
+            []
+        )  # This will contain one "word" for each optional silence and pronunciation.
         # structure of each "word_prime":
         # [word index, [[state sequence 1], [state sequence 2]], <is this an optional silence?>]
         word_index = 0
@@ -181,7 +183,12 @@ class HMMAligner(torch.nn.Module):
                 # optional silence
                 word_prime = [
                     word_index,
-                    [[number_of_states + i for i in range(self.states_per_phoneme)]],
+                    [
+                        [
+                            number_of_states + i
+                            for i in range(self.states_per_phoneme)
+                        ]
+                    ],
                     True,
                 ]
                 words_prime.append(word_prime)
@@ -206,7 +213,8 @@ class HMMAligner(torch.nn.Module):
                         for i in range(self.states_per_phoneme)
                     ]
                     word_prime[1][pron_idx] += [
-                        number_of_states + i for i in range(self.states_per_phoneme)
+                        number_of_states + i
+                        for i in range(self.states_per_phoneme)
                     ]
                     number_of_states += self.states_per_phoneme
                 if sample_pron:
@@ -269,7 +277,9 @@ class HMMAligner(torch.nn.Module):
 
             if not is_optional_silence:
                 next_silence_idx = word_idx + 1
-                next_silence_starting_state = words_prime[next_silence_idx][1][0][0]
+                next_silence_starting_state = words_prime[next_silence_idx][1][
+                    0
+                ][0]
                 for this_word_last_state in this_word_last_states:
                     transition_matrix[
                         this_word_last_state, next_silence_starting_state
@@ -278,7 +288,9 @@ class HMMAligner(torch.nn.Module):
         log_transition_matrix = transition_matrix.log().log_softmax(1)
 
         start_states = [words_prime[0][1][0][0]]
-        start_states += [words_prime[1][1][i][0] for i in range(len(words_prime[1][1]))]
+        start_states += [
+            words_prime[1][1][i][0] for i in range(len(words_prime[1][1]))
+        ]
 
         poss_phns = torch.tensor(phoneme_indices)
 
@@ -497,11 +509,15 @@ class HMMAligner(torch.nn.Module):
         # join the diagonals and repeat for whole batch
         trans_prob = trans_prob_off_diag + trans_prob_main_diag
         trans_prob = (
-            trans_prob.reshape(1, U_max, U_max).repeat(batch_size, 1, 1).to(device)
+            trans_prob.reshape(1, U_max, U_max)
+            .repeat(batch_size, 1, 1)
+            .to(device)
         )
 
         # clear probabilities for too-long sequences
-        mask_a = torch.arange(U_max, device=device)[None, :] < phn_lens_abs[:, None]
+        mask_a = (
+            torch.arange(U_max, device=device)[None, :] < phn_lens_abs[:, None]
+        )
         mask_a = mask_a.unsqueeze(2)
         mask_a = mask_a.expand(-1, -1, U_max)
         mask_b = mask_a.permute(0, 2, 1)
@@ -524,7 +540,9 @@ class HMMAligner(torch.nn.Module):
 
         return trans_prob
 
-    def _make_emiss_pred_useful(self, emission_pred, lens_abs, phn_lens_abs, phns):
+    def _make_emiss_pred_useful(
+        self, emission_pred, lens_abs, phn_lens_abs, phns
+    ):
         """Creates a 'useful' form of the posterior probabilities, rearranged
         into the order of phoneme appearance in phns.
 
@@ -551,7 +569,9 @@ class HMMAligner(torch.nn.Module):
         device = emission_pred.device
 
         # apply mask based on lens_abs
-        mask_lens = torch.arange(fb_max_length).to(device)[None, :] < lens_abs[:, None]
+        mask_lens = (
+            torch.arange(fb_max_length).to(device)[None, :] < lens_abs[:, None]
+        )
 
         emiss_pred_acc_lens = torch.where(
             mask_lens[:, :, None],
@@ -565,7 +585,9 @@ class HMMAligner(torch.nn.Module):
         emiss_pred_useful = torch.gather(emiss_pred_acc_lens, 2, phns_copied)
 
         # apply mask based on phn_lens_abs
-        mask_phn_lens = torch.arange(U_max).to(device)[None, :] < phn_lens_abs[:, None]
+        mask_phn_lens = (
+            torch.arange(U_max).to(device)[None, :] < phn_lens_abs[:, None]
+        )
         emiss_pred_useful = torch.where(
             mask_phn_lens[:, None, :],
             emiss_pred_useful,
@@ -638,7 +660,9 @@ class HMMAligner(torch.nn.Module):
             alpha_times_trans = batch_log_matvecmul(
                 trans_prob.permute(0, 2, 1), alpha_matrix[:, :, t - 1]
             )
-            alpha_matrix[:, :, t] = alpha_times_trans + emiss_pred_useful[:, :, t]
+            alpha_matrix[:, :, t] = (
+                alpha_times_trans + emiss_pred_useful[:, :, t]
+            )
 
         sum_alpha_T = torch.logsumexp(
             alpha_matrix[torch.arange(batch_size), :, -1], dim=1
@@ -740,11 +764,15 @@ class HMMAligner(torch.nn.Module):
                 current_best_loc = z_star_i_loc[0]
 
                 earlier_best_loc = (
-                    backpointers[utterance_in_batch, current_best_loc, time_step - 1]
+                    backpointers[
+                        utterance_in_batch, current_best_loc, time_step - 1
+                    ]
                     .long()
                     .item()
                 )
-                earlier_z_star = phns[utterance_in_batch, earlier_best_loc].item()
+                earlier_z_star = phns[
+                    utterance_in_batch, earlier_best_loc
+                ].item()
 
                 z_star_i_loc.insert(0, earlier_best_loc)
                 z_star_i.insert(0, earlier_z_star)
@@ -910,7 +938,9 @@ class HMMAligner(torch.nn.Module):
             return viterbi_scores, alignments
 
         else:
-            raise ValueError("dp_algorithm input must be either 'forward' or 'viterbi'")
+            raise ValueError(
+                "dp_algorithm input must be either 'forward' or 'viterbi'"
+            )
 
     def expand_phns_by_states_per_phoneme(self, phns, phn_lens):
         """Expands each phoneme in the phn sequence by the number of hidden
@@ -955,7 +985,9 @@ class HMMAligner(torch.nn.Module):
                     for i_ in range(self.states_per_phoneme)
                 ]
 
-            expanded_phns[i, : len(expanded_phns_utt)] = torch.tensor(expanded_phns_utt)
+            expanded_phns[i, : len(expanded_phns_utt)] = torch.tensor(
+                expanded_phns_utt
+            )
         return expanded_phns
 
     def store_alignments(self, ids, alignments):
@@ -1182,7 +1214,9 @@ class HMMAligner(torch.nn.Module):
             )
 
         # Measure sample-wise accuracy
-        accuracy = (alignments_upsampled == true_alignments).float().mean().item() * 100
+        accuracy = (
+            alignments_upsampled == true_alignments
+        ).float().mean().item() * 100
 
         return accuracy
 
@@ -1228,7 +1262,8 @@ class HMMAligner(torch.nn.Module):
         # Do conversion if states_per_phoneme > 1
         if self.states_per_phoneme > 1:
             alignments = [
-                [i // self.states_per_phoneme for i in utt] for utt in alignments
+                [i // self.states_per_phoneme for i in utt]
+                for utt in alignments
             ]
 
         # convert to common alphabet if need be
@@ -1269,7 +1304,9 @@ class HMMAligner(torch.nn.Module):
 
         # Filter the repetitions
         sequence = [
-            v for i, v in enumerate(alignments) if i == 0 or v != alignments[i - 1]
+            v
+            for i, v in enumerate(alignments)
+            if i == 0 or v != alignments[i - 1]
         ]
 
         # Pick out only multiples of self.states_per_phoneme
@@ -1347,8 +1384,12 @@ def map_inds_to_intersect(lists1, lists2, ind2labs):
     set2_only = set2.difference(set1)
 
     new_lab2ind = {lab: i for i, lab in enumerate(intersect)}
-    new_lab2ind.update({lab: len(new_lab2ind) + i for i, lab in enumerate(set1_only)})
-    new_lab2ind.update({lab: len(new_lab2ind) + i for i, lab in enumerate(set2_only)})
+    new_lab2ind.update(
+        {lab: len(new_lab2ind) + i for i, lab in enumerate(set1_only)}
+    )
+    new_lab2ind.update(
+        {lab: len(new_lab2ind) + i for i, lab in enumerate(set2_only)}
+    )
 
     # Map lists to labels and apply new_lab2ind
     lists1_lab = [[ind2lab1[ind] for ind in utt] for utt in lists1]

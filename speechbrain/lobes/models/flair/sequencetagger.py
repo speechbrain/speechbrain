@@ -56,7 +56,9 @@ class FlairSequenceTagger:
         local_path = str(fetch(filename, source, savedir=target))
         return FlairSequenceTagger(SequenceTagger.load(local_path))
 
-    def __call__(self, inputs: Union[List[str], List[List[str]]]) -> List[List[str]]:
+    def __call__(
+        self, inputs: Union[List[str], List[List[str]]]
+    ) -> List[List[str]]:
         """Tag a batch of sentences.
 
         Arguments
@@ -80,5 +82,6 @@ class FlairSequenceTagger:
         self.model.predict(sentences)
 
         return [
-            [label.value for label in sentence.get_labels()] for sentence in sentences
+            [label.value for label in sentence.get_labels()]
+            for sentence in sentences
         ]

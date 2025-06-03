@@ -6,7 +6,9 @@ from speechbrain.utils.logger import get_logger
 try:
     import pandas as pd
 except ImportError:
-    err_msg = "The optional dependency pandas must be installed to run this recipe.\n"
+    err_msg = (
+        "The optional dependency pandas must be installed to run this recipe.\n"
+    )
     err_msg += "Install using `pip install pandas`.\n"
     raise ImportError(err_msg)
 

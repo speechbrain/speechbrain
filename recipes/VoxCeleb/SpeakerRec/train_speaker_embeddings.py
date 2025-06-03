@@ -14,7 +14,6 @@ Author
     * Hwidong Na 2020
     * Nauman Dawalatabad 2020
 """
-
 import os
 import random
 import sys
@@ -145,7 +144,9 @@ def dataio_prep(hparams):
             start = int(start)
             stop = int(stop)
         num_frames = stop - start
-        sig, fs = torchaudio.load(wav, num_frames=num_frames, frame_offset=start)
+        sig, fs = torchaudio.load(
+            wav, num_frames=num_frames, frame_offset=start
+        )
         sig = sig.transpose(0, 1).squeeze(1)
         return sig
 

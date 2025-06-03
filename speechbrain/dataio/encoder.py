@@ -180,7 +180,9 @@ class CategoricalEncoder:
         for label in label_iterator:
             self.ensure_label(label)
 
-    def update_from_didataset(self, didataset, output_key, sequence_input=False):
+    def update_from_didataset(
+        self, didataset, output_key, sequence_input=False
+    ):
         """Update from DynamicItemDataset.
 
         Arguments
@@ -268,7 +270,8 @@ class CategoricalEncoder:
                     for didataset in from_didatasets:
                         if output_key is None:
                             raise ValueError(
-                                "Provide an output_key for DynamicItemDataset"
+                                "Provide an output_key for "
+                                "DynamicItemDataset"
                             )
                         self.update_from_didataset(
                             didataset, output_key, sequence_input
@@ -462,7 +465,9 @@ class CategoricalEncoder:
                     "unk-label for unknown labels."
                 )
             else:
-                raise KeyError(f"Couldn't and wouldn't encode unknown label {label}.")
+                raise KeyError(
+                    f"Couldn't and wouldn't encode unknown label " f"{label}."
+                )
 
     def encode_label_torch(self, label, allow_unk=True):
         """Encode label to torch.LongTensor.
@@ -764,12 +769,18 @@ class CategoricalEncoder:
         with open(path, "w", encoding="utf-8") as f:
             for label, ind in lab2ind.items():
                 f.write(
-                    repr(label) + CategoricalEncoder.VALUE_SEPARATOR + str(ind) + "\n"
+                    repr(label)
+                    + CategoricalEncoder.VALUE_SEPARATOR
+                    + str(ind)
+                    + "\n"
                 )
             f.write(CategoricalEncoder.EXTRAS_SEPARATOR)
             for key, value in extras.items():
                 f.write(
-                    repr(key) + CategoricalEncoder.VALUE_SEPARATOR + repr(value) + "\n"
+                    repr(key)
+                    + CategoricalEncoder.VALUE_SEPARATOR
+                    + repr(value)
+                    + "\n"
                 )
             f.flush()
 
@@ -895,7 +906,9 @@ class TextEncoder(CategoricalEncoder):
 
     def update_from_didataset(self, didataset, output_key, sequence_input=True):
         """Change default for sequence_input to True."""
-        return super().update_from_didataset(didataset, output_key, sequence_input)
+        return super().update_from_didataset(
+            didataset, output_key, sequence_input
+        )
 
     def limited_labelset_from_iterable(
         self, iterable, sequence_input=True, n_most_common=None, min_count=1
@@ -1147,7 +1160,9 @@ class CTCTextEncoder(TextEncoder):
         collapsed = []
         for subtensor in x:
             try:
-                collapsed.append(self.collapse_indices_ndim(subtensor, merge_repeats))
+                collapsed.append(
+                    self.collapse_indices_ndim(subtensor, merge_repeats)
+                )
             except TypeError:  # Not an iterable at next level!
                 # So we should rather operate on this dimension.
                 break

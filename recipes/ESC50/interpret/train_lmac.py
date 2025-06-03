@@ -11,7 +11,6 @@ Authors
     * Francesco Paissan 2024
     * Cem Subakan 2024
 """
-
 import sys
 
 import torch
@@ -67,7 +66,9 @@ class LMAC(InterpreterBrain):
                 groups=spectrogram.shape[0],
             )
 
-            ncc = (tmp / torch.sqrt(normalization1 * normalization2 + 1e-8)).squeeze()
+            ncc = (
+                tmp / torch.sqrt(normalization1 * normalization2 + 1e-8)
+            ).squeeze()
 
             return ncc
         elif self.hparams.crosscortype == "dotp":
@@ -127,7 +128,8 @@ class LMAC(InterpreterBrain):
         if stage == sb.Stage.VALID:
             # save some samples
             if (
-                self.hparams.epoch_counter.current % self.hparams.interpret_period
+                self.hparams.epoch_counter.current
+                % self.hparams.interpret_period
             ) == 0 and self.hparams.save_interpretations:
                 self.viz_ints(X_stft, X_stft_logpower, batch, wavs)
 
@@ -205,16 +207,21 @@ class LMAC(InterpreterBrain):
 
             if self.hparams.guidelosstype == "binary":
                 rec_loss = (
-                    F.binary_cross_entropy(xhat, binarized_oracle, reduce=False).mean(
-                        (-1, -2)
-                    )
+                    F.binary_cross_entropy(
+                        xhat, binarized_oracle, reduce=False
+                    ).mean((-1, -2))
                     * self.hparams.g_w
                     * crosscor_mask
                 ).mean()
             else:
                 temp = (
                     (
-                        (xhat * X_stft_logpower[:, : X_stft_logpower_clean.shape[1], :])
+                        (
+                            xhat
+                            * X_stft_logpower[
+                                :, : X_stft_logpower_clean.shape[1], :
+                            ]
+                        )
                         - X_stft_logpower_clean
                     )
                     .pow(2)
@@ -240,7 +247,9 @@ class LMAC(InterpreterBrain):
             * torch.logical_not(crosscor_mask)
         ).sum()
         r_m += (
-            tv_loss(xhat) * self.hparams.reg_w_tv * torch.logical_not(crosscor_mask)
+            tv_loss(xhat)
+            * self.hparams.reg_w_tv
+            * torch.logical_not(crosscor_mask)
         ).sum()
 
         mask_in_preds = mask_in_preds.softmax(1)
@@ -290,6 +299,7 @@ class LMAC(InterpreterBrain):
 
 
 if __name__ == "__main__":
+
     # CLI:
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
 
@@ -372,7 +382,9 @@ if __name__ == "__main__":
 
     if hparams["finetuning"]:
         if hparams["pretrained_interpreter"] is None:
-            raise AssertionError("You should specify pretrained model for finetuning.")
+            raise AssertionError(
+                "You should specify pretrained model for finetuning."
+            )
 
     Interpreter_brain = LMAC(
         modules=hparams["modules"],

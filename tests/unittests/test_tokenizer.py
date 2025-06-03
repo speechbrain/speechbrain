@@ -17,7 +17,9 @@ def test_tokenizer():
     spm = SentencePiece(
         os.path.abspath("tests/tmp/tokenizer_data"),
         100,
-        annotation_train=os.path.abspath("tests/samples/annotation/tokenizer.csv"),
+        annotation_train=os.path.abspath(
+            "tests/samples/annotation/tokenizer.csv"
+        ),
         annotation_read="wrd",
         model_type="bpe",
     )
@@ -56,7 +58,9 @@ def test_tokenizer():
     spm = SentencePiece(
         os.path.abspath("tests/tmp/tokenizer_data"),
         100,
-        annotation_train=os.path.abspath("tests/sample/annotation/tokenizer.csv"),
+        annotation_train=os.path.abspath(
+            "tests/sample/annotation/tokenizer.csv"
+        ),
         annotation_read="char",
         char_format_input=True,
         model_type="bpe",

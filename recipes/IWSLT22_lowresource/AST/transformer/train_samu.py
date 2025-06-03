@@ -79,7 +79,9 @@ class ST(sb.core.Brain):
         """Freezes the wav2vec2 optimizer according to the warmup steps"""
         valid_optimizers = {}
         if not self.hparams.wav2vec2_frozen:
-            valid_optimizers["wav2vec_optimizer"] = optimizers["wav2vec_optimizer"]
+            valid_optimizers["wav2vec_optimizer"] = optimizers[
+                "wav2vec_optimizer"
+            ]
         if not self.hparams.labse_frozen:
             valid_optimizers["labse_optimizer"] = optimizers["labse_optimizer"]
         valid_optimizers["model_optimizer"] = optimizers["model_optimizer"]
@@ -105,7 +107,9 @@ class ST(sb.core.Brain):
             old_lr_adam, new_lr_adam = self.hparams.lr_annealing_adam(
                 stage_stats["loss"]
             )
-            sb.nnet.schedulers.update_learning_rate(self.adam_optimizer, new_lr_adam)
+            sb.nnet.schedulers.update_learning_rate(
+                self.adam_optimizer, new_lr_adam
+            )
 
             stats_meta = {
                 "epoch": current_epoch,
@@ -226,8 +230,12 @@ def dataio_prepare(hparams):
                 reverse=True,
             )
         else:
-            datasets["train"] = datasets["train"].filtered_sorted(sort_key="duration")
-            datasets["valid"] = datasets["valid"].filtered_sorted(sort_key="duration")
+            datasets["train"] = datasets["train"].filtered_sorted(
+                sort_key="duration"
+            )
+            datasets["valid"] = datasets["valid"].filtered_sorted(
+                sort_key="duration"
+            )
 
         hparams["dataloader_options"]["shuffle"] = False
         hparams["dataloader_options"]["shuffle"] = False
@@ -271,7 +279,9 @@ def dataio_prepare(hparams):
 
         hparams["dataloader_options"]["shuffle"] = True
     else:
-        raise NotImplementedError("sorting must be random, ascending or descending")
+        raise NotImplementedError(
+            "sorting must be random, ascending or descending"
+        )
 
     return datasets
 
@@ -326,7 +336,9 @@ if __name__ == "__main__":
 
     # Test
     for dataset in ["valid", "test"]:
-        st_brain.hparams.wer_file = hparams["output_folder"] + "/wer_test" + ".txt"
+        st_brain.hparams.wer_file = (
+            hparams["output_folder"] + "/wer_test" + ".txt"
+        )
         st_brain.evaluate(
             datasets[dataset],
             test_loader_kwargs=hparams["test_dataloader_options"],

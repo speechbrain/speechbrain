@@ -18,7 +18,6 @@ Based on VoxCeleb By:
     * Hwidong Na 2020
     * Nauman Dawalatabad 2020
 """
-
 import os
 import sys
 
@@ -85,7 +84,9 @@ class UrbanSound8kBrain(sb.core.Brain):
             self.hparams.lr_annealing.on_batch_end(self.optimizer)
 
         # Append this batch of losses to the loss metric for easy
-        self.loss_metric.append(uttid, predictions, classid, lens, reduction="batch")
+        self.loss_metric.append(
+            uttid, predictions, classid, lens, reduction="batch"
+        )
 
         # Confusion matrices
         if stage != sb.Stage.TRAIN:
@@ -108,7 +109,9 @@ class UrbanSound8kBrain(sb.core.Brain):
             self.test_confusion_matrix += my_confusion_matrix
 
         # Compute Accuracy using MetricStats
-        self.acc_metric.append(uttid, predict=predictions, target=classid, lengths=lens)
+        self.acc_metric.append(
+            uttid, predict=predictions, target=classid, lengths=lens
+        )
 
         if stage != sb.Stage.TRAIN:
             self.error_metrics.append(uttid, predictions, classid, lens)
@@ -217,7 +220,9 @@ class UrbanSound8kBrain(sb.core.Brain):
                 # Log confusion matrix fig to tensorboard
                 cm_fig = create_cm_fig(
                     self.valid_confusion_matrix,
-                    display_labels=list(self.hparams.label_encoder.ind2lab.values()),
+                    display_labels=list(
+                        self.hparams.label_encoder.ind2lab.values()
+                    ),
                 )
                 self.hparams.tensorboard_train_logger.writer.add_figure(
                     "Validation Confusion Matrix", cm_fig, epoch
@@ -241,7 +246,9 @@ class UrbanSound8kBrain(sb.core.Brain):
                 valid_stats=valid_stats,
             )
             # Save the current checkpoint and delete previous checkpoints,
-            self.checkpointer.save_and_keep_only(meta=valid_stats, min_keys=["error"])
+            self.checkpointer.save_and_keep_only(
+                meta=valid_stats, min_keys=["error"]
+            )
 
         # We also write statistics about test data to stdout and to the logfile.
         if stage == sb.Stage.TEST:
@@ -258,7 +265,9 @@ class UrbanSound8kBrain(sb.core.Brain):
                 {
                     "Epoch loaded": self.hparams.epoch_counter.current,
                     "\n Per Class Accuracy": per_class_acc_arr_str,
-                    "\n Confusion Matrix": "\n{:}\n".format(self.test_confusion_matrix),
+                    "\n Confusion Matrix": "\n{:}\n".format(
+                        self.test_confusion_matrix
+                    ),
                 },
                 test_stats=test_stats,
             )
@@ -272,7 +281,9 @@ def dataio_prep(hparams):
     label_encoder = sb.dataio.encoder.CategoricalEncoder()
     # TODO  use SB implementation but need to make sure it give the same results as PyTorch
     # resampler = sb.processing.speech_augmentation.Resample(orig_freq=latest_file_sr, new_freq=config_sample_rate)
-    hparams["resampler"] = torchaudio.transforms.Resample(new_freq=config_sample_rate)
+    hparams["resampler"] = torchaudio.transforms.Resample(
+        new_freq=config_sample_rate
+    )
 
     # 2. Define audio pipeline:
     @sb.utils.data_pipeline.takes("wav", "fold")

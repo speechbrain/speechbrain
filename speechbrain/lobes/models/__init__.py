@@ -1,1 +1,2 @@
-"""Package defining neural netword models (CRDNN, Xvectors ...)"""
+""" Package defining neural netword models (CRDNN, Xvectors ...)
+"""

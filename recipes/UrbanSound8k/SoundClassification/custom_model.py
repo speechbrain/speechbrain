@@ -175,7 +175,9 @@ class Classifier(sb.nnet.containers.Sequential):
         # Adding fully-connected layers
         for block_index in range(lin_blocks):
             block_name = f"block_{block_index}"
-            self.DNN.append(sb.nnet.containers.Sequential, layer_name=block_name)
+            self.DNN.append(
+                sb.nnet.containers.Sequential, layer_name=block_name
+            )
             self.DNN[block_name].append(
                 sb.nnet.linear.Linear,
                 n_neurons=lin_neurons,
@@ -188,5 +190,9 @@ class Classifier(sb.nnet.containers.Sequential):
             )
 
         # Final Softmax classifier
-        self.append(sb.nnet.linear.Linear, n_neurons=out_neurons, layer_name="out")
-        self.append(sb.nnet.activations.Softmax(apply_log=True), layer_name="softmax")
+        self.append(
+            sb.nnet.linear.Linear, n_neurons=out_neurons, layer_name="out"
+        )
+        self.append(
+            sb.nnet.activations.Softmax(apply_log=True), layer_name="softmax"
+        )
