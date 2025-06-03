@@ -10,7 +10,7 @@ import argparse
 import os
 import sys
 from dataclasses import asdict, dataclass, field
-from typing import Dict, Optional
+from typing import Dict, Literal, Optional
 
 import torch
 
@@ -44,30 +44,30 @@ class RunOptions:
         Enable data parallel training.
     data_parallel_count : int
         Number of devices for data parallelism.
-    distributed_backend : str
-        Backend for distributed training ("nccl", "gloo", or "mpi").
+    distributed_backend : Literal["nccl", "gloo", "mpi"]
+        Backend for distributed training.
     distributed_launch : bool
         Use distributed launch for training.
     find_unused_parameters : bool
         Detect unused parameters during distributed training.
     jit : bool
         Enable JIT compilation for modules.
-    jit_module_keys : None or list
+    jit_module_keys : Optional[list]
         Module keys to compile with JIT.
     compile : bool
         Enable torch.compile for modules (if available).
-    compile_module_keys : None or list
+    compile_module_keys : Optional[list]
         Module keys to compile with torch.compile.
-    compile_mode : str
-        Compilation mode ("default", "reduce-overhead", "max-autotune").
+    compile_mode : Literal["default", "reduce-overhead", "max-autotune"]
+        Compilation mode.
     compile_using_fullgraph : bool
         Use fullgraph compilation.
     compile_using_dynamic_shape_tracing : bool
         Use dynamic shape tracing in compilation.
-    precision : str
-        Training precision ("fp32", "fp16", "bf16").
-    eval_precision : str
-        Inference precision ("fp32", "fp16", "bf16").
+    precision : Literal["fp32", "fp16", "bf16"]
+        Training precision.
+    eval_precision : Literal["fp32", "fp16", "bf16"]
+        Inference precision.
     auto_mix_prec : bool
         Enable automatic mixed-precision training.
     bfloat16_mix_prec : bool
@@ -114,18 +114,20 @@ class RunOptions:
     device: str = "cpu"
     data_parallel_backend: bool = False
     data_parallel_count: int = -1
-    distributed_backend: str = "nccl"
+    distributed_backend: Literal["nccl", "gloo", "mpi"] = "nccl"
     distributed_launch: bool = False
     find_unused_parameters: bool = False
     jit: bool = False
-    jit_module_keys: Optional[None] = None
+    jit_module_keys: Optional[list[str]] = None
     compile: bool = False
-    compile_module_keys: Optional[None] = None
-    compile_mode: str = "default"
+    compile_module_keys: Optional[list[str]] = None
+    compile_mode: Literal["default", "reduce-overhead", "max-autotune"] = (
+        "default"
+    )
     compile_using_fullgraph: bool = False
     compile_using_dynamic_shape_tracing: bool = True
-    precision: str = "fp32"
-    eval_precision: str = "fp32"
+    precision: Literal["fp32", "fp16", "bf16"] = "fp32"
+    eval_precision: Literal["fp32", "fp16", "bf16"] = "fp32"
     auto_mix_prec: bool = False
     bfloat16_mix_prec: bool = False
     max_grad_norm: float = 5.0
@@ -135,7 +137,7 @@ class RunOptions:
     ckpt_interval_minutes: int = 0
     ckpt_interval_steps: int = 0
     grad_accumulation_factor: int = 1
-    optimizer_step_limit: Optional[None] = None
+    optimizer_step_limit: Optional[int] = None
     tqdm_colored_bar: bool = False
     tqdm_barcolor: Dict[str, str] = field(
         default_factory=lambda: {
