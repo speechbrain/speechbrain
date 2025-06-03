@@ -1,3 +1,11 @@
+"""
+Contains the defaults and parsing code for run-time controls
+
+Authors
+ * Nouran Ali (2025)
+ * Peter Plantinga (2025)
+"""
+
 import argparse
 import os
 import sys
@@ -337,18 +345,22 @@ class RunOptions:
         if local_rank is not None and "cuda" in run_opts.device:
             run_opts.device = run_opts.device[:-1] + str(local_rank)
 
-        return [param_file, cls, overrides]
+        return param_file, run_opts, overrides
 
     @staticmethod
     def _convert_to_yaml(overrides):
         """
         Convert a list of override arguments to a YAML formatted string.
-        Args:
-            overrides (list): A list of strings representing override arguments in the form '--arg=val'.
-        Returns:
-            str: A YAML formatted string representing the overrides.
+
+        Arguments
+        ---------
+        overrides: list[str]
+            A list of strings representing override arguments in the form '--arg=val'.
+
+        Returns
+        -------
+        A YAML formatted string representing the overrides.
         """
-        """Convert args to yaml for overrides"""
         yaml_string = ""
 
         # Handle '--arg=val' type args
