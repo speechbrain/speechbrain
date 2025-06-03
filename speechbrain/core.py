@@ -45,6 +45,7 @@ from speechbrain.utils.logger import get_logger
 from speechbrain.utils.optimizers import rm_vector_weight_decay
 from speechbrain.utils.profiling import prepare_profiler
 from speechbrain.utils.run_opts import RunOptions
+
 sb.utils.quirks.apply_quirks()
 
 logger = get_logger(__name__)
@@ -53,6 +54,7 @@ DEFAULT_LOG_CONFIG = os.path.join(DEFAULT_LOG_CONFIG, "log-config.yaml")
 INTRA_EPOCH_CKPT_FLAG = "brain_intra_epoch_ckpt"
 PYTHON_VERSION_MAJOR = 3
 PYTHON_VERSION_MINOR = 8
+
 
 @dataclass
 class AMPConfig:
@@ -177,6 +179,7 @@ def create_experiment_directory(
 def _logging_excepthook(exc_type, exc_value, exc_traceback):
     """Interrupt exception raising to log the error."""
     logger.error("Exception:", exc_info=(exc_type, exc_value, exc_traceback))
+
 
 class Stage(Enum):
     """Simple enum to track stage of experiments."""
@@ -322,7 +325,7 @@ class Brain:
         self.optimizers_dict = None
         self.opt_class = opt_class
         self.checkpointer = checkpointer
-        _,self.run_opt_defaults,_ = RunOptions.from_command_line_args()
+        _, self.run_opt_defaults, _ = RunOptions.from_command_line_args()
 
         for arg, default in self.run_opt_defaults.items():
             if run_opts is not None and arg in run_opts:
@@ -1556,4 +1559,3 @@ class Brain:
             self.optimizer_step = self.step
         else:
             self.optimizer_step = save_dict["optimizer_step"]
-

@@ -183,7 +183,7 @@ def check_yaml_vs_script(hparam_file, script_file):
     detected_vars_train = detect_script_vars(script_file, var_lst)
 
     # Check which variables are declared but not used
-    _,run_opt_defaults,_ = RunOptions.from_command_line_args()
+    _, run_opt_defaults, _ = RunOptions.from_command_line_args()
     default_run_opt_keys = list(run_opt_defaults.keys()) + [
         "rescoring_lm_scale"
     ]

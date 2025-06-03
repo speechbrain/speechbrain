@@ -15,4 +15,3 @@ from .text import *  # noqa
 from .TTS import *  # noqa
 from .VAD import *  # noqa
 from .vocoders import *  # noqa
-from speechbrain.utils.run_opts import RunOptions

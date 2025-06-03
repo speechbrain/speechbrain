@@ -335,12 +335,12 @@ class RunOptions:
         # force device arg to be the same as local_rank from torchrun
         local_rank = os.environ.get("LOCAL_RANK")
         if local_rank is not None and "cuda" in run_opts.device:
-            run_opts.devide = run_opts.devide[:-1] + str(local_rank)
+            run_opts.device = run_opts.device[:-1] + str(local_rank)
 
         return [param_file, cls, overrides]
 
     @staticmethod
-    def _convert_to_yaml( overrides):
+    def _convert_to_yaml(overrides):
         """
         Convert a list of override arguments to a YAML formatted string.
         Args:
@@ -362,4 +362,3 @@ class RunOptions:
                 yaml_string += " " + arg
 
         return yaml_string.strip()
-
