@@ -14,7 +14,7 @@ import torch
 from torch import nn
 
 import speechbrain as sb
-from speechbrain.wordemb.util import expand_to_chars
+from speechbrain.integrations.huggingface.wordemb.util import expand_to_chars
 
 RE_MULTI_SPACE = re.compile(r"\s{2,}")
 

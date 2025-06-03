@@ -99,7 +99,7 @@ class Psi(nn.Module):
         # for compatibility with cnn14 fixed frequency dimension
         x1 = F.pad(x1, (0, 1, 0, 0))
         x2 = F.pad(x2, (0, 1, 0, 0))
-        x = torch.cat((x1, x2, x3), axis=1)
+        x = torch.cat((x1, x2, x3), dim=1)
 
         # upsample time axis and collapse freq
         x = self.upsamp_time(x)

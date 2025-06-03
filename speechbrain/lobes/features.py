@@ -119,7 +119,7 @@ class Fbank(torch.nn.Module):
         self.requires_grad = requires_grad
 
         if f_max is None:
-            f_max = sample_rate / 2
+            f_max = sample_rate // 2
 
         self.compute_STFT = STFT(
             sample_rate=sample_rate,
@@ -260,7 +260,7 @@ class MFCC(torch.nn.Module):
         self.requires_grad = requires_grad
 
         if f_max is None:
-            f_max = sample_rate / 2
+            f_max = sample_rate // 2
 
         self.compute_STFT = STFT(
             sample_rate=sample_rate,

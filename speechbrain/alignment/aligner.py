@@ -739,7 +739,7 @@ class HMMAligner(torch.nn.Module):
             )
             v_matrix[:, :, t] = x + emiss_pred_useful[:, :, t]
 
-            backpointers[:, :, t] = argmax.type(torch.FloatTensor)
+            backpointers[:, :, t] = argmax.type(dtype=torch.float32)
 
         z_stars = []
         z_stars_loc = []
@@ -894,7 +894,7 @@ class HMMAligner(torch.nn.Module):
                 trans_prob = prob_matrices["trans_prob"]
                 final_states = prob_matrices["final_states"]
             else:
-                ValueError(
+                raise ValueError(
                     """`prob_matrices` must contain the keys
                 `pi_prob`, `trans_prob` and `final_states`"""
                 )

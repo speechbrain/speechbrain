@@ -9,6 +9,8 @@ Authors
  * Salima Mdhaffar 2021
 """
 
+import warnings
+
 import torch
 import torch.nn.functional as F
 from torch import nn
@@ -26,6 +28,11 @@ except ImportError:
     raise ImportError(MSG)
 
 logger = get_logger(__name__)
+
+warnings.warn(
+    "Fairseq integration will be removed from SpeechBrain in a future release.",
+    DeprecationWarning,
+)
 
 
 class FairseqWav2Vec2(nn.Module):
