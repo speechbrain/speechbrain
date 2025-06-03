@@ -2,8 +2,8 @@
 Contains the defaults and parsing code for run-time controls
 
 Authors
- * Nouran Ali (2025)
- * Peter Plantinga (2025)
+ * Nouran Ali 2025
+ * Peter Plantinga 2025
 """
 
 import argparse
@@ -17,6 +17,95 @@ import torch
 
 @dataclass
 class RunOptions:
+    """
+    Holds configuration options and runtime controls for SpeechBrain experiments.
+
+    This dataclass encapsulates all tunable parameters and flags that affect
+    the behavior of a SpeechBrain experiment, including device selection,
+    debugging, distributed training, mixed-precision settings, checkpointing,
+    profiling, and more. It provides default values for each option and can be
+    constructed directly or via command-line argument parsing.
+
+    Attributes
+    ----------
+    test_only : bool
+        Run in evaluation-only mode, skipping training.
+    debug : bool
+        Enable debugging mode with reduced dataset size.
+    debug_batches : int
+        Number of batches to run in debug mode.
+    debug_epochs : int
+        Number of epochs to run in debug mode.
+    debug_persistently : bool
+        Keep debug data persistent (not using /tmp).
+    device : str
+        The device on which to run (e.g., "cpu", "cuda:0").
+    data_parallel_backend : bool
+        Enable data parallel training.
+    data_parallel_count : int
+        Number of devices for data parallelism.
+    distributed_backend : str
+        Backend for distributed training ("nccl", "gloo", or "mpi").
+    distributed_launch : bool
+        Use distributed launch for training.
+    find_unused_parameters : bool
+        Detect unused parameters during distributed training.
+    jit : bool
+        Enable JIT compilation for modules.
+    jit_module_keys : None or list
+        Module keys to compile with JIT.
+    compile : bool
+        Enable torch.compile for modules (if available).
+    compile_module_keys : None or list
+        Module keys to compile with torch.compile.
+    compile_mode : str
+        Compilation mode ("default", "reduce-overhead", "max-autotune").
+    compile_using_fullgraph : bool
+        Use fullgraph compilation.
+    compile_using_dynamic_shape_tracing : bool
+        Use dynamic shape tracing in compilation.
+    precision : str
+        Training precision ("fp32", "fp16", "bf16").
+    eval_precision : str
+        Inference precision ("fp32", "fp16", "bf16").
+    auto_mix_prec : bool
+        Enable automatic mixed-precision training.
+    bfloat16_mix_prec : bool
+        Enable bfloat16 mixed-precision training.
+    max_grad_norm : float
+        Maximum gradient norm for clipping.
+    skip_nonfinite_grads : bool
+        Skip non-finite gradients.
+    nonfinite_patience : int
+        Number of tolerated non-finite batches per epoch.
+    noprogressbar : bool
+        Disable progress bars.
+    ckpt_interval_minutes : int
+        Minutes between intra-epoch checkpoints.
+    ckpt_interval_steps : int
+        Steps between intra-epoch checkpoints.
+    grad_accumulation_factor : int
+        Batches to accumulate before optimizer step.
+    optimizer_step_limit : None or int
+        Maximum number of optimizer steps.
+    tqdm_colored_bar : bool
+        Enable colored progress bars.
+    tqdm_barcolor : dict of str
+        Color mapping for progress bars.
+    remove_vector_weight_decay : bool
+        Separate parameter group for vectors without weight decay.
+    profile_training : bool
+        Enable profiling and tensorboard logging.
+    profile_warmup : int
+        Profiler warmup steps.
+    profile_steps : int
+        Profiler logging steps.
+    log_config : None or str
+        Path to logging configuration file.
+    param_file : str
+        Path to experiment parameter YAML file.
+    """
+
     test_only: bool = False
     debug: bool = False
     debug_batches: int = 2
@@ -93,7 +182,7 @@ class RunOptions:
         Example
         -------
         >>> argv = ['hyperparams.yaml', '--device', 'cuda:1', '--seed', '10']
-        >>> filename, run_opts, overrides = parse_arguments(argv)
+        >>> filename, run_opts, overrides = RunOptions.from_command_line_args(argv)
         >>> filename
         'hyperparams.yaml'
         >>> run_opts["device"]
