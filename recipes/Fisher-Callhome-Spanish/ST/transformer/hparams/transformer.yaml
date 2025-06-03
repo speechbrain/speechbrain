@@ -245,5 +245,5 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
         normalizer: !ref <normalize>
         counter: !ref <epoch_counter>
 
-bleu_computer: !name:speechbrain.utils.bleu.BLEUStats
+bleu_computer: !name:speechbrain.integrations.nlp.bleu.BLEUStats
 acc_computer: !name:speechbrain.utils.Accuracy.AccuracyStats

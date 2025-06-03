@@ -1545,7 +1545,7 @@ class InputNormalization(torch.nn.Module):
         self._load_statistics_dict(stats)
 
 
-def make_padding_mask(x, lengths=None, length_dim=1, eps=1e-8):
+def make_padding_mask(x, lengths=None, length_dim=1, eps=1e-6):
     """Create a mask from relative lengths along a given dimension.
 
     Arguments
@@ -1597,7 +1597,7 @@ def make_padding_mask(x, lengths=None, length_dim=1, eps=1e-8):
 
     # Convert relative lengths to absolute lengths, then compute boolean mask
     max_len = x.size(length_dim)
-    abs_lengths = (lengths * max_len + eps).unsqueeze(1)
+    abs_lengths = (lengths * max_len - eps).unsqueeze(1)
     mask = torch.arange(max_len, device=x.device).unsqueeze(0) < abs_lengths
 
     # Add dimensions other than (batch, length) back into the mask

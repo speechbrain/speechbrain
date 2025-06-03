@@ -917,7 +917,7 @@ def compute_length_mask(data, length=None, len_dim=1):
     mask = torch.ones_like(data)
     if length is not None:
         length_mask = length_to_mask(
-            length * data.shape[len_dim],
+            (length * data.shape[len_dim] - 1e-6),
             max_len=data.shape[len_dim],
         )
 

@@ -32,7 +32,7 @@ from tqdm import tqdm
 
 import speechbrain as sb
 from speechbrain.dataio.dataio import read_audio, read_audio_multichannel
-from speechbrain.processing import diarization as diar
+from speechbrain.integrations.alignment import diarization as diar
 from speechbrain.processing.PLDA_LDA import StatObject_SB
 from speechbrain.utils.DER import DER
 from speechbrain.utils.distributed import run_on_main

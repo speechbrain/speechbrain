@@ -57,7 +57,7 @@ n_init: 20
 reassignment_ratio: 0.0
 
 # Modules
-ssl_model: !new:speechbrain.lobes.models.huggingface_transformers.wav2vec2.Wav2Vec2
+ssl_model: !new:speechbrain.integrations.huggingface.wav2vec2.Wav2Vec2
     source: !ref <ssl_hub>
     output_norm: False
     freeze: True
@@ -65,7 +65,7 @@ ssl_model: !new:speechbrain.lobes.models.huggingface_transformers.wav2vec2.Wav2V
     output_all_hiddens: True
     save_path: !ref <cache_folder>
 
-quantizer: !new:speechbrain.lobes.models.kmeans.MiniBatchKMeansSklearn
+quantizer: !new:speechbrain.integrations.audio_tokenizers.kmeans.MiniBatchKMeansSklearn
     n_clusters: !ref <n_clusters>
     init: !ref <init>
     max_iter: !ref <max_iter>
@@ -93,9 +93,9 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
         quantizer: !ref <quantizer>
         counter: !ref <epoch_counter>
     custom_load_hooks:
-        quantizer: !name:speechbrain.lobes.models.kmeans.MiniBatchKMeansSklearn.load
+        quantizer: !name:speechbrain.integrations.audio_tokenizers.kmeans.MiniBatchKMeansSklearn.load
     custom_save_hooks:
-        quantizer: !name:speechbrain.lobes.models.kmeans.MiniBatchKMeansSklearn.save
+        quantizer: !name:speechbrain.integrations.audio_tokenizers.kmeans.MiniBatchKMeansSklearn.save
 
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
     save_file: !ref <output_folder>/train_log.txt
