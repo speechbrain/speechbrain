@@ -177,89 +177,28 @@ class Brain:
 
     Arguments
     ---------
-    modules : dict of str:torch.nn.Module pairs
+    modules : dict[str, torch.nn.Module]
         These modules are passed to the optimizer by default if they have
         trainable parameters, and will have ``train()``/``eval()`` called on them.
-    opt_class : torch.optim class
+    opt_class : Optional[Type[torch.optim]]
         A torch optimizer constructor that takes only the list of
         parameters (e.g. a lambda or partial function definition). By default,
         this will be passed all modules in ``modules`` at the
         beginning of the ``fit()`` method. This behavior can be changed
         by overriding the ``configure_optimizers()`` method.
-    hparams : dict
+    hparams : Optional[dict]
         Each key:value pair should consist of a string key and a hyperparameter
         that is used within the overridden methods. These will
         be accessible via an ``hparams`` attribute, using "dot" notation:
         e.g., self.hparams.model(x).
-    run_opts : dict
-        A set of options to change the runtime environment, including
-
-        debug (bool)
-            If ``True``, this will only iterate a few batches for all
-            datasets, to ensure code runs without crashing.
-        debug_batches (int)
-            Number of batches to run in debug mode, Default ``2``.
-        debug_epochs (int)
-            Number of epochs to run in debug mode, Default ``2``.
-            If a non-positive number is passed, all epochs are run.
-        debug_persistently (bool)
-            Keep data stored during debug mode (not using /tmp), Default ``False``.
-        jit (bool)
-            Enable to compile all modules using jit, Default ``False``.
-        jit_module_keys (list of str)
-            List of keys in ``modules`` that should be jit compiled.
-        compile (bool)
-            Enable to compile all modules using torch.compile, Default ``False``.
-        compile_module_keys (list of str)
-            List of keys in ``modules`` that should be compiled using
-            ``torch.compile``. If ``torch.compile`` is unavailable,
-            an error is raised.
-        compile_mode (str)
-            One of ``default``, ``reduce-overhead``, ``max-autotune``, Default ``reduce-overhead``.
-        compile_using_fullgraph (bool)
-            Whether it is ok to break model into several subgraphs, Default ``False``.
-        compile_using_dynamic_shape_tracing (bool)
-            Use dynamic shape tracing for compilation, Default ``False``.
-        distributed_backend (str)
-            One of ``nccl``, ``gloo``, ``mpi``.
-        device (str)
-            The location for performing computations.
-        precision (str)
-            One of ``fp32``, ``fp16``, ``bf16``.
-        eval_precision (str)
-            One of ``fp32``, ``fp16``, ``bf16``.
-        auto_mix_prec (bool)
-            If ``True``, automatic mixed-precision (fp16) is used.
-            Activate it only with cuda. Note: this is a
-            deprecated feature, and will be removed in the future.
-        bfloat16_mix_prec (bool)
-            If ``True``, automatic mixed-precision (bf16) is used.
-            Activate it only with cuda. Note: this is a
-            deprecated feature, and will be removed in the future.
-        max_grad_norm (float)
-            Default implementation of ``fit_batch()`` uses
-            ``clip_grad_norm_`` with this value. Default: ``5``.
-        skip_nonfinite_grads (bool)
-            If ``True``, sets gradients to zero if they are non-finite
-            (e.g., NaN, Inf). Default: ``False``.
-        nonfinite_patience (int)
-            Number of times to ignore non-finite losses before stopping.
-            Default: ``3``.
-        noprogressbar (bool)
-            Whether to turn off progressbar when training. Default: ``False``.
-        ckpt_interval_minutes (float)
-            Amount of time between saving intra-epoch checkpoints,
-            in minutes, default: ``15.0``. If non-positive, these are not saved.
-        ckpt_interval_steps (int)
-            Number of steps between saving intra-epoch checkpoints.
-            If non-positive, these are not saved. Default: ``0``.
-
-
-        Typically in a script this comes from ``speechbrain.parse_args``, which
+    run_opts : Optional[Union[RunOptions, dict]]
+        A set of options to change the runtime environment, see ``RunOptions`` for a list.
+        Typically in a script this comes from ``speechbrain.parse_args``, an alias
+        for ``RunOptions.from_command_line_args`` which
         has different defaults than Brain. If an option is not defined here
-        (keep in mind that parse_args will inject some options by default),
+        (keep in mind that `parse_args` will inject some options by default),
         then the option is also searched for in hparams (by key).
-    checkpointer : speechbrain.Checkpointer
+    checkpointer : Optional[speechbrain.Checkpointer]
         By default, this will be used to load checkpoints, and will have the
         optimizer added to continue training if interrupted.
 
@@ -287,10 +226,14 @@ class Brain:
         self.optimizers_dict = None
         self.opt_class = opt_class
         self.checkpointer = checkpointer
-        _, self.run_opt_defaults, _ = RunOptions.from_command_line_args()
+        if isinstance(run_opts, dict):
+            run_opts = RunOptions.from_dictionary(run_opts)
 
-        for arg, default in self.run_opt_defaults.items():
-            if run_opts is not None and arg in run_opts:
+        # Check which options have been overridden. Order of priority
+        # is lowest: default -> hparams -> commandline: highest
+        run_opt_defaults = RunOptions()
+        for arg, default in run_opt_defaults.as_dict().items():
+            if run_opts is not None and arg in run_opts.overridden_args:
                 if hparams is not None and arg in hparams:
                     logger.info(
                         "Info: "

@@ -236,21 +236,10 @@ class Pretrained(torch.nn.Module):
         that is used within the overridden methods. These will
         be accessible via an ``hparams`` attribute, using "dot" notation:
         e.g., self.hparams.model(x).
-    run_opts : dict
-        Options parsed from command line. See ``speechbrain.parse_arguments()``.
-        List that are supported here:
-         * device
-         * data_parallel_count
-         * data_parallel_backend
-         * distributed_launch
-         * distributed_backend
-         * jit
-         * jit_module_keys
-         * compule
-         * compile_module_keys
-         * compile_mode
-         * compile_using_fullgraph
-         * compile_using_dynamic_shape_tracing
+    run_opts : Optional[Union[RunOptions, dict]]
+        A set of options to change the runtime environment, see ``RunOptions`` for
+        a complete list. Some options are meant for training, and will not apply
+        for this instance intended for inference.
     freeze_params : bool
         To freeze (requires_grad=False) parameters or not. Normally in inference
         you want to freeze the params. Also calls .eval() on all modules.
@@ -263,13 +252,14 @@ class Pretrained(torch.nn.Module):
         self, modules=None, hparams=None, run_opts=None, freeze_params=True
     ):
         super().__init__()
-        self.run_opt_defaults = RunOptions().from_command_line_args()
-        # Arguments passed via the run opts dictionary. Set a limited
-        # number of these, since some don't apply to inference.
-        # run_opt_defaults = RunOptions().as_dict()
 
-        for arg, default in self.run_opt_defaults.items():
-            if run_opts is not None and arg in run_opts:
+        # Check which options have been overridden. Order of priority
+        # is lowest: default -> hparams -> commandline: highest
+        if isinstance(run_opts, dict):
+            run_opts = RunOptions.from_dictionary(run_opts)
+        self.run_opt_defaults = RunOptions()
+        for arg, default in self.run_opt_defaults.as_dict().items():
+            if run_opts is not None and arg in run_opts.overridden_args:
                 setattr(self, arg, run_opts[arg])
             else:
                 # If any arg from run_opt_defaults exist in hparams and

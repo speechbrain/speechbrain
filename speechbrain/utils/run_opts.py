@@ -104,6 +104,8 @@ class RunOptions:
         Path to logging configuration file.
     param_file : str
         Path to experiment parameter YAML file.
+    overridden_args : dict
+        The args that have been manually specified on the command line.
     """
 
     test_only: bool = False
@@ -152,6 +154,7 @@ class RunOptions:
     profile_steps: int = 5
     log_config: Optional[str] = None
     param_file: str = ""
+    overridden_args: dict = field(default_factory=dict)
 
     def as_dict(self) -> Dict:
         """
@@ -165,6 +168,14 @@ class RunOptions:
     def __getitem__(self, key):
         """Make items accessible via dict notation, to maintain backwards compat."""
         return getattr(self, key)
+
+    @classmethod
+    def from_dictionary(cls, args_dict):
+        """Set experimental arguments from a dictionary."""
+
+        run_opts = cls(**args_dict)
+        run_opts.overridden_args = args_dict
+        return run_opts
 
     @classmethod
     def from_command_line_args(cls, arg_list=None):
@@ -428,6 +439,7 @@ class RunOptions:
         args_dict = vars(parsed_args)
         param_file = args_dict["param_file"]
         run_opts = cls(**args_dict)
+        run_opts.overridden_args = args_dict
 
         overrides = cls._convert_to_yaml(overrides)
 
