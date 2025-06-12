@@ -615,7 +615,7 @@ class WhisperASR(Pretrained):
         condition_on_previous_text: bool = False,
         verbose: bool = False,
         use_torchaudio_streaming: bool = False,
-        chunk_size: Optional[int] = 30,
+        chunk_size: int = 30,
         **kwargs,
     ):
         """Transcribes the given audiofile into a sequence of words.
@@ -648,7 +648,7 @@ class WhisperASR(Pretrained):
             entire audio file is fetched and loaded at once.
             This skips the usual fetching method and instead resolves the URI
             using torchaudio (via ffmpeg).
-        chunk_size : Optional[int]
+        chunk_size : int
             The size of the chunks to split the audio into. The default
             chunk size is 30 seconds which corresponds to the maximal length
             that the model can process in one go.

@@ -15,7 +15,7 @@ import torch
 from ASR_template_train import ASR, dataio_prepare
 from hyperpyyaml import load_hyperpyyaml
 from torch.utils.data import DataLoader
-from tqdm.contrib import tqdm
+from tqdm import tqdm
 
 import speechbrain as sb
 from speechbrain.dataio.dataio import read_audio  # read_audio_multichannel,

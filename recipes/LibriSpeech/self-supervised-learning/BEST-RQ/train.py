@@ -3,8 +3,9 @@
 
 To run this recipe call python train.py BEST-RQ.yaml --find_unused_parameters
 
-Authors
-    * Ryan Whetten 2023
+Authors:
+ * Ryan Whetten, 2023
+ * Jarod Duret, 2024
 """
 
 import sys
@@ -31,6 +32,14 @@ class BestRQBrain(sb.core.Brain):
         """Computes forward pass through BestRQ model and returns encoded and
         target embeddings as well as other metrics of interest.
         """
+
+        if self.hparams.streaming:
+            dynchunktrain_config = self.hparams.dynchunktrain_config_sampler(
+                stage
+            )
+        else:
+            dynchunktrain_config = None
+
         # get batch and mask
         wavs, wav_lens, mask = batch
         wavs, wav_lens, mask = (
@@ -73,7 +82,9 @@ class BestRQBrain(sb.core.Brain):
         src = self.modules.CNN(feats)
 
         ##### transformer
-        enc_out = self.modules.wrapper(src, wav_lens)  # only use encoder
+        enc_out = self.modules.wrapper(
+            src, wav_lens, dynchunktrain_config=dynchunktrain_config
+        )  # only use encoder
 
         ##### linear
         logits = self.modules.linear(enc_out)
@@ -159,8 +170,13 @@ class BestRQBrain(sb.core.Brain):
 
             self.checkpointer.save_and_keep_only(
                 end_of_epoch=True,
-                num_to_keep=4,
-                meta={"valid_loss": stage_loss},
+                num_to_keep=3,
+                meta={
+                    "valid_loss": stage_loss,
+                    "epoch": epoch,
+                    "steps": self.optimizer_step,
+                    **stage_stats,
+                },
             )
 
 

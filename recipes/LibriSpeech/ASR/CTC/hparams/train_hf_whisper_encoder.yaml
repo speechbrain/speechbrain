@@ -101,7 +101,7 @@ enc: !new:speechbrain.nnet.containers.Sequential
    bn3: !name:speechbrain.nnet.normalization.LayerNorm
    activation3: !new:torch.nn.LeakyReLU
 
-whisper: !new:speechbrain.lobes.models.huggingface_transformers.whisper.Whisper
+whisper: !new:speechbrain.integrations.huggingface.whisper.Whisper
    source: !ref <whisper_hub>
    freeze: !ref <freeze_whisper>
    save_path: !ref <whisper_folder>

@@ -89,7 +89,7 @@ enc: !new:speechbrain.lobes.models.VanillaNN.VanillaNN
    dnn_blocks: !ref <dnn_layers>
    dnn_neurons: !ref <dnn_neurons>
 
-wav2vec2: !new:speechbrain.lobes.models.huggingface_transformers.wavlm.WavLM
+wav2vec2: !new:speechbrain.integrations.huggingface.wavlm.WavLM
    source: !ref <wav2vec2_hub>
    output_norm: True
    freeze_feature_extractor: True
