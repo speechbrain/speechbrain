@@ -36,7 +36,7 @@ class SaveableGenerator:
             model: !ref <model>
             lr_scheduler: !ref <lr_annealing>
             counter: !ref <epoch_counter>
-            generator: !ref <generator>*+
+            generator: !ref <generator>
     ```
 
     Arguments
