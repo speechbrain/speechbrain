@@ -28,35 +28,32 @@ class SaveableGenerator:
     generator interface will simply fail to restore the
     state but will not cause an error.
 
-    Sample usage in hparams:
-    ```yaml
-    generator: !new:model.custom_model.SaveableGenerator
-    checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
-        checkpoints_dir: !ref <save_folder>
-        recoverables:
-            model: !ref <model>
-            lr_scheduler: !ref <lr_annealing>
-            counter: !ref <epoch_counter>
-            generator: !ref <generator>
-    ```
-
     Arguments
     ---------
     generators : list, optional
-        A list of generator objects. If not provided, all
-        default generators for CPU and Cuda will be used
+        A list of generator objects. If not provided,
     """
 
     def __init__(self, generators=None):
         if generators is None:
             generators = {"default": torch.default_generator}
             if torch.cuda.is_available():
-                for idx, generator in torch.cuda.default_generators:
-                    generators[f"cuda:{idx}"] = generator
+                for idx in range(torch.cuda.device_count()):
+                    generators[f"cuda:{idx}"] = _CudaDefaultGeneratorWrapper(
+                        idx
+                    )
+
         self.generators = generators
 
     @sb.utils.checkpoints.mark_as_saver
-    def _save(self, path):
+    def save(self, path):
+        """Save the generator state for later recovery
+
+        Arguments
+        ---------
+        path : str, Path
+            Where to save. Will overwrite.
+        """
         save_dict = {
             key: generator.get_state()
             for key, generator in self.generators.items()
@@ -64,10 +61,24 @@ class SaveableGenerator:
         torch.save(save_dict, path)
 
     @sb.utils.checkpoints.mark_as_loader
-    def _recover(self, path, end_of_epoch):
+    def load(self, path, end_of_epoch):
+        """
+        Loads the generator state if the corresponding devices are
+        present
+
+        Arguments
+        ---------
+        path : str, Path
+            Where to load from.
+        end_of_epoch : bool
+            Whether the checkpoint was end-of-epoch or not.
+        """
         del end_of_epoch
         save_dict = torch.load(path)
         for key, state in save_dict.items():
+            if key == "default":
+                torch.default_generator.set_state(state)
+                continue
             match = re.match(r"cuda:(\d+)", key)
             if match:
                 if not torch.cuda.is_available():
@@ -75,10 +86,45 @@ class SaveableGenerator:
                         "Unable to restore RNG for %s, CUDA unavailable", key
                     )
                     continue
-                idx = match.group(1)
+                idx = int(match.group(1))
                 if idx > torch.cuda.device_count() - 1:
                     logger.warning(
                         "Unable to restore RNG for %s, device not found", key
                     )
                     continue
             self.generators[key].set_state(state)
+
+
+class _CudaDefaultGeneratorWrapper:
+    """A generator wrapper for default generators - because torch no longer
+    exposes default_generators
+
+    This class should not be used outside of SaveableGenerator
+
+    Arguments
+    ---------
+    device : int|str
+        The device index or identifier"""
+
+    def __init__(self, device):
+        self.device = device
+
+    def get_state(self):
+        """Returns the generator state
+
+        Returns
+        -------
+        result : torch.Tensor
+            The generator state
+        """
+        return torch.cuda.get_rng_state(self.device)
+
+    def set_state(self, new_state):
+        """ "Sets the generator state
+
+        Arguments
+        ---------
+        new_state : dict
+            The new state
+        """
+        torch.cuda.set_rng_state(new_state, self.device)
