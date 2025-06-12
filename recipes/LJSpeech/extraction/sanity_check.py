@@ -59,7 +59,6 @@ if __name__ == "__main__":
         datasets,
         keys=features,
         storage=hparams["storage"],
-        storage_opts=hparams["storage_opts"],
     ):
         for split in splits:
             print(f"Sanity checking {split}")

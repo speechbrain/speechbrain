@@ -5,16 +5,12 @@ Authors
  * Artem Ploujnikov 2025
 """
 
-import csv
 import math
-from concurrent.futures import ThreadPoolExecutor, wait
 from contextlib import contextmanager
 from functools import partial
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
-from uuid import uuid4
 
-import numpy as np
 import torch
 from tqdm.auto import tqdm
 
@@ -281,238 +277,6 @@ def storage_uri_scheme(scheme):
     return f
 
 
-@storage_uri_scheme("numpy")
-class NumpyStorage(Storage):
-    """A simple shareded Numpy-based storage implementation
-
-    Arguments
-    ---------
-    path : str
-        The storage path (a folder)
-    mode : str
-        The access mode ("r" or "w")
-    shard_size : int
-        The number of data samples per shard
-    async_save : bool
-        Whether to save files asynchronously.
-        This can be useful on compute clusters where
-        I/O speed is a bottleneck
-    async_save_concurrency : int
-        The number of concurrent processes for I/O
-    """
-
-    def __init__(
-        self,
-        path,
-        mode="r",
-        shard_size=1000,
-        async_save=False,
-        async_save_concurrency=5,
-    ):
-        self.path = Path(path).expanduser()
-        self.manifest_file_name = self.path / "manifest.csv"
-        self.shard_size = shard_size
-        self.manifest = {}
-        self.mode = mode
-        self.current_shard = {}
-        self.current_read_ids = None
-        self.current_read_shard = None
-        if self.manifest_file_name.exists():
-            self._read_manifest()
-        self.async_save = async_save
-        self.async_save_concurrency = async_save_concurrency
-        self._async_save_futures = {}
-        if self.async_save:
-            self.save_executor = ThreadPoolExecutor(
-                max_workers=self.async_save_concurrency
-            )
-        if mode == "w":
-            self.path.mkdir(exist_ok=True, parents=True)
-            self._open_manifest()
-        self.is_closed = False
-
-    def _read_manifest(self):
-        with open(
-            self.manifest_file_name, "r", encoding="utf-8"
-        ) as manifest_file:
-            reader = csv.reader(manifest_file)
-            for data_id, shard in reader:
-                self.manifest[data_id] = shard
-
-    def _open_manifest(self):
-        self._manifest_file = open(
-            self.manifest_file_name, "a+", encoding="utf-8"
-        )
-        self._manifest_writer = csv.writer(self._manifest_file)
-
-    def save(self, data_id, key, data):
-        """Saves a data element
-
-        Arguments
-        ---------
-        data_id : object
-            The identifier of the data sample (usually a string or an integer)
-        key : str
-            The key, identifying the type of data being saved
-        data : object
-            The data to be saved - what data is allowed will
-            depend on the storage
-        """
-        if self.mode == "r":
-            raise ValueError("Read-only file")
-        if (
-            len(self.current_shard) >= self.shard_size
-            and data_id not in self.current_shard
-        ):
-            self.flush()
-        if torch.is_tensor(data):
-            data = data.detach().cpu().numpy()
-        if data_id not in self.current_shard:
-            self.current_shard[data_id] = {}
-        self.current_shard[data_id][key] = data
-
-    def load(self, data_id, key):
-        """Loads a data element
-
-        Arguments
-        ---------
-        data_id : object
-            The identifier of the data sample (usually a string or an integer)
-        key : str
-            The key, identifying the type of data being saved
-
-        Returns
-        -------
-        data : object
-            The saved data
-        """
-        if (
-            self.current_read_ids is not None
-            and data_id in self.current_read_ids
-        ):
-            return self.current_read_shard[data_id].get(key)
-        if data_id in self.current_shard and data_id not in self.manifest:
-            # Being written now
-            return self.current_shard[data_id][key]
-
-        if data_id not in self.manifest:
-            # Does not exist
-            return None
-
-        file_name = self.manifest[data_id]
-        shard_data = np.load(self.path / file_name)
-        data_ids = shard_data["data_ids"]
-        keys = shard_data["keys"]
-        self.current_read_ids = data_ids
-        shard = {}
-        for read_data_id in data_ids:
-            shard[read_data_id] = {}
-            for read_key in keys:
-                shard_key = f"{read_data_id}__{read_key}"
-                if shard_key in shard_data:
-                    shard[read_data_id][read_key] = shard_data[shard_key]
-        self.current_read_shard = shard
-        result = shard[data_id].get(key)
-        if result is not None:
-            result = torch.from_numpy(result)
-        return result
-
-    def flush(self):
-        """Saves any pre-cahced data to permanent storage"""
-        self._save_current()
-        self._manifest_file.flush()
-        if self.async_save:
-            self._wait()
-
-    def _save_current(self):
-        """Saves the current shard to disk"""
-        if not self.current_shard:
-            return
-        data_ids = list(self.current_shard.keys())
-        keys = set([])
-        out_data = {}
-        file_name = f"{str(uuid4())}.npz"
-        manifest_rows = []
-        for data_id, item_data in self.current_shard.items():
-            out_data[data_id] = {}
-            for key, key_data in item_data.items():
-                keys.add(key)
-                out_data[f"{data_id}__{key}"] = key_data
-                self.manifest[data_id] = file_name
-            manifest_rows.append((data_id, file_name))
-        self._manifest_writer.writerows(manifest_rows)
-        self._save_file(
-            self.path / file_name,
-            data_ids=data_ids,
-            keys=list(keys),
-            **out_data,
-        )
-        self.current_shard = {}
-
-    def _save_file(self, file_name, **data):
-        """Saves a numpy file (synchronously or asynchronously, depending on settings)"""
-        if self.async_save:
-            future = self.save_executor.submit(np.savez, file_name, **data)
-            self._async_save_futures[file_name] = future
-        else:
-            np.savez(file_name, **data)
-
-    def _wait(self):
-        wait(list(self._async_save_futures.values()))
-        for file_name, future in self._async_save_futures.items():
-            exc = future.exception()
-            if exc is not None:
-                exc_info = (type(exc), exc, exc.__traceback__)
-                logger.warn(
-                    "Saving extracted features for %s could not be completed: %s",
-                    file_name,
-                    str(exc),
-                    exc_info=exc_info,
-                )
-
-    def close(self):
-        """Closes any open resources"""
-        if self.mode == "w":
-            self.flush()
-            if self.async_save:
-                self.save_executor.shutdown(wait=True)
-            self._manifest_file.close()
-        self.is_closed = True
-
-    @classmethod
-    def from_uri(cls, uri, mode, options=None):
-        """Instantiates a new storage from a URI
-
-        Arguments
-        ---------
-        uri: str
-            A URI
-        mode : str
-            The access mode: "r" for reading or "w" for writing
-        options : dict
-            Additional storage-specific options
-
-        Returns
-        -------
-        storage : Storage
-            The storage instance
-        """
-        if isinstance(uri, str):
-            uri = urlparse(uri)
-        query = parse_qs(uri.query)
-        if options is None:
-            options = {}
-        if "shard_size" in query:
-            options["shard_size"] = int(query["shard_size"])
-        if "async_save" in query:
-            options["async_save"] = _to_bool(query["async_save"])
-        if "async_save_concurrency" in query:
-            options["async_save_concurrency"] = int(
-                query["async_save_concurrency"]
-            )
-        return cls(path=uri.path, mode=mode, **options)
-
-
 @storage_uri_scheme("h5")
 class H5Storage(Storage):
     """A storage wrapper for h5py
@@ -691,30 +455,35 @@ class H5Storage(Storage):
         if isinstance(uri, str):
             uri = urlparse(uri)
         query = parse_qs(uri.query)
+        query = _flatten_lists(query)
         if options is None:
             options = {}
         if "write_batch_size" in query:
             options["write_batch_size"] = int(query["write_batch_size"])
         if "compression" in query:
-            options["compression"] = _to_bool(query["compression"])
+            options["compression"] = query["compression"]
         return cls(path=uri.path, mode=mode, **options)
 
 
-_bool_map = {
-    "0": False,
-    "1": True,
-    "true": True,
-    "false": False,
-}
+def _flatten_lists(query):
+    """Flattens lists in a parsed query strings
 
+    Arguments
+    ---------
+    query : dict
+        A dictionary obtained from a query string
 
-def _to_bool(value, default=False):
-    bool_value = default
-    if value is not None:
-        bool_value = _bool_map.get(value)
-        if bool_value is None:
-            raise ValueError(f"Invalid Boolean {bool_value}")
-    return bool_value
+    Returns
+    -------
+    result : dict
+        The dictionary with single-element lists converted to values
+    """
+    return {
+        key: (
+            value[0] if isinstance(value, list) and len(value) == 1 else value
+        )
+        for key, value in query.items()
+    }
 
 
 def resolve_storage(storage, storage_opts=None, mode="r"):

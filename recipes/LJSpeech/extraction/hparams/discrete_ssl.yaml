@@ -9,22 +9,7 @@ seed: 1986
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 output_folder: !ref results/wavlm
 save_folder: !ref <output_folder>/save
-storage_type: numpy
-storage_opts:
-  numpy:
-    shard_size: !ref <storage_numpy_shard_size>
-    async_save: !ref <storage_numpy_async_save>
-    async_save_concurrency: !ref <storage_numpy_async_save_concurrency>
-  h5:
-    write_batch_size: !ref <storage_h5_write_batch_size>
-    compression: !ref <storage_h5_compression>
-storage_numpy_shard_size: 1000
-storage_numpy_async_save: False
-storage_numpy_async_save_concurrency: 8
-storage_h5_write_batch_size: 10
-storage_h5_compression: gzip
-
-storage: !ref <storage_type>:<save_folder>/output?<storage_opts>
+storage: !ref h5:<save_folder>/output?compression=gzip
 train_log: !ref <output_folder>/extraction_log.txt
 
 # Data files
@@ -122,7 +107,6 @@ tokenizer_kwargs:
 
 feature_extractor: !name:speechbrain.dataio.preparation.FeatureExtractor
   storage: !ref <storage>
-  storage_opts: !ref <storage_opts>
   src_keys: !ref <src_keys>
   id_key: !ref <id_key>
   dataloader_opts: !ref <dataloader_opts>
