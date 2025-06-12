@@ -4,8 +4,9 @@ import torch
 
 
 def test_repro(tmpdir):
-    from speechbrain.utils.repro import SaveableGenerator
     from speechbrain.utils.checkpoints import Checkpointer
+    from speechbrain.utils.repro import SaveableGenerator
+
     gen1 = torch.Generator()
     gen2 = torch.Generator()
     gen = SaveableGenerator({"gen1": gen1, "gen2": gen2})

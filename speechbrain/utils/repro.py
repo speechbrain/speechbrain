@@ -5,9 +5,10 @@ Author:
 """
 
 import re
-import speechbrain as sb
+
 import torch
 
+import speechbrain as sb
 from speechbrain.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -48,9 +49,7 @@ class SaveableGenerator:
 
     def __init__(self, generators=None):
         if generators is None:
-            generators = {
-                "default": torch.default_generator
-            }
+            generators = {"default": torch.default_generator}
             if torch.cuda.is_available():
                 for idx, generator in torch.cuda.default_generators:
                     generators[f"cuda:{idx}"] = generator
@@ -72,10 +71,14 @@ class SaveableGenerator:
             match = re.match(r"cuda:(\d+)", key)
             if match:
                 if not torch.cuda.is_available():
-                    logger.warning("Unable to restore RNG for %s, CUDA unavailable", key)
+                    logger.warning(
+                        "Unable to restore RNG for %s, CUDA unavailable", key
+                    )
                     continue
                 idx = match.group(1)
                 if idx > torch.cuda.device_count() - 1:
-                    logger.warning("Unable to restore RNG for %s, device not found", key)
+                    logger.warning(
+                        "Unable to restore RNG for %s, device not found", key
+                    )
                     continue
             self.generators[key].set_state(state)
