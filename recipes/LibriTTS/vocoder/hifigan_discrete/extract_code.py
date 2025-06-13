@@ -16,14 +16,8 @@ from tqdm import tqdm
 
 import speechbrain as sb
 from speechbrain.dataio.dataio import load_pkl, save_pkl
-from speechbrain.lobes.models.huggingface_transformers import (
-    hubert,
-    wav2vec2,
-    wavlm,
-)
-from speechbrain.lobes.models.huggingface_transformers.discrete_ssl import (
-    DiscreteSSL,
-)
+from speechbrain.integrations.huggingface import hubert, wav2vec2, wavlm
+from speechbrain.integrations.huggingface.discrete_ssl import DiscreteSSL
 from speechbrain.utils.logger import get_logger
 
 OPT_FILE = "opt_libritts_extract_code.pkl"

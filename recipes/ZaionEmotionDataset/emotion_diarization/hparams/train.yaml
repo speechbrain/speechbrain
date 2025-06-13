@@ -80,7 +80,7 @@ input_norm: !new:speechbrain.processing.features.InputNormalization
     norm_type: sentence
     std_norm: False
 
-wav2vec2: !new:speechbrain.lobes.models.huggingface_transformers.wavlm.WavLM
+wav2vec2: !new:speechbrain.integrations.huggingface.wavlm.WavLM
     source: !ref <wav2vec2_hub>
     output_norm: True
     freeze: !ref <freeze_wav2vec2>

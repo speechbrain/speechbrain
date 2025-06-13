@@ -452,7 +452,7 @@ class CTCBeam:
     score_ctc: float = -math.inf
 
     @classmethod
-    def from_lm_beam(self, lm_beam: "LMCTCBeam") -> "CTCBeam":
+    def from_lm_beam(cls, lm_beam: "LMCTCBeam") -> "CTCBeam":
         """Create a CTCBeam from a LMCTCBeam
 
         Arguments
@@ -533,7 +533,7 @@ class CTCHypothesis:
     last_lm_state: None
     score: float
     lm_score: float
-    text_frames: list = None
+    text_frames: Optional[list] = None
 
 
 class CTCBaseSearcher(torch.nn.Module):
@@ -619,16 +619,16 @@ class CTCBaseSearcher(torch.nn.Module):
         vocab_list: List[str],
         space_token: str = " ",
         kenlm_model_path: Union[None, str] = None,
-        unigrams: Union[None, List[str]] = None,
+        unigrams: Union[None, list[str], set[str]] = None,
         alpha: float = 0.5,
         beta: float = 1.5,
         unk_score_offset: float = -10.0,
         score_boundary: bool = True,
         beam_size: int = 100,
-        beam_prune_logp: int = -10.0,
-        token_prune_min_logp: int = -5.0,
+        beam_prune_logp: float = -10.0,
+        token_prune_min_logp: float = -5.0,
         prune_history: bool = True,
-        blank_skip_threshold: Union[None, int] = 1.0,
+        blank_skip_threshold: float = 1.0,
         topk: int = 1,
         spm_token: str = "▁",
     ):
@@ -675,8 +675,8 @@ class CTCBaseSearcher(torch.nn.Module):
             try:
                 import kenlm  # type: ignore
 
-                from speechbrain.decoders.language_model import (
-                    LanguageModel,
+                from speechbrain.integrations.decoders.kenlm_scorer import (
+                    KenlmScorer,
                     load_unigram_set_from_arpa,
                 )
             except ImportError:
@@ -702,7 +702,7 @@ class CTCBaseSearcher(torch.nn.Module):
                 )
 
         if self.kenlm_model is not None:
-            self.lm = LanguageModel(
+            self.lm = KenlmScorer(
                 kenlm_model=self.kenlm_model,
                 unigrams=unigrams,
                 alpha=self.alpha,
@@ -1845,13 +1845,15 @@ class CTCPrefixBeamSearcher(CTCBaseSearcher):
 
                     # blank case
                     if token_index == self.blank_index:
-                        beam.n_p_b = np.logaddexp(
-                            beam.n_p_b, beam.score_ctc + p_token
+                        beam.n_p_b = float(
+                            np.logaddexp(beam.n_p_b, beam.score_ctc + p_token)
                         )
                         continue
 
                     if token == beam.last_token:
-                        beam.n_p_nb = np.logaddexp(beam.n_p_nb, p_nb + p_token)
+                        beam.n_p_nb = float(
+                            np.logaddexp(beam.n_p_nb, p_nb + p_token)
+                        )
 
                     new_text = beam.text + token
 
@@ -1871,7 +1873,7 @@ class CTCPrefixBeamSearcher(CTCBaseSearcher):
                         n_p_nb = np.logaddexp(n_p_nb, p_b + p_token)
                     elif token_index != beam.last_token_index:
                         n_p_nb = np.logaddexp(n_p_nb, beam.score_ctc + p_token)
-                    new_beam.n_p_nb = n_p_nb
+                    new_beam.n_p_nb = float(n_p_nb)
 
             # update the CTC probabilities
             for beam in beams:
