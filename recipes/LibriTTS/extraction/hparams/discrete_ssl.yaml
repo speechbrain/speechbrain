@@ -91,7 +91,7 @@ ssl_model: !apply:speechbrain.utils.hparams.choice
       output_all_hiddens: True
       save_path: !ref <ssl_folder>
 
-tokens_model: !new:speechbrain.lobes.models.huggingface_transformers.discrete_ssl.DiscreteSSL
+tokens_model: !new:speechbrain.integrations.audio_tokenizers.discrete_ssl.DiscreteSSL
   ssl_model: !ref <ssl_model>
   kmeans_dataset: !ref <kmeans_dataset>
   vocoder_repo_id: !ref <vocoder_repo_id>
