@@ -222,8 +222,14 @@ class Storage:
         """Closes any open resources"""
         pass
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.close()
+
     @classmethod
-    def from_uri(cls, uri, mode, options):
+    def from_uri(cls, uri, mode, options=None):
         """Instantiates a new storage from a URI
 
         Arguments
