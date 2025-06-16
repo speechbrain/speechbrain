@@ -1,7 +1,8 @@
 output_folder: /export/home/1rochdi/speechbrain/results/SGMSE    # Main directory to store experiment results
 save_folder: !ref <output_folder>/save    # Directory to save checkpoints
 train_log: !ref <output_folder>/train_log.txt    # Path to the file where training logs are written
-enhanced_folder: !ref <output_folder>/enhanced   # Directory to store enhanced/tested waveforms
+enhanced_folder: !ref <output_folder>/enhanced_validation  # Directory to store validation waveforms
+inference_folder: !ref <output_folder>/enhanced_inference   # Directory to store waveforms at inference
 tensorboard_logs: !ref <output_folder>/logs/    # Directory for TensorBoard logs
 
 data_folder: /data/datasets/noisy-vctk-16k    # Root folder for the dataset
@@ -10,13 +11,15 @@ valid_annotation: !ref <data_folder>/valid.json    # JSON file listing validatio
 test_annotation:  !ref <data_folder>/test.json     # JSON file listing test samples
 
 skip_prep: False     # If True, skip data preparation steps
-num_samples: 32700   # Number of samples (waveform length) before STFT, producing a 256x256 spec, TODO: compute from stft params
+segment_frames: 256  # what the model ‘wants’ to see (= 1 s with the standart stft params)
 random_crop: True    # Whether to crop segments randomly from longer waveforms
+random_crop_valid: False 
+random_crop_test: False
 
 normalize: noisy    # Indicates how waveforms are normalized (noisy, clean)
 sample_rate: 16000  # Sampling rate (in Hz) for audio data
-batch_size: 8       # Batch size for the training set
-number_of_epochs: 200    # Total epochs to train
+batch_size: 8      # Batch size for the training set
+number_of_epochs: 400    # Total epochs to train
 lr: 0.0001          # Learning rate
 sorting: ascending  # Sorting strategy for data loading (e.g., ascending, descending)
 
@@ -24,7 +27,7 @@ n_fft: 510          # FFT size for STFT
 hop_length: 128     # Hop length (stride) for STFT
 window_type: hann   # Type of window function for STFT
 
-transform_type: log         # Type of spectral transform (log, exponent, none)
+transform_type: exponent         # Type of spectral transform (log, exponent, none)
 spec_factor: 0.15           # Factor to scale the transformed spectrogram
 spec_abs_exponent: 0.5      # Exponent to apply to spectrogram magnitude if needed
 
@@ -51,10 +54,10 @@ modules:
     lr: !ref <lr>                      # Learning rate for the model
     ema_decay: 0.999                   # Decay factor for EMA of model parameters
     t_eps: 0.03                        # Min time-step to avoid zero in continuous diffusion
-    num_eval_files: 20                 # Number of files to process for evaluation
+    num_eval_files: 5                  # Number of files to process for evaluation
     loss_type: score_matching          # Which loss approach to use (score matching, etc.)
     loss_weighting: sigma^2            # Weighting in the loss function
-    network_scaling: null              # Scaling strategy (if any) for network outputs
+    network_scaling: 1/t               # Scaling strategy (if any) for network outputs
     c_in: "1"                          # Input scaling scheme
     c_out: "1"                         # Output scaling scheme
     c_skip: "0"                        # Skip connection scaling scheme

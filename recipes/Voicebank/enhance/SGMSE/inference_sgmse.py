@@ -9,8 +9,8 @@ import speechbrain as sb
 # -----------------------
 # Configuration variables
 # -----------------------
-CHECKPOINT_FOLDER = "/export/home/1rochdi/speechbrain/results/SGMSE/save/run_2025-04-07_21-44-45/CKPT+2025-04-09+13-34-18+00"
-SCORE_MODEL_FILE = "score_model.ckpt"  # Contains raw model weights
+CHECKPOINT_FOLDER = "/export/home/1rochdi/speechbrain/results/SGMSE/save/run_2025-05-22_15-38-29/CKPT+2025-05-22+15-50-48+00"
+SCORE_MODEL_FILE = "score_model_patched.ckpt"  # Contains raw model weights
 CONFIG_PATH = "/export/home/1rochdi/speechbrain/recipes/Voicebank/enhance/SGMSE/hparams.yaml"
 NUM_FILES = 10  # Number of test files to process
 
@@ -94,15 +94,49 @@ def main():
     if not os.path.isfile(score_model_path):
         raise FileNotFoundError(f"Could not find {score_model_path}")
 
-    # Load raw model weights.
-    state_dict = torch.load(score_model_path, map_location=device)
-    # Try loading directly, if necessary, try state_dict["score_model"]
-    try:
-        model.load_state_dict(state_dict)
-        print(f"Loaded raw state_dict from {score_model_path}")
-    except Exception:
-        model.load_state_dict(state_dict["score_model"])
-        print(f"Loaded 'score_model' key from {score_model_path}")
+    # # Load raw model weights.
+    # state_dict = torch.load(score_model_path, map_location=device)
+    # # Try loading directly, if necessary, try state_dict["score_model"]
+    # try:
+    #     model.load_state_dict(state_dict)
+    #     print(f"Loaded raw state_dict from {score_model_path}")
+    # except Exception:
+    #     model.load_state_dict(state_dict["score_model"])
+    #     print(f"Loaded 'score_model' key from {score_model_path}")
+
+    # ------------------------------------------------------------------
+    # 1) load checkpoint and pick out the real parameter dict
+    # ------------------------------------------------------------------
+    raw_ckpt = torch.load(score_model_path, map_location=device)
+
+    if "state_dict" in raw_ckpt:          # Lightning-style file (your patched ckpt)
+        param_dict = raw_ckpt["state_dict"]
+    elif "score_model" in raw_ckpt:       # direct SpeechBrain training ckpt
+        param_dict = raw_ckpt["score_model"]
+    else:                                 # plain tensor map
+        param_dict = raw_ckpt
+
+    # ------------------------------------------------------------------
+    # 2) load network weights
+    # ------------------------------------------------------------------
+    missing, unexpected = model.load_state_dict(param_dict, strict=False)
+    if unexpected:
+        print("⚠️  ignored unexpected keys:", unexpected)
+    if missing:
+        print("⚠️  did not find keys:", missing)
+    print(f"Loaded parameters from {score_model_path}")
+
+    # ------------------------------------------------------------------
+    # 3) if the file contains an EMA block, use it
+    # ------------------------------------------------------------------
+    if "ema" in raw_ckpt:
+        try:
+            model.ema.load_state_dict(raw_ckpt["ema"])
+            model.ema.copy_to(model.dnn.parameters())   # swap EMA into the network
+            print(f"✓ EMA (decay = {model.ema.decay}) loaded and activated")
+        except Exception as e:
+            print("Could not load EMA:", e)
+    # ------------------------------------------------------------------
 
     model.eval()
     print(f"Model weights loaded from {score_model_path}")
@@ -155,6 +189,7 @@ def main():
         y_wav_torch = y_wav_torch / norm_factor
 
         # Compute STFT
+        T_orig = y_wav_torch.size(-1) 
         y_stft = do_stft(y_wav_torch, window, n_fft, hop_length)  # (1, F, T) complex
 
         # Apply forward spectral transform
@@ -164,7 +199,8 @@ def main():
         y_stft = y_stft.unsqueeze(1)
 
         # Pad to match the backbone's expected input shape.
-        y_stft = pad_spec(y_stft)
+        pad_mode = "reflection"            # for ncsnpp_v2 / ncsnpp_48k
+        y_stft = pad_spec(y_stft, mode=pad_mode)
 
         # Enhance using the model's enhance() method.
         with torch.no_grad():
@@ -177,7 +213,7 @@ def main():
         enh_stft = spec_back(enh_stft, transform_type, spec_factor, spec_abs_exponent)
 
         # Compute inverse STFT.
-        enh_wav_torch = do_istft(enh_stft, window, n_fft, hop_length, length=None)
+        enh_wav_torch = do_istft(enh_stft, window, n_fft, hop_length, length=T_orig)
 
         # Renormalize.
         enh_wav_torch = enh_wav_torch * norm_factor
@@ -190,7 +226,6 @@ def main():
         enh_path = os.path.join(enhanced_folder, enh_name)
         clean_path = os.path.join(enhanced_folder, clean_name)
         noisy_path = os.path.join(enhanced_folder, noisy_name)
-
 
         sf.write(enh_path, enh_wav, sample_rate)
         sf.write(clean_path, x_wav, sample_rate)

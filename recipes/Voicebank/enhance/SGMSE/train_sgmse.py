@@ -32,7 +32,6 @@ def pad_or_crop_waveform(sig, target_len, random_crop=True):
         sig = sig[..., start:start+target_len]
     return sig
 
-
 def dataio_prep(hparams):
     """
     Prepare the datasets in SpeechBrain style. In addition to reading and padding/cropping, we now:
@@ -40,52 +39,62 @@ def dataio_prep(hparams):
       - Normalize both noisy and clean signals with a common factor (based on hparams["normalize"]),
       - And (later in the Brain) the STFT and spec transformations will be applied.
     """
-    target_len = hparams["num_samples"]     
-    random_crop = hparams["random_crop"]
+    seg_frames   = hparams["segment_frames"] 
+    n_fft        = hparams["n_fft"]
+    hop_length   = hparams["hop_length"]
+    target_len   = (seg_frames - 1) * hop_length  
+    normalize    = hparams.get("normalize", "noisy")
+    data_folder  = hparams["data_folder"]
 
-    # First, read the raw audio and pad/crop.
-    @sb.utils.data_pipeline.takes("noisy_wav")
-    @sb.utils.data_pipeline.provides("noisy_sig")
-    def noisy_pipeline(noisy_wav):
-        sig = sb.dataio.dataio.read_audio(noisy_wav)
-        sig = pad_or_crop_waveform(sig, target_len, random_crop)
-        return sig
+    random_crop_train = hparams.get("random_crop_valid", True)
+    random_crop_valid = hparams.get("random_crop_valid", False)
+    random_crop_test  = hparams.get("random_crop_test",  False)
 
-    @sb.utils.data_pipeline.takes("clean_wav")
-    @sb.utils.data_pipeline.provides("clean_sig")
-    def clean_pipeline(clean_wav):
-        sig = sb.dataio.dataio.read_audio(clean_wav)
-        sig = pad_or_crop_waveform(sig, target_len, random_crop)
-        return sig
+    def build_pipeline(random_crop_flag):
+        @sb.utils.data_pipeline.takes("noisy_wav")
+        @sb.utils.data_pipeline.provides("noisy_sig")
+        def noisy_pipeline(noisy_wav):
+            sig = sb.dataio.dataio.read_audio(noisy_wav)
+            sig = pad_or_crop_waveform(sig, target_len, random_crop_flag)
+            return sig
 
-    # normalize both signals by the same factor.
-    @sb.utils.data_pipeline.takes("noisy_sig", "clean_sig")
-    @sb.utils.data_pipeline.provides("noisy_sig", "clean_sig")
-    def normalization_pipeline(noisy_sig, clean_sig):
-        norm_mode = hparams.get("normalize", "noisy")
-        if norm_mode == "noisy":
-            normfac = noisy_sig.abs().max()
-        elif norm_mode == "clean":
-            normfac = clean_sig.abs().max()
-        elif norm_mode == "not":
-            normfac = 1.0
-        else:
-            raise ValueError("Invalid normalization mode")
-        return noisy_sig / normfac, clean_sig / normfac
+        @sb.utils.data_pipeline.takes("clean_wav")
+        @sb.utils.data_pipeline.provides("clean_sig")
+        def clean_pipeline(clean_wav):
+            sig = sb.dataio.dataio.read_audio(clean_wav)
+            sig = pad_or_crop_waveform(sig, target_len, random_crop_flag)
+            return sig
 
-    # Build datasets
+        @sb.utils.data_pipeline.takes("noisy_sig", "clean_sig")
+        @sb.utils.data_pipeline.provides("noisy_sig", "clean_sig")
+        def norm_pipeline(noisy_sig, clean_sig):
+            if normalize == "noisy":
+                fac = noisy_sig.abs().max()
+            elif normalize == "clean":
+                fac = clean_sig.abs().max()
+            else: # "not"
+                fac = 1.0
+            return noisy_sig / fac, clean_sig / fac
+
+        return [noisy_pipeline, clean_pipeline, norm_pipeline]
+
+    # create datasets 
     datasets = {}
-    for split in ["train", "valid", "test"]:
+    for split, rc in zip(
+        ["train", "valid", "test"],
+        [random_crop_train, random_crop_valid, random_crop_test],
+    ):
+        pipelines = build_pipeline(rc)
         json_path = hparams[f"{split}_annotation"]
         datasets[split] = sb.dataio.dataset.DynamicItemDataset.from_json(
             json_path=json_path,
-            replacements={"data_root": hparams["data_folder"]},
-            dynamic_items=[noisy_pipeline, clean_pipeline, normalization_pipeline],
+            replacements={"data_root": data_folder},
+            dynamic_items=pipelines,
             output_keys=["id", "noisy_sig", "clean_sig"],
         )
 
-    # Possibly sort or shuffle
-    if hparams["sorting"] == "ascending" or hparams["sorting"] == "descending":
+    # optional length sorting
+    if hparams["sorting"] in ("ascending", "descending"):
         datasets["train"] = datasets["train"].filtered_sorted(
             sort_key="length", reverse=hparams["sorting"] == "descending"
         )

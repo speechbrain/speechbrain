@@ -44,6 +44,14 @@ class SGMSEBrain(sb.Brain):
         os.makedirs(checkpoints_dir, exist_ok=True)
         self.checkpointer.checkpoints_dir = checkpoints_dir # Override the path where Checkpointer saves files
 
+        ema = self.modules["score_model"].ema
+        self.checkpointer.add_recoverable(
+            name="ema",
+            obj=ema,
+            custom_save_hook=lambda obj, path: torch.save(obj.state_dict(), path),
+            custom_load_hook=lambda obj, path, end: obj.load_state_dict(torch.load(path)),
+        )
+
         # STFT
         n_fft = self.hparams.n_fft
         hop_length = self.hparams.hop_length
@@ -129,54 +137,77 @@ class SGMSEBrain(sb.Brain):
 
         # Adding channel dimension needed because backbone expects 4 dimensions
         x = x.unsqueeze(1) # (B,1,F,T) 
-        y = y.unsqueeze(1) # (B,1,F,T) 
+        y = y.unsqueeze(1) # (B,1,F,T)
+
+        # pad_mode = "reflection"  
+        # x = pad_spec(x, mode=pad_mode) # TODO: necessary here?
+        # y = pad_spec(y, mode=pad_mode) 
 
         outs = self._step(x, y, model) 
 
-        if stage != sb.Stage.TRAIN:  # Validation and Testing require enhancement process
-            if stage == sb.Stage.TEST or self.first_val_batch and model.num_eval_files != 0:
-                self.first_val_batch = False
-                x_wav = batch.clean_sig.data  # (num_files,S) # TODO: implement only using num_eval_files
-                y_wav = batch.noisy_sig.data  # (num_files,S)
+        if stage == sb.Stage.TEST or stage == sb.Stage.VALID and self.eval_files_left > 0:
+            x_wav = batch.clean_sig.data  # (B,S) 
+            y_wav = batch.noisy_sig.data  # (B,S)
 
-                # Save original length in time dimension
-                T_orig = y_wav.size(1)
+            # how many files from current batch shall we process?
+            B = y_wav.size(0)
+            take = min(B, self.eval_files_left)
+            self.eval_files_left -= take
 
-                # STFT
-                x = self.stft(x_wav) # (num_files,F,T) 
-                y = self.stft(y_wav) # (num_files,F,T) 
+            # slice to that number
+            x_wav = x_wav[:take] # (num_eval_files,S)
+            y_wav = y_wav[:take] # (num_eval_files,S)
+            uttids = batch.id[:take]
 
-                # Spec transformations
-                x = self.spec_fwd(x) # (num_files,F,T) 
-                y = self.spec_fwd(y) # (num_files,F,T) 
+            # Save original length in time dimension
+            T_orig_wav = y_wav.size(1)
+            
+            # STFT
+            x = self.stft(x_wav) # (num_files,F,T) 
+            y = self.stft(y_wav) # (num_files,F,T) 
+            F_orig_spec, T_orig_spec = y.shape[-2:] # save for removing padding
 
-                # Adding channel dimension needed because backbone expects 4 dimensions
-                x = x.unsqueeze(1) # (num_files,1,F,T) 
-                y = y.unsqueeze(1) # (num_files,1,F,T) 
+            # Spec transformations
+            x = self.spec_fwd(x) # (num_files,F,T) 
+            y = self.spec_fwd(y) # (num_files,F,T) 
 
-                # TODO: needed? Pad to make data fit for the backbone
-                # x = pad_spec(x) # (num_files,1,F,T) 
-                # y = pad_spec(y) # (num_files,1,F,T) 
+            # Adding channel dimension needed because backbone expects 4 dimensions
+            x = x.unsqueeze(1) # (num_files,1,F,T) 
+            y = y.unsqueeze(1) # (num_files,1,F,T) 
 
-                # Enhancement 
-                x_hat = model.enhance(y, N=model.sde.N) # (num_files, 1, F, T)
+            # pad_mode = "reflection"
+            # x = pad_spec(x, mode=pad_mode)
+            # y = pad_spec(y, mode=pad_mode)
 
-                # Squeeze out the channel dimension before iSTFT:
-                x_hat = x_hat.squeeze(1) # (num_files, F, T)
-                x = x.squeeze(1) # (num_files, F, T)
+            # Enhancement 
+            x_hat = model.enhance( #TODO: dont hardcode enhancement params
+                y,
+                sampler_type="pc", 
+                predictor="reverse_diffusion",
+                corrector="ald",
+                N=model.sde.N, corrector_steps=1, snr=0.5
+            ) # (num_files, 1, F, T)
 
-                # Reverse spech transformations
-                x_hat = self.spec_back(x_hat) # (num_files, F, T)
-                x = self.spec_back(x) # (num_files, F, T)
+            # # Remove channel dim *and* padding
+            # x_hat = x_hat[:, :, :F_orig_spec, :T_orig_spec].squeeze(1)   # (num_files, F_orig_spec, T_orig_spec)
+            # x     = x[:, :, :F_orig_spec, :T_orig_spec].squeeze(1)       # crop the reference too
 
-                # iSTFT
-                x_hat_wav = self.istft(x_hat, T_orig) # (num_files, S)
-                x_wav = self.istft(x, T_orig) # (num_files, S)
+            x_hat = x_hat.squeeze(1)
+            x = x.squeeze(1)
 
-                outs.update({
-                "x_hat_wav": x_hat_wav,
-                "x_wav": x_wav,
-                })
+            # Reverse spech transformations
+            x_hat = self.spec_back(x_hat) # (num_files, F, T)
+            x = self.spec_back(x) # (num_files, F, T)
+
+            # iSTFT
+            x_hat_wav = self.istft(x_hat, T_orig_wav) # (num_files, S)
+            x_wav = self.istft(x, T_orig_wav) # (num_files, S)
+
+            outs.update({                                             
+                "x_hat_wav": x_hat_wav, 
+                "x_wav":     x_wav,
+                "uttids":    uttids      # so compute_objectives can see them
+            })
 
         return outs
 
@@ -216,7 +247,8 @@ class SGMSEBrain(sb.Brain):
         if stage != sb.Stage.TRAIN:
             x_wav = predictions.get("x_wav", None)
             x_hat_wav = predictions.get("x_hat_wav", None)
-            if x_wav is not None and x_hat_wav is not None:
+            uttids     = predictions.get("uttids", None) 
+            if x_wav is not None:
                 # STOI
                 lens = torch.full((x_wav.shape[0],), x_wav.shape[1], device=x_wav.device) # TODO: data pipeline provide the true lengths
                 self.stoi_metric.append(batch.id, x_wav, x_hat_wav, lens, reduction="batch")
@@ -226,27 +258,17 @@ class SGMSEBrain(sb.Brain):
                 x_hat_wav_cpu = x_hat_wav.cpu()
                 self.pesq_metric.append(batch.id, target=x_wav_cpu, predict=x_hat_wav_cpu)
 
-                # Build saving directory
-                save_folder = os.path.join(self.hparams.output_folder, "validation_enhanced_wavs")
-                os.makedirs(save_folder, exist_ok=True)
-
-                # Retrieve sample rate from hparams
                 sr = self.hparams.sample_rate
-
-                # Loop through each item in the batch
-                for i, uttid in enumerate(batch.id[: x_wav_cpu.shape[0]]):
-                    clean_fname = f"{uttid}_clean.wav"
-                    enh_fname   = f"{uttid}_enhanced.wav"
-
-                    clean_path = os.path.join(save_folder, clean_fname)
-                    enh_path   = os.path.join(save_folder, enh_fname)
-
-                    clean_waveform = x_wav_cpu[i].numpy()
-                    enh_waveform   = x_hat_wav_cpu[i].numpy()
-
-                    # Write waveforms 
-                    sf.write(clean_path, clean_waveform, sr) #TODO: use proprietary func for that instead of sf
-                    sf.write(enh_path,  enh_waveform,   sr)
+                save_folder = self.hparams.enhanced_folder
+                os.makedirs(save_folder, exist_ok=True)
+      
+                epoch_tag = f"Ep{self.hparams.epoch_counter.current}" if stage == sb.Stage.VALID else ""                         
+                for i, uid in enumerate(uttids):
+                    clean_path = os.path.join(save_folder, f"{epoch_tag}_{uid}_clean.wav")
+                    enh_path   = os.path.join(save_folder, f"{epoch_tag}_{uid}_enhanced.wav")
+                    sf.write(clean_path, x_wav_cpu[i].numpy(), sr)
+                    sf.write(enh_path,  x_hat_wav_cpu[i].numpy(), sr)
+                    
         return loss
 
     def fit_batch(self, batch):
@@ -254,7 +276,7 @@ class SGMSEBrain(sb.Brain):
         Overridden method to train on a single batch.
 
         This performs the typical Brain forward-backward-update 
-        steps, and can include updates for EMA if desired.
+        steps, and can include updates for EMA.
 
         Parameters:
         - batch (speechbrain.dataio.batch.BrainBatch): The batch of data used 
@@ -303,16 +325,15 @@ class SGMSEBrain(sb.Brain):
             )
         
         if stage != sb.Stage.TRAIN:
+            self.modules["score_model"].store_ema()
             self.pesq_metric = MetricStats(
                 metric=pesq_eval, batch_eval=False, n_jobs=1
             )
     
-            if stage == sb.Stage.VALID:
-                # Set a flag so the first valid batch triggers enhancement
-                self.first_val_batch = True   
-                # Swap in the EMA weights for evaluation
-                self.modules["score_model"].store_ema()    
-
+        if stage == sb.Stage.VALID:
+                self.eval_files_left = self.hparams.modules['score_model'].num_eval_files
+                self.save_counter = 0  
+                self.modules["score_model"].store_ema() # Swap in the EMA weights for evaluation
 
     def on_stage_end(self, stage, stage_loss, epoch=None):
         """
@@ -352,7 +373,6 @@ class SGMSEBrain(sb.Brain):
             #     self.writer.add_scalar("Loss/train", avg_loss)
 
         elif stage == sb.Stage.VALID:
-            # TODO: ema here?
             self.modules["score_model"].restore_ema()
 
             # Summarize PESQ
@@ -384,7 +404,7 @@ class SGMSEBrain(sb.Brain):
             )
 
         elif stage == sb.Stage.TEST:
-            # TODO: ema here?
+            self.modules["score_model"].restore_ema()
             # Summarize the PESQ
             avg_pesq = self.pesq_metric.summarize("average")
             print(f"Avg PESQ: {avg_pesq:.4f}")
@@ -393,7 +413,7 @@ class SGMSEBrain(sb.Brain):
             avg_stoi = self.stoi_metric.summarize("average")
             print(f"Avg STOI: {avg_stoi:.4f}")
 
-            # TODO: Typically there's no 'epoch' concept in test stage so I take 0:
+            # there's no epoch concept in test stage so i take 0:
             self.writer.add_scalar("Loss/test", avg_loss, 0)
             self.writer.add_scalar("Metric/PESQ_test", avg_pesq, 0)
             self.writer.add_scalar("Metric/STOI_test", avg_stoi, 0)
@@ -403,8 +423,7 @@ class SGMSEBrain(sb.Brain):
 
     def on_evaluate_start(self, max_key=None, min_key=None):
         """
-        If we want to do inference with EMA weights, 
-        we swap in the EMA parameters right before evaluation.
+        Prepares evaluation.
 
         Parameters:
         - max_key (str, optional): Key used to track maximum metric value.
@@ -415,15 +434,11 @@ class SGMSEBrain(sb.Brain):
         """
         # Swap in the EMA weights for evaluation
         self.modules["score_model"].store_ema()
-        # You can also call super if you like 
         super().on_evaluate_start(max_key=max_key, min_key=min_key)
 
     def on_evaluate_end(self):
         """
-        Restore original weights after evaluation (if using EMA).
-
-        This reverts the model parameters to their pre-EMA state if 
-        `store_ema()` was called in `on_evaluate_start`.
+        Restore original weights after evaluation.
 
         Parameters:
         - None
