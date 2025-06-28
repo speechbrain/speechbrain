@@ -3,13 +3,6 @@
 from scipy import integrate
 import torch
 
-# --- New debug imports ---
-#TODO: remove debugging stuff
-import os
-import matplotlib.pyplot as plt
-import numpy as np
-# -------------------------
-
 from .predictors import Predictor, PredictorRegistry, ReverseDiffusionPredictor
 from .correctors import Corrector, CorrectorRegistry
 
@@ -18,7 +11,6 @@ __all__ = [
     'PredictorRegistry', 'CorrectorRegistry', 'Predictor', 'Corrector',
     'get_sampler'
 ]
-
 
 def to_flattened_numpy(x):
     """Flatten a torch tensor `x` and convert it to numpy."""
@@ -33,13 +25,7 @@ def from_flattened_numpy(x, shape):
 def get_pc_sampler(
     predictor_name, corrector_name, sde, score_fn, y,
     denoise=True, eps=3e-2, snr=0.1, corrector_steps=1, probability_flow: bool = False,
-    intermediate=False,
-    # --- New debug args ---
-    debug_plot=True,
-    plot_interval=5,
-    plot_dir="./debug_plots",
-    # ----------------------
-    **kwargs
+    intermediate=False, **kwargs
 ):
     """Create a Predictor-Corrector (PC) sampler.
 
@@ -62,25 +48,9 @@ def get_pc_sampler(
     predictor = predictor_cls(sde, score_fn, probability_flow=probability_flow)
     corrector = corrector_cls(sde, score_fn, snr=snr, n_steps=corrector_steps)
 
-    # Make sure plot_dir exists if we're debugging
-    if debug_plot and not os.path.exists(plot_dir):
-        os.makedirs(plot_dir)
-
     def pc_sampler():
         """The PC sampler function."""
         with torch.no_grad():
-
-            # -- Plot the noisy input once at the start --
-            if debug_plot:
-                # Grab the first sample from y
-                x_input = y[0, 0].detach().cpu().abs().numpy()
-                plt.figure()
-                plt.title("Noisy Input Spectrogram")
-                plt.imshow(np.log1p(x_input), origin='lower', aspect='auto')
-                plt.colorbar()
-                plt.savefig(os.path.join(plot_dir, "input_noisy.png"))
-                plt.close()
-
             xt = sde.prior_sampling(y.shape, y).to(y.device)
             timesteps = torch.linspace(sde.T, eps, sde.N, device=y.device)
             for i in range(sde.N):
@@ -90,57 +60,10 @@ def get_pc_sampler(
                 else:
                     stepsize = timesteps[-1] # from eps to 0
                 vec_t = torch.ones(y.shape[0], device=y.device) * t
-
-                # -------------------------------------------
-                # NEW: Plot raw model output (score_fn) at iteration i
-                if debug_plot and (i % plot_interval == 0):
-                    raw_score = score_fn(xt, y, vec_t)  # direct call to the model
-                    # shape: (B, 1, F, T) (possibly complex)
-                    raw_score_mag = raw_score[0, 0].detach().cpu().abs().numpy()
-
-                    plt.figure()
-                    plt.title(f"Raw Model Output at iteration {i}")
-                    plt.imshow(np.log1p(raw_score_mag), origin="lower", aspect="auto")
-                    plt.colorbar()
-                    plt.savefig(os.path.join(plot_dir, f"raw_score_{i:03d}.png"))
-                    plt.close()
-                # -------------------------------------------
-                
                 xt, xt_mean = corrector.update_fn(xt, y, vec_t)
                 xt, xt_mean = predictor.update_fn(xt, y, vec_t, stepsize)
-
-                # --- Debug plotting (save magnitude spectrogram) ---
-                if debug_plot and (i % plot_interval == 0):
-                    # We'll take the 1st item in the batch for visualization
-                    # shape: (F, T) if (B, 1, F, T); or (F, T) if complex
-                    x_plot_complex = xt_mean[0, 0].detach().cpu()  # complex
-                    x_magnitude = x_plot_complex.abs().numpy()      # real-valued
-
-                    # Plot & Save
-                    plt.figure()
-                    plt.title(f"Iteration {i}/{sde.N}")
-                    # Use log1p(magnitude) so we can see small details
-                    plt.imshow(np.log1p(x_magnitude), origin='lower', aspect='auto')
-                    plt.colorbar()
-                    # e.g. debug_plots/iter_000.png
-                    save_path = os.path.join(plot_dir, f"iter_{i:03d}.png")
-                    plt.savefig(save_path)
-                    plt.close()
-
             x_result = xt_mean if denoise else xt
             ns = sde.N * (corrector.n_steps + 1)
-
-            if debug_plot:
-                # Plot the final spectrogram (again, just taking [0,0])
-                x_final_complex = x_result[0, 0].detach().cpu()
-                x_final_mag = x_final_complex.abs().numpy()
-                
-                plt.figure()
-                plt.title("Final Enhanced Spectrogram")
-                plt.imshow(np.log1p(x_final_mag), origin='lower', aspect='auto')
-                plt.colorbar()
-                plt.savefig(os.path.join(plot_dir, "final_enhanced.png"))
-                plt.close()
             return x_result, ns
     
     return pc_sampler

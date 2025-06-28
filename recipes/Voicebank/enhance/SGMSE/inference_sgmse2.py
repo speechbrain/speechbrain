@@ -6,7 +6,7 @@ from speechbrain.lobes.models.sgmse.util.other import pad_spec
 # -----------------------
 # Configuration variables
 # -----------------------
-CHECKPOINT_FOLDER = "/export/home/1rochdi/speechbrain/results/SGMSE/save/run_2025-06-12_15-29-13/CKPT+2025-06-15+10-23-22+00"
+CHECKPOINT_FOLDER = "/export/home/1rochdi/speechbrain/results/SGMSE/save/run_2025-06-16_14-39-13/CKPT+2025-06-16+23-03-48+00"
 SCORE_MODEL_FILE  = "score_model.ckpt"   # checkpoint to load
 CONFIG_PATH       = "/export/home/1rochdi/speechbrain/recipes/Voicebank/enhance/SGMSE/hparams.yaml"
 NUM_FILES         = 10
