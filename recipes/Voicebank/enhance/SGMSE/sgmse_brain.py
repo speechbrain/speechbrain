@@ -354,7 +354,7 @@ class SGMSEBrain(sb.Brain):
             print(f"Avg {stage_name} Loss: {avg_loss:.4f}")
 
         # Log training loss
-        self.writer.add_scalar(f"Loss/{stage_name}", avg_loss, epoch)
+        self.writer.add_scalar(f"Loss_{stage_name}", avg_loss, epoch)
         
         if stage == sb.Stage.TRAIN:
             self.writer.flush()  # Manually write to disk to ensure real time updates
@@ -372,13 +372,13 @@ class SGMSEBrain(sb.Brain):
         print(f"Avg PESQ: {avg_pesq:.4f}")
         print(f"Avg STOI: {avg_stoi:.4f}")
         print(f"Avg STOI TM: {avg_stoi_tm:.4f}")
-        print(f"Avg SISDR: {avg_sisdr:.4f}")
+        print(f"Avg SI-SDR: {avg_sisdr:.4f}")
         
         # Write summaries to log
-        self.writer.add_scalar(f"Metric/PESQ_{stage_name}", avg_pesq, epoch)
-        self.writer.add_scalar(f"Metric/STOI_{stage_name}", avg_stoi, epoch)
-        self.writer.add_scalar(f"Metric/STOI_TM_{stage_name}", avg_stoi_tm, epoch)
-        self.writer.add_scalar(f"Metric/SISDR_{stage_name}", avg_sisdr, epoch)
+        self.writer.add_scalar(f"PESQ_{stage_name}", avg_pesq, epoch)
+        self.writer.add_scalar(f"STOI_{stage_name}", avg_stoi, epoch)
+        self.writer.add_scalar(f"STOI_TM_{stage_name}", avg_stoi_tm, epoch)
+        self.writer.add_scalar(f"SI-SDR_{stage_name}", avg_sisdr, epoch)
 
         if stage == sb.Stage.VALID:
             self.modules["score_model"].restore_ema() # Only for VALID, because TEST is wrapped in on_evaluate_end()
