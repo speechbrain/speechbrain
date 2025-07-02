@@ -20,10 +20,11 @@ import sys
 import tempfile
 import time
 import warnings
-from contextlib import contextmanager
+from contextlib import contextmanager, ExitStack
 from datetime import date
 from enum import Enum, auto
 from types import SimpleNamespace
+from typing import Dict
 
 import torch
 import yaml
@@ -46,6 +47,7 @@ from speechbrain.utils.distributed import is_distributed_initialized
 from speechbrain.utils.logger import get_logger
 from speechbrain.utils.optimizers import rm_vector_weight_decay
 from speechbrain.utils.profiling import prepare_profiler
+from speechbrain.dataio.feature_io import FeatureStorageWriter
 
 sb.utils.quirks.apply_quirks()
 
@@ -1855,3 +1857,51 @@ class Brain:
             self.optimizer_step = self.step
         else:
             self.optimizer_step = save_dict["optimizer_step"]
+
+    @torch.no_grad()
+    def compute_features(self, batch, stage):
+        raise NotImplementedError
+        return
+    
+    def _cache_features(self, dataset, stage, enable):
+        with self.training_ctx:
+            for batch in tqdm(dataset, dynamic_ncols=True, disable=not enable, colour=self.tqdm_barcolor["train"]):
+                extracted_features = self.compute_features(batch, stage=stage)
+                yield extracted_features
+            
+    def cache_features(
+        self,
+        writers: Dict[str, FeatureStorageWriter],
+        dataset,
+        stage,
+        loader_kwargs={},
+        progressbar=None,
+    ):
+        # stage -> in case augmentations need to be applied
+        assert writers is not None, "Feature cache manager must be provided"
+            
+        if not (
+            isinstance(dataset, DataLoader)
+            or isinstance(dataset, LoopedLoader)
+        ):
+            dataset = self.make_dataloader(
+                dataset, stage=stage, **loader_kwargs
+            )
+        
+        if progressbar is None:
+            progressbar = not self.noprogressbar
+
+        # Only show progressbar if requested and main_process
+        enable = progressbar and sb.utils.distributed.if_main_process()
+        feature_types = list(writers.keys())
+        
+        with ExitStack() as stack:
+            open_writers = {ft: stack.enter_context(writers[ft]) for ft in feature_types}
+            for data in self._cache_features(
+                dataset=dataset,
+                enable=enable,
+                stage=stage,
+            ):
+                for item in data:
+                    for ft in feature_types:
+                        open_writers[ft].write(item[self.feature_extraction_config.utterance_id_key], item[ft])

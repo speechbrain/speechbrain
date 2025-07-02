@@ -97,6 +97,7 @@ class NumpyHdf5Writer(FeatureStorageWriter):
         import h5py
 
         p = Path(storage_path)
+        os.makedirs(p.parent, exist_ok=True)
         self.storage_path_ = p.with_suffix(
             p.suffix + ".h5" if p.suffix != ".h5" else ".h5"
         )

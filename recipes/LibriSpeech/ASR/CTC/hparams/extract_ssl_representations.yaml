@@ -1,0 +1,102 @@
+# ################################
+# Model: wav2vec2
+# Augmentation: SpecAugment
+# Authors: Adel Moumen 2025
+# ################################
+
+# Seed needs to be set at top of yaml, before objects with parameters are made
+seed: 1986
+__set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
+output_folder: !ref results/extract_ssl_representations/<seed>
+save_folder: !ref <output_folder>/save
+ssl_features_folder: !ref <save_folder>/ssl_features
+
+# URL for the biggest Fairseq english wav2vec2 model.
+wav2vec2_hub: /scratch/adelmou/models/facebook/wav2vec2-base-960h
+wav2vec2_folder: !ref <save_folder>/wav2vec2_checkpoint
+
+# Data files
+data_folder: !PLACEHOLDER  # e.g., /path/to/LibriSpeech
+# noise/ris dataset will automatically be downloaded
+# data_folder_rirs: !ref <data_folder>
+train_splits: ["train-clean-100"] # , "train-clean-360", "train-other-500"
+dev_splits: ["dev-clean"]
+test_splits: ["test-clean", "test-other"]
+skip_prep: False
+train_csv: !ref <output_folder>/train.csv
+valid_csv: !ref <output_folder>/dev-clean.csv
+test_csv:
+   - !ref <output_folder>/test-clean.csv
+   - !ref <output_folder>/test-other.csv
+
+####################### Training Parameters ####################################
+
+feature_configs:
+    ssl_feats: !new:speechbrain.dataio.feature_io.FeatureStorageConfig
+        name: ssl_feats
+        dtype: float32
+        writer_class: !name:speechbrain.dataio.feature_io.NumpyHdf5Writer
+
+feature_storage_writers: !apply:speechbrain.dataio.feature_io.create_feature_storage_writers
+    feature_configs: !ref <feature_configs>
+    base_path: !ref <ssl_features_folder>
+    prefix: "train_hdf5_v2_"
+
+precision: bf16 # bf16, fp16 or fp32
+sample_rate: 16000
+freeze_wav2vec: True 
+
+# With data_parallel batch_size is split into N jobs
+# With DDP batch_size is multiplied by N jobs
+# Must be 3 per GPU to fit 32GB of VRAM
+batch_size: 8
+
+# Dataloader options
+dataloader_opts:
+   batch_size: !ref <batch_size>
+#
+# Functions and classes
+#
+label_encoder: !new:speechbrain.dataio.encoder.CTCTextEncoder
+
+wav2vec2: !new:speechbrain.integrations.huggingface.wav2vec2.Wav2Vec2
+   source: !ref <wav2vec2_hub>
+   output_norm: True
+   freeze: !ref <freeze_wav2vec>
+   save_path: !ref <wav2vec2_folder>
+
+modules:
+   wav2vec2: !ref <wav2vec2>
+
+############################## Augmentations ###################################
+
+# Speed perturbation
+speed_perturb: !new:speechbrain.augment.time_domain.SpeedPerturb
+   orig_freq: !ref <sample_rate>
+   speeds: [95, 100, 105]
+
+# Frequency drop: randomly drops a number of frequency bands to zero.
+drop_freq: !new:speechbrain.augment.time_domain.DropFreq
+   drop_freq_low: 0
+   drop_freq_high: 1
+   drop_freq_count_low: 1
+   drop_freq_count_high: 3
+   drop_freq_width: 0.05
+
+# Time drop: randomly drops a number of temporal chunks.
+drop_chunk: !new:speechbrain.augment.time_domain.DropChunk
+   drop_length_low: 1000
+   drop_length_high: 2000
+   drop_count_low: 1
+   drop_count_high: 5
+
+# Augmenter: Combines previously defined augmentations to perform data augmentation
+wav_augment: !new:speechbrain.augment.augmenter.Augmenter
+   concat_original: True
+   min_augmentations: 4
+   max_augmentations: 4
+   augment_prob: 1.0
+   augmentations: [
+      !ref <speed_perturb>,
+      !ref <drop_freq>,
+      !ref <drop_chunk>]
