@@ -1879,7 +1879,8 @@ class Brain:
     ):
         # stage -> in case augmentations need to be applied
         assert writers is not None, "Feature cache manager must be provided"
-            
+        self.modules.eval()
+
         if not (
             isinstance(dataset, DataLoader)
             or isinstance(dataset, LoopedLoader)

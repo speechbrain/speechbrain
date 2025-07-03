@@ -9,17 +9,17 @@ seed: 1986
 __set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
 output_folder: !ref results/extract_ssl_representations/
 save_folder: !ref <output_folder>/save
-ssl_features_folder: !ref <save_folder>/ssl_features
+ssl_features_folder: !ref <output_folder>/ssl_features
 
 # URL for the biggest Fairseq english wav2vec2 model.
-wav2vec2_hub: /scratch/adelmou/models/facebook/wav2vec2-base-960h
+wav2vec2_hub: /scratch/adelmou/models/facebook/wav2vec2-base-960h # /scratch/adelmou/models/facebook/hubert-large-ll60k # 
 wav2vec2_folder: !ref <save_folder>/wav2vec2_checkpoint
 
 # Data files
 data_folder: !PLACEHOLDER  # e.g., /path/to/LibriSpeech
 # noise/ris dataset will automatically be downloaded
 # data_folder_rirs: !ref <data_folder>
-train_splits: ["train-clean-100", "train-clean-360", "train-other-500"]
+train_splits: ["train-clean-100", "train-clean-360", "train-other-500"] # , "train-clean-360", "train-other-500"
 dev_splits: ["dev-clean"]
 test_splits: ["test-clean", "test-other"]
 skip_prep: False
@@ -35,10 +35,6 @@ feature_configs:
     ssl_feats: !new:speechbrain.dataio.feature_io.FeatureStorageConfig
         name: ssl_feats
         dtype: float32
-        writer_class: !name:speechbrain.dataio.feature_io.NumpyHdf5Writer
-    tokens: !new:speechbrain.dataio.feature_io.FeatureStorageConfig
-        name: tokens
-        dtype: int8
         writer_class: !name:speechbrain.dataio.feature_io.NumpyHdf5Writer
 
 train_feature_storage_writers: !apply:speechbrain.dataio.feature_io.create_feature_storage_writers
@@ -73,10 +69,7 @@ batch_size: 32
 # Dataloader options
 dataloader_opts:
    batch_size: !ref <batch_size>
-#
-# Functions and classes
-#
-label_encoder: !new:speechbrain.dataio.encoder.CTCTextEncoder
+
 
 wav2vec2: !new:speechbrain.integrations.huggingface.wav2vec2.Wav2Vec2
    source: !ref <wav2vec2_hub>

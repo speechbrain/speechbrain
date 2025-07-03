@@ -2,10 +2,11 @@ from abc import ABCMeta, abstractmethod
 from pathlib import Path
 import numpy as np
 from dataclasses import dataclass, field
-from typing import Dict, Any
+from typing import Dict, Any, Type
 import os
 import lilcom
-
+import tempfile
+import torch
 
 class FeatureStorageReader(metaclass=ABCMeta):
     @property
@@ -49,6 +50,11 @@ class FeatureStorageConfig:
     writer_class: type
     writer_kwargs: Dict[str, Any] = field(default_factory=dict)
 
+@dataclass
+class FeatureStorageReaderConfig:
+    name: str
+    reader_class: Type[FeatureStorageReader]
+    reader_kwargs: Dict[str, Any] = field(default_factory=dict)
 
 def create_feature_storage_writers(
     feature_configs: Dict[str, FeatureStorageConfig],
@@ -70,7 +76,7 @@ def create_feature_storage_writers(
     """
     writers = {}
     for feature_name, config in feature_configs.items():
-        filename = f"{prefix}{feature_name}{suffix}"
+        filename = f"{prefix+'_' if prefix else ''}{feature_name}{('_'+suffix) if suffix else ''}"
         storage_path = os.path.join(base_path, filename)
         
         writers[feature_name] = config.writer_class(
@@ -80,6 +86,34 @@ def create_feature_storage_writers(
         )
     
     return writers
+
+def create_feature_storage_readers(
+    feature_configs: Dict[str, FeatureStorageReaderConfig],
+    base_path: str,
+    prefix: str = "",
+    suffix: str = ""
+) -> Dict[str, FeatureStorageReader]:
+    """
+    Create readers from feature configurations.
+
+    Args:
+        feature_configs: Dict mapping feature names to FeatureStorageReaderConfig objects
+        base_path: Base directory for loading files
+        prefix: Optional prefix for filenames
+        suffix: Optional suffix for filenames
+
+    Returns:
+        Dict mapping feature names to initialized readers
+    """
+    readers = {}
+    for feature_name, config in feature_configs.items():
+        filename = f"{prefix+'_' if prefix else ''}{feature_name}{('_'+suffix) if suffix else ''}"
+        storage_path = os.path.join(base_path, filename)
+        readers[feature_name] = config.reader_class(
+            storage_path=storage_path,
+            **config.reader_kwargs
+        )
+    return readers
 
 class NumpyHdf5Writer(FeatureStorageWriter):
     name = "numpy_hdf5"
@@ -98,16 +132,22 @@ class NumpyHdf5Writer(FeatureStorageWriter):
 
         p = Path(storage_path)
         os.makedirs(p.parent, exist_ok=True)
-        self.storage_path_ = p.with_suffix(
+        self.final_path = p.with_suffix(
             p.suffix + ".h5" if p.suffix != ".h5" else ".h5"
         )
-        print(f"saving to {self.storage_path_}")
-        self.hdf = h5py.File(self.storage_path, mode=mode)
+        # Create a temp file in the same directory
+        self._tmpfile = tempfile.NamedTemporaryFile(
+            dir=p.parent, suffix=".tmp", delete=False
+        )
+        self._tmpfile.close()  # We'll open it with h5py
+        self._tmp_path = self._tmpfile.name
+        print(f"saving to temporary file {self._tmp_path}")
+        self.hdf = h5py.File(self._tmp_path, mode=mode)
         self.dtype = dtype
 
     @property
     def storage_path(self) -> str:
-        return str(self.storage_path_)
+        return str(self.final_path)
 
     def write(self, key: str, value: np.ndarray) -> str:
         value = value.cpu().numpy().astype(self.dtype)
@@ -115,7 +155,9 @@ class NumpyHdf5Writer(FeatureStorageWriter):
         return key
 
     def close(self) -> None:
-        return self.hdf.close()
+        self.hdf.close()
+        # Atomic move to final destination
+        os.replace(self._tmp_path, self.final_path)
 
     def __enter__(self):
         return self
@@ -137,8 +179,8 @@ class NumpyHdf5Reader(FeatureStorageReader):
         key: str,
         left_offset_frames: int = 0,
         right_offset_frames: int = None,
-    ) -> np.ndarray:
-        return self.hdf5_file[key][left_offset_frames:right_offset_frames]
+    ) -> torch.Tensor:
+        return torch.from_numpy(self.hdf5_file[key][left_offset_frames:right_offset_frames])
 
     def close(self) -> None:
         return self.hdf5_file.close()
