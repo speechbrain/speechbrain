@@ -194,8 +194,7 @@ class Brain:
     run_opts : Optional[Union[RunOptions, dict]]
         A set of options to change the runtime environment, see ``RunOptions`` for a list.
         Typically in a script this comes from ``speechbrain.parse_args``, an alias
-        for ``RunOptions.from_command_line_args`` which
-        has different defaults than Brain. If an option is not defined here
+        for ``RunOptions.from_command_line_args``. If an option is not defined here
         (keep in mind that `parse_args` will inject some options by default),
         then the option is also searched for in hparams (by key).
     checkpointer : Optional[speechbrain.Checkpointer]
@@ -230,28 +229,24 @@ class Brain:
             run_opts = RunOptions.from_dictionary(run_opts)
 
         # Check which options have been overridden. Order of priority
-        # is lowest: default -> hparams -> commandline: highest
+        # is lowest: default < hparams < run_opts: highest
         run_opt_defaults = RunOptions()
         for arg, default in run_opt_defaults.as_dict().items():
             if run_opts is not None and arg in run_opts.overridden_args:
                 if hparams is not None and arg in hparams:
                     logger.info(
-                        "Info: "
-                        + arg
-                        + " arg overridden by command line input to: "
-                        + str(run_opts[arg])
+                        f"{arg} which is specified in hparams was overridden "
+                        + f"by command line input to: {run_opts[arg]}"
                     )
                 setattr(self, arg, run_opts[arg])
+
+            # If any arg from run_opt_defaults exist in hparams and
+            # not in "run_opts" which is likely from command line
+            elif hparams is not None and arg in hparams:
+                logger.info(f"Run option {arg} from hparams is used")
+                setattr(self, arg, hparams[arg])
             else:
-                # If any arg from run_opt_defaults exist in hparams and
-                # not in command line args "run_opts"
-                if hparams is not None and arg in hparams:
-                    logger.info(
-                        "Info: " + arg + " arg from hparam file is used"
-                    )
-                    setattr(self, arg, hparams[arg])
-                else:
-                    setattr(self, arg, default)
+                setattr(self, arg, default)
 
         # Check Python version
         if not (

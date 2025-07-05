@@ -14,8 +14,51 @@ from typing import Dict, Literal, Optional
 
 import torch
 
+HELP_TEXTS = {
+    "test_only": "Run the experiment in evaluate only mode, which skips the training and "
+    "goes directly to the evaluation. The model is expected to be already trained.",
+    "debug": "Run with only a few batches and few epochs to ensure code runs without crashing.",
+    "debug_batches": "Number of batches to run in debug mode.",
+    "debug_epochs": "Number of epochs to run in debug mode. If a non-positive number is passed, all epochs are run.",
+    "debug_persistently": "Keep data stored during debug mode (not using /tmp).",
+    "log_config": "A file storing the configuration options for logging",
+    "device": "The device to run the experiment on (e.g. 'cuda:0')",
+    "data_parallel_backend": "This flag enables training with data_parallel.",
+    "distributed_backend": "One of {nccl, gloo, mpi}",
+    "find_unused_parameters": "This flag disable unused parameters detection",
+    "jit": "Enables jit compilation for all modules. Compilation may fail for some modules. "
+    "Use 'jit_module_keys' to compile a subset of modules.",
+    "compile": "Enabling this flag compiles all modules using torch.compile (if available). "
+    "Beta feature. Use 'compile_module_keys' to compile a subset of modules. "
+    "Compilation can be time-consuming and might fail. Additional options provided are "
+    "'compile_mode', 'compile_using_fullgraph', and 'compile_using_dynamic_shape_tracing'",
+    "compile_mode": "One of {default, reduce-overhead, max-autotune}",
+    "compile_using_fullgraph": "Whether it is ok to break model into several subgraphs",
+    "compile_using_dynamic_shape_tracing": "Use dynamic shape tracing for compilation",
+    "precision": "Floating-point precision for training with automatic mixed-precision.",
+    "eval_precision": "Floating-point precision for inference with automatic mixed-precision.",
+    "auto_mix_prec": "This flag enables training with automatic mixed-precision (deprecated).",
+    "bfloat16_mix_prec": "This flag enables training with bfloat16 mixed-precision (deprecated).",
+    "max_grad_norm": "Gradient norm will be clipped to this value, enter a negative value to disable.",
+    "skip_nonfinite_grads": "Set the gradients to None if they are nonfinite (inf or nan).",
+    "nonfinite_patience": "Max number of batches per epoch to skip if loss is nonfinite.",
+    "noprogressbar": "This flag disables the data loop progressbars.",
+    "ckpt_interval_minutes": "Amount of time between saving intra-epoch checkpoints "
+    "in minutes. If non-positive, intra-epoch checkpoints are not saved.",
+    "ckpt_interval_steps": "Save an intra-epoch checkpoint after this many steps. "
+    "If non-positive, intra-epoch checkpoints are not saved.",
+    "grad_accumulation_factor": "Number of batches to accumulate gradients before optimizer step",
+    "optimizer_step_limit": "Number of optimizer steps to run. If not passed, all epochs are run.",
+    "tqdm_colored_bar": "Enable colored progress-bar in tqdm. If this is false, tqdm shall use default colors.",
+    "remove_vector_weight_decay": "Make vectors (e.g. norms and biases) a separate parameter group without weight_decay.",
+    "profile_training": "If set to True, a profiler will be initiated and tensorboard logs will be generated. "
+    "Please ensure you have installed the torch.TensorBoard profiler with 'pip install torch_tb_profiler'.",
+    "profile_warmup": "Number of warmup steps before logging for the profiler.",
+    "profile_steps": "Number of steps of logging for the profiler",
+}
 
-@dataclass
+
+@dataclass(frozen=True)
 class RunOptions:
     """
     Holds configuration options and runtime controls for SpeechBrain experiments.
@@ -113,7 +156,7 @@ class RunOptions:
     debug_batches: int = 2
     debug_epochs: int = 2
     debug_persistently: bool = False
-    device: str = "cpu"
+    device: str = "cuda:0"
     data_parallel_backend: bool = False
     data_parallel_count: int = -1
     distributed_backend: Literal["nccl", "gloo", "mpi"] = "nccl"
@@ -127,7 +170,7 @@ class RunOptions:
         "default"
     )
     compile_using_fullgraph: bool = False
-    compile_using_dynamic_shape_tracing: bool = True
+    compile_using_dynamic_shape_tracing: bool = False
     precision: Literal["fp32", "fp16", "bf16"] = "fp32"
     eval_precision: Literal["fp32", "fp16", "bf16"] = "fp32"
     auto_mix_prec: bool = False
@@ -154,7 +197,7 @@ class RunOptions:
     profile_steps: int = 5
     log_config: Optional[str] = None
     param_file: str = ""
-    overridden_args: dict = field(default_factory=dict)
+    overridden_args: set = field(default_factory=set)
 
     def as_dict(self) -> Dict:
         """
@@ -173,9 +216,8 @@ class RunOptions:
     def from_dictionary(cls, args_dict):
         """Set experimental arguments from a dictionary."""
 
-        run_opts = cls(**args_dict)
-        run_opts.overridden_args = args_dict
-        return run_opts
+        # All the specified arguments are marked as overridden
+        return cls(**{**args_dict, "overridden_args": set(args_dict.keys())})
 
     @classmethod
     def from_command_line_args(cls, arg_list=None):
@@ -209,100 +251,59 @@ class RunOptions:
         """
         if arg_list is None:
             arg_list = sys.argv[1:]
+
+        # Create a mapping of all possible argument names (including short forms)
+        parser = cls._create_parser()
+        arg_mapping = {}
+        for action in parser._actions:
+            if action.dest != "help":
+                for opt in action.option_strings:
+                    arg_mapping[opt] = action.dest
+
+        # Parse and accept extra args to override yaml
+        parsed_args, overrides = parser.parse_known_args(arg_list)
+        overrides = cls._convert_to_yaml(overrides)
+
+        # Go through arg list to see which were set
+        # NOTE: Slight risk of collisions if an arg value matches an arg name
+        overridden_args = {
+            arg_mapping[arg] for arg in arg_list if arg in arg_mapping
+        }
+
+        # Checking that DataParallel use the right number of GPU
+        if parsed_args.data_parallel_backend and torch.cuda.device_count() == 0:
+            raise ValueError("You must have at least 1 GPU.")
+
+        # force device arg to be the same as local_rank from torchrun
+        local_rank = os.environ.get("LOCAL_RANK")
+        if local_rank is not None and "cuda" in parsed_args.device:
+            parsed_args.device = "cuda:" + str(local_rank)
+
+        # Add a record of which args were specified
+        run_opts = cls(
+            **{**vars(parsed_args), "overridden_args": overridden_args}
+        )
+
+        return run_opts.param_file, run_opts, overrides
+
+    @staticmethod
+    def _create_parser():
+        """Sets up the parser using the options in HELP_TEXTS & defaults"""
         parser = argparse.ArgumentParser(
             description="Run a SpeechBrain experiment"
         )
+
+        # A few arguments don't fit the standard format, write them out first
         parser.add_argument(
             "param_file",
             type=str,
-            help="A yaml-formatted file using the extended YAML syntax. "
-            "defined by SpeechBrain.",
-        )
-        parser.add_argument(
-            "--test_only",
-            default=False,
-            action="store_true",
-            help="Run the experiment in evaluate only mode."
-            "It skips the training and goes directly to the evaluation."
-            "The model is expected to be already trained.",
-        )
-        parser.add_argument(
-            "--debug",
-            default=False,
-            action="store_true",
-            help="Run the experiment with only a few batches for all "
-            "datasets, to ensure code runs without crashing.",
-        )
-        parser.add_argument(
-            "--debug_batches",
-            type=int,
-            default=2,
-            help="Number of batches to run in debug mode.",
-        )
-        parser.add_argument(
-            "--debug_epochs",
-            type=int,
-            default=2,
-            help="Number of epochs to run in debug mode. "
-            "If a non-positive number is passed, all epochs are run.",
-        )
-        parser.add_argument(
-            "--debug_persistently",
-            default=False,
-            action="store_true",
-            help="Keep data stored during debug mode (not using /tmp).",
-        )
-        parser.add_argument(
-            "--log_config",
-            type=str,
-            help="A file storing the configuration options for logging",
-        )
-        parser.add_argument(
-            "--device",
-            type=str,
-            default="cuda:0",
-            help="The device to run the experiment on (e.g. 'cuda:0')",
-        )
-        parser.add_argument(
-            "--data_parallel_backend",
-            default=False,
-            action="store_true",
-            help="This flag enables training with data_parallel.",
-        )
-        parser.add_argument(
-            "--distributed_backend",
-            type=str,
-            default="nccl",
-            help="One of {nccl, gloo, mpi}",
-        )
-        parser.add_argument(
-            "--find_unused_parameters",
-            default=False,
-            action="store_true",
-            help="This flag disable unused parameters detection",
-        )
-        parser.add_argument(
-            "--jit",
-            default=False,
-            action="store_true",
-            help="Enables jit compilation for all modules. "
-            "Compilation may fail depending on the modules. "
-            "Use --jit_module_keys to compile a subset of modules.",
+            help="A hyperparameters file. Recipes use HyperPyYAML syntax.",
         )
         parser.add_argument(
             "--jit_module_keys",
             type=str,
             nargs="*",
-            help="A list of keys in the 'modules' dict to jitify",
-        )
-        parser.add_argument(
-            "--compile",
-            default=False,
-            action="store_true",
-            help="Enabling this flag compiles all modules using torch.compile (if available). "
-            "Beta feature. Use --compile_module_keys to compile a subset of modules. "
-            "Set the compilation flags below properly. "
-            "Compilation can be time-consuming and might fail.",
+            help="A list of keys in the 'modules' dict to jit-ify",
         )
         parser.add_argument(
             "--compile_module_keys",
@@ -312,147 +313,28 @@ class RunOptions:
             "TorchInductor. If a module also has a JIT key specified, "
             "TorchInductor will take precedence when available.",
         )
-        parser.add_argument(
-            "--compile_mode",
-            type=str,
-            nargs="*",
-            help="One of {default, reduce-overhead, max-autotune}",
-        )
-        parser.add_argument(
-            "--compile_using_fullgraph",
-            type=bool,
-            nargs="*",
-            help="Whether it is ok to break model into several subgraphs",
-        )
-        parser.add_argument(
-            "--compile_using_dynamic_shape_tracing",
-            type=bool,
-            nargs="*",
-            help="Use dynamic shape tracing for compilation",
-        )
-        parser.add_argument(
-            "--precision",
-            type=str,
-            help="This flag enables training with automatic mixed-precision."
-            "It can be set to `fp32`, `fp16`, or `bf16`.",
-        )
-        parser.add_argument(
-            "--eval_precision",
-            type=str,
-            help="This flag enables inference with automatic mixed-precision."
-            "It can be set to `fp32`, `fp16`, or `bf16`.",
-        )
-        parser.add_argument(
-            "--auto_mix_prec",
-            default=None,
-            action="store_true",
-            help="This flag enables training with automatic mixed-precision.",
-        )
-        parser.add_argument(
-            "--bfloat16_mix_prec",
-            default=None,
-            action="store_true",
-            help="This flag enables training with bfloat16 mixed-precision.",
-        )
-        parser.add_argument(
-            "--max_grad_norm",
-            type=float,
-            help="Gradient norm will be clipped to this value, "
-            "enter negative value to disable.",
-        )
-        parser.add_argument(
-            "--skip_nonfinite_grads",
-            default=False,
-            action="store_true",
-            help="Set the gradients to None if they are nonfinite (inf or nan).",
-        )
-        parser.add_argument(
-            "--nonfinite_patience",
-            type=int,
-            help="Max number of batches per epoch to skip if loss is nonfinite.",
-        )
-        parser.add_argument(
-            "--noprogressbar",
-            default=None,
-            action="store_true",
-            help="This flag disables the data loop progressbars.",
-        )
-        parser.add_argument(
-            "--ckpt_interval_minutes",
-            type=float,
-            help="Amount of time between saving intra-epoch checkpoints "
-            "in minutes. If non-positive, intra-epoch checkpoints are not saved.",
-        )
-        parser.add_argument(
-            "--ckpt_interval_steps",
-            type=int,
-            help="Save an intra-epoch checkpoint after this many steps."
-            "If non-positive, intra-epoch checkpoints are not saved.",
-        )
-        parser.add_argument(
-            "--grad_accumulation_factor",
-            type=int,
-            help="Number of batches to accumulate gradients before optimizer step",
-        )
-        parser.add_argument(
-            "--optimizer_step_limit",
-            type=int,
-            help="Number of optimizer steps to run. If not passed, all epochs are run.",
-        )
-        parser.add_argument(
-            "--tqdm_colored_bar",
-            default=False,
-            action="store_true",
-            help="Enable colored progress-bar in tqdm. If this is "
-            "false, tqdm shall use default colors.",
-        )
-        parser.add_argument(
-            "--remove_vector_weight_decay",
-            default=False,
-            action="store_true",
-            help="Make vectors (e.g. norms and biases) a separate parameter group without weight_decay.",
-        )
-        parser.add_argument(
-            "--profile_training",
-            default=False,
-            action="store_true",
-            help=(
-                "If set to True, a profiler will be initiated and tensorboard logs will be generated. "
-                "Please ensure you have installed the torch.TensorBoard profiler with 'pip install torch_tb_profiler'."
-            ),
-        )
-        parser.add_argument(
-            "--profile_warmup",
-            default=5,
-            type=int,
-            help="Number of warmup steps before logging for the profiler.",
-        )
-        parser.add_argument(
-            "--profile_steps",
-            default=5,
-            type=int,
-            help="Number of steps of logging for the profiler",
-        )
 
-        # Accept extra args to override yaml
-        parsed_args, overrides = parser.parse_known_args(arg_list)
-        args_dict = vars(parsed_args)
-        param_file = args_dict["param_file"]
-        run_opts = cls(**args_dict)
-        run_opts.overridden_args = args_dict
+        # These ones follow a standard format, pull default from class directly
+        # NOTE: Assumes all options that can be specified on command-line have
+        # an entry in the HELP_TEXTS dictionary at the top of this file.
+        defaults = RunOptions().as_dict()
+        for option in HELP_TEXTS.keys() & defaults.keys():
+            default = defaults[option]
+            kwargs = {"help": HELP_TEXTS[option]}
 
-        overrides = cls._convert_to_yaml(overrides)
+            # Booleans are flags
+            if default is False:
+                kwargs["action"] = "store_true"
+            elif default is not None:
+                kwargs["type"] = type(default)
 
-        # Checking that DataParallel use the right number of GPU
-        if run_opts.data_parallel_backend and torch.cuda.device_count() == 0:
-            raise ValueError("You must have at least 1 GPU.")
+            # Any options with "precision" in the name can only take these values
+            if "precision" in option:
+                kwargs["choices"] = ["fp32", "fp16", "bf16"]
 
-        # force device arg to be the same as local_rank from torchrun
-        local_rank = os.environ.get("LOCAL_RANK")
-        if local_rank is not None and "cuda" in run_opts.device:
-            run_opts.device = run_opts.device[:-1] + str(local_rank)
+            parser.add_argument(f"--{option}", **kwargs)
 
-        return param_file, run_opts, overrides
+        return parser
 
     @staticmethod
     def _convert_to_yaml(overrides):
