@@ -58,6 +58,19 @@ def get_rank() -> Optional[int]:
     return None
 
 
+def infer_device() -> str:
+    """Make a basic guess about intended running device based on
+    availability and distributed environment variable 'LOCAL_RANK'"""
+    if torch.cuda.is_available():
+        device = "cuda"
+        local_rank = os.environ.get("LOCAL_RANK")
+        if local_rank is not None:
+            device += f":{local_rank}"
+    else:
+        device = "cpu"
+    return device
+
+
 def run_on_main(
     func,
     args=None,

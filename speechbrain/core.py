@@ -197,7 +197,7 @@ class Brain:
         for ``RunOptions.from_command_line_args``. If an option is not defined here
         (keep in mind that `parse_args` will inject some options by default),
         then the option is also searched for in hparams (by key).
-    checkpointer : Optional[speechbrain.Checkpointer]
+    checkpointer : Optional[speechbrain.utils.checkpoints.Checkpointer]
         By default, this will be used to load checkpoints, and will have the
         optimizer added to continue training if interrupted.
 
@@ -206,11 +206,16 @@ class Brain:
     >>> from torch.optim import SGD
     >>> class SimpleBrain(Brain):
     ...     def compute_forward(self, batch, stage):
-    ...         return self.modules.model(batch[0])
+    ...         return self.modules.model(batch[0] * self.hparams.scalar)
     ...     def compute_objectives(self, predictions, batch, stage):
     ...         return torch.nn.functional.l1_loss(predictions, batch[0])
     >>> model = torch.nn.Linear(in_features=10, out_features=10)
-    >>> brain = SimpleBrain({"model": model}, opt_class=lambda x: SGD(x, 0.1))
+    >>> brain = SimpleBrain(
+    ...     modules={"model": model},
+    ...     opt_class=lambda x: SGD(x, lr=0.1),
+    ...     hparams={"scalar": 5},
+    ...     run_opts={"device": "cpu"},
+    ... )
     >>> brain.fit(range(1), ([torch.rand(10, 10), torch.rand(10, 10)],))
     """
 
@@ -286,19 +291,26 @@ class Brain:
                 "Please keep only one active per experiment run."
             )
 
-        # Set the right device_type
+        # If device was not specified, then make best guess
+        if self.device is None:
+            self.device = sb.utils.distributed.infer_device()
+
+        # Set device type based on device string
         if self.device == "cpu":
             self.device_type = "cpu"
         elif "cuda" in self.device:
             self.device_type = "cuda"
-        else:
-            raise ValueError("Expected `self.device` to be `cpu` or `cuda`!")
 
-        # Switch to the right context
-        if self.device == "cuda":
-            torch.cuda.set_device(0)
-        elif "cuda" in self.device:
-            torch.cuda.set_device(int(self.device[-1]))
+            # Set cuda device based on device string
+            try:
+                _, device_index = self.device.split(":")
+                torch.cuda.set_device(int(device_index))
+            except ValueError:
+                torch.cuda.set_device(0)
+
+        # Checking that DataParallel use the right number of GPU
+        if self.data_parallel_backend and torch.cuda.device_count() == 0:
+            raise ValueError("You must have at least 1 GPU to use DataParallel")
 
         # Put modules on the right device, accessible with dot notation
         self.modules = torch.nn.ModuleDict(modules).to(self.device)

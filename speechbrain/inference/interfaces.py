@@ -29,6 +29,7 @@ from speechbrain.dataio.batch import PaddedBatch, PaddedData
 from speechbrain.dataio.preprocess import AudioNormalizer
 from speechbrain.utils.data_pipeline import DataPipeline
 from speechbrain.utils.data_utils import split_path
+from speechbrain.utils.distributed import infer_device
 from speechbrain.utils.fetching import FetchConfig, LocalStrategy, fetch
 from speechbrain.utils.logger import get_logger
 from speechbrain.utils.run_opts import RunOptions
@@ -254,20 +255,24 @@ class Pretrained(torch.nn.Module):
         super().__init__()
 
         # Check which options have been overridden. Order of priority
-        # is lowest: default -> hparams -> commandline: highest
+        # is lowest: default < hparams < run_opts: highest
         if isinstance(run_opts, dict):
             run_opts = RunOptions.from_dictionary(run_opts)
         self.run_opt_defaults = RunOptions()
         for arg, default in self.run_opt_defaults.as_dict().items():
             if run_opts is not None and arg in run_opts.overridden_args:
                 setattr(self, arg, run_opts[arg])
+
+            # If any arg from run_opt_defaults exist in hparams and
+            # not in command line args "run_opts"
+            elif hparams is not None and arg in hparams:
+                setattr(self, arg, hparams[arg])
             else:
-                # If any arg from run_opt_defaults exist in hparams and
-                # not in command line args "run_opts"
-                if hparams is not None and arg in hparams:
-                    setattr(self, arg, hparams[arg])
-                else:
-                    setattr(self, arg, default)
+                setattr(self, arg, default)
+
+        # If device was not provided, make a best guess
+        if self.device is None:
+            self.device = infer_device()
 
         # Put modules on the right device, accessible with dot notation
         self.mods = torch.nn.ModuleDict(modules)

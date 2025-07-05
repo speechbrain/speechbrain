@@ -7,12 +7,9 @@ Authors
 """
 
 import argparse
-import os
 import sys
 from dataclasses import asdict, dataclass, field
 from typing import Dict, Literal, Optional
-
-import torch
 
 HELP_TEXTS = {
     "test_only": "Run the experiment in evaluate only mode, which skips the training and "
@@ -83,6 +80,7 @@ class RunOptions:
         Keep debug data persistent (not using /tmp).
     device : str
         The device on which to run (e.g., "cpu", "cuda:0").
+        Default of None may be handled with `speechbrain.utils.distributed.infer_device()`
     data_parallel_backend : bool
         Enable data parallel training.
     data_parallel_count : int
@@ -156,7 +154,7 @@ class RunOptions:
     debug_batches: int = 2
     debug_epochs: int = 2
     debug_persistently: bool = False
-    device: str = "cuda:0"
+    device: Optional[str] = None
     data_parallel_backend: bool = False
     data_parallel_count: int = -1
     distributed_backend: Literal["nccl", "gloo", "mpi"] = "nccl"
@@ -269,15 +267,6 @@ class RunOptions:
         overridden_args = {
             arg_mapping[arg] for arg in arg_list if arg in arg_mapping
         }
-
-        # Checking that DataParallel use the right number of GPU
-        if parsed_args.data_parallel_backend and torch.cuda.device_count() == 0:
-            raise ValueError("You must have at least 1 GPU.")
-
-        # force device arg to be the same as local_rank from torchrun
-        local_rank = os.environ.get("LOCAL_RANK")
-        if local_rank is not None and "cuda" in parsed_args.device:
-            parsed_args.device = "cuda:" + str(local_rank)
 
         # Add a record of which args were specified
         run_opts = cls(
