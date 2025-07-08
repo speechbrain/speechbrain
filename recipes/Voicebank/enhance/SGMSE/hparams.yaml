@@ -1,5 +1,5 @@
-output_dir: /export/home/1rochdi/speechbrain/results/SGMSE    # Main directory to store experiment results
-run_name: "RUN_NAME" # Will be updated with unique name at runtime
+output_dir: /export/home/1rochdi/speechbrain/results/Voicebank/enhance/SGMSE    # Main directory to store experiment results
+run_name: "RUN_NAME" # Will be updated with a unique name at runtime
 
 save_dir: !ref <output_dir>/<run_name>/checkpoints                    # Directory to save checkpoints
 train_log: !ref <output_dir>/<run_name>/train_log.txt                 # Path to the file where training logs are written

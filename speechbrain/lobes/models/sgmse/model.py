@@ -16,14 +16,6 @@ from .util.other import pad_spec, si_sdr
 
 
 class ScoreModel(nn.Module):
-    """
-    A PyTorch nn.Module version of the SGMSE model without PyTorch Lightning dependencies.
-
-    Main changes from the original code:
-     - Removed all pl.LightningModule hooks (training_step, validation_step, etc.)
-     - We store hyperparams from config but do not parse from argparse.
-     - We keep EMA logic, but you must call update() from your Brain.
-    """ 
     def __init__(
         self,
         backbone="ncsnpp_v2",
