@@ -438,19 +438,11 @@ class CNN14PSI_encoderdecoder(nn.Module):
 
     Example
     -------
-    >>> from speechbrain.lobes.models.Cnn14 import Cnn14, CNN14PSI_encoderdecoder
-    >>> classifier_embedder = Cnn14(mel_bins=80, emb_dim=2048, return_reps=True)
-    >>> x = torch.randn(2, 201, 80)
-    >>> _, hs = classifier_embedder(x)
-    >>> psimodel = CNN14PSI_encoderdecoder(2048, 1)
+    >>> from speechbrain.lobes.models.Cnn14 import CNN14PSI_encoderdecoder
+    >>> psimodel = CNN14PSI_encoderdecoder(x)
     >>> xhat = psimodel.forward(hs)
     >>> print(xhat.shape)
-    torch.Size([2, 1, 201, 513])
-    >>> # With sigmoid activation
-    >>> psimodel_sigmoid = CNN14PSI_encoderdecoder(2048, 1, apply_sigmoid=True)
-    >>> xhat_sigmoid = psimodel_sigmoid.forward(hs)
-    >>> print(xhat_sigmoid.shape)
-    torch.Size([2, 1, 201, 513])
+    torch.Size([1, 1, 11082, 256])
     """
 
     def __init__(self, dim=128, outdim=1, apply_sigmoid=False):
