@@ -254,12 +254,14 @@ python eval.py hparams/<config>.yaml --data_folder /yourpath/esc50 --add_wham_no
 Please cite our [LMAC-TD paper](https://arxiv.org/abs/2409.08655) if you use it in your research:
 
 ```bibtex
-@article{mancini2024lmac,
-  title = {LMAC-TD: Producing Time Domain Explanations for Audio Classifiers},
-  author = {Mancini, Eleonora and Paissan, Francesco and Ravanelli, Mirco and Subakan, Cem},
-  journal = {arXiv preprint arXiv:2409.08655},
-  year = {2024}
-}
+@inproceedings{lmactd,
+  author={Eleonora Mancini and Francesco Paissan and Mirco Ravanelli and Cem Subakan},
+  booktitle={ICASSP 2025 - 2025 IEEE International Conference on Acoustics, Speech and Signal Processing (ICASSP)}, 
+  title={LMAC-TD: Producing Time Domain Explanations for Audio Classifiers}, 
+  year={2025},
+  pages={1-5}
+  }
+
 ```
 
 Please cite our [L-MAC paper](https://arxiv.org/abs/2403.13086) if you use it in your research:
