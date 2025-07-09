@@ -543,8 +543,8 @@ class CTCAligner(Aligner):
     Example
     -------
     >>> import torch
-    >>> from speechbrain.pretrained import EncoderASR
-    >>> from speechbrain.k2_integration.align import CTCAligner
+    >>> from speechbrain.inference import EncoderASR
+    >>> from speechbrain.integrations.k2_fsa.align import CTCAligner
     >>> asr_model = EncoderASR.from_hparams(source="speechbrain/asr-wav2vec2-librispeech", savedir="pretrained_models/asr-wav2vec2-librispeech")
     >>> device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     >>> aligner = CTCAligner(model=asr_model, tokenizer=asr_model.tokenizer, device=device)
