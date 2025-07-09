@@ -23,11 +23,11 @@ single_sample: null
 int_method: "lmactd"
 overlap_type: "mixtures"
 
-l_in_w: 4
+l_in_w: 5
 l_out_w: 0.2
 reg_w_tv: 0.0
-reg_w_l1: 0.4
-alpha_mix: 1
+reg_w_l1: 6
+alpha_mix: 0.75
 reg_w_sum: 0.0
 
 g_w: 4 # regularization weight of oracles
@@ -201,7 +201,7 @@ SBtfintra: !new:speechbrain.lobes.models.dual_path.SBTransformerBlock
     num_layers: 4
     d_model: !ref <out_channels>
     nhead: 4
-    d_ffn: 128
+    d_ffn: 256
     dropout: 0
     use_positional_encoding: True
     norm_before: True
@@ -210,7 +210,7 @@ SBtfinter: !new:speechbrain.lobes.models.dual_path.SBTransformerBlock
     num_layers: 2
     d_model: !ref <out_channels>
     nhead: 8
-    d_ffn: 128
+    d_ffn: 256
     dropout: 0
     use_positional_encoding: True
     norm_before: True
