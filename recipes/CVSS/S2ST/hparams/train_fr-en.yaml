@@ -132,7 +132,7 @@ min_decode_ratio: 0.0
 max_decode_ratio: 1.0
 
 ############################## models ################################
-wav2vec2: !new:speechbrain.lobes.models.huggingface_transformers.wav2vec2.Wav2Vec2
+wav2vec2: !new:speechbrain.integrations.huggingface.wav2vec2.Wav2Vec2
     source: !ref <wav2vec2_source>
     output_norm: True ### Test in baseline_v2
     freeze: !ref <wav2vec2_frozen>
@@ -220,8 +220,7 @@ test_search: !new:speechbrain.decoders.seq2seq.S2STransformerBeamSearcher
     beam_size: !ref <test_bs>
 
 acc_computer: !name:speechbrain.utils.Accuracy.AccuracyStats
-bleu_computer: !name:speechbrain.utils.bleu.BLEUStats
-
+bleu_computer: !name:speechbrain.integrations.nlp.bleu.BLEUStats
 
 #checkpointer
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer

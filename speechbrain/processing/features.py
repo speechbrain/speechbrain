@@ -1173,7 +1173,9 @@ def combine_gaussian_statistics_distributed(
     """
     # This is the DDP version of combine_gaussian_statistics above.
     local_count, local_mean, local_variance = statistics
-    global_count = ddp_all_reduce(torch.tensor(local_count), ReduceOp.SUM)
+    global_count = ddp_all_reduce(
+        torch.tensor(local_count, device=local_mean.device), ReduceOp.SUM
+    )
     global_count = global_count.item()
 
     local_weight = local_count / global_count

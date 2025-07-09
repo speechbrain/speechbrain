@@ -6,6 +6,7 @@ Author
 """
 
 import os
+import warnings
 
 from tqdm import tqdm
 
@@ -23,6 +24,13 @@ except ImportError:
 import joblib
 
 logger = get_logger(__name__)
+
+warnings.warn(
+    message="speechbrain.utils.kmeans is deprecated in favor of "
+    "speechbrain.integrations.audio_tokenizers.kmeans and will be removed in a future version",
+    category=DeprecationWarning,
+    stacklevel=2,
+)
 
 
 def accumulate_and_extract_features(

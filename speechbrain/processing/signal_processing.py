@@ -459,7 +459,7 @@ def notch_filter(notch_freq, filter_width=101, notch_width=0.05):
             return torch.sin(x) / x
 
         # The zero is at the middle index
-        return torch.cat([_sinc(x[:pad]), torch.ones(1), _sinc(x[pad + 1:])])
+        return torch.cat([_sinc(x[:pad]), torch.ones(1), _sinc(x[pad + 1 :])])
 
     # Compute a low-pass filter with cutoff frequency notch_freq.
     hlpf = sinc(3 * (notch_freq - notch_width) * inputs)
