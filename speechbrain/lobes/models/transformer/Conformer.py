@@ -652,7 +652,7 @@ class ConformerEncoder(nn.Module):
     ...     ConformerEncoder,
     ... )
     >>> x = torch.rand((8, 60, 512))
-    ... pos_emb = torch.rand((1, 2 * 60 - 1, 512))
+    >>> pos_emb = torch.rand((1, 2 * 60 - 1, 512))
     >>> net = ConformerEncoder(4, 512, 512, 8, output_hidden_states=True)
     >>> output, _, hs = net(x, pos_embs=pos_emb)
     >>> hs[0].shape
