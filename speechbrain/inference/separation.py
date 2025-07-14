@@ -32,8 +32,8 @@ class SepformerSeparation(Pretrained):
     -------
     >>> tmpdir = getfixture("tmpdir")
     >>> model = SepformerSeparation.from_hparams(
-    ...     source="speechbrain/sepformer-wsj02mix",
-    ...     savedir=tmpdir)
+    ...     source="speechbrain/sepformer-wsj02mix", savedir=tmpdir
+    ... )
     >>> mix = torch.randn(1, 400)
     >>> est_sources = model.separate_batch(mix)
     >>> print(est_sources.shape)

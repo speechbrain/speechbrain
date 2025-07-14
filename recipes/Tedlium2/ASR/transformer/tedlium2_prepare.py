@@ -173,9 +173,9 @@ def prepare_tedlium2(
 
     Example
     -------
-    >>> data_folder = 'datasets/TEDLIUM_release2'
-    >>> utt_save_folder = 'datasets/TEDLIUM_release2_processed'
-    >>> csv_save_folder = 'TEDLIUM2'
+    >>> data_folder = "datasets/TEDLIUM_release2"
+    >>> utt_save_folder = "datasets/TEDLIUM_release2_processed"
+    >>> csv_save_folder = "TEDLIUM2"
     >>> prepare_tedlium2(data_folder, utt_save_folder, csv_save_folder)
     """
     if skip_prep:

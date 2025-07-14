@@ -28,7 +28,9 @@ class Transducer_joint(nn.Module):
 
     Example
     -------
-    >>> from speechbrain.nnet.transducer.transducer_joint import Transducer_joint
+    >>> from speechbrain.nnet.transducer.transducer_joint import (
+    ...     Transducer_joint,
+    ... )
     >>> from speechbrain.nnet.linear import Linear
     >>> input_TN = torch.rand(8, 200, 1, 40)
     >>> input_PN = torch.rand(8, 1, 12, 40)

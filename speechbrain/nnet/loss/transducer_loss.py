@@ -343,8 +343,8 @@ class TransducerLoss(Module):
     -------
     >>> import torch
     >>> loss = TransducerLoss(blank=0)
-    >>> logits = torch.randn((1,2,3,5)).cuda().requires_grad_()
-    >>> labels = torch.Tensor([[1,2]]).cuda().int()
+    >>> logits = torch.randn((1, 2, 3, 5)).cuda().requires_grad_()
+    >>> labels = torch.Tensor([[1, 2]]).cuda().int()
     >>> act_length = torch.Tensor([2]).cuda().int()
     >>> # U = label_length+1
     >>> label_length = torch.Tensor([2]).cuda().int()

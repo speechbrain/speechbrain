@@ -524,7 +524,9 @@ class ResourceEfficientSeparationPipeline(nn.Module):
     >>> x = torch.randn(10, 100, 64)
     >>> seg_mdl = SBTransformerBlock_wnormandskip(1, 64, 8)
     >>> mem_mdl = SBTransformerBlock_wnormandskip(1, 64, 8)
-    >>> resepf_pipeline = ResourceEfficientSeparationPipeline(64, 64, 128, seg_model=seg_mdl, mem_model=mem_mdl)
+    >>> resepf_pipeline = ResourceEfficientSeparationPipeline(
+    ...     64, 64, 128, seg_model=seg_mdl, mem_model=mem_mdl
+    ... )
     >>> out = resepf_pipeline.forward(x)
     >>> out.shape
     torch.Size([10, 100, 128])
@@ -700,7 +702,9 @@ class ResourceEfficientSeparator(nn.Module):
     >>> x = torch.randn(10, 64, 100)
     >>> seg_mdl = SBTransformerBlock_wnormandskip(1, 64, 8)
     >>> mem_mdl = SBTransformerBlock_wnormandskip(1, 64, 8)
-    >>> resepformer = ResourceEfficientSeparator(64, num_spk=3, mem_type='av', seg_model=seg_mdl, mem_model=mem_mdl)
+    >>> resepformer = ResourceEfficientSeparator(
+    ...     64, num_spk=3, mem_type="av", seg_model=seg_mdl, mem_model=mem_mdl
+    ... )
     >>> out = resepformer.forward(x)
     >>> out.shape
     torch.Size([3, 10, 64, 100])

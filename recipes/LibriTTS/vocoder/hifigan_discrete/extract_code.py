@@ -151,16 +151,27 @@ def extract_libritts(
 
     Example
     -------
-    >>> from recipes.LibriTTS.TTS.vocoder.hifigan_unit.extract_code import extract_libritts
-    >>> data_folder = 'data/LibriTTS/'
-    >>> splits = ['train', 'valid']
-    >>> kmeans_folder = 'speechbrain/SSL_Quantization'
-    >>> kmeans_dataset = LibriSpeech-100-360-500
-    >>> encoder_type = 'HuBERT'
-    >>> encoder_source = facebook/hubert-large-ll60k
+    >>> from recipes.LibriTTS.TTS.vocoder.hifigan_unit.extract_code import (
+    ...     extract_libritts,
+    ... )
+    >>> data_folder = "data/LibriTTS/"
+    >>> splits = ["train", "valid"]
+    >>> kmeans_folder = "speechbrain/SSL_Quantization"
+    >>> kmeans_dataset = LibriSpeech - 100 - 360 - 500
+    >>> encoder_type = "HuBERT"
+    >>> encoder_source = facebook / hubert - large - ll60k
     >>> layer = [7]
-    >>> save_folder = 'save/'
-    >>> extract_libritts(data_folder, splits, kmeans_folder, kmeans_filename, encoder_type, encoder_source, layer, save_folder)
+    >>> save_folder = "save/"
+    >>> extract_libritts(
+    ...     data_folder,
+    ...     splits,
+    ...     kmeans_folder,
+    ...     kmeans_filename,
+    ...     encoder_type,
+    ...     encoder_source,
+    ...     layer,
+    ...     save_folder,
+    ... )
     """
     logger = setup_logger()
 

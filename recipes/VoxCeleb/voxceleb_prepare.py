@@ -84,9 +84,9 @@ def prepare_voxceleb(
     Example
     -------
     >>> from recipes.VoxCeleb.voxceleb1_prepare import prepare_voxceleb
-    >>> data_folder = 'data/VoxCeleb1/'
-    >>> save_folder = 'VoxData/'
-    >>> splits = ['train', 'dev']
+    >>> data_folder = "data/VoxCeleb1/"
+    >>> save_folder = "VoxData/"
+    >>> splits = ["train", "dev"]
     >>> split_ratio = [90, 10]
     >>> prepare_voxceleb(data_folder, save_folder, splits, split_ratio)
     """

@@ -95,8 +95,8 @@ def prepare_fisher_callhome_spanish(
 
     Example
     -------
-    >>> data_folder = '/path/to/fisher-callhome'
-    >>> save_folder = 'data'
+    >>> data_folder = "/path/to/fisher-callhome"
+    >>> save_folder = "data"
     >>> prepare_fisher_callhome_spanish(data_folder, save_folder)
     """
 

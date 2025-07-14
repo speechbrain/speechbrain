@@ -34,7 +34,7 @@ class EpochCounter:
     Example
     -------
     >>> from speechbrain.utils.checkpoints import Checkpointer
-    >>> tmpdir = getfixture('tmpdir')
+    >>> tmpdir = getfixture("tmpdir")
     >>> epoch_counter = EpochCounter(10)
     >>> recoverer = Checkpointer(tmpdir, {"epoch": epoch_counter})
     >>> recoverer.recover_if_possible()
@@ -98,7 +98,9 @@ class EpochCounterWithStopper(EpochCounter):
     >>> limit_to_stop = 5
     >>> limit_warmup = 2
     >>> direction = "min"
-    >>> epoch_counter = EpochCounterWithStopper(limit, limit_to_stop, limit_warmup, direction)
+    >>> epoch_counter = EpochCounterWithStopper(
+    ...     limit, limit_to_stop, limit_warmup, direction
+    ... )
     >>> for epoch in epoch_counter:
     ...     # Run training...
     ...     # Track a validation metric, (insert calculation here)

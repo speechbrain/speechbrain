@@ -13,14 +13,16 @@ Example
 >>> from speechbrain.processing.multi_mic import DelaySum, Mvdr, Gev
 >>>
 >>> xs_speech = read_audio(
-...    'tests/samples/multi-mic/speech_-0.82918_0.55279_-0.082918.flac'
+...     "tests/samples/multi-mic/speech_-0.82918_0.55279_-0.082918.flac"
 ... )
->>> xs_speech = xs_speech.unsqueeze(0) # [batch, time, channels]
->>> xs_noise_diff = read_audio('tests/samples/multi-mic/noise_diffuse.flac')
+>>> xs_speech = xs_speech.unsqueeze(0)  # [batch, time, channels]
+>>> xs_noise_diff = read_audio("tests/samples/multi-mic/noise_diffuse.flac")
 >>> xs_noise_diff = xs_noise_diff.unsqueeze(0)
->>> xs_noise_loc = read_audio('tests/samples/multi-mic/noise_0.70225_-0.70225_0.11704.flac')
->>> xs_noise_loc =  xs_noise_loc.unsqueeze(0)
->>> fs = 16000 # sampling rate
+>>> xs_noise_loc = read_audio(
+...     "tests/samples/multi-mic/noise_0.70225_-0.70225_0.11704.flac"
+... )
+>>> xs_noise_loc = xs_noise_loc.unsqueeze(0)
+>>> fs = 16000  # sampling rate
 
 >>> ss = xs_speech
 >>> nn_diff = 0.05 * xs_noise_diff
@@ -45,11 +47,11 @@ Example
 
 >>> # Mvdr Beamforming with SRP-PHAT localization
 >>> mvdr = Mvdr()
->>> mics = torch.zeros((4,3), dtype=torch.float)
->>> mics[0,:] = torch.FloatTensor([-0.05, -0.05, +0.00])
->>> mics[1,:] = torch.FloatTensor([-0.05, +0.05, +0.00])
->>> mics[2,:] = torch.FloatTensor([+0.05, +0.05, +0.00])
->>> mics[3,:] = torch.FloatTensor([+0.05, +0.05, +0.00])
+>>> mics = torch.zeros((4, 3), dtype=torch.float)
+>>> mics[0, :] = torch.FloatTensor([-0.05, -0.05, +0.00])
+>>> mics[1, :] = torch.FloatTensor([-0.05, +0.05, +0.00])
+>>> mics[2, :] = torch.FloatTensor([+0.05, +0.05, +0.00])
+>>> mics[3, :] = torch.FloatTensor([+0.05, +0.05, +0.00])
 >>> srpphat = SrpPhat(mics=mics)
 >>> doas = srpphat(XXs)
 >>> Ys_mvdr = mvdr(Xs, NNs, doas, doa_mode=True, mics=mics, fs=fs)
@@ -101,10 +103,10 @@ class Covariance(torch.nn.Module):
     >>> from speechbrain.processing.multi_mic import Covariance
     >>>
     >>> xs_speech = read_audio(
-    ...    'tests/samples/multi-mic/speech_-0.82918_0.55279_-0.082918.flac'
+    ...     "tests/samples/multi-mic/speech_-0.82918_0.55279_-0.082918.flac"
     ... )
-    >>> xs_speech = xs_speech.unsqueeze(0) # [batch, time, channels]
-    >>> xs_noise = read_audio('tests/samples/multi-mic/noise_diffuse.flac')
+    >>> xs_speech = xs_speech.unsqueeze(0)  # [batch, time, channels]
+    >>> xs_noise = read_audio("tests/samples/multi-mic/noise_diffuse.flac")
     >>> xs_noise = xs_noise.unsqueeze(0)
     >>> xs = xs_speech + 0.05 * xs_noise
     >>> fs = 16000
@@ -207,11 +209,11 @@ class DelaySum(torch.nn.Module):
     >>> from speechbrain.processing.multi_mic import GccPhat, DelaySum
     >>>
     >>> xs_speech = read_audio(
-    ...    'tests/samples/multi-mic/speech_-0.82918_0.55279_-0.082918.flac'
+    ...     "tests/samples/multi-mic/speech_-0.82918_0.55279_-0.082918.flac"
     ... )
-    >>> xs_speech = xs_speech. unsqueeze(0) # [batch, time, channel]
-    >>> xs_noise  = read_audio('tests/samples/multi-mic/noise_diffuse.flac')
-    >>> xs_noise = xs_noise.unsqueeze(0) #[batch, time, channels]
+    >>> xs_speech = xs_speech.unsqueeze(0)  # [batch, time, channel]
+    >>> xs_noise = read_audio("tests/samples/multi-mic/noise_diffuse.flac")
+    >>> xs_noise = xs_noise.unsqueeze(0)  # [batch, time, channels]
     >>> fs = 16000
     >>> xs = xs_speech + 0.05 * xs_noise
     >>>
@@ -351,11 +353,11 @@ class Mvdr(torch.nn.Module):
         >>> from speechbrain.processing.multi_mic import GccPhat, DelaySum
         >>>
         >>> xs_speech = read_audio(
-        ...    'tests/samples/multi-mic/speech_-0.82918_0.55279_-0.082918.flac'
+        ...     "tests/samples/multi-mic/speech_-0.82918_0.55279_-0.082918.flac"
         ... )
-        >>> xs_speech = xs_speech.unsqueeze(0) # [batch, time, channel]
-        >>> xs_noise  = read_audio('tests/samples/multi-mic/noise_diffuse.flac')
-        >>> xs_noise = xs_noise.unsqueeze(0) #[batch, time, channels]
+        >>> xs_speech = xs_speech.unsqueeze(0)  # [batch, time, channel]
+        >>> xs_noise = read_audio("tests/samples/multi-mic/noise_diffuse.flac")
+        >>> xs_noise = xs_noise.unsqueeze(0)  # [batch, time, channels]
         >>> fs = 16000
         >>> xs = xs_speech + 0.05 * xs_noise
         >>>
@@ -534,10 +536,12 @@ class Gev(torch.nn.Module):
     >>> from speechbrain.processing.multi_mic import Gev
     >>>
     >>> xs_speech = read_audio(
-    ...    'tests/samples/multi-mic/speech_-0.82918_0.55279_-0.082918.flac'
+    ...     "tests/samples/multi-mic/speech_-0.82918_0.55279_-0.082918.flac"
     ... )
-    >>> xs_speech  = xs_speech.unsqueeze(0) # [batch, time, channels]
-    >>> xs_noise = read_audio('tests/samples/multi-mic/noise_0.70225_-0.70225_0.11704.flac')
+    >>> xs_speech = xs_speech.unsqueeze(0)  # [batch, time, channels]
+    >>> xs_noise = read_audio(
+    ...     "tests/samples/multi-mic/noise_0.70225_-0.70225_0.11704.flac"
+    ... )
     >>> xs_noise = xs_noise.unsqueeze(0)
     >>> fs = 16000
     >>> ss = xs_speech
@@ -681,11 +685,11 @@ class GccPhat(torch.nn.Module):
     >>> from speechbrain.processing.multi_mic import GccPhat, DelaySum
     >>>
     >>> xs_speech = read_audio(
-    ...    'tests/samples/multi-mic/speech_-0.82918_0.55279_-0.082918.flac'
+    ...     "tests/samples/multi-mic/speech_-0.82918_0.55279_-0.082918.flac"
     ... )
-    >>> xs_speech = xs_speech.unsqueeze(0) # [batch, time, channel]
-    >>> xs_noise  = read_audio('tests/samples/multi-mic/noise_diffuse.flac')
-    >>> xs_noise = xs_noise.unsqueeze(0) #[batch, time, channels]
+    >>> xs_speech = xs_speech.unsqueeze(0)  # [batch, time, channel]
+    >>> xs_noise = read_audio("tests/samples/multi-mic/noise_diffuse.flac")
+    >>> xs_noise = xs_noise.unsqueeze(0)  # [batch, time, channels]
     >>> fs = 16000
     >>> xs = xs_speech + 0.05 * xs_noise
     >>>
@@ -891,11 +895,13 @@ class SrpPhat(torch.nn.Module):
     >>> from speechbrain.processing.multi_mic import Covariance
     >>> from speechbrain.processing.multi_mic import SrpPhat
 
-    >>> xs_speech = read_audio('tests/samples/multi-mic/speech_-0.82918_0.55279_-0.082918.flac')
-    >>> xs_noise = read_audio('tests/samples/multi-mic/noise_diffuse.flac')
+    >>> xs_speech = read_audio(
+    ...     "tests/samples/multi-mic/speech_-0.82918_0.55279_-0.082918.flac"
+    ... )
+    >>> xs_noise = read_audio("tests/samples/multi-mic/noise_diffuse.flac")
     >>> fs = 16000
 
-    >>> xs_speech = xs_speech.unsqueeze(0) # [batch, time, channels]
+    >>> xs_speech = xs_speech.unsqueeze(0)  # [batch, time, channels]
     >>> xs_noise = xs_noise.unsqueeze(0)
 
     >>> ss1 = xs_speech
@@ -906,15 +912,15 @@ class SrpPhat(torch.nn.Module):
     >>> ns2 = 0.20 * xs_noise
     >>> xs2 = ss2 + ns2
 
-    >>> ss = torch.cat((ss1,ss2), dim=0)
-    >>> ns = torch.cat((ns1,ns2), dim=0)
-    >>> xs = torch.cat((xs1,xs2), dim=0)
+    >>> ss = torch.cat((ss1, ss2), dim=0)
+    >>> ns = torch.cat((ns1, ns2), dim=0)
+    >>> xs = torch.cat((xs1, xs2), dim=0)
 
-    >>> mics = torch.zeros((4,3), dtype=torch.float)
-    >>> mics[0,:] = torch.FloatTensor([-0.05, -0.05, +0.00])
-    >>> mics[1,:] = torch.FloatTensor([-0.05, +0.05, +0.00])
-    >>> mics[2,:] = torch.FloatTensor([+0.05, +0.05, +0.00])
-    >>> mics[3,:] = torch.FloatTensor([+0.05, +0.05, +0.00])
+    >>> mics = torch.zeros((4, 3), dtype=torch.float)
+    >>> mics[0, :] = torch.FloatTensor([-0.05, -0.05, +0.00])
+    >>> mics[1, :] = torch.FloatTensor([-0.05, +0.05, +0.00])
+    >>> mics[2, :] = torch.FloatTensor([+0.05, +0.05, +0.00])
+    >>> mics[3, :] = torch.FloatTensor([+0.05, +0.05, +0.00])
 
     >>> stft = STFT(sample_rate=fs)
     >>> cov = Covariance()
@@ -1089,11 +1095,13 @@ class Music(torch.nn.Module):
     >>> from speechbrain.processing.multi_mic import Covariance
     >>> from speechbrain.processing.multi_mic import SrpPhat
 
-    >>> xs_speech = read_audio('tests/samples/multi-mic/speech_-0.82918_0.55279_-0.082918.flac')
-    >>> xs_noise = read_audio('tests/samples/multi-mic/noise_diffuse.flac')
+    >>> xs_speech = read_audio(
+    ...     "tests/samples/multi-mic/speech_-0.82918_0.55279_-0.082918.flac"
+    ... )
+    >>> xs_noise = read_audio("tests/samples/multi-mic/noise_diffuse.flac")
     >>> fs = 16000
 
-    >>> xs_speech = xs_speech.unsqueeze(0) # [batch, time, channels]
+    >>> xs_speech = xs_speech.unsqueeze(0)  # [batch, time, channels]
     >>> xs_noise = xs_noise.unsqueeze(0)
 
     >>> ss1 = xs_speech
@@ -1104,15 +1112,15 @@ class Music(torch.nn.Module):
     >>> ns2 = 0.20 * xs_noise
     >>> xs2 = ss2 + ns2
 
-    >>> ss = torch.cat((ss1,ss2), dim=0)
-    >>> ns = torch.cat((ns1,ns2), dim=0)
-    >>> xs = torch.cat((xs1,xs2), dim=0)
+    >>> ss = torch.cat((ss1, ss2), dim=0)
+    >>> ns = torch.cat((ns1, ns2), dim=0)
+    >>> xs = torch.cat((xs1, xs2), dim=0)
 
-    >>> mics = torch.zeros((4,3), dtype=torch.float)
-    >>> mics[0,:] = torch.FloatTensor([-0.05, -0.05, +0.00])
-    >>> mics[1,:] = torch.FloatTensor([-0.05, +0.05, +0.00])
-    >>> mics[2,:] = torch.FloatTensor([+0.05, +0.05, +0.00])
-    >>> mics[3,:] = torch.FloatTensor([+0.05, +0.05, +0.00])
+    >>> mics = torch.zeros((4, 3), dtype=torch.float)
+    >>> mics[0, :] = torch.FloatTensor([-0.05, -0.05, +0.00])
+    >>> mics[1, :] = torch.FloatTensor([-0.05, +0.05, +0.00])
+    >>> mics[2, :] = torch.FloatTensor([+0.05, +0.05, +0.00])
+    >>> mics[3, :] = torch.FloatTensor([+0.05, +0.05, +0.00])
 
     >>> stft = STFT(sample_rate=fs)
     >>> cov = Covariance()
@@ -1293,14 +1301,16 @@ def doas2taus(doas, mics, fs, c=343.0):
     >>> from speechbrain.dataio.dataio import read_audio
     >>> from speechbrain.processing.multi_mic import sphere, doas2taus
 
-    >>> xs = read_audio('tests/samples/multi-mic/speech_-0.82918_0.55279_-0.082918.flac')
-    >>> xs = xs.unsqueeze(0) # [batch, time, channels]
+    >>> xs = read_audio(
+    ...     "tests/samples/multi-mic/speech_-0.82918_0.55279_-0.082918.flac"
+    ... )
+    >>> xs = xs.unsqueeze(0)  # [batch, time, channels]
     >>> fs = 16000
-    >>> mics = torch.zeros((4,3), dtype=torch.float)
-    >>> mics[0,:] = torch.FloatTensor([-0.05, -0.05, +0.00])
-    >>> mics[1,:] = torch.FloatTensor([-0.05, +0.05, +0.00])
-    >>> mics[2,:] = torch.FloatTensor([+0.05, +0.05, +0.00])
-    >>> mics[3,:] = torch.FloatTensor([+0.05, +0.05, +0.00])
+    >>> mics = torch.zeros((4, 3), dtype=torch.float)
+    >>> mics[0, :] = torch.FloatTensor([-0.05, -0.05, +0.00])
+    >>> mics[1, :] = torch.FloatTensor([-0.05, +0.05, +0.00])
+    >>> mics[2, :] = torch.FloatTensor([+0.05, +0.05, +0.00])
+    >>> mics[3, :] = torch.FloatTensor([+0.05, +0.05, +0.00])
 
     >>> doas = sphere()
     >>> taus = doas2taus(doas, mics, fs)
@@ -1335,9 +1345,9 @@ def tdoas2taus(tdoas):
     >>> from speechbrain.processing.multi_mic import GccPhat, tdoas2taus
     >>>
     >>> xs_speech = read_audio(
-    ...    'tests/samples/multi-mic/speech_-0.82918_0.55279_-0.082918.flac'
+    ...     "tests/samples/multi-mic/speech_-0.82918_0.55279_-0.082918.flac"
     ... )
-    >>> xs_noise = read_audio('tests/samples/multi-mic/noise_diffuse.flac')
+    >>> xs_noise = read_audio("tests/samples/multi-mic/noise_diffuse.flac")
     >>> xs = xs_speech + 0.05 * xs_noise
     >>> xs = xs.unsqueeze(0)
     >>> fs = 16000
@@ -1379,14 +1389,18 @@ def steering(taus, n_fft):
     >>> from speechbrain.dataio.dataio import read_audio
     >>> from speechbrain.processing.features import STFT
     >>> from speechbrain.processing.multi_mic import Covariance
-    >>> from speechbrain.processing.multi_mic import GccPhat, tdoas2taus, steering
+    >>> from speechbrain.processing.multi_mic import (
+    ...     GccPhat,
+    ...     tdoas2taus,
+    ...     steering,
+    ... )
     >>>
     >>> xs_speech = read_audio(
-    ...    'tests/samples/multi-mic/speech_-0.82918_0.55279_-0.082918.flac'
+    ...     "tests/samples/multi-mic/speech_-0.82918_0.55279_-0.082918.flac"
     ... )
-    >>> xs_noise = read_audio('tests/samples/multi-mic/noise_diffuse.flac')
+    >>> xs_noise = read_audio("tests/samples/multi-mic/noise_diffuse.flac")
     >>> xs = xs_speech + 0.05 * xs_noise
-    >>> xs = xs.unsqueeze(0) # [batch, time, channels]
+    >>> xs = xs.unsqueeze(0)  # [batch, time, channels]
     >>> fs = 16000
 
     >>> stft = STFT(sample_rate=fs)

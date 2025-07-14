@@ -115,8 +115,16 @@ def prepare_esc50(
 
     Example
     -------
-    >>> data_folder = '/path/to/ESC-50-master'
-    >>> prepare_urban_sound_8k(data_folder, 'train.json', 'valid.json', 'test.json', [1,2,3], [4], [5])
+    >>> data_folder = "/path/to/ESC-50-master"
+    >>> prepare_urban_sound_8k(
+    ...     data_folder,
+    ...     "train.json",
+    ...     "valid.json",
+    ...     "test.json",
+    ...     [1, 2, 3],
+    ...     [4],
+    ...     [5],
+    ... )
     """
     download_esc50(data_folder)
 

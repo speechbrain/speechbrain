@@ -44,7 +44,9 @@ class VAD(Pretrained):
     ... )
 
     >>> # Perform VAD
-    >>> boundaries = VAD.get_speech_segments("tests/samples/single-mic/example1.wav")
+    >>> boundaries = VAD.get_speech_segments(
+    ...     "tests/samples/single-mic/example1.wav"
+    ... )
     """
 
     HPARAMS_NEEDED = ["sample_rate", "time_resolution", "device"]

@@ -272,10 +272,10 @@ class Attention(nn.Module):
     Example
     -------
     >>> import torch
-    >>> from speechbrain.lobes.models.Tacotron2 import (
-    ... Attention)
+    >>> from speechbrain.lobes.models.Tacotron2 import Attention
     >>> from speechbrain.lobes.models.transformer.Transformer import (
-    ... get_mask_from_lengths)
+    ...     get_mask_from_lengths,
+    ... )
     >>> layer = Attention()
     >>> attention_hidden_state = torch.randn(2, 1024)
     >>> memory = torch.randn(2, 173, 512)
@@ -284,11 +284,11 @@ class Attention(nn.Module):
     >>> memory_lengths = torch.tensor([173, 91])
     >>> mask = get_mask_from_lengths(memory_lengths)
     >>> attention_context, attention_weights = layer(
-    ...    attention_hidden_state,
-    ...    memory,
-    ...    processed_memory,
-    ...    attention_weights_cat,
-    ...    mask
+    ...     attention_hidden_state,
+    ...     memory,
+    ...     processed_memory,
+    ...     attention_weights_cat,
+    ...     mask,
     ... )
     >>> attention_context.shape, attention_weights.shape
     (torch.Size([2, 512]), torch.Size([2, 173]))
@@ -727,7 +727,8 @@ class Decoder(nn.Module):
     >>> decoder_inputs = torch.randn(2, 80, 173)
     >>> memory_lengths = torch.tensor([173, 91])
     >>> mel_outputs, gate_outputs, alignments = layer(
-    ...     memory, decoder_inputs, memory_lengths)
+    ...     memory, decoder_inputs, memory_lengths
+    ... )
     >>> mel_outputs.shape, gate_outputs.shape, alignments.shape
     (torch.Size([2, 80, 173]), torch.Size([2, 173]), torch.Size([2, 173, 173]))
     """
@@ -1593,7 +1594,7 @@ class Loss(nn.Module):
     >>> alignments = torch.randn(2, 861, 173)
     >>> targets = mel_target, gate_target
     >>> model_outputs = mel_out, mel_out_postnet, gate_out, alignments
-    >>> input_lengths = torch.tensor([173,  91])
+    >>> input_lengths = torch.tensor([173, 91])
     >>> target_lengths = torch.tensor([861, 438])
     >>> loss(model_outputs, targets, input_lengths, target_lengths, 1)
     TacotronLoss(loss=tensor(4.8566), mel_loss=tensor(4.0097), gate_loss=tensor(0.8460), attn_loss=tensor(0.0010), attn_weight=tensor(1.))

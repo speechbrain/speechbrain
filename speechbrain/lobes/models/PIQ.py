@@ -234,7 +234,9 @@ class VectorQuantizationStraightThrough(Function):
         >>> inputs = torch.ones(3, 14, 25, 256)
         >>> codebook = torch.randn(1024, 256)
         >>> labels = torch.Tensor([1, 0, 2])
-        >>> quant, quant_ind = VectorQuantizationStraightThrough.apply(inputs, codebook, labels)
+        >>> quant, quant_ind = VectorQuantizationStraightThrough.apply(
+        ...     inputs, codebook, labels
+        ... )
         >>> print(quant.shape, quant_ind.shape)
         torch.Size([3, 14, 25, 256]) torch.Size([1050])
         """

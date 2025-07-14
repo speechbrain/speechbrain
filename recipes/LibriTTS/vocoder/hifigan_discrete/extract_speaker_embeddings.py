@@ -132,12 +132,16 @@ def extract_libritts_embeddings(
 
     Example
     -------
-    >>> from recipes.LibriTTS.vocoder.hifigan_unit.extract_speaker_embeddings import extract_libritts_embeddings
-    >>> data_folder = 'data/libritts/'
-    >>> splits = ['train', 'valid']
-    >>> encoder_source = facebook/hubert-base-ls960
-    >>> save_folder = 'save/'
-    >>> extract_libritts_embeddings(data_folder, splits, encoder_source, save_folder)
+    >>> from recipes.LibriTTS.vocoder.hifigan_unit.extract_speaker_embeddings import (
+    ...     extract_libritts_embeddings,
+    ... )
+    >>> data_folder = "data/libritts/"
+    >>> splits = ["train", "valid"]
+    >>> encoder_source = facebook / hubert - base - ls960
+    >>> save_folder = "save/"
+    >>> extract_libritts_embeddings(
+    ...     data_folder, splits, encoder_source, save_folder
+    ... )
     """
     logger = setup_logger()
 

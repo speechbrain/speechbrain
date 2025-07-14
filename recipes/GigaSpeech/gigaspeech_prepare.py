@@ -618,7 +618,9 @@ def preprocess_text(text: str, punctuation: bool, stopwords) -> str:
     Examples
     --------
     >>> text = " DOUGLAS MCGRAY IS GOING TO BE OUR GUIDE YOU WALK THROUGH THE DOOR <COMMA> YOU SEE THE RED CARPETING <COMMA> YOU SEE SOMEONE IN A SUIT <PERIOD> THEY MAY BE GREETING YOU <PERIOD>"
-    >>> preprocess_text(text, punctuation=True, stopwords=GARBAGE_UTTERANCE_TAGS)
+    >>> preprocess_text(
+    ...     text, punctuation=True, stopwords=GARBAGE_UTTERANCE_TAGS
+    ... )
     "DOUGLAS MCGRAY IS GOING TO BE OUR GUIDE YOU WALK THROUGH THE DOOR, YOU SEE THE RED CARPETING, YOU SEE SOMEONE IN A SUIT. THEY MAY BE GREETING YOU."
     """
 

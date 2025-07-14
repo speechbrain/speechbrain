@@ -91,7 +91,13 @@ def prepare_switchboard(
     >>> save_folder = "swbd_data"
     >>> splits = ["train", "dev"]
     >>> split_ratio = [90, 10]
-    >>> prepare_switchboard(data_folder, save_folder, splits, split_ratio, add_fisher_corpus=True)
+    >>> prepare_switchboard(
+    ...     data_folder,
+    ...     save_folder,
+    ...     splits,
+    ...     split_ratio,
+    ...     add_fisher_corpus=True,
+    ... )
     """
     if merge_lst is None:
         merge_lst = []

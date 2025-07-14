@@ -102,8 +102,16 @@ def prepare_urban_sound_8k(
 
     Example
     -------
-    >>> data_folder = '/path/to/UrbanSound8k'
-    >>> prepare_urban_sound_8k(data_folder, 'train.json', 'valid.json', 'test.json', [1,2,3,4,5,6,7,8], [9], [10])
+    >>> data_folder = "/path/to/UrbanSound8k"
+    >>> prepare_urban_sound_8k(
+    ...     data_folder,
+    ...     "train.json",
+    ...     "valid.json",
+    ...     "test.json",
+    ...     [1, 2, 3, 4, 5, 6, 7, 8],
+    ...     [9],
+    ...     [10],
+    ... )
     """
 
     # Tease params to correct type if necessary

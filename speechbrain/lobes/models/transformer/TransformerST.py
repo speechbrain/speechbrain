@@ -91,8 +91,16 @@ class TransformerST(TransformerASR):
     >>> src = torch.rand([8, 120, 512])
     >>> tgt = torch.randint(0, 720, [8, 120])
     >>> net = TransformerST(
-    ...     720, 512, 512, 8, 1, 1, 1024, activation=torch.nn.GELU,
-    ...     ctc_weight=1, asr_weight=0.3,
+    ...     720,
+    ...     512,
+    ...     512,
+    ...     8,
+    ...     1,
+    ...     1,
+    ...     1024,
+    ...     activation=torch.nn.GELU,
+    ...     ctc_weight=1,
+    ...     asr_weight=0.3,
     ... )
     >>> enc_out, dec_out = net.forward(src, tgt)
     >>> enc_out.shape

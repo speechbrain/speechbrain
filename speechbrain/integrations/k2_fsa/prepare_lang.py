@@ -452,13 +452,19 @@ def prepare_lang(lang_dir, sil_token="SIL", sil_prob=0.5, cache=True):
     >>> from speechbrain.integrations.k2_fsa.prepare_lang import prepare_lang
 
     >>> # Create a small lexicon containing only two words and write it to a file.
-    >>> lang_tmpdir = getfixture('tmpdir')
+    >>> lang_tmpdir = getfixture("tmpdir")
     >>> lexicon_sample = '''hello h e l l o\\nworld w o r l d'''
     >>> lexicon_file = lang_tmpdir.join("lexicon.txt")
     >>> lexicon_file.write(lexicon_sample)
 
     >>> prepare_lang(lang_tmpdir)
-    >>> for expected_file in ["tokens.txt", "words.txt", "L.pt", "L_disambig.pt", "Linv.pt" ]:
+    >>> for expected_file in [
+    ...     "tokens.txt",
+    ...     "words.txt",
+    ...     "L.pt",
+    ...     "L_disambig.pt",
+    ...     "Linv.pt",
+    ... ]:
     ...     assert os.path.exists(os.path.join(lang_tmpdir, expected_file))
     """
 

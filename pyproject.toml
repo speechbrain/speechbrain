@@ -36,9 +36,6 @@ Homepage = "https://speechbrain.github.io/"
 [project.optional-dependencies]
 dev = [
     "ruff>=0.3.0",
-    "black==24.3.0",
-    "click==8.1.7",
-    "isort==5.13.2",
     "pytest==7.4.0",
     "yamllint==1.35.1",
     "pre-commit>=2.3.0",
@@ -59,13 +56,21 @@ speechbrain = ["version.txt", "log-config.yaml"]
 [tool.ruff]
 target-version = "py38"
 line-length = 80
+exclude = [
+    ".eggs",
+    ".git",
+    ".mypy_cache",
+    ".tox",
+    ".venv",
+    "tests/tmp",
+]
 
 [tool.ruff.lint]
 select = [
     "E",  # pycodestyle errors
     "W",  # pycodestyle warnings
     "F",  # pyflakes
-    "I",  # isort
+    "I",  # isort (import sorting)
     "B",  # flake8-bugbear
     "C4", # flake8-comprehensions
     "UP", # pyupgrade
@@ -85,9 +90,9 @@ ignore = [
     "C416",  # Unnecessary `list` comprehension (rewrite using `list()`)
     "C417",  # Unnecessary `map` usage (rewrite using a `list` comprehension)
     "C419",  # Unnecessary list comprehension
-    "E203",  # whitespace before ':'
+    "E203",  # whitespace before ':' (black compatibility)
     "E266",  # too many leading '#' for block comment
-    "E501",  # line too long (handled by black)
+    "E501",  # line too long (handled by formatter)
     "E721",  # Do not compare types, use `isinstance()`
     "E741",  # Ambiguous variable name: `l`
     "F601",  # Dictionary key literal repeated
@@ -105,14 +110,14 @@ ignore = [
     "B026",  # Star-arg unpacking after a keyword argument is strongly discouraged
     "C901",  # too complex
 ]
-exclude = [
-    ".eggs",
-    ".git",
-    ".mypy_cache",
-    ".tox",
-    ".venv",
-    "tests/tmp",
-]
+
+[tool.ruff.lint.isort]
+# Import sorting configuration (black-compatible)
+combine-as-imports = true
+force-wrap-aliases = true
+known-first-party = ["speechbrain"]
+known-third-party = ["torch", "torchaudio", "numpy", "scipy", "hyperpyyaml", "joblib", "packaging", "sentencepiece", "tqdm", "huggingface_hub"]
+split-on-trailing-comma = false
 
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401"]
@@ -122,27 +127,7 @@ quote-style = "double"
 indent-style = "space"
 skip-magic-trailing-comma = false
 line-ending = "auto"
-
-[tool.black]
-line-length = 80
-target-version = ['py38']
-exclude = '''
-
-(
-  /(
-      \.eggs         # exclude a few common directories in the
-    | \.git          # root of the project
-    | \.mypy_cache
-    | \.tox
-    | \.venv
-  )/
-)
-'''
+docstring-code-format = true
 
 [tool.codespell]
 skip = "./tests/tmp,./**/result,*.csv,*train.txt,*test.txt"
-
-[tool.isort]
-profile = "black"
-line_length = 80
-filter_files = true

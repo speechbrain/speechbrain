@@ -593,7 +593,7 @@ class PCEN(nn.Module):
     Example
     -------
     >>> inp_tensor = torch.rand([10, 50, 40])
-    >>> pcen = PCEN(40, alpha=0.96)         # sPCEN
+    >>> pcen = PCEN(40, alpha=0.96)  # sPCEN
     >>> out_tensor = pcen(inp_tensor)
     >>> out_tensor.shape
     torch.Size([10, 50, 40])

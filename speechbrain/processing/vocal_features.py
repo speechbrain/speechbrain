@@ -308,7 +308,7 @@ def compute_gne(
     Example
     -------
     >>> sample_rate = 16000
-    >>> audio = torch.rand(1, sample_rate) # 1s of audio
+    >>> audio = torch.rand(1, sample_rate)  # 1s of audio
     >>> gne = compute_gne(audio, sample_rate=sample_rate)
     >>> gne.shape
     torch.Size([1, 98])

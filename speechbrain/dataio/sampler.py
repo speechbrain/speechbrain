@@ -64,25 +64,25 @@ class ReproducibleRandomSampler(RandomSampler):
     >>> dataset = torch.arange(10).unsqueeze(1)
     >>> # Create the random sampler:
     >>> sampler = ReproducibleRandomSampler(dataset)
-    >>> dataloader = SaveableDataLoader(dataset, sampler = sampler,
-    ...     num_workers = 3)
+    >>> dataloader = SaveableDataLoader(dataset, sampler=sampler, num_workers=3)
     >>> # Setup the checkpointer.
     >>> # Note that the sampler doesn't need to be saved itself.
-    >>> tmpdir = getfixture('tmpdir')
+    >>> tmpdir = getfixture("tmpdir")
     >>> checkpointer = Checkpointer(tmpdir, {"dataloader": dataloader})
     >>> # Iterate:
     >>> subset = []
     >>> for i, data_point in enumerate(dataloader):
     ...     # Say you save a checkpoint on the fourth batch:
     ...     if i == 3:
-    ...         _ = checkpointer.save_checkpoint(end_of_epoch = False)
+    ...         _ = checkpointer.save_checkpoint(end_of_epoch=False)
     ...     # So let's save the numbers you would get if you continue
     ...     if i >= 4:
     ...         subset.append(data_point.item())
     >>> # What if instead you had to restart the experiment?
     >>> new_sampler = ReproducibleRandomSampler(dataset)
-    >>> new_dataloader = SaveableDataLoader(dataset, sampler = new_sampler,
-    ...        num_workers = 3)
+    >>> new_dataloader = SaveableDataLoader(
+    ...     dataset, sampler=new_sampler, num_workers=3
+    ... )
     >>> new_checkpointer = Checkpointer(tmpdir, {"dataloader": new_dataloader})
     >>> _ = new_checkpointer.recover_if_possible()
     >>> # You'll get the same random order again:
@@ -145,8 +145,12 @@ class ReproducibleWeightedRandomSampler(WeightedRandomSampler):
 
     Example
     -------
-    >>> a = ReproducibleWeightedRandomSampler([0.1, 0.9, 0.4, 0.7, 3.0, 0.6], 5, replacement=True)
-    >>> b = ReproducibleWeightedRandomSampler([0.1, 0.9, 0.4, 0.7, 3.0, 0.6], 5, replacement=True)
+    >>> a = ReproducibleWeightedRandomSampler(
+    ...     [0.1, 0.9, 0.4, 0.7, 3.0, 0.6], 5, replacement=True
+    ... )
+    >>> b = ReproducibleWeightedRandomSampler(
+    ...     [0.1, 0.9, 0.4, 0.7, 3.0, 0.6], 5, replacement=True
+    ... )
     >>> list(a)
     [3, 1, 4, 4, 4]
     >>> list(b)
@@ -222,7 +226,10 @@ class ConcatDatasetBatchSampler(Sampler):
     Example
     -------
     >>> import torch
-    >>> from speechbrain.dataio.sampler import ConcatDatasetBatchSampler, ReproducibleRandomSampler
+    >>> from speechbrain.dataio.sampler import (
+    ...     ConcatDatasetBatchSampler,
+    ...     ReproducibleRandomSampler,
+    ... )
     >>> from speechbrain.dataio.sampler import ReproducibleRandomSampler
     >>> from speechbrain.dataio.dataloader import SaveableDataLoader
     >>> # example "datasets"
@@ -232,13 +239,14 @@ class ConcatDatasetBatchSampler(Sampler):
     >>> sampler1 = ReproducibleRandomSampler(dataset1)
     >>> sampler2 = ReproducibleRandomSampler(dataset2)
     >>> tot_sampler = ConcatDatasetBatchSampler([sampler1, sampler2], [2, 4])
-    >>> dataloader = SaveableDataLoader(tot_dataset, batch_sampler = tot_sampler,
-    ...     num_workers = 3)
+    >>> dataloader = SaveableDataLoader(
+    ...     tot_dataset, batch_sampler=tot_sampler, num_workers=3
+    ... )
     >>> for data_point in dataloader:
-    ...      assert len(data_point) == 6
-    ...      for i in range(2):
+    ...     assert len(data_point) == 6
+    ...     for i in range(2):
     ...         assert data_point[i] in [x for x in range(0, 10)]
-    ...      for i in range(2, 4):
+    ...     for i in range(2, 4):
     ...         assert data_point[i] in [x for x in range(10, 40)]
     """
 
@@ -360,12 +368,23 @@ class DynamicBatchSampler(Sampler):
     >>> from speechbrain.dataio.batch import PaddedBatch
     >>> import numpy as np
     >>> item_lengths = sorted([np.random.randint(10, 100) for x in range(20)])
-    >>> dataset = {"ex_{}".format(x) : {"wav" :torch.randn(x)} for x in item_lengths}
+    >>> dataset = {
+    ...     "ex_{}".format(x): {"wav": torch.randn(x)} for x in item_lengths
+    ... }
     >>> dataset = DynamicItemDataset(dataset)
     >>> dataset.set_output_keys(["wav"])
-    >>> length_func = lambda x : len(x) # trivial in this example
-    >>> bsampler = DynamicBatchSampler(dataset, 20, 4, length_func, shuffle=False, batch_ordering='descending')
-    >>> dataloader = SaveableDataLoader(dataset, batch_sampler=bsampler, collate_fn=PaddedBatch)
+    >>> length_func = lambda x: len(x)  # trivial in this example
+    >>> bsampler = DynamicBatchSampler(
+    ...     dataset,
+    ...     20,
+    ...     4,
+    ...     length_func,
+    ...     shuffle=False,
+    ...     batch_ordering="descending",
+    ... )
+    >>> dataloader = SaveableDataLoader(
+    ...     dataset, batch_sampler=bsampler, collate_fn=PaddedBatch
+    ... )
     >>> for i, b in enumerate(dataloader):
     ...     data, length = b["wav"]
     >>> assert data.shape[-1] == max(item_lengths)
@@ -782,18 +801,13 @@ class BalancingDataSampler(ReproducibleWeightedRandomSampler):
     >>> from speechbrain.dataio.sampler import BalancingDataSampler
     >>> from speechbrain.dataio.dataset import DynamicItemDataset
     >>> sample_data = {
-    ...   1: {"category": "A",
-    ...       "text": "This is a test"},
-    ...   2: {"category": "A",
-    ...       "text": "This is a second test"},
-    ...   3: {"category": "B",
-    ...       "text": "This is a third test"}
-    ...  }
+    ...     1: {"category": "A", "text": "This is a test"},
+    ...     2: {"category": "A", "text": "This is a second test"},
+    ...     3: {"category": "B", "text": "This is a third test"},
+    ... }
     >>> dataset = DynamicItemDataset(data=sample_data)
     >>> sampler = BalancingDataSampler(
-    ...     dataset=dataset,
-    ...     key="category",
-    ...     num_samples=10
+    ...     dataset=dataset, key="category", num_samples=10
     ... )
     >>> sampler.weights
     tensor([0.5000, 0.5000, 1.0000], dtype=torch.float64)

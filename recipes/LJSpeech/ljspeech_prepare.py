@@ -94,9 +94,9 @@ def prepare_ljspeech(
     Example
     -------
     >>> from recipes.LJSpeech.TTS.ljspeech_prepare import prepare_ljspeech
-    >>> data_folder = 'data/LJspeech/'
-    >>> save_folder = 'save/'
-    >>> splits = ['train', 'valid']
+    >>> data_folder = "data/LJspeech/"
+    >>> save_folder = "save/"
+    >>> splits = ["train", "valid"]
     >>> split_ratio = [90, 10]
     >>> seed = 1234
     >>> prepare_ljspeech(data_folder, save_folder, splits, split_ratio, seed)

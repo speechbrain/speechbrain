@@ -20,17 +20,15 @@ class BLEUStats(MetricStats):
     -------
     >>> bleu = BLEUStats()
     >>> bleu.append(
-    ...     ids=['utterance1', 'utterance2'],
-    ...     predict=[
-    ...         'The dog bit the man.',
-    ...         'It was not surprising.'],
+    ...     ids=["utterance1", "utterance2"],
+    ...     predict=["The dog bit the man.", "It was not surprising."],
     ...     targets=[
-    ...                ['The dog bit the man.', 'It was not unexpected.'],
-    ...                ['The dog had bit the man.', 'No one was surprised.']
-    ...             ]
+    ...         ["The dog bit the man.", "It was not unexpected."],
+    ...         ["The dog had bit the man.", "No one was surprised."],
+    ...     ],
     ... )
     >>> stats = bleu.summarize()
-    >>> stats['BLEU']
+    >>> stats["BLEU"]
     74.19446627365011
     """
 

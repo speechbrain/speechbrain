@@ -534,7 +534,9 @@ class TransformerEncoder(nn.Module):
 
     >>> import torch
     >>> x = torch.rand((8, 60, 512))
-    >>> net = TransformerEncoder(1, 8, 512, d_model=512, output_hidden_states=True)
+    >>> net = TransformerEncoder(
+    ...     1, 8, 512, d_model=512, output_hidden_states=True
+    ... )
     >>> output, attn_list, hidden_list = net(x)
     >>> hidden_list[0].shape
     torch.Size([8, 60, 512])
@@ -1011,7 +1013,7 @@ def get_key_padding_mask(padded_input, pad_idx):
 
     Example
     -------
-    >>> a = torch.LongTensor([[1,1,0], [2,3,0], [4,5,0]])
+    >>> a = torch.LongTensor([[1, 1, 0], [2, 3, 0], [4, 5, 0]])
     >>> get_key_padding_mask(a, pad_idx=0)
     tensor([[False, False,  True],
             [False, False,  True],
@@ -1047,7 +1049,7 @@ def get_lookahead_mask(padded_input):
 
     Example
     -------
-    >>> a = torch.LongTensor([[1,1,0], [2,3,0], [4,5,0]])
+    >>> a = torch.LongTensor([[1, 1, 0], [2, 3, 0], [4, 5, 0]])
     >>> get_lookahead_mask(a)
     tensor([[0., -inf, -inf],
             [0., 0., -inf],

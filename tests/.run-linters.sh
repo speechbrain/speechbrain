@@ -1,8 +1,8 @@
 #!/bin/bash
 set -e -u -o pipefail
 
-echo "===Black==="
-git ls-files | grep -E "\.py$" | xargs black --check --diff
+echo "===Ruff Format==="
+git ls-files | grep -E "\.py$" | xargs ruff format --check
 echo "===Ruff==="
 git ls-files | grep -E "\.py$" | xargs ruff check --statistics
 echo "===Yamllint==="

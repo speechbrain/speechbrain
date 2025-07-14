@@ -10,7 +10,7 @@ Example
 -------
 >>> import torch
 >>> from speechbrain.dataio.dataio import read_audio
->>> signal =read_audio('tests/samples/single-mic/example1.wav')
+>>> signal = read_audio("tests/samples/single-mic/example1.wav")
 >>> signal = signal.unsqueeze(0)
 >>> compute_STFT = STFT(
 ...     sample_rate=16000, win_length=25, hop_length=10, n_fft=400
@@ -26,7 +26,7 @@ Example
 >>> delta2 = compute_deltas(delta1)
 >>> features = torch.cat([features, delta1, delta2], dim=2)
 >>> compute_cw = ContextWindow(left_frames=5, right_frames=5)
->>> features  = compute_cw(features)
+>>> features = compute_cw(features)
 >>> norm = InputNormalization()
 >>> features = norm(features, torch.tensor([1]).float())
 
@@ -241,9 +241,7 @@ class ISTFT(torch.nn.Module):
     >>> compute_STFT = STFT(
     ...     sample_rate=16000, win_length=25, hop_length=10, n_fft=400
     ... )
-    >>> compute_ISTFT = ISTFT(
-    ...     sample_rate=16000, win_length=25, hop_length=10
-    ... )
+    >>> compute_ISTFT = ISTFT(sample_rate=16000, win_length=25, hop_length=10)
     >>> inputs = torch.randn([10, 16000])
     >>> outputs = compute_ISTFT(compute_STFT(inputs))
     >>> outputs.shape
@@ -1031,7 +1029,7 @@ def gaussian_statistics(
 
     Example
     -------
-    >>> x = torch.tensor([[1., 3., 0.]])
+    >>> x = torch.tensor([[1.0, 3.0, 0.0]])
     >>> mask = torch.tensor([[True, True, False]])
     >>> dim = (0, 1)
     >>> count, mean, variance = gaussian_statistics(x, mask, dim)
@@ -1235,7 +1233,9 @@ def mean_std_update(
     >>> input_tensor = torch.tensor([[-1.0, 0.0, 1.0, 0.0]])
     >>> input_length = torch.tensor([0.75])
     >>> input_length_dim = 1
-    >>> input_mask = make_padding_mask(input_tensor, input_length, input_length_dim)
+    >>> input_mask = make_padding_mask(
+    ...     input_tensor, input_length, input_length_dim
+    ... )
     >>> dim = (0, input_length_dim)
     >>> run_count, run_mean, run_std = 0, torch.tensor(0.0), torch.tensor(1.0)
     >>> run_count, run_mean, run_std = mean_std_update(
@@ -1639,23 +1639,20 @@ class GlobalNorm(torch.nn.Module):
     >>> import torch
     >>> from speechbrain.processing.features import GlobalNorm
     >>> global_norm = GlobalNorm(
-    ...     norm_mean=0.5,
-    ...     norm_std=0.2,
-    ...     update_steps=3,
-    ...     length_dim=1
+    ...     norm_mean=0.5, norm_std=0.2, update_steps=3, length_dim=1
     ... )
-    >>> x = torch.tensor([[1., 2., 3.]])
+    >>> x = torch.tensor([[1.0, 2.0, 3.0]])
     >>> x_norm = global_norm(x)
     >>> x_norm
     tensor([[0.2551, 0.5000, 0.7449]])
-    >>> x = torch.tensor([[5., 10., -4.]])
+    >>> x = torch.tensor([[5.0, 10.0, -4.0]])
     >>> x_norm = global_norm(x)
     >>> x_norm
     tensor([[0.6027, 0.8397, 0.1761]])
     >>> x_denorm = global_norm.denormalize(x_norm)
     >>> x_denorm
     tensor([[ 5.0000, 10.0000, -4.0000]])
-    >>> x = torch.tensor([[100., -100., -50.]])
+    >>> x = torch.tensor([[100.0, -100.0, -50.0]])
     >>> global_norm.freeze()
     >>> global_norm(x)
     tensor([[ 5.1054, -4.3740, -2.0041]])
@@ -1821,8 +1818,8 @@ class MinLevelNorm(torch.nn.Module):
 
     Example
     -------
-    >>> norm = MinLevelNorm(min_level_db=-100.)
-    >>> x = torch.tensor([-50., -20., -80.])
+    >>> norm = MinLevelNorm(min_level_db=-100.0)
+    >>> x = torch.tensor([-50.0, -20.0, -80.0])
     >>> x_norm = norm(x)
     >>> x_norm
     tensor([ 0.0000,  0.6000, -0.6000])
@@ -1886,11 +1883,11 @@ class DynamicRangeCompression(torch.nn.Module):
     Example
     -------
     >>> drc = DynamicRangeCompression()
-    >>> x = torch.tensor([10., 20., 0., 30.])
+    >>> x = torch.tensor([10.0, 20.0, 0.0, 30.0])
     >>> drc(x)
     tensor([  2.3026,   2.9957, -11.5129,   3.4012])
-    >>> drc = DynamicRangeCompression(2.)
-    >>> x = torch.tensor([10., 20., 0., 30.])
+    >>> drc = DynamicRangeCompression(2.0)
+    >>> x = torch.tensor([10.0, 20.0, 0.0, 30.0])
     >>> drc(x)
     tensor([  2.9957,   3.6889, -10.8198,   4.0943])
     """

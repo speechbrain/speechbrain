@@ -28,7 +28,17 @@ class GumbelVectorQuantizer(nn.Module):
 
     Example
     -------
-    >>> quantiser = GumbelVectorQuantizer(128, 100, (2.0, 0.25, 0.999995,), 2, 50 )
+    >>> quantiser = GumbelVectorQuantizer(
+    ...     128,
+    ...     100,
+    ...     (
+    ...         2.0,
+    ...         0.25,
+    ...         0.999995,
+    ...     ),
+    ...     2,
+    ...     50,
+    ... )
     >>> inputs = torch.rand(10, 12, 128)
     >>> output = quantiser(inputs)
     >>> output["x"].shape

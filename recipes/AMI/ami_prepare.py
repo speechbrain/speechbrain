@@ -69,12 +69,14 @@ def prepare_ami(
     Example
     -------
     >>> from recipes.AMI.ami_prepare import prepare_ami
-    >>> data_folder = '/network/datasets/ami/amicorpus/'
-    >>> manual_annot_folder = '/home/mila/d/dawalatn/nauman/ami_public_manual/'
-    >>> save_folder = 'results/save/'
-    >>> split_type = 'full_corpus_asr'
-    >>> mic_type = 'Lapel'
-    >>> prepare_ami(data_folder, manual_annot_folder, save_folder, split_type, mic_type)
+    >>> data_folder = "/network/datasets/ami/amicorpus/"
+    >>> manual_annot_folder = "/home/mila/d/dawalatn/nauman/ami_public_manual/"
+    >>> save_folder = "results/save/"
+    >>> split_type = "full_corpus_asr"
+    >>> mic_type = "Lapel"
+    >>> prepare_ami(
+    ...     data_folder, manual_annot_folder, save_folder, split_type, mic_type
+    ... )
     """
 
     # Meta files

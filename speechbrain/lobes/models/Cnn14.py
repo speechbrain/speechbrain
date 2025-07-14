@@ -39,7 +39,7 @@ class ConvBlock(nn.Module):
 
     Example
     -------
-    >>> convblock = ConvBlock(10, 20, 'ln')
+    >>> convblock = ConvBlock(10, 20, "ln")
     >>> x = torch.rand(5, 10, 20, 30)
     >>> y = convblock(x)
     >>> print(y.shape)

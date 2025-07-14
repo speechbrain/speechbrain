@@ -154,17 +154,29 @@ def extract_ljspeech(
 
     Example
     -------
-    >>> from recipes.LJSpeech.TTS.vocoder.hifi_gan_unit.extract_code import extract_ljspeech
-    >>> data_folder = 'data/LJspeech/'
-    >>> splits = ['train', 'valid']
-    >>> kmeans_folder = 'speechbrain/SSL_Quantization'
-    >>> kmeans_dataset = LibriSpeech-100-360-500
-    >>> encoder_type = 'HuBERT'
-    >>> encoder_source = facebook/hubert-large-ll60k
+    >>> from recipes.LJSpeech.TTS.vocoder.hifi_gan_unit.extract_code import (
+    ...     extract_ljspeech,
+    ... )
+    >>> data_folder = "data/LJspeech/"
+    >>> splits = ["train", "valid"]
+    >>> kmeans_folder = "speechbrain/SSL_Quantization"
+    >>> kmeans_dataset = LibriSpeech - 100 - 360 - 500
+    >>> encoder_type = "HuBERT"
+    >>> encoder_source = facebook / hubert - large - ll60k
     >>> layer = [7]
-    >>> encoder_save_folder = 'ssl_encoder/'
-    >>> codes_save_folder = 'codes/'
-    >>> extract_ljspeech(data_folder, splits, kmeans_folder, kmeans_filename, encoder_type, encoder_source, layer, encoder_save_folder, codes_save_folder)
+    >>> encoder_save_folder = "ssl_encoder/"
+    >>> codes_save_folder = "codes/"
+    >>> extract_ljspeech(
+    ...     data_folder,
+    ...     splits,
+    ...     kmeans_folder,
+    ...     kmeans_filename,
+    ...     encoder_type,
+    ...     encoder_source,
+    ...     layer,
+    ...     encoder_save_folder,
+    ...     codes_save_folder,
+    ... )
     """
     logger = setup_logger()
 

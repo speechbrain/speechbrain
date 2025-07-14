@@ -23,13 +23,18 @@ class DiscreteSSLTokenizer:
     Example
     -------
     >>> import torch
-    >>> inputs = torch.randint(0,1000,(3, 6, 2))
-    >>> ssl_layer_num = [7,23]
-    >>> deduplicate =[False, True]
-    >>> bpe_tokenizers=[None, None]
-    >>> num_clusters = [1000,2000]
+    >>> inputs = torch.randint(0, 1000, (3, 6, 2))
+    >>> ssl_layer_num = [7, 23]
+    >>> deduplicate = [False, True]
+    >>> bpe_tokenizers = [None, None]
+    >>> num_clusters = [1000, 2000]
     >>> tokenizer = DiscreteSSLTokenizer(num_clusters=num_clusters)
-    >>> tokens= tokenizer.encode(inputs,SSL_layers=ssl_layer_num, deduplicates=deduplicate, bpe_tokenizers=bpe_tokenizers)
+    >>> tokens = tokenizer.encode(
+    ...     inputs,
+    ...     SSL_layers=ssl_layer_num,
+    ...     deduplicates=deduplicate,
+    ...     bpe_tokenizers=bpe_tokenizers,
+    ... )
     >>> print(tokens.shape)
     torch.Size([3, 6, 2])
     """

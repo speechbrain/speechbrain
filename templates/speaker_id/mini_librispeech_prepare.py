@@ -56,8 +56,10 @@ def prepare_mini_librispeech(
 
     Example
     -------
-    >>> data_folder = '/path/to/mini_librispeech'
-    >>> prepare_mini_librispeech(data_folder, 'train.json', 'valid.json', 'test.json')
+    >>> data_folder = "/path/to/mini_librispeech"
+    >>> prepare_mini_librispeech(
+    ...     data_folder, "train.json", "valid.json", "test.json"
+    ... )
     """
     # Check if this phase is already done (if so, skip it)
     if skip(save_json_train, save_json_valid, save_json_test):

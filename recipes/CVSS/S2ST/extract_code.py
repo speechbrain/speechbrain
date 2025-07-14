@@ -144,13 +144,15 @@ def extract_cvss(
     Example
     -------
     >>> from recipes.CVSS.S2ST.extract_code import extract_cvss
-    >>> data_folder = 'data/CVSS/'
-    >>> splits = ['train', 'valid']
+    >>> data_folder = "data/CVSS/"
+    >>> splits = ["train", "valid"]
     >>> kmeans_folder = ./Quantization/results/kmeans/4321/save
-    >>> encoder = facebook/hubert-base-ls960
+    >>> encoder = facebook / hubert - base - ls960
     >>> layer = 6
-    >>> save_folder = 'save/'
-    >>> extract_cvss(data_folder, splits, kmeans_folder, encoder, layer, save_folder)
+    >>> save_folder = "save/"
+    >>> extract_cvss(
+    ...     data_folder, splits, kmeans_folder, encoder, layer, save_folder
+    ... )
     """
     logger = setup_logger()
 

@@ -64,19 +64,30 @@ class DiscreteSSL(nn.Module):
     Example
     -------
     >>> import torch
-    >>> from speechbrain.integrations.huggingface.wavlm import (WavLM)
+    >>> from speechbrain.integrations.huggingface.wavlm import WavLM
     >>> inputs = torch.rand([3, 2000])
     >>> model_hub = "microsoft/wavlm-large"
     >>> save_path = "savedir"
-    >>> ssl_layer_num = [7,23]
-    >>> deduplicate =[False, True]
-    >>> bpe_tokenizers=[None, None]
+    >>> ssl_layer_num = [7, 23]
+    >>> deduplicate = [False, True]
+    >>> bpe_tokenizers = [None, None]
     >>> vocoder_repo_id = "speechbrain/hifigan-wavlm-k1000-LibriTTS"
     >>> kmeans_dataset = "LibriSpeech"
     >>> num_clusters = 1000
-    >>> ssl_model = WavLM(model_hub, save_path,output_all_hiddens=True)
-    >>> model = DiscreteSSL(save_path, ssl_model, vocoder_repo_id=vocoder_repo_id, kmeans_dataset=kmeans_dataset,num_clusters=num_clusters)
-    >>> tokens, _, _ = model.encode(inputs,SSL_layers=ssl_layer_num, deduplicates=deduplicate, bpe_tokenizers=bpe_tokenizers)
+    >>> ssl_model = WavLM(model_hub, save_path, output_all_hiddens=True)
+    >>> model = DiscreteSSL(
+    ...     save_path,
+    ...     ssl_model,
+    ...     vocoder_repo_id=vocoder_repo_id,
+    ...     kmeans_dataset=kmeans_dataset,
+    ...     num_clusters=num_clusters,
+    ... )
+    >>> tokens, _, _ = model.encode(
+    ...     inputs,
+    ...     SSL_layers=ssl_layer_num,
+    ...     deduplicates=deduplicate,
+    ...     bpe_tokenizers=bpe_tokenizers,
+    ... )
     >>> print(tokens.shape)
     torch.Size([3, 6, 2])
     >>> sig = model.decode(tokens, ssl_layer_num)

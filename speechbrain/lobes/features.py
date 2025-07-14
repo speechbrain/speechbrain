@@ -355,7 +355,7 @@ class Leaf(torch.nn.Module):
     -------
     >>> inp_tensor = torch.rand([10, 8000])
     >>> leaf = Leaf(
-    ...     out_channels=40, window_len=25., window_stride=10., in_channels=1
+    ...     out_channels=40, window_len=25.0, window_stride=10.0, in_channels=1
     ... )
     >>> out_tensor = leaf(inp_tensor)
     >>> out_tensor.shape
@@ -848,7 +848,7 @@ def moving_average(features, dim=1, n=3):
 
     Example
     -------
-    >>> feats = torch.tensor([[0., 1., 0., 1., 0., 1., 0.]])
+    >>> feats = torch.tensor([[0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0]])
     >>> moving_average(feats)
     tensor([[0.5000, 0.3333, 0.6667, 0.3333, 0.6667, 0.3333, 0.5000]])
     """
