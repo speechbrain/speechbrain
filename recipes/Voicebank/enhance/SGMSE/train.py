@@ -718,8 +718,8 @@ if __name__ == "__main__":
 
     hparams_file, run_opts, overrides = sb.parse_arguments(remaining)
 
-    if resume_args.run_dir: # Resume                               
-        run_dir   = Path(resume_args.run_dir).resolve()
+    if resume_args.resume: # Resume                               
+        run_dir   = Path(resume_args.resume).resolve()
         hparams_file = run_dir / "hyperparams.yaml"
         overrides = overrides or "" 
     else: # New

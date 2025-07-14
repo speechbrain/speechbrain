@@ -13,7 +13,7 @@ import torch, torchaudio
 from hyperpyyaml import load_hyperpyyaml
 from speechbrain.utils.checkpoints import Checkpointer
 
-from train_sgmse import SGMSEBrain
+from train import SGMSEBrain
 
 # Helpers
 def is_audio_file(path):
