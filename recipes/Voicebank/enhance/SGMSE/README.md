@@ -44,7 +44,7 @@ During training, all results and model checkpoints are saved in:
 During inference, enhanced audio outputs are saved in:
 
 ```
-/path/to/run/<inference_dir>/
+<output_dir>/<run_name>/<inference_dir>/
 ```
 
 ## About SpeechBrain
