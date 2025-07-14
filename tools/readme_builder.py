@@ -40,7 +40,7 @@ def create_table(fid_w, csv_file):
     None
     """
     # Read CSV file into a list of dictionaries
-    with open(csv_file, "r", encoding="utf-8") as file:
+    with open(csv_file, encoding="utf-8") as file:
         csv_reader = csv.DictReader(file)
         recipes_lst = [row for row in csv_reader]
 
@@ -124,7 +124,6 @@ def extract_name_value_pairs(input_string):
 
 
 if __name__ == "__main__":
-
     parser = argparse.ArgumentParser(
         description=(
             "Create the performance file from the recipe info csv files."

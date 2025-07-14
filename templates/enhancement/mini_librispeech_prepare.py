@@ -88,7 +88,6 @@ def create_json(wav_list, json_file):
     # Processing all the wav files in the list
     json_dict = {}
     for wav_file in wav_list:
-
         # Reading the signal (to retrieve duration in seconds)
         signal = read_audio(wav_file)
         duration = signal.shape[0] / SAMPLERATE

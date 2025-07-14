@@ -61,7 +61,6 @@ def check_docstrings(
     check = True
     # Loop over the detected libraries
     for libpath in lib_lst:
-
         if "__" in libpath:
             continue
         print("Checking %s..." % (libpath))
@@ -74,7 +73,6 @@ def check_docstrings(
         first_line = True
         with open(libpath, encoding="utf-8") as f:
             for line in f:
-
                 # Remove spaces or tabs
                 line = line.strip()
 

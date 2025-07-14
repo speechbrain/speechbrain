@@ -95,7 +95,7 @@ def test_QBatchNorm(device):
     assert torch.all(torch.abs(current_mean) < 1e-06)
 
     r, i, j, k = torch.chunk(output, 4, dim=-1)
-    output_magnitude = torch.sqrt((r**2 + i**2 + j**2 + k**2))
+    output_magnitude = torch.sqrt(r**2 + i**2 + j**2 + k**2)
     average_magnitude = output_magnitude.mean(dim=0)
     assert torch.all(torch.abs(1.0 - average_magnitude) < 0.10)
 

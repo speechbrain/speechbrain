@@ -38,7 +38,6 @@ def test_yaml_script_consistency(recipe_folder="tests/recipes"):
                 csvfile, delimiter=",", skipinitialspace=True
             )
             for row in reader:
-
                 # Avoid checks
                 if row["Hparam_file"] in avoid_check:
                     continue

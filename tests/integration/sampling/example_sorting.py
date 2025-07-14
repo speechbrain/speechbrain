@@ -1,5 +1,4 @@
-"""This minimal example checks on sampling with ascending/descending sorting and random shuffling; w/ & w/o DDP.
-"""
+"""This minimal example checks on sampling with ascending/descending sorting and random shuffling; w/ & w/o DDP."""
 
 import itertools
 import os

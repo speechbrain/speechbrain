@@ -5,7 +5,6 @@ import torch.nn
 
 
 def test_RNN(device):
-
     from speechbrain.nnet.RNN import GRU, LSTM, RNN, LiGRU, QuasiRNN, RNNCell
 
     # Check RNN
