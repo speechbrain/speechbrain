@@ -626,7 +626,7 @@ class SGMSEBrain(sb.Brain):
 
 def dataio_prep(hparams):
     """
-    Prepare the datasets.
+    Prepare the datasets, launch training and evaluate the trained model.
     """
     seg_frames   = hparams["segment_frames"] 
     hop_length   = hparams["hop_length"]
