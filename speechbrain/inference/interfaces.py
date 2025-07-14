@@ -29,8 +29,10 @@ from speechbrain.dataio.batch import PaddedBatch, PaddedData
 from speechbrain.dataio.preprocess import AudioNormalizer
 from speechbrain.utils.data_pipeline import DataPipeline
 from speechbrain.utils.data_utils import split_path
+from speechbrain.utils.distributed import infer_device
 from speechbrain.utils.fetching import FetchConfig, LocalStrategy, fetch
 from speechbrain.utils.logger import get_logger
+from speechbrain.utils.run_opts import RunOptions
 from speechbrain.utils.superpowers import import_from_path
 
 logger = get_logger(__name__)
@@ -235,21 +237,10 @@ class Pretrained(torch.nn.Module):
         that is used within the overridden methods. These will
         be accessible via an ``hparams`` attribute, using "dot" notation:
         e.g., self.hparams.model(x).
-    run_opts : dict
-        Options parsed from command line. See ``speechbrain.parse_arguments()``.
-        List that are supported here:
-         * device
-         * data_parallel_count
-         * data_parallel_backend
-         * distributed_launch
-         * distributed_backend
-         * jit
-         * jit_module_keys
-         * compule
-         * compile_module_keys
-         * compile_mode
-         * compile_using_fullgraph
-         * compile_using_dynamic_shape_tracing
+    run_opts : Optional[Union[RunOptions, dict]]
+        A set of options to change the runtime environment, see ``RunOptions`` for
+        a complete list. Some options are meant for training, and will not apply
+        for this instance intended for inference.
     freeze_params : bool
         To freeze (requires_grad=False) parameters or not. Normally in inference
         you want to freeze the params. Also calls .eval() on all modules.
@@ -262,32 +253,26 @@ class Pretrained(torch.nn.Module):
         self, modules=None, hparams=None, run_opts=None, freeze_params=True
     ):
         super().__init__()
-        # Arguments passed via the run opts dictionary. Set a limited
-        # number of these, since some don't apply to inference.
-        run_opt_defaults = {
-            "device": "cpu",
-            "data_parallel_count": -1,
-            "data_parallel_backend": False,
-            "distributed_launch": False,
-            "distributed_backend": "nccl",
-            "jit": False,
-            "jit_module_keys": None,
-            "compile": False,
-            "compile_module_keys": None,
-            "compile_mode": "reduce-overhead",
-            "compile_using_fullgraph": False,
-            "compile_using_dynamic_shape_tracing": False,
-        }
-        for arg, default in run_opt_defaults.items():
-            if run_opts is not None and arg in run_opts:
+
+        # Check which options have been overridden. Order of priority
+        # is lowest: default < hparams < run_opts: highest
+        if isinstance(run_opts, dict):
+            run_opts = RunOptions.from_dictionary(run_opts)
+        self.run_opt_defaults = RunOptions()
+        for arg, default in self.run_opt_defaults.as_dict().items():
+            if run_opts is not None and arg in run_opts.overridden_args:
                 setattr(self, arg, run_opts[arg])
+
+            # If any arg from run_opt_defaults exist in hparams and
+            # not in command line args "run_opts"
+            elif hparams is not None and arg in hparams:
+                setattr(self, arg, hparams[arg])
             else:
-                # If any arg from run_opt_defaults exist in hparams and
-                # not in command line args "run_opts"
-                if hparams is not None and arg in hparams:
-                    setattr(self, arg, hparams[arg])
-                else:
-                    setattr(self, arg, default)
+                setattr(self, arg, default)
+
+        # If device was not provided, make a best guess
+        if self.device is None:
+            self.device = infer_device()
 
         # Put modules on the right device, accessible with dot notation
         self.mods = torch.nn.ModuleDict(modules)
