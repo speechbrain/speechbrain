@@ -24,8 +24,10 @@ repos:
     rev: v0.3.0
     hooks:
       - id: ruff
+        types: [python]
         args: [--fix]
       - id: ruff-format
+        types: [python]
 
   - repo: https://github.com/adrienverge/yamllint
     rev: v1.35.1
