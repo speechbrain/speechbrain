@@ -13,13 +13,6 @@ repos:
       - id: check-added-large-files
         args: [--maxkb=1024]
 
-  - repo: https://github.com/psf/black
-    rev: 24.3.0
-    hooks:
-      - id: black
-        types: [python]
-        additional_dependencies: ['click==8.1.7']
-
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.3.0
     hooks:
