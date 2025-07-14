@@ -1,18 +1,58 @@
 # VoiceBank Speech Enhancement with SGMSE
-This recipe implements a speech enhancement system based on the SGMSE architecture.
-with the VoiceBank dataset (based on the paper: https://arxiv.org/abs/2208.05830).
+This recipe implements a speech enhancement system based on the SGMSE architecture using the VoiceBank dataset (based on the paper: [https://arxiv.org/abs/2208.05830](https://arxiv.org/abs/2208.05830)).
 
-# How to run
-cd recipes/Voicebank/enhance/SGMSE
-python train.py hparams.yaml
+## How to Run
+### Training
 
-# **About SpeechBrain**
-- Website: https://speechbrain.github.io/
-- Code: https://github.com/speechbrain/speechbrain/
-- HuggingFace: https://huggingface.co/speechbrain/
+To train the SGMSE speech enhancement model, execute:
 
-# ***Citing SGMSE**
+```bash
+python recipes/Voicebank/enhance/SGMSE/train.py recipes/Voicebank/enhance/SGMSE/hparams.yaml
+```
 
+This will:
+
+* Prepare the VoiceBank dataset automatically (if not already prepared).
+* Train the model based on hyperparameters defined in `hparams.yaml`.
+* Create a `run_name`, unique to each run. 
+* Store checkpoints, logs, and validation / testing samples in `output_dir/run_name` (specified within the `hparams.yaml` file).
+
+### Inference (Speech Enhancement)
+You can enhance single audio files or entire directories using a trained model:
+
+* **Single-file enhancement:**
+
+```bash
+python recipes/Voicebank/enhance/SGMSE/enhancement.py --run_dir /path/to/trained_model noisy_audio.wav
+```
+
+* **Batch enhancement (whole directory):**
+
+```bash
+python recipes/Voicebank/enhance/SGMSE/enhancement.py --run_dir /path/to/trained_model /path/to/noisy_directory
+```
+
+Enhanced audio files will be stored in a newly created subdirectory specified in `inference_dir` within the `hparams.yaml` file, preserving the original filenames.
+
+## Results and Outputs
+During training, all results and model checkpoints are saved in:
+
+```
+<output_dir>/<run_name>/
+```
+
+During inference, enhanced audio outputs are saved in:
+
+```
+/path/to/run/<inference_dir>/
+```
+
+## About SpeechBrain
+* Website: [https://speechbrain.github.io/](https://speechbrain.github.io/)
+* Code: [https://github.com/speechbrain/speechbrain/](https://github.com/speechbrain/speechbrain/)
+* HuggingFace: [https://huggingface.co/speechbrain/](https://huggingface.co/speechbrain/)
+
+## Citing SGMSE
 ```bibtex
 @article{richter2023speech,
   title={Speech enhancement and dereverberation with diffusion-based generative models},

@@ -626,10 +626,7 @@ class SGMSEBrain(sb.Brain):
 
 def dataio_prep(hparams):
     """
-    Prepare the datasets in SpeechBrain style. In addition to reading and padding/cropping, we now:
-      - Read the audio files,
-      - Normalize both noisy and clean signals with a common factor (based on hparams["normalize"]),
-      - And (later in the Brain) the STFT and spec transformations will be applied.
+    Prepare the datasets.
     """
     seg_frames   = hparams["segment_frames"] 
     hop_length   = hparams["hop_length"]
@@ -704,13 +701,6 @@ def dataio_prep(hparams):
 
 
 if __name__ == "__main__":
-    # hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
-
-    # run_name = f"run_{datetime.now():%Y-%m-%d_%H-%M-%S}"
-    # overrides = (overrides or "") + f"\nrun_name: '{run_name}'"
-    # with open(hparams_file) as fin:
-    #     hparams = load_hyperpyyaml(fin, overrides)
-
     cli = argparse.ArgumentParser(add_help=False)
     cli.add_argument("--resume", type=str, default="",
                      help="Path to an existing run directory to resume.")
