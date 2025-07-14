@@ -127,7 +127,7 @@ class DependencyGraph:
         if key is None:
             key = self.get_unique_key()
         elif key in self._manually_added_keys:
-            raise ValueError("Adding duplicate node: {key}".format(key=key))
+            raise ValueError(f"Adding duplicate node: {key}")
         else:
             self._manually_added_keys.append(key)
         if key in self.key2ind:  # Implicitly added already; don't add again.

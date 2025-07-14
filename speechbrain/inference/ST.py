@@ -1,4 +1,4 @@
-""" Specifies the inference interfaces for Speech Translation (ST) modules.
+"""Specifies the inference interfaces for Speech Translation (ST) modules.
 
 Authors:
  * Aku Rouhe 2021

@@ -1,4 +1,4 @@
-""" This script prepares the data-manifest files (in JSON format)
+"""This script prepares the data-manifest files (in JSON format)
 for training and testing a Voice Activity Detection system with the
 LibriParty dataset.
 

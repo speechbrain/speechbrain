@@ -37,8 +37,8 @@ def get_device(use_cuda):
     """Determine and return the appropriate device for computation."""
     use_cuda = use_cuda and torch.cuda.is_available()
     print("\n" + "=" * 30)
-    print("USE_CUDA SET TO: {}".format(use_cuda))
-    print("CUDA AVAILABLE?: {}".format(torch.cuda.is_available()))
+    print(f"USE_CUDA SET TO: {use_cuda}")
+    print(f"CUDA AVAILABLE?: {torch.cuda.is_available()}")
     print("=" * 30 + "\n")
     return torch.device("cuda" if use_cuda else "cpu")
 

@@ -119,7 +119,6 @@ class Covariance(torch.nn.Module):
     """
 
     def __init__(self, average=True):
-
         super().__init__()
         self.average = average
 
@@ -230,7 +229,6 @@ class DelaySum(torch.nn.Module):
     """
 
     def __init__(self):
-
         super().__init__()
 
     def forward(
@@ -377,7 +375,6 @@ class Mvdr(torch.nn.Module):
     """
 
     def __init__(self, eps=1e-20):
-
         super().__init__()
 
         self.eps = eps
@@ -564,7 +561,6 @@ class Gev(torch.nn.Module):
     """
 
     def __init__(self):
-
         super().__init__()
 
     def forward(self, Xs, SSs, NNs):
@@ -702,7 +698,6 @@ class GccPhat(torch.nn.Module):
     """
 
     def __init__(self, tdoa_max=None, eps=1e-20):
-
         super().__init__()
         self.tdoa_max = tdoa_max
         self.eps = eps
@@ -938,7 +933,6 @@ class SrpPhat(torch.nn.Module):
         speed_sound=343.0,
         eps=1e-20,
     ):
-
         super().__init__()
 
         # Generate the doas
@@ -1138,7 +1132,6 @@ class Music(torch.nn.Module):
         eps=1e-20,
         n_sig=1,
     ):
-
         super().__init__()
 
         # Generate the doas
@@ -1511,7 +1504,6 @@ def sphere(levels_count=4):
     # Generate next levels
 
     for levels_index in range(0, levels_count):
-
         #      0
         #     / \
         #    A---B

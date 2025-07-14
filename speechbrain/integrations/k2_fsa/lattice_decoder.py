@@ -20,8 +20,11 @@ from speechbrain.lm.arpa import arpa_to_fst
 from speechbrain.utils.distributed import run_on_main
 from speechbrain.utils.logger import get_logger
 
-from . import k2  # import k2 from ./__init__.py
-from . import graph_compiler, utils
+from . import (
+    graph_compiler,
+    k2,  # import k2 from ./__init__.py
+    utils,
+)
 
 logger = get_logger(__name__)
 

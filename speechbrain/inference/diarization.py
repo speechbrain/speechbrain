@@ -1,4 +1,4 @@
-""" Specifies the inference interfaces for diarization modules.
+"""Specifies the inference interfaces for diarization modules.
 
 Authors:
  * Aku Rouhe 2021

@@ -119,7 +119,7 @@ def dynamic_mix_data_prep(hparams):
                 hrtf_file = os.path.join(
                     hparams["hrtf_wav_path"],
                     reverb_time,
-                    "CATT_{}_{}.wav".format(reverb_time, azimuth),
+                    f"CATT_{reverb_time}_{azimuth}.wav",
                 )
                 hrtf, sr = torchaudio.load(hrtf_file)
                 transform = torchaudio.transforms.Resample(sr, fs_read)

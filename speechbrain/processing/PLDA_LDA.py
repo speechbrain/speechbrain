@@ -61,7 +61,6 @@ class StatObject_SB:
         stat0=None,
         stat1=None,
     ):
-
         if modelset is None:  # For creating empty stat server
             self.modelset = numpy.empty(0, dtype="|O")
             self.segset = numpy.empty(0, dtype="|O")
@@ -982,7 +981,6 @@ class PLDA:
 
         # Estimate PLDA model by iterating the EM algorithm
         for it in range(self.nb_iter):
-
             # E-step
             # print(
             #    f"E-step: Estimate between class covariance, it {it+1} / {nb_iter}"

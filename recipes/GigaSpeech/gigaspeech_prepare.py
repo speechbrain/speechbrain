@@ -243,7 +243,7 @@ def prepare_gigaspeech(
         check_gigaspeech_folders(data_folder, json_file)
 
         logger.info(f"Starting reading {json_file}.")
-        with open(json_file, "r", encoding="utf-8") as f:
+        with open(json_file, encoding="utf-8") as f:
             info = json.load(f)
         logger.info(f"Reading {json_file} done.")
 
@@ -293,7 +293,6 @@ def process_line(
         The list of utterances for the given split.
     """
     if ("{" + split + "}") in audio["subsets"]:
-
         audio_path = os.path.join(data_folder, audio["path"])
         assert os.path.isfile(audio_path), f"File not found: {audio_path}"
 

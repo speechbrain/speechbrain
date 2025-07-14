@@ -1,4 +1,4 @@
-""" This file contains the loss functions for k2 training. Currently, we only
+"""This file contains the loss functions for k2 training. Currently, we only
 support CTC loss.
 
 Authors:

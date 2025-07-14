@@ -1090,8 +1090,8 @@ class ClassificationStats(MetricStats):
 
     def _build_lookups(self):
         self._available_keys = self._get_keys()
-        self._available_predictions = list(
-            sorted(set(prediction for prediction in self.predictions))
+        self._available_predictions = sorted(
+            set(prediction for prediction in self.predictions)
         )
         self._keys_lookup = self._index_lookup(self._available_keys)
         self._predictions_lookup = self._index_lookup(
@@ -1147,7 +1147,7 @@ class ClassificationStats(MetricStats):
             keys = zip(self.categories, self.targets)
         else:
             keys = self.targets
-        return list(sorted(set(keys)))
+        return sorted(set(keys))
 
     def _get_confusion_entries(self):
         if self.categories:

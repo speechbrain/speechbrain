@@ -313,7 +313,7 @@ class Transducer(Function):
         elif reduction == "none":
             return -log_p_alpha
         else:
-            raise Exception("Unexpected reduction {}".format(reduction))
+            raise Exception(f"Unexpected reduction {reduction}")
 
     @staticmethod
     def backward(ctx, grad_output):

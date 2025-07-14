@@ -77,8 +77,8 @@ class DiscreteSSLTokenizer:
         processed_tokens : torch.Tensor
             A (Batch x Seq x num_SSL_layers) tensor of audio tokens after applying deduplication and subwording if necessary.
         """
-        assert input.shape[2] == len(
-            SSL_layers
+        assert (
+            input.shape[2] == len(SSL_layers)
         ), f"input shape:{input.shape} has conflicts with the length of provided SSL_layers: {len(SSL_layers)}. The second dimension of input should be the same  as number of layers!!!"
         token_ids = []
         for i, duplicate in enumerate(deduplicates):

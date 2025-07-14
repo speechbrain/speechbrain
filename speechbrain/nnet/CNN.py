@@ -257,7 +257,7 @@ class SincConv(nn.Module):
 
         # Hamming window
         n_lin = torch.linspace(
-            0, (self.kernel_size / 2) - 1, steps=int((self.kernel_size / 2))
+            0, (self.kernel_size / 2) - 1, steps=int(self.kernel_size / 2)
         )
         self.window_ = 0.54 - 0.46 * torch.cos(
             2 * math.pi * n_lin / self.kernel_size

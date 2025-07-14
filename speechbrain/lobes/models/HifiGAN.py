@@ -872,7 +872,7 @@ class UnitHifiganGenerator(HifiganGenerator):
             ), "only support single sample batch in inference"
             log_dur_pred = self.var_predictor(x.transpose(1, 2))
             dur_out = torch.clamp(
-                torch.round((torch.exp(log_dur_pred) - 1)).long(), min=1
+                torch.round(torch.exp(log_dur_pred) - 1).long(), min=1
             )
             # B x C x T
             x = torch.repeat_interleave(x, dur_out.view(-1), dim=2)

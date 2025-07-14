@@ -1079,7 +1079,7 @@ class MemoiseAtLeastSize:
 
 
 def memoise_at_least(
-    round_up: Callable[[Any], Any]
+    round_up: Callable[[Any], Any],
 ) -> Callable[[Callable], MemoiseAtLeastSize]:
     """
     Decorator that memoises a function which has as its first argument a value

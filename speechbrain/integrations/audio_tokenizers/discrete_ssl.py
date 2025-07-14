@@ -95,7 +95,6 @@ class DiscreteSSL(nn.Module):
         device="cpu",
         sample_rate=16000,
     ):
-
         super().__init__()
         self.device = device
         self.ssl_model = ssl_model

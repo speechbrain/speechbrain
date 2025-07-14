@@ -263,7 +263,6 @@ def convolve1d(
 
     # This approach uses FFT, which is more efficient if the kernel is large
     if use_fft:
-
         # Pad kernel to same length as signal, ensuring correct alignment
         zero_length = waveform.size(-1) - kernel.size(-1)
 

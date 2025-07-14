@@ -101,7 +101,7 @@ class HMMAligner(torch.nn.Module):
         self.lexicon_path = lexicon_path
 
         if self.lexicon_path is not None:
-            with open(self.lexicon_path, "r", encoding="utf-8") as f:
+            with open(self.lexicon_path, encoding="utf-8") as f:
                 lines = f.readlines()
 
             for i, line in enumerate(lines):
@@ -171,9 +171,7 @@ class HMMAligner(torch.nn.Module):
         """
 
         number_of_states = 0
-        words_prime = (
-            []
-        )  # This will contain one "word" for each optional silence and pronunciation.
+        words_prime = []  # This will contain one "word" for each optional silence and pronunciation.
         # structure of each "word_prime":
         # [word index, [[state sequence 1], [state sequence 2]], <is this an optional silence?>]
         word_index = 0

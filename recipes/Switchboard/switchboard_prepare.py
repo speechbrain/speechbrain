@@ -705,7 +705,7 @@ def make_acronym_map(save_folder, lexicon_file, acronym_map_file):
     fout_map.close()
 
     # Load acronym map for further processing
-    fin_map = open(acronym_map_file, "r", encoding="utf-8")
+    fin_map = open(acronym_map_file, encoding="utf-8")
     dict_acronym = {}
     dict_acronym_noi = {}  # Mapping of acronyms without I, i
     for pair in fin_map:

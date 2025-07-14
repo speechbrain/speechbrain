@@ -245,17 +245,16 @@ class ConcatDatasetBatchSampler(Sampler):
     def __init__(
         self, samplers, batch_sizes: Union[tuple, list], epoch=0
     ) -> None:
-
         if not isinstance(samplers, (list, tuple)):
             raise ValueError(
                 "samplers should be a list or tuple of Pytorch Samplers, "
-                "but got samplers={}".format(samplers)
+                f"but got samplers={samplers}"
             )
 
         if not isinstance(batch_sizes, (list, tuple)):
             raise ValueError(
                 "batch_sizes should be a list or tuple of integers, "
-                "but got batch_sizes={}".format(batch_sizes)
+                f"but got batch_sizes={batch_sizes}"
             )
 
         if not len(batch_sizes) == len(samplers):
@@ -288,7 +287,6 @@ class ConcatDatasetBatchSampler(Sampler):
                 s.set_epoch(epoch)
 
     def __iter__(self):
-
         iterators = [iter(i) for i in self.samplers]
         tot_batch = []
 
@@ -304,7 +302,6 @@ class ConcatDatasetBatchSampler(Sampler):
             tot_batch = []
 
     def __len__(self) -> int:
-
         min_len = float("inf")
         for idx, sampler in enumerate(self.samplers):
             c_len = len(sampler) // self.batch_sizes[idx]
@@ -518,7 +515,6 @@ class DynamicBatchSampler(Sampler):
         max_batch_length: int,
         num_quantiles: int,
     ) -> List[int]:
-
         # NOTE: the following lines do not cover that there is only one example in the dataset
         # warp frames (duration) distribution of train data
         logger.info("Batch quantisation in latent space")
@@ -546,17 +542,14 @@ class DynamicBatchSampler(Sampler):
                 list(map("{:.2f}".format, length_multipliers)),
             )
         )
-        return list(sorted(bucket_boundaries))
+        return sorted(bucket_boundaries)
 
     def _permute_batches(self):
-
         if self._batch_ordering == "random":
             # deterministically shuffle based on epoch and seed
             g = torch.Generator()
             g.manual_seed(self._seed + self._epoch)
-            sampler = torch.randperm(
-                len(self._batches), generator=g
-            ).tolist()  # type: ignore
+            sampler = torch.randperm(len(self._batches), generator=g).tolist()  # type: ignore
             tmp = []
             for idx in sampler:
                 tmp.append(self._batches[idx])

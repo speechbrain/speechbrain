@@ -39,7 +39,7 @@ DISAMBIG_PATTERN: re.Pattern = re.compile(
 )  # pattern for disambiguation symbols.
 
 
-class Lexicon(object):
+class Lexicon:
     """
     Unit based lexicon. It is used to map a list of words to each word's
     sequence of tokens (characters). It also stores the lexicon graph which
@@ -83,7 +83,7 @@ class Lexicon(object):
         self.token_table = k2.SymbolTable.from_file(lang_dir / "tokens.txt")
         self.word_table = k2.SymbolTable.from_file(lang_dir / "words.txt")
         self.word2tokenids = {}
-        with open(lang_dir / "lexicon.txt", "r", encoding="utf-8") as f:
+        with open(lang_dir / "lexicon.txt", encoding="utf-8") as f:
             for line in f:
                 word = line.strip().split()[0]
                 tokens = line.strip().split()[1:]
@@ -483,7 +483,7 @@ def prepare_char_lexicon(
     lexicon = dict()
     if len(extra_csv_files) != 0:
         for file in extra_csv_files:
-            with open(file, "r", encoding="utf-8") as f:
+            with open(file, encoding="utf-8") as f:
                 csv_reader = csv.DictReader(f)
                 for row in csv_reader:
                     # Split the transcription into words
@@ -537,7 +537,7 @@ def read_lexicon(filename: str) -> List[Tuple[str, List[str]]]:
     """
     ans = []
 
-    with open(filename, "r", encoding="utf-8") as f:
+    with open(filename, encoding="utf-8") as f:
         whitespace = re.compile("[ \t]+")
         for line in f:
             a = whitespace.split(line.strip(" \t\r\n"))

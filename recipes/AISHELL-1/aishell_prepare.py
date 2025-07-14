@@ -150,7 +150,7 @@ def prepare_aishell(
         data_folder, "transcript/aishell_transcript_v0.8.txt"
     )
 
-    with open(path_to_transcript, "r", encoding="utf-8") as f:
+    with open(path_to_transcript, encoding="utf-8") as f:
         lines = f.readlines()
         for line in lines:
             key = line.split()[0]

@@ -420,20 +420,16 @@ class Separation(sb.Brain):
                 writer.writerow(row)
 
         logger.info(
-            "Mean SISNR for source 1 is {}".format(np.array(all_sisnr1s).mean())
+            f"Mean SISNR for source 1 is {np.array(all_sisnr1s).mean()}"
         )
         logger.info(
-            "Mean SISNR hat for source 1 is {}".format(
-                np.array(all_sisnr1_hats).mean()
-            )
+            f"Mean SISNR hat for source 1 is {np.array(all_sisnr1_hats).mean()}"
         )
         logger.info(
-            "Mean SISNR for source 2 is {}".format(np.array(all_sisnr2s).mean())
+            f"Mean SISNR for source 2 is {np.array(all_sisnr2s).mean()}"
         )
         logger.info(
-            "Mean SISNR hat for source 2 is {}".format(
-                np.array(all_sisnr2_hats).mean()
-            )
+            f"Mean SISNR hat for source 2 is {np.array(all_sisnr2_hats).mean()}"
         )
 
 

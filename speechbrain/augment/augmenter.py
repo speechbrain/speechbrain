@@ -362,7 +362,6 @@ class Augmenter(torch.nn.Module):
         # Concatenate the original signal if required
         self.skip_concat = not (self.concat_original)
         if self.concat_original:
-
             # Check start index
             if self.concat_start_index >= x_original.shape[0]:
                 self.skip_concat = True

@@ -442,9 +442,7 @@ def prepare_csv_enrol_test(data_folders, save_folder, verification_pairs_file):
     # msg = '\t"Creating csv lists in  %s..."' % (csv_file)
     # logger.debug(msg)
 
-    csv_output_head = [
-        ["ID", "duration", "wav", "start", "stop", "spk_id"]
-    ]  # noqa E231
+    csv_output_head = [["ID", "duration", "wav", "start", "stop", "spk_id"]]  # noqa E231
 
     for data_folder in data_folders:
         test_lst_file = verification_pairs_file

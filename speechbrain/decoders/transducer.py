@@ -409,7 +409,6 @@ class TransducerBeamSearcher(torch.nn.Module):
 
                     # Extend hyp by  selection
                     for j in range(logp_targets.size(0)):
-
                         # hyp
                         topk_hyp = {
                             "prediction": a_best_hyp["prediction"][:],

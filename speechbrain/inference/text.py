@@ -1,4 +1,4 @@
-""" Specifies the inference interfaces for text-processing modules.
+"""Specifies the inference interfaces for text-processing modules.
 
 Authors:
  * Aku Rouhe 2021
@@ -119,7 +119,7 @@ class GraphemeToPhoneme(Pretrained, EncodeDecodePipelineMixin):
         ]
 
     def _update_graphemes(self, model_inputs):
-        grapheme_sequence_mode = getattr(self.hparams, "grapheme_sequence_mode")
+        grapheme_sequence_mode = self.hparams.grapheme_sequence_mode
         if grapheme_sequence_mode and grapheme_sequence_mode != "raw":
             grapheme_encoded_key = f"grapheme_encoded_{grapheme_sequence_mode}"
             if grapheme_encoded_key in model_inputs:

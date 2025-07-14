@@ -245,7 +245,6 @@ def distribute_overlap(lol):
         # This is because similar emotion's adjacent sub-segments are already merged by "merge_ssegs_same_emotion()"
 
         if is_overlapped(sseg[2], next_sseg[1]):
-
             # Get overlap duration.
             # Now this overlap will be divided equally between adjacent segments.
             overlap = sseg[2] - next_sseg[1]

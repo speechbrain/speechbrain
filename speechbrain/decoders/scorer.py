@@ -1273,7 +1273,7 @@ class ScorerBuilder:
         """
         if len(self.weights) > len(scorer_names):
             raise ValueError(
-                "The keys of weights should be named in {}".format(scorer_names)
+                f"The keys of weights should be named in {scorer_names}"
             )
 
         if not 0.0 <= self.weights["ctc"] <= 1.0:
@@ -2108,9 +2108,7 @@ class RescorerBuilder:
         """
         if len(self.weights) > len(rescorer_names):
             raise ValueError(
-                "The keys of weights should be named in {}".format(
-                    rescorer_names
-                )
+                f"The keys of weights should be named in {rescorer_names}"
             )
 
     def move_rescorers_to_device(self, device=None):

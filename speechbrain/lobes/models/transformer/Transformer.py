@@ -1061,7 +1061,7 @@ def get_lookahead_mask(padded_input):
     mask = (
         mask.float()
         .masked_fill(mask == 0, float("-inf"))
-        .masked_fill(mask == 1, float(0.0))
+        .masked_fill(mask == 1, 0.0)
     )
     return mask.detach().to(padded_input.device)
 

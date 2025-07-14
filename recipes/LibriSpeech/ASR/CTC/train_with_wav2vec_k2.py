@@ -468,9 +468,9 @@ if __name__ == "__main__":
     )
 
     # Add attributes to asr_brain
-    setattr(asr_brain, "lexicon", lexicon)
-    setattr(asr_brain, "graph_compiler", graph_compiler)
-    setattr(asr_brain, "decoder", decoder)
+    asr_brain.lexicon = lexicon
+    asr_brain.graph_compiler = graph_compiler
+    asr_brain.decoder = decoder
 
     # We load the pretrained wav2vec2 model
     if "pretrainer" in hparams.keys():

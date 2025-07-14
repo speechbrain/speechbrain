@@ -1,4 +1,4 @@
-""" Specifies the inference interfaces for Automatic speech Recognition (ASR) modules.
+"""Specifies the inference interfaces for Automatic speech Recognition (ASR) modules.
 
 Authors:
  * Aku Rouhe 2021
@@ -1097,10 +1097,11 @@ class StreamingASR(Pretrained):
         rel_length = torch.tensor([1.0])
         context = self.make_streaming_context(dynchunktrain_config)
 
-        final_chunks = [
-            torch.zeros((1, chunk_size), device=self.device)
-        ] * self.hparams.fea_streaming_extractor.get_recommended_final_chunk_count(
-            chunk_size
+        final_chunks = (
+            [torch.zeros((1, chunk_size), device=self.device)]
+            * self.hparams.fea_streaming_extractor.get_recommended_final_chunk_count(
+                chunk_size
+            )
         )
 
         for chunk in itertools.chain(chunks, final_chunks):

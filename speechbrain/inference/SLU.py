@@ -1,4 +1,4 @@
-""" Specifies the inference interfaces for Spoken Language Understanding (SLU) modules.
+"""Specifies the inference interfaces for Spoken Language Understanding (SLU) modules.
 
 Authors:
  * Aku Rouhe 2021

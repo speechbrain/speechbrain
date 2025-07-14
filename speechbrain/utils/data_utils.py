@@ -105,7 +105,6 @@ def get_all_files(
 
     # Iterate over all the entries
     for entry in listOfFile:
-
         # Create full path
         fullPath = os.path.join(dirName, entry)
 
@@ -119,7 +118,6 @@ def get_all_files(
                 exclude_or=exclude_or,
             )
         else:
-
             # Check match_and case
             if match_and is not None:
                 match_and_entry = False
@@ -501,7 +499,7 @@ def batch_pad_right(tensors: list, mode="constant", value=0):
             if not all(
                 [x.shape[dim] == tensors[0].shape[dim] for x in tensors[1:]]
             ):
-                raise EnvironmentError(
+                raise OSError(
                     "Tensors should have same dimensions except for the first one"
                 )
         max_shape.append(max([x.shape[dim] for x in tensors]))

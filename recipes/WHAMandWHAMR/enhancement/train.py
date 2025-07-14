@@ -468,11 +468,11 @@ class Separation(sb.Brain):
                 }
                 writer.writerow(row)
 
-        logger.info("Mean SISNR is {}".format(np.array(all_sisnrs).mean()))
-        logger.info("Mean SISNRi is {}".format(np.array(all_sisnrs_i).mean()))
-        logger.info("Mean SDR is {}".format(np.array(all_sdrs).mean()))
-        logger.info("Mean SDRi is {}".format(np.array(all_sdrs_i).mean()))
-        logger.info("Mean PESQ {}".format(np.array(all_pesqs).mean()))
+        logger.info(f"Mean SISNR is {np.array(all_sisnrs).mean()}")
+        logger.info(f"Mean SISNRi is {np.array(all_sisnrs_i).mean()}")
+        logger.info(f"Mean SDR is {np.array(all_sdrs).mean()}")
+        logger.info(f"Mean SDRi is {np.array(all_sdrs_i).mean()}")
+        logger.info(f"Mean PESQ {np.array(all_pesqs).mean()}")
 
     def save_audio(self, snt_id, mixture, targets, predictions):
         "saves the test audio (mixture, targets, and estimated sources) on disk"
@@ -485,9 +485,7 @@ class Separation(sb.Brain):
         # Estimated source
         signal = predictions[0, :]
         signal = signal / signal.abs().max()
-        save_file = os.path.join(
-            save_path, "item{}_sourcehat.wav".format(snt_id)
-        )
+        save_file = os.path.join(save_path, f"item{snt_id}_sourcehat.wav")
         torchaudio.save(
             save_file, signal.unsqueeze(0).cpu(), self.hparams.sample_rate
         )
@@ -495,7 +493,7 @@ class Separation(sb.Brain):
         # Original source
         signal = targets[0, :]
         signal = signal / signal.abs().max()
-        save_file = os.path.join(save_path, "item{}_source.wav".format(snt_id))
+        save_file = os.path.join(save_path, f"item{snt_id}_source.wav")
         torchaudio.save(
             save_file, signal.unsqueeze(0).cpu(), self.hparams.sample_rate
         )
@@ -503,7 +501,7 @@ class Separation(sb.Brain):
         # Mixture
         signal = mixture[0][0, :]
         signal = signal / signal.abs().max()
-        save_file = os.path.join(save_path, "item{}_mix.wav".format(snt_id))
+        save_file = os.path.join(save_path, f"item{snt_id}_mix.wav")
         torchaudio.save(
             save_file, signal.unsqueeze(0).cpu(), self.hparams.sample_rate
         )

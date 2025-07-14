@@ -70,7 +70,7 @@ def load_data_json(json_path, replacements={}):
     '/home/ex2.wav'
 
     """
-    with open(json_path, "r", encoding="utf-8") as f:
+    with open(json_path, encoding="utf-8") as f:
         out_json = json.load(f)
     _recursive_format(out_json, replacements)
     return out_json
@@ -1374,9 +1374,7 @@ def extract_concepts_values(sequences, keep_values, tag_in, tag_out, space):
         # ['<response>','no','>','<localisation-ville>','Le','Mans,'>']
         sequence = sequence.split(space)
         processed_sequence = []
-        value = (
-            []
-        )  # If previous sequence value never used because never had a tag_out
+        value = []  # If previous sequence value never used because never had a tag_out
         kept = ""  # If previous sequence kept never used because never had a tag_out
         concept_open = False
         for word in sequence:

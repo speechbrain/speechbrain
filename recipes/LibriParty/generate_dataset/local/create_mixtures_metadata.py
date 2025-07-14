@@ -198,7 +198,7 @@ def create_metadata(
                 "channel": None,
             }
 
-        dataset_metadata["session_{}".format(n_sess)] = activity
+        dataset_metadata[f"session_{n_sess}"] = activity
 
     with open(output_filename + ".json", "w", encoding="utf-8") as f:
         json.dump(dataset_metadata, f, indent=4)

@@ -63,7 +63,7 @@ def read_rttm(rttm_file_path):
         List containing rows of RTTM file.
     """
     rttm = []
-    with open(rttm_file_path, "r", encoding="utf-8") as f:
+    with open(rttm_file_path, encoding="utf-8") as f:
         for line in f:
             entry = line[:-1]
             rttm.append(entry)
@@ -261,7 +261,6 @@ def distribute_overlap(lol):
         # This is because similar speaker's adjacent sub-segments are already merged by "merge_ssegs_same_speaker()"
 
         if is_overlapped(sseg[2], next_sseg[1]):
-
             # Get overlap duration.
             # Now this overlap will be divided equally between adjacent segments.
             overlap = sseg[2] - next_sseg[1]
@@ -801,7 +800,6 @@ class Spec_Clust_unorm:
     """
 
     def __init__(self, min_num_spkrs=2, max_num_spkrs=10):
-
         self.min_num_spkrs = min_num_spkrs
         self.max_num_spkrs = max_num_spkrs
 

@@ -1,4 +1,4 @@
-""" Specifies the inference interfaces for Audio Classification modules.
+"""Specifies the inference interfaces for Audio Classification modules.
 
 Authors:
  * Aku Rouhe 2021
@@ -306,11 +306,7 @@ class AudioClassifier(Pretrained):
 
         # resample the data if needed
         if fs_file != fs_model:
-            print(
-                "Resampling the audio from {} Hz to {} Hz".format(
-                    fs_file, fs_model
-                )
-            )
+            print(f"Resampling the audio from {fs_file} Hz to {fs_model} Hz")
             tf = torchaudio.transforms.Resample(
                 orig_freq=fs_file, new_freq=fs_model
             ).to(self.device)

@@ -393,9 +393,7 @@ def get_activation_fn(activation: str):
     elif activation == "glu":
         return lambda x: x
     else:
-        raise RuntimeError(
-            "--activation-fn {} not supported".format(activation)
-        )
+        raise RuntimeError(f"--activation-fn {activation} not supported")
 
 
 class SamePad(nn.Module):
@@ -896,7 +894,6 @@ class TransformerSentenceEncoderLayer(nn.Module):
         gru_rel_pos: bool = False,
         encoder_layers: int = 0,
     ) -> None:
-
         super().__init__()
         self.embedding_dim = embedding_dim
         self.dropout = dropout

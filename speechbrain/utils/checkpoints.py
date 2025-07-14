@@ -129,7 +129,7 @@ def map_old_state_dict_weights(
 
 
 def hook_on_loading_state_dict_checkpoint(
-    state_dict: Dict[str, torch.Tensor]
+    state_dict: Dict[str, torch.Tensor],
 ) -> Dict[str, torch.Tensor]:
     """Hook to be called when loading a state_dict checkpoint.
 

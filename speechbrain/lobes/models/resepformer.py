@@ -554,14 +554,17 @@ class ResourceEfficientSeparationPipeline(nn.Module):
         self.mem_type = mem_type
         self.norm_type = norm_type
 
-        assert mem_type in [
-            "hc",
-            "h",
-            "c",
-            "id",
-            "av",
-            None,
-        ], f"only support 'hc', 'h', 'c', 'id', 'av' and None, current type: {mem_type}"
+        assert (
+            mem_type
+            in [
+                "hc",
+                "h",
+                "c",
+                "id",
+                "av",
+                None,
+            ]
+        ), f"only support 'hc', 'h', 'c', 'id', 'av' and None, current type: {mem_type}"
 
         self.seg_model = nn.ModuleList([])
         for i in range(num_blocks):
@@ -724,7 +727,7 @@ class ResourceEfficientSeparator(nn.Module):
         self.segment_size = segment_size
 
         if mem_type not in ("hc", "h", "c", "id", "av", None):
-            raise ValueError("Not supporting mem_type={}".format(mem_type))
+            raise ValueError(f"Not supporting mem_type={mem_type}")
 
         self.model = ResourceEfficientSeparationPipeline(
             input_size=input_dim,
@@ -741,7 +744,7 @@ class ResourceEfficientSeparator(nn.Module):
         )
 
         if nonlinear not in ("sigmoid", "relu", "tanh"):
-            raise ValueError("Not supporting nonlinear={}".format(nonlinear))
+            raise ValueError(f"Not supporting nonlinear={nonlinear}")
 
         self.nonlinear = {
             "sigmoid": torch.nn.Sigmoid(),

@@ -75,7 +75,6 @@ class Mimi(HFTransformersInterface):
         freeze=True,
         num_codebooks=8,
     ):
-
         super().__init__(source=source, save_path=save_path, freeze=freeze)
         self.num_codebooks = num_codebooks
         self.sample_rate = sample_rate

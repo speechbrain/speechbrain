@@ -29,6 +29,7 @@ Authors
  * Andreas Nautsch 2021
  * Dominik Wagner 2022
 """
+
 import functools
 import os
 import sys
@@ -451,7 +452,7 @@ if __name__ == "__main__":
     # Testing
     for k in test_datasets.keys():  # keys are test_swbd and test_callhome
         asr_brain.hparams.test_wer_file = os.path.join(
-            hparams["output_wer_folder"], "wer_{}.txt".format(k)
+            hparams["output_wer_folder"], f"wer_{k}.txt"
         )
         asr_brain.evaluate(
             test_datasets[k],

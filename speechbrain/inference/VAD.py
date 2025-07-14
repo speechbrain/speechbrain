@@ -1,4 +1,4 @@
-""" Specifies the inference interfaces for Voice Activity Detection (VAD) modules.
+"""Specifies the inference interfaces for Voice Activity Detection (VAD) modules.
 
 Authors:
  * Aku Rouhe 2021

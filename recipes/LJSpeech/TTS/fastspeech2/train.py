@@ -514,8 +514,8 @@ def dataio_prepare(hparams):
         label_phoneme = label_phoneme.split()
         text_seq = input_encoder.encode_sequence_torch(label_phoneme).int()
 
-        assert len(text_seq) == len(
-            durs
+        assert (
+            len(text_seq) == len(durs)
         ), f"{len(text_seq)}, {len(durs), len(label_phoneme)}, ({label_phoneme})"  # ensure every token has a duration
 
         no_spn_label, last_phonemes = list(), list()

@@ -1,5 +1,4 @@
-""" Implementation of a popular speech separation model.
-"""
+"""Implementation of a popular speech separation model."""
 
 import torch
 import torch.nn as nn

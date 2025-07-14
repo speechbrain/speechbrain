@@ -12,6 +12,7 @@ for each batch during training.
 Authors
  * Artem Ploujnikov 2022
 """
+
 import os
 import sys
 from collections import namedtuple
@@ -1292,7 +1293,7 @@ class DiffusionBrain(sb.Brain):
 
         """
         epoch_sample_path = os.path.join(self.hparams.sample_folder, str(epoch))
-        samples, samples_denorm, wav, labels, samples_rec, wav_rec = [
+        samples, samples_denorm, wav, labels, samples_rec, wav_rec = (
             data.get(key)
             for key in [
                 "samples",
@@ -1302,7 +1303,7 @@ class DiffusionBrain(sb.Brain):
                 "samples_rec",
                 "wav_rec",
             ]
-        ]
+        )
         if not torch.is_tensor(samples):
             samples = torch.stack(samples)
         samples_log = data.get("samples_cut", samples)

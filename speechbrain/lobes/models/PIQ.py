@@ -1,8 +1,8 @@
 """This file implements the necessary classes and functions to implement Posthoc Interpretations via Quantization.
 
- Authors
- * Cem Subakan 2023
- * Francesco Paissan 2023
+Authors
+* Cem Subakan 2023
+* Francesco Paissan 2023
 """
 
 import torch

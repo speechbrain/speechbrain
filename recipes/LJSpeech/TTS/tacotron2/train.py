@@ -1,22 +1,22 @@
-# -*- coding: utf-8 -*-
 """
- Recipe for training the Tacotron Text-To-Speech model, an end-to-end
- neural text-to-speech (TTS) system
+Recipe for training the Tacotron Text-To-Speech model, an end-to-end
+neural text-to-speech (TTS) system
 
- To run this recipe, do the following:
- # python train.py --device=cuda:0 --max_grad_norm=1.0 --data_folder=/your_folder/LJSpeech-1.1 hparams/train.yaml
+To run this recipe, do the following:
+# python train.py --device=cuda:0 --max_grad_norm=1.0 --data_folder=/your_folder/LJSpeech-1.1 hparams/train.yaml
 
- to infer simply load saved model and do
- savemodel.infer(text_Sequence,len(textsequence))
+to infer simply load saved model and do
+savemodel.infer(text_Sequence,len(textsequence))
 
- were text_Sequence is the output of the text_to_sequence function from
- textToSequence.py (from textToSequence import text_to_sequence)
+were text_Sequence is the output of the text_to_sequence function from
+textToSequence.py (from textToSequence import text_to_sequence)
 
- Authors
- * Georges Abous-Rjeili 2021
- * Artem Ploujnikov 2021
- * Yingzhi Wang 2022
+Authors
+* Georges Abous-Rjeili 2021
+* Artem Ploujnikov 2021
+* Yingzhi Wang 2022
 """
+
 import sys
 
 import torch

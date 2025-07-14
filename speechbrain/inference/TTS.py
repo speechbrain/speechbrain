@@ -1,4 +1,4 @@
-""" Specifies the inference interfaces for Text-To-Speech (TTS) modules.
+"""Specifies the inference interfaces for Text-To-Speech (TTS) modules.
 
 Authors:
  * Aku Rouhe 2021

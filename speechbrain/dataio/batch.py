@@ -164,7 +164,7 @@ class PaddedBatch:
         >>> ids
         ['ex1', 'ex2']
         """
-        return iter((getattr(self, key) for key in self.__keys))
+        return iter(getattr(self, key) for key in self.__keys)
 
     def pin_memory(self):
         """In-place, moves relevant elements to pinned memory."""
