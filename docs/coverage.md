@@ -128,8 +128,7 @@ our tests cover one PyTorch version only, _the latest_.
   * [LICENSE](https://github.com/speechbrain/speechbrain/blob/develop/LICENSE)
   * [README.md](https://github.com/speechbrain/speechbrain/blob/develop/README.md)
   * [pyproject.toml](https://github.com/speechbrain/speechbrain/blob/develop/pyproject.toml) - target-version = ['py38']
-  * [setup.py](https://github.com/speechbrain/speechbrain/blob/develop/setup.py)
-    * python_requires=">=3.7",
+    * python_requires=">=3.8.1",
     * uses: [speechbrain/version.txt](https://github.com/speechbrain/speechbrain/blob/develop/speechbrain/version.txt)
     * requires:
       ```

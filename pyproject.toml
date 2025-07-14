@@ -1,3 +1,62 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "speechbrain"
+dynamic = ["version"]
+description = "All-in-one speech toolkit in pure Python and Pytorch"
+readme = "README.md"
+license = {text = "Apache-2.0"}
+authors = [
+    {name = "Mirco Ravanelli, Titouan Parcollet, Adel Moumen, Sylvain de Langen, Cem Subakan, Peter Plantinga, Yingzhi Wang, Pooneh Mousavi, Luca Della Libera, Artem Ploujnikov, Francesco Paissan, Davide Borra, Salah Zaiem, Zeyu Zhao, Shucong Zhang, Georgios Karakasidis, Sung-Lin Yeh, Pierre Champion, Aku Rouhe, Rudolf Braun, Florian Mai, Juan Zuluaga-Gomez, Seyed Mahed Mousavi, Andreas Nautsch, Ha Nguyen, Xuechen Liu, Sangeet Sagar, Jarod Duret, Salima Mdhaffar, Gaelle Laperriere, Mickael Rouvier, Renato De Mori, Yannick Esteve"}
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: Apache Software License",
+]
+requires-python = ">=3.8.1"
+dependencies = [
+    "hyperpyyaml",
+    "joblib",
+    "numpy",
+    "packaging",
+    "scipy",
+    "sentencepiece",
+    "torch>=1.9",
+    "torchaudio",
+    "tqdm",
+    "huggingface_hub",
+]
+keywords = ["speech", "audio", "pytorch", "deep-learning"]
+
+[project.urls]
+Homepage = "https://speechbrain.github.io/"
+
+[project.optional-dependencies]
+dev = [
+    "black==24.3.0",
+    "click==8.1.7",
+    "flake8==7.0.0",
+    "isort==5.13.2",
+    "pycodestyle==2.11.0",
+    "pydoclint==0.4.1",
+    "pytest==7.4.0",
+    "yamllint==1.35.1",
+    "pre-commit>=2.3.0",
+    "pandas>=1.0.1",
+    "transformers>=4.30.0",
+]
+
+[tool.setuptools.dynamic]
+version = {file = "speechbrain/version.txt"}
+
+[tool.setuptools.packages.find]
+exclude = ["tests", "tests.*"]
+
+[tool.setuptools.package-data]
+speechbrain = ["version.txt", "log-config.yaml"]
+
 [tool.black]
 line-length = 80
 target-version = ['py38']
