@@ -86,7 +86,7 @@ valid_beam_size: 5
 
 ############################## models ################################
 #wav2vec model
-wav2vec2: !new:speechbrain.lobes.models.huggingface_transformers.wav2vec2.Wav2Vec2
+wav2vec2: !new:speechbrain.integrations.huggingface.wav2vec2.Wav2Vec2
     source: !ref <wav2vec2_hub>
     output_norm: True
     freeze: !ref <wav2vec2_frozen>
@@ -103,7 +103,7 @@ enc: !new:speechbrain.lobes.models.VanillaNN.VanillaNN
 mbart_path: facebook/nllb-200-1.3B
 mbart_frozen: False
 vocab_size: 256206
-mBART: !new:speechbrain.lobes.models.huggingface_transformers.nllb.NLLB
+mBART: !new:speechbrain.integrations.huggingface.nllb.NLLB
     source: !ref <mbart_path>
     freeze: !ref <mbart_frozen>
     save_path: !ref <save_folder>/mbart_checkpoint
@@ -182,6 +182,6 @@ valid_search: !new:speechbrain.decoders.S2SHFTextBasedBeamSearcher
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
     save_file: !ref <train_log>
 
-bleu_computer: !name:speechbrain.utils.bleu.BLEUStats
+bleu_computer: !name:speechbrain.integrations.nlp.bleu.BLEUStats
 
 acc_computer: !name:speechbrain.utils.Accuracy.AccuracyStats

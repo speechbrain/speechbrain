@@ -174,28 +174,27 @@ class Speech_Emotion_Diarization(Pretrained):
 
         Example
         -------
-        >>> from speechbrain.processing import diarization as diar
-        >>> diar.is_overlapped(5.5, 3.4)
+        >>> Speech_Emotion_Diarization.is_overlapped(None, 5.5, 3.4)
         True
-        >>> diar.is_overlapped(5.5, 6.4)
+        >>> Speech_Emotion_Diarization.is_overlapped(None, 5.5, 6.4)
         False
         """
 
-        if start2 > end1:
-            return False
-        else:
-            return True
+        return start2 <= end1
 
     def merge_ssegs_same_emotion_adjacent(self, lol):
         """Merge adjacent sub-segs if they are the same emotion.
+
         Arguments
         ---------
         lol : list of list
             Each list contains [utt_id, sseg_start, sseg_end, emo_label].
+
         Returns
         -------
         new_lol : list of list
             new_lol contains adjacent segments merged from the same emotion ID.
+
         Example
         -------
         >>> from speechbrain.utils.EDER import merge_ssegs_same_emotion_adjacent

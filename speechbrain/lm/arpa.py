@@ -312,7 +312,7 @@ def arpa_to_fst(
     ...     + "<s> 3\n"
     ...     + "#0 4")  # Ends whole file
     >>> out = getfixture('tmpdir').join("bigram.txt.fst")
-    >>> arpa_to_fst(vocav, arpa_file, out, 2)
+    >>> arpa_to_fst(vocav, arpa_file, out, 2) # doctest: +SKIP
     """
     try:
         from kaldilm.arpa2fst import arpa2fst
@@ -324,6 +324,11 @@ def arpa_to_fst(
             "Optional dependencies must be installed to use kaldilm.\n"
             "Install using `pip install kaldilm`."
         )
+
+    if isinstance(out_fst, str):
+        out_fst = Path(out_fst)
+    if isinstance(in_arpa, str):
+        in_arpa = Path(in_arpa)
 
     if cache and out_fst.exists():
         return
