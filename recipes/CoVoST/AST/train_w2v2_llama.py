@@ -1,11 +1,6 @@
 #!/usr/bin/env python3
-"""Recipe for training an XLSR plus LLaMA 3 speech translation system
-on CoVoST. The system employs an XLSR encoder and a LLaMA3 decoder. A simple
-project concatenating frames is trained between XLSR and LLaMA.
-
-To run this recipe, do the following:
-> python train_xlsr_llama.py hparams/xlsr_llama3.yaml
-
+"""Recipe for training a wavlm-large plus LLaMA 3 speech translation system
+on CoVoST. The system employs a wavlm-large encoder and a LLaMA3 decoder. A simple project concatenating frames is trained between wavlm-large and LLaMA.
 
 Authors
  * Titouan Parcollet 2025
@@ -64,12 +59,10 @@ class AST(sb.core.Brain):
         audio_prompt_len = (audio_len + prompt_len)[0]
 
         # Then for the full embedding prompt sequence
-        if hasattr(self.modules.lora_llm, "module"):
-            embeddings = (
-                self.modules.lora_llm.module.model.get_input_embeddings()
-            )
+        if hasattr(self.modules.llm, "module"):
+            embeddings = self.modules.llm.module.model.get_input_embeddings()
         else:
-            embeddings = self.modules.lora_llm.model.get_input_embeddings()
+            embeddings = self.modules.llm.model.get_input_embeddings()
 
         inputs_embeds = torch.cat(
             (down_feats_proj, embeddings(tokens_prompt_translation)), dim=1
@@ -84,17 +77,17 @@ class AST(sb.core.Brain):
         attn_mask = torch.cat([audio_attn_mask, text_attn_mask], dim=-1)
 
         # LLM forward
-        llm_logits = self.modules.lora_llm(
+        llm_logits = self.modules.llm(
             inputs_embeds=inputs_embeds, attention_mask=attn_mask
         ).logits
 
         # output layer for seq2seq log-probabilities
         p_seq = self.hparams.log_softmax(llm_logits)
 
-        if hasattr(self.modules.lora_llm, "module"):
-            gen_func = self.modules.lora_llm.module.model.generate
+        if hasattr(self.modules.llm, "module"):
+            gen_func = self.modules.llm.module.model.generate
         else:
-            gen_func = self.modules.lora_llm.model.generate
+            gen_func = self.modules.llm.model.generate
 
         # Running decoding if not training
         if stage == sb.Stage.TRAIN:
@@ -472,7 +465,7 @@ if __name__ == "__main__":
     )
 
     # Defining tokenizer and loading it
-    tokenizer = hparams["modules"]["lora_llm"].tokenizer
+    tokenizer = hparams["modules"]["llm"].tokenizer
 
     # here we create the datasets objects as well as tokenization and encoding
     (

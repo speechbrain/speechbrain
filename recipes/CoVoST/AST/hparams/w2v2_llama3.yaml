@@ -9,16 +9,16 @@
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 3407
 __set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
-output_folder: !ref results/conformer_en/<seed>
+output_folder: !ref results/w2v2_llama/<seed>
 output_bleu_folder: !ref <output_folder>/
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
 # Data files
-data_folder: !PLACEHOLDER  # e.g, /localscratch/cv-corpus-5.1-2020-06-22/fr
-train_tsv_file: !PLACEHOLDER  # Standard CommonVoice .tsv files
-dev_tsv_file: !PLACEHOLDER  # Standard CommonVoice .tsv files
-test_tsv_file: !PLACEHOLDER  # Standard CommonVoice .tsv files
+data_folder: !PLACEHOLDER  # e.g, /localscratch/cv-corpus-4.0-en/fr
+train_tsv_file: !PLACEHOLDER  # Standard CoVoST .tsv files
+dev_tsv_file: !PLACEHOLDER  # Standard CoVoST .tsv files
+test_tsv_file: !PLACEHOLDER  # Standard CoVoST .tsv files
 accented_letters: False
 src_language: en
 tgt_language: de
@@ -184,6 +184,9 @@ modules:
     llm: !ref <llm>
     proj: !ref <proj>
     normalize: !ref <normalize>
+
+model: !new:torch.nn.ModuleList
+    - [!ref <proj>]
 
 # We define two optimizers as we have two stages (training + finetuning)
 Adam: !name:torch.optim.AdamW

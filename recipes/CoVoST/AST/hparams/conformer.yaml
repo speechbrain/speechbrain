@@ -15,10 +15,11 @@ save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
 # Data files
-data_folder: !PLACEHOLDER  # e.g, /localscratch/cv-corpus-5.1-2020-06-22/fr
-train_tsv_file: !PLACEHOLDER  # Standard CommonVoice .tsv files
-dev_tsv_file: !PLACEHOLDER  # Standard CommonVoice .tsv files
-test_tsv_file: !PLACEHOLDER  # Standard CommonVoice .tsv files
+data_folder: !PLACEHOLDER  # e.g, /localscratch/cv-corpus-4.0-en/fr
+train_tsv_file: !PLACEHOLDER  # Standard CoVoST .tsv files
+dev_tsv_file: !PLACEHOLDER  # Standard CoVoST .tsv files
+test_tsv_file: !PLACEHOLDER  # Standard CoVoST .tsv files
+accented_letters: False
 src_language: en
 tgt_language: de
 train_csv: !ref <output_folder>/train.csv
