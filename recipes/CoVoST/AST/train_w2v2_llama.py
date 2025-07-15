@@ -351,9 +351,6 @@ def dataio_prepare(hparams, tokenizer):
             info.sample_rate,
             hparams["sample_rate"],
         )(sig)
-        resampled = torch.nn.functional.layer_norm(
-            resampled, normalized_shape=resampled.shape
-        )
         return resampled
 
     sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline)
