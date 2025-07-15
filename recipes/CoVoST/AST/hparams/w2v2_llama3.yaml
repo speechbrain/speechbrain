@@ -23,7 +23,7 @@ accented_letters: False
 src_language: en
 tgt_language: de
 train_csv: !ref <output_folder>/train.csv
-valid_csv: !ref <output_folder>/dev_small.csv
+valid_csv: !ref <output_folder>/dev.csv
 test_csv: !ref <output_folder>/test.csv
 skip_prep: False # Skip data preparation
 convert_to_wav: True # Switch this to True to convert all mp3 files to wav.
