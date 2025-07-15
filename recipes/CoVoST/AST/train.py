@@ -30,7 +30,6 @@ class AST(sb.core.Brain):
         """Forward computations from the waveform batches to the output probabilities."""
         batch = batch.to(self.device)
         wavs, wav_lens = batch.sig
-        wavs, wav_lens = wavs.to(self.device), wav_lens.to(self.device)
         tokens_bos, _ = batch.tokens_bos
 
         # compute features
@@ -114,19 +113,15 @@ class AST(sb.core.Brain):
                 stage == sb.Stage.TEST
             ):
 
-                tgt_detokenizer = MosesDetokenizer(
-                    lang=self.hparams.tgt_language
-                )
-
                 predictions = [
-                    tgt_detokenizer.detokenize(
+                    self.tgt_detokenizer.detokenize(
                         self.tokenizer.sp.decode_ids(utt_seq).split(" ")
                     )
                     for utt_seq in predicted_tokens
                 ]
 
                 detokenized_translation = [
-                    tgt_detokenizer.detokenize(translation.split(" "))
+                    self.tgt_detokenizer.detokenize(translation.split(" "))
                     for translation in batch.translation
                 ]
 
@@ -147,6 +142,9 @@ class AST(sb.core.Brain):
 
     def on_stage_start(self, stage, epoch):
         """Gets called at the beginning of each epoch"""
+
+        self.tgt_detokenizer = MosesDetokenizer(lang=self.hparams.tgt_language)
+
         if stage != sb.Stage.TRAIN:
             self.acc_metric = self.hparams.acc_computer()
             self.bleu_metric = self.hparams.bleu_computer()

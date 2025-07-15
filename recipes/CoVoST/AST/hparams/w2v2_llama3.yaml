@@ -34,10 +34,9 @@ wav2vec2_folder: !ref <save_folder>/wav2vec2_checkpoint
 wav2vec2_frozen: False
 
 # LLM options
-llm_path: !PLACEHOLDER # /scratch-01/llama-2/llama-2-7b-hf, or /scratch-01/llama-2/llama-2-7b-chat-hf
+llm_path: !PLACEHOLDER # e.g llama-2/llama-2-7b-hf
 llm_prompt: " Translate English speech to German text: "
 llm_emb_size: 3072
-lowercase: True # Transcript are given to the LLM in uppercase or lowercase
 
 # We remove utterance slonger than 10s in the train/dev/test sets as
 # longer sentences certainly correspond to "open microphones".
@@ -142,6 +141,7 @@ pad_token: 128256 #Llama 3 pad index after adding
 valid_search_interval: 4
 valid_beam_size: 1 # We do greedy here so it's faster to decode ...
 test_beam_size: 5
+
 
 ############################## models ################################
 

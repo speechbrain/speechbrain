@@ -31,7 +31,6 @@ class AST(sb.core.Brain):
         """Forward computations from the waveform batches to the output probabilities."""
         batch = batch.to(self.device)
         wavs, wav_lens = batch.sig
-        wavs, wav_lens = wavs.to(self.device), wav_lens.to(self.device)
         tokens_prompt_translation, tokens_prompt_translation_len = (
             batch.tokens_prompt_translation
         )  # Includes prompt and translation
@@ -102,38 +101,20 @@ class AST(sb.core.Brain):
             hyps = None
 
         elif stage == sb.Stage.VALID:
-
-            # Define generation config depending on runtime values
-            config = transformers.GenerationConfig(
-                num_beams=self.hparams.valid_beam_size,
-                pad_token_id=tokenizer.pad_token_id,
-                eos_token_id=tokenizer.eos_token_id,
-                max_new_tokens=int(2 * audio_len),
-            )
-
             hyps = gen_func(
                 inputs_embeds=inputs_embeds[
                     :, :audio_prompt_len
                 ],  # give model audio features and prompt for inference
                 attention_mask=attn_mask[:, :audio_prompt_len],
-                generation_config=config,
+                generation_config=self.val_decoding_config,
             )
         elif stage == sb.Stage.TEST:
-
-            # Define generation config depending on runtime values
-            config = transformers.GenerationConfig(
-                num_beams=self.hparams.test_beam_size,
-                pad_token_id=tokenizer.pad_token_id,
-                eos_token_id=tokenizer.eos_token_id,
-                max_new_tokens=int(2 * audio_len),
-            )
-
             hyps = gen_func(
                 inputs_embeds=inputs_embeds[
                     :, :audio_prompt_len
                 ],  # give model audio features and prompt for inference
                 attention_mask=attn_mask[:, :audio_prompt_len],
-                generation_config=config,
+                generation_config=self.test_decoding_config,
             )
 
         return p_seq, wav_lens, hyps, audio_prompt_len
@@ -201,6 +182,23 @@ class AST(sb.core.Brain):
 
     def on_stage_start(self, stage, epoch):
         """Gets called at the beginning of each epoch"""
+
+        # Define generation config depending on runtime values
+        self.val_decoding_config = transformers.GenerationConfig(
+            num_beams=self.hparams.valid_beam_size,
+            pad_token_id=self.tokenizer.pad_token_id,
+            eos_token_id=self.tokenizer.eos_token_id,
+            max_new_tokens=500,
+        )
+
+        # Define generation config depending on runtime values
+        self.test_decoding_config = transformers.GenerationConfig(
+            num_beams=self.hparams.test_beam_size,
+            pad_token_id=self.tokenizer.pad_token_id,
+            eos_token_id=self.tokenizer.eos_token_id,
+            max_new_tokens=500,
+        )
+
         if stage != sb.Stage.TRAIN:
             self.acc_metric = self.hparams.acc_computer()
             self.bleu_metric = self.hparams.bleu_computer()
