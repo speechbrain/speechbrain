@@ -7,7 +7,6 @@ packaging
 pandas>=1.0.1
 pre-commit>=2.3.0
 scipy>=1.4.1
-sentencepiece>=0.1.91
 SoundFile; sys_platform == 'win32'
 torch>=2.1.0
 torchaudio>=2.1.0

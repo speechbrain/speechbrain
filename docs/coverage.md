@@ -138,7 +138,6 @@ our tests cover one PyTorch version only, _the latest_.
        "numpy",
        "packaging",
        "scipy",
-       "sentencepiece",
        "torch>=1.9",
        "torchaudio",
        "tqdm",
