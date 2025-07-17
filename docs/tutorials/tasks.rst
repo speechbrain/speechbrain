@@ -14,6 +14,7 @@ Speech Processing Tasks
    tasks/speech-enhancement-from-scratch.ipynb
    tasks/speech-classification-from-scratch.ipynb
    tasks/voice-activity-detection.ipynb
+   tasks/forced-alignment.ipynb
 
 .. rubric:: `🔗 Speech Recognition From Scratch <tasks/speech-recognition-from-scratch.html>`_
    :heading-level: 2
@@ -121,3 +122,19 @@ It might help if you want to develop systems for speaker-id, language-id, emotio
 
 
 In this tutorial, we show how to use SpeechBrain for voice activity detection. The tutorial will describe how to train a neural VAD and use it for inference on long audio recordings.
+
+.. rubric:: `🔗 Forced Alignment <tasks/forced-alignment.html>`_
+   :heading-level: 2
+
+.. list-table::
+   :widths: 20 20 20 20 20
+   :header-rows: 0
+
+   * - Plantinga P.
+     - July 2025
+     - Difficulty: easy
+     - Time: 10min
+     - `🔗 Google Colab <https://colab.research.google.com/github/speechbrain/speechbrain/blob/develop/docs/tutorials/tasks/voice-activity-detection.ipynb>`__
+
+
+In this tutorial, we show how to use SpeechBrain for forced alignment using k2 and a pretrained CTC-based ASR model.
