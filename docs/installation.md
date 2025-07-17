@@ -58,7 +58,7 @@ tests/.run-doctests.sh
 ```
 
 ## Recipe installation
-If you're trying to run a specific recipe, first follow the "Local installation" instructions above.
+If you're trying to run a specific recipe, first follow the "Install locally" instructions above.
 
 Next, install any recipe-specific dependencies (if any) by executing:
 
