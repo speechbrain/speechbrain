@@ -134,7 +134,7 @@ In this tutorial, we show how to use SpeechBrain for voice activity detection. T
      - July 2025
      - Difficulty: easy
      - Time: 10min
-     - `🔗 Google Colab <https://colab.research.google.com/github/speechbrain/speechbrain/blob/develop/docs/tutorials/tasks/voice-activity-detection.ipynb>`__
+     - `🔗 Google Colab <https://colab.research.google.com/github/speechbrain/speechbrain/blob/develop/docs/tutorials/tasks/forced-alignment.ipynb>`__
 
 
 In this tutorial, we show how to use SpeechBrain for forced alignment using k2 and a pretrained CTC-based ASR model.
