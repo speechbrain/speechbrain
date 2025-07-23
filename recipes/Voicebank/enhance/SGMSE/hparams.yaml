@@ -10,13 +10,13 @@ tensorboard_logs: !ref <output_dir>/tensorboard_logs/                 # Director
 data_dir: /data/datasets/noisy-vctk-16k         # Root dir for the dataset
 train_annotation: !ref <data_dir>/train.json    # JSON file listing training samples
 valid_annotation: !ref <data_dir>/valid.json    # JSON file listing validation samples
-test_annotation:  !ref <data_dir>/test.json     # JSON file listing test samples
+test_annotation: !ref <data_dir>/test.json     # JSON file listing test samples
 
 skip_prep: False          # If True, skip data preparation steps
 segment_frames: 256       # Number of STFT frames fed into the model. Has to align with what the model ‘wants’ to see due to u net architecture
 random_crop: True         # Whether to crop segments randomly from longer waveforms in training
 random_crop_valid: False  # Whether to crop segments randomly from longer waveforms in validation
-random_crop_test: False   # Whether to crop segments randomly from longer waveforms in testing 
+random_crop_test: False   # Whether to crop segments randomly from longer waveforms in testing
 
 normalize: noisy        # Waveforms are normalized with respect to ... (noisy / clean / not)
 sample_rate: 16000      # Sampling rate (in Hz) for audio data
@@ -35,14 +35,14 @@ spec_factor: 0.15           # Factor to scale the transformed spectrogram
 spec_abs_exponent: 0.5      # Exponent to apply to spectrogram magnitude if needed
 
 train_dataloader_opts:
-    batch_size: !ref <batch_size>
-    shuffle: True           # Shuffle training data each epoch
+  batch_size: !ref <batch_size>
+  shuffle: True           # Shuffle training data each epoch
 
 valid_dataloader_opts:
-    batch_size: 1           # Validation batch size
+  batch_size: 1           # Validation batch size
 
 test_dataloader_opts:
-    batch_size: 1           # Test batch size
+  batch_size: 1           # Test batch size
 
 sampling:
   sampler_type: pc
@@ -53,7 +53,7 @@ sampling:
   snr: 0.5
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
-    limit: !ref <number_of_epochs>     # Sets the upper bound on training epochs
+  limit: !ref <number_of_epochs>     # Sets the upper bound on training epochs
 
 modules:
   score_model: !new:speechbrain.lobes.models.sgmse.model.ScoreModel
@@ -75,10 +75,10 @@ modules:
     sigma_data: 0.1                    # Data STD for EDM-based parameterizations
     l1_weight: 0.001                   # Weight factor for L1 (time-domain) loss
     pesq_weight: 0.0                   # Weight factor for PESQ-based loss (0 = disabled)
-    N: !ref <sampling[N]>              # Sampler steps 
+    N: !ref <sampling[N]>              # Sampler steps
     corrector_steps: !ref <sampling[corrector_steps]> # Corrector updates per step
     sampler_type: !ref <sampling[sampler_type]> # SDE sampler type
-    snr: !ref <sampling[snr]>           # SNR for sampler  
+    snr: !ref <sampling[snr]>           # SNR for sampler
     sr: !ref <sample_rate>             # Sample rate for model references
 
 opt_class: !name:torch.optim.Adam

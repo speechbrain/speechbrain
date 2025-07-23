@@ -6,21 +6,27 @@ python enhance.py --run_dir /path/to/run  noisy.wav
 Whole directory:
 python enhance.py --run_dir /path/to/run  /path/to/noisy_dir
 """
-import argparse, sys
+
+import argparse
+import sys
 from pathlib import Path
 
-import torch, torchaudio
+import torch
+import torchaudio
 from hyperpyyaml import load_hyperpyyaml
+from train import SGMSEBrain
+
 from speechbrain.utils.checkpoints import Checkpointer
 
-from train import SGMSEBrain
 
 # Helpers
 def is_audio_file(path):
     return path.suffix.lower() in {".wav", ".flac", ".ogg"}
 
+
 def collect_audio_files(src):
     return [p for p in src.iterdir() if p.is_file() and is_audio_file(p)]
+
 
 def main():
     parser = argparse.ArgumentParser(
@@ -32,7 +38,7 @@ def main():
         type=Path,
         required=True,
         help="Path to the trained run directory (the folder that "
-             "contains hyperparams.yaml and checkpoints/).",
+        "contains hyperparams.yaml and checkpoints/).",
     )
     parser.add_argument(
         "input",
@@ -45,28 +51,29 @@ def main():
     if not run_dir.exists():
         sys.exit(f"--run_dir '{run_dir}' does not exist.")
 
-    hparams_file      = run_dir / "hyperparams.yaml"
-    checkpoints_dir   = run_dir / "checkpoints"
+    hparams_file = run_dir / "hyperparams.yaml"
+    checkpoints_dir = run_dir / "checkpoints"
 
-    with open(hparams_file) as f:
+    with open(hparams_file, encoding="utf-8") as f:
         hparams = load_hyperpyyaml(f)
 
     target_sr = hparams["sample_rate"]
-    inference_dir = Path(hparams.get("inference_dir",
-                                     run_dir / "enhanced_inference"))
+    inference_dir = Path(
+        hparams.get("inference_dir", run_dir / "enhanced_inference")
+    )
     inference_dir.mkdir(parents=True, exist_ok=True)
 
     modules = hparams["modules"]
     brain = SGMSEBrain(
-        modules      = modules,
-        hparams      = hparams,
-        run_opts     = {"device": "cuda" if torch.cuda.is_available() else "cpu"},
-        checkpointer = Checkpointer(
-            checkpoints_dir = checkpoints_dir,
-            recoverables    = {"score_model": modules["score_model"]},
+        modules=modules,
+        hparams=hparams,
+        run_opts={"device": "cuda" if torch.cuda.is_available() else "cpu"},
+        checkpointer=Checkpointer(
+            checkpoints_dir=checkpoints_dir,
+            recoverables={"score_model": modules["score_model"]},
         ),
     )
-    brain.setup_inference() # loads latest checkpoint, ema ...
+    brain.setup_inference()  # loads latest checkpoint, ema ...
 
     # Enhancement routine
     def enhance_file(noisy_path, dst_dir):
@@ -74,7 +81,7 @@ def main():
         if sr != target_sr:
             wav = torchaudio.functional.resample(wav, sr, target_sr)
 
-        if wav.shape[0] > 1:        
+        if wav.shape[0] > 1:
             wav = wav.mean(0, keepdim=True)
 
         with torch.no_grad():
@@ -107,6 +114,7 @@ def main():
             print(f"[{idx}/{len(files)}] > {out_path}")
     else:
         sys.exit(f"{src} is neither a file nor a directory.")
+
 
 if __name__ == "__main__":
     main()

@@ -14,7 +14,7 @@ This will:
 
 * Prepare the VoiceBank dataset automatically (if not already prepared).
 * Train the model based on hyperparameters defined in `hparams.yaml`.
-* Create a `run_name`, unique to each run. 
+* Create a `run_name`, unique to each run.
 * Store checkpoints, logs, and validation / testing samples in `output_dir/run_name` (specified within the `hparams.yaml` file).
 
 ### Inference (Speech Enhancement)
