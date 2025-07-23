@@ -2,7 +2,6 @@ output_folder: /export/home/1rochdi/speechbrain/results/Voicebank/enhance/SGMSE 
 run_name: "RUN_NAME" # Will be updated with a unique name at runtime
 
 save_dir: !ref <output_folder>/<run_name>/checkpoints                    # Directory to save checkpoints
-train_log: !ref <output_folder>/<run_name>/train_log.txt                 # Path to the file where training logs are written
 enhanced_dir: !ref <output_folder>/<run_name>/enhanced_training          # Directory to store waveforms at validation during training
 #inference_dir: !ref <output_folder>/<run_name>/enhanced_inference        # Directory to store waveforms at inference
 tensorboard_logs: !ref <output_folder>/tensorboard_logs/                 # Directory for TensorBoard logs
