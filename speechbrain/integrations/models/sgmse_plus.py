@@ -63,6 +63,20 @@ class ScoreModel(nn.Module):
         Hop length between frames.
     **kwargs
         Arguments for creation of backbone.
+
+    Example
+    -------
+    >>> # Note, this model should be trained before using in inference
+    >>> from sgmse.util.other import pad_spec
+    >>> sample_rate = 16000
+    >>> noisy_audio = torch.rand(1, sample_rate) # One second fake audio
+    >>> noisy_spec = torch.stft(noisy_audio, n_fft=510, return_complex=True)
+    >>> # pad for U-Net down-/up-sampling constraints
+    >>> noisy_spec = pad_spec(noisy_spec.unsqueeze(1), mode="reflection")
+    >>> model = ScoreModel(theta=1.5, sigma_min=0.05, sigma_max=0.5).to("cuda")
+    >>> cleaned_spec = model.enhance(noisy_spec.to("cuda"))
+    >>> cleaned_spec.shape
+    torch.Size([1, 1, 256, 128])
     """
 
     def __init__(

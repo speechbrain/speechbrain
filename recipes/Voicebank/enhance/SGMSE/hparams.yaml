@@ -55,7 +55,7 @@ epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
   limit: !ref <number_of_epochs>     # Sets the upper bound on training epochs
 
 modules:
-  score_model: !new:speechbrain.lobes.models.sgmse.model.ScoreModel
+  score_model: !new:speechbrain.integrations.models.sgmse_plus.ScoreModel
     backbone: ncsnpp_v2                # Name of the backbone neural network architecture
     sde: ouve                          # Which SDE to use (Ornstein-Uhlenbeck VE SDE)
     theta: 1.5                         # Stiffness parameter for the OU SDE
