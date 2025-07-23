@@ -414,7 +414,7 @@ def download_vctk(destination, tmp_dir=None, device="cpu"):
     if not os.path.isdir(final_dir):
         os.mkdir(final_dir)
 
-    prefix = "https://datashare.is.ed.ac.uk/bitstream/handle/10283/2791/"
+    prefix = "https://datashare.ed.ac.uk/bitstream/handle/10283/2791/"
     noisy_vctk_urls = [
         prefix + "clean_testset_wav.zip",
         prefix + "noisy_testset_wav.zip",
