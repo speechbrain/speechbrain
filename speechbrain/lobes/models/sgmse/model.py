@@ -1,3 +1,13 @@
+"""
+Speech enhancement and dereverberation using score-based generative models.
+
+References:
+[1] Richter, J., Welker, S., Lemercier, J.-M., Lay, B., & Gerkmann, T. (2023).
+    Speech Enhancement and Dereverberation with Diffusion-based Generative Models.
+    IEEE/ACM Transactions on Audio, Speech, and Language Processing, 31, 2351-2364.
+    https:/oi.org/10.1109/TASLP.2023.3285241
+"""
+
 from math import ceil
 
 import sgmse.sampling as sampling
@@ -10,6 +20,51 @@ from torch_pesq import PesqLoss
 
 
 class ScoreModel(nn.Module):
+    """
+    Score-based generative model for speech enhancement.
+    Encapsulates a backbone neural network and a stochastic differential equation (SDE)
+    to perform denoising or data prediction in the spectrogram domain.
+
+    Arguments
+    ---------
+    backbone: str
+        Name of the backbone network architecture.
+    sde: str
+        Identifier of the SDE to use for diffusion sampling.
+    lr: float
+        Learning rate for optimizer.
+    ema_decay: float
+        Exponential moving average decay rate.
+    t_eps: float
+        Minimum time offset for numerical stability.
+    num_eval_files: int
+        Number of files to evaluate during validation.
+    loss_type: str
+        One of "score_matching", "denoiser", or "data_prediction".
+    loss_weighting: str
+        Weighting scheme for the loss (e.g., "sigma^2").
+    network_scaling: str or None
+        Scaling applied to network output.
+    c_in: str
+    c_out: str
+    c_skip: str
+        Coefficients for signal combinations.
+    sigma_data: float
+        Data noise standard deviation for EDM.
+    l1_weight: float
+        Weight for L1 term in data_prediction loss.
+    pesq_weight: float
+        Weight for PESQ loss term.
+    sr: int
+        Sample rate of audio.
+    num_frames: int
+        Number of time-frequency frames.
+    hop_length: int
+        Hop length between frames.
+    **kwargs
+        Arguments for creation of backbone.
+    """
+
     def __init__(
         self,
         backbone="ncsnpp_v2",
@@ -73,21 +128,22 @@ class ScoreModel(nn.Module):
 
     def forward(self, x_t, y, t):
         """
-        The model forward pass. In [1] and [2], the model estimates the score function. In [3], the model estimates
-        either the score function or the target data for the Schrödinger bridge (loss_type='data_prediction').
+        Computes the score or predicted clean data for a given noisy input and time step.
 
-        [1] Julius Richter, Simon Welker, Jean-Marie Lemercier, Bunlong Lay, and  Timo Gerkmann
-            "Speech Enhancement and Dereverberation with Diffusion-Based Generative Models"
-            IEEE/ACM Transactions on Audio, Speech, and Language Processing, vol. 31, pp. 2351-2364, 2023.
+        Arguments
+        ---------
+        x_t: torch.Tensor
+            The perturbed spectrogram at time `t`, of shape (B, 1, F, T).
+        y: torch.Tensor
+            The noisy input spectrogram of shape (B, 1, F, T).
+        t: torch.Tensor
+            The time step, of shape (B,).
 
-        [2] Julius Richter, Yi-Chiao Wu, Steven Krenn, Simon Welker, Bunlong Lay, Shinji Watanabe, Alexander Richard, and Timo Gerkmann
-            "EARS: An Anechoic Fullband Speech Dataset Benchmarked for Speech Enhancement and Dereverberation"
-            ISCA Interspecch, Kos, Greece, Sept. 2024.
-
-        [3] Julius Richter, Danilo de Oliveira, and Timo Gerkmann
-            "Investigating Training Objectives for Generative Speech Enhancement"
-            https://arxiv.org/abs/2409.10753
-
+        Returns
+        -------
+        torch.Tensor
+            The computed score or the predicted clean data `x_hat`,
+            depending on `self.loss_type`. Shape is (B, 1, F, T).
         """
 
         # In [3], we use new code with backbone='ncsnpp_v2':
@@ -180,6 +236,29 @@ class ScoreModel(nn.Module):
         minibatch=None,
         **kwargs,
     ):
+        """
+        Get a predictor-corrector sampler for the SGMSE model.
+
+        Arguments
+        ---------
+        predictor_name: str
+            The name of the predictor to use.
+        corrector_name: str
+            The name of the corrector to use.
+        y: torch.Tensor
+            The noisy input spectrogram of shape (B, 1, F, T).
+        N: int, optional
+            The number of discretization steps. Defaults to `self.sde.N`.
+        minibatch: int, optional
+            The size of minibatches for batched sampling. Defaults to None.
+        **kwargs
+            Additional keyword arguments for the sampler.
+
+        Returns
+        -------
+        function
+            A sampling function that returns the enhanced sample and the number of function evaluations.
+        """
         N = self.sde.N if N is None else N
         sde = self.sde.copy()
         sde.N = N
@@ -198,6 +277,7 @@ class ScoreModel(nn.Module):
             M = y.shape[0]
 
             def batched_sampling_fn():
+                """Batched sampling function for large inputs."""
                 samples, ns = [], []
                 for i in range(int(ceil(M / minibatch))):
                     y_mini = y[i * minibatch : (i + 1) * minibatch]
@@ -218,6 +298,25 @@ class ScoreModel(nn.Module):
             return batched_sampling_fn
 
     def get_ode_sampler(self, y, N=None, minibatch=None, **kwargs):
+        """
+        Get an ODE sampler for the SGMSE model.
+
+        Arguments
+        ---------
+        y: torch.Tensor
+            The noisy input spectrogram of shape (B, 1, F, T).
+        N: int, optional
+            The number of discretization steps. Defaults to `self.sde.N`.
+        minibatch: int, optional
+            The size of minibatches for batched sampling. Defaults to None.
+        **kwargs
+            Additional keyword arguments for the sampler.
+
+        Returns
+        -------
+        function
+            A sampling function that returns the enhanced sample and the number of function evaluations.
+        """
         N = self.sde.N if N is None else N
         sde = self.sde.copy()
         sde.N = N
@@ -229,6 +328,7 @@ class ScoreModel(nn.Module):
             M = y.shape[0]
 
             def batched_sampling_fn():
+                """Batched sampling function for large inputs."""
                 samples, ns = [], []
                 for i in range(int(ceil(M / minibatch))):
                     y_mini = y[i * minibatch : (i + 1) * minibatch]
@@ -244,6 +344,27 @@ class ScoreModel(nn.Module):
             return batched_sampling_fn
 
     def get_sb_sampler(self, sde, y, sampler_type="ode", N=None, **kwargs):
+        """
+        Get a Schrödinger bridge sampler for the SGMSE model.
+
+        Arguments
+        ---------
+        sde: sgmse.sdes.SDE
+            The SDE object for the Schrödinger bridge.
+        y: torch.Tensor
+            The noisy input spectrogram of shape (B, 1, F, T).
+        sampler_type: str, optional
+            The type of sampler to use ("ode" or "pc"). Defaults to "ode".
+        N: int, optional
+            The number of discretization steps. Defaults to `sde.N`.
+        **kwargs
+            Additional keyword arguments for the sampler.
+
+        Returns
+        -------
+        function
+            A sampling function that returns the enhanced sample and the number of function evaluations.
+        """
         N = sde.N if N is None else N
         sde = self.sde.copy()
         sde.N = N if N is not None else sde.N
