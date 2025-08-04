@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
-"""Recipe for training a wavlm-large plus LLaMA 3 speech translation system
-on CoVoST. The system employs a wavlm-large encoder and a LLaMA3 decoder. A simple project concatenating frames is trained between wavlm-large and LLaMA.
+"""Recipe for training a wavlm-large plus LLaMA speech translation system on CoVoST.
+The system employs a wavlm-large encoder and a LLaMA decoder.
+A simple projection concatenating frames is trained between wavlm-large and LLaMA.
 
-Authors
+Author
+------
  * Titouan Parcollet 2025
 """
 import sys
@@ -31,7 +33,8 @@ class AST(sb.core.Brain):
         )  # Includes prompt and translation
         prompt_len = batch.prompt_len
 
-        # Turn padding in the speech to zero. We need to do this in case of leaks, because LLAMA padding is using int of value 120k+ which will corrupt A LOT the signal in case of leak.
+        # Turn padding in the speech to zero. We need to do this in case of leaks,
+        # because LLAMA padding is using int of value 120k+ which will corrupt A LOT the signal in case of leak.
         audio_len = wavs.shape[1]
         abs_len = torch.round(wav_lens * audio_len)
         audio_attn_mask = length_to_mask(abs_len)
@@ -68,8 +71,9 @@ class AST(sb.core.Brain):
             (down_feats_proj, embeddings(tokens_prompt_translation)), dim=1
         )
 
-        # Prepare attn_mask for audio and text and combine them. This is not streaming compatible. For HF to work, masked frames should be 0.
-
+        # Prepare attn_mask for audio and text and combine them. 
+        # This is not streaming compatible. 
+        # For HF to work, masked frames should be 0.
         text_abs_len = torch.round(tokens_prompt_translation_len * text_len)
         abs_len = torch.round(wav_lens * audio_len)
         audio_attn_mask = length_to_mask(abs_len)
@@ -127,8 +131,9 @@ class AST(sb.core.Brain):
 
         # Translation loss
         # We are only interested in computing the loss over the logits after
-        # the audio + prompt embeddings. Tokens_translation does not start with bos, so we just need to make sure to shift the logits to the last token of the prompt (to ensure next word prediction)
-
+        # the audio + prompt embeddings. Tokens_translation does not start with bos, 
+        # so we just need to make sure to shift the logits to the last token of the prompt 
+        # (to ensure next word prediction)
         p_seq_translation_only = p_seq[:, audio_prompt_len - 1 :]
 
         loss = self.hparams.nll_loss(
@@ -262,7 +267,6 @@ def remove_after_eos(list_of_str, eos_wrd="<|end_of_text|>"):
             cleaned.append(line[:index])
         else:
             cleaned.append(line)
-
     return cleaned
 
 
@@ -460,6 +464,7 @@ if __name__ == "__main__":
             "test_tsv_file": hparams["test_tsv_file"],
             "src_language": hparams["src_language"],
             "tgt_language": hparams["tgt_language"],
+            "skip_prep": hparams["skip_prep"],
             "convert_to_wav": hparams["convert_to_wav"],
         },
     )
