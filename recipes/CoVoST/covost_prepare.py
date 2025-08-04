@@ -1,12 +1,13 @@
 """
 Data preparation for the CoVoST dataset. This is heavily inspired
-by the CommonVoice datapreparation.
+by the CommonVoice data preparation.
 
 GitHub: https://github.com/facebookresearch/covost
 Download: https://commonvoice.mozilla.org/en/datasets
+
 Author
 ------
-Titouan Parcollet 2025
+ * Titouan Parcollet 2025
 """
 
 import csv
@@ -92,8 +93,7 @@ def prepare_covost(
         return
 
     # Setting the save folder
-    if not os.path.exists(save_folder):
-        os.makedirs(save_folder)
+    os.makedirs(save_folder, exist_ok=True)
 
     # Setting output files
     save_csv_train = save_folder + "/train.csv"
