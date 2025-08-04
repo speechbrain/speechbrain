@@ -10,7 +10,6 @@
 seed: 3407
 __set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
 output_folder: !ref results/conformer_en/<seed>
-output_bleu_folder: !ref <output_folder>/
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
@@ -19,7 +18,6 @@ data_folder: !PLACEHOLDER  # e.g, /localscratch/cv-corpus-4.0-en/fr
 train_tsv_file: !PLACEHOLDER  # Standard CoVoST .tsv files
 dev_tsv_file: !PLACEHOLDER  # Standard CoVoST .tsv files
 test_tsv_file: !PLACEHOLDER  # Standard CoVoST .tsv files
-accented_letters: False
 src_language: en
 tgt_language: de
 train_csv: !ref <output_folder>/train.csv
@@ -130,8 +128,6 @@ max_decode_ratio: 1.0
 valid_search_interval: 10
 valid_beam_size: 5 # We do greedy here so it's faster to decode ...
 test_beam_size: 80
-ctc_weight_decode: 0.3
-scorer_beam_scale: 0.3
 
 ############################## models ################################
 
