@@ -10,7 +10,6 @@
 seed: 3407
 __set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
 output_folder: !ref results/w2v2_llama/<seed>
-output_bleu_folder: !ref <output_folder>/
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
@@ -19,7 +18,6 @@ data_folder: !PLACEHOLDER  # e.g, /localscratch/cv-corpus-4.0-en/fr
 train_tsv_file: !PLACEHOLDER  # Standard CoVoST .tsv files
 dev_tsv_file: !PLACEHOLDER  # Standard CoVoST .tsv files
 test_tsv_file: !PLACEHOLDER  # Standard CoVoST .tsv files
-accented_letters: False
 src_language: en
 tgt_language: de
 train_csv: !ref <output_folder>/train.csv
@@ -69,10 +67,6 @@ weight_decay: 0.001
 warmup_steps: 5000
 augment_warmup: 7500
 
-# BPE parameters
-token_type: unigram  # ["unigram", "bpe", "char"]
-character_coverage: 1.0
-
 # Feature parameters
 sample_rate: 16000
 downsampling_factor: 5 # Used to downsample frames before llm projection.
@@ -108,37 +102,29 @@ train_dataloader_opts:
     num_workers: !ref <num_workers>
     collate_fn: !name:speechbrain.dataio.batch.PaddedBatch
         padding_kwargs:
-            value: !ref <pad_token>
+            value: 128256
 
 valid_dataloader_opts:
     batch_size: 8
     collate_fn: !name:speechbrain.dataio.batch.PaddedBatch
         padding_kwargs:
-            value: !ref <pad_token>
+            value: 128256
 
 test_dataloader_opts:
     batch_size: 8
     collate_fn: !name:speechbrain.dataio.batch.PaddedBatch
         padding_kwargs:
-            value: !ref <pad_token>
+            value: 128256
 
 
 ####################### Model Parameters ###########################
 activation: !name:torch.nn.GELU
-asr_output_neurons: 1024
-lora_rank: 16
 
 # Frames - LLM projector params
 dnn_layers: 2
 dnn_neurons: !ref <llm_emb_size>
-downsampling_output_dim: 5120
-
-# Outputs
-blank_index: 0
-pad_token: 128256 #Llama 3 pad index after adding
 
 # Decoding parameters
-valid_search_interval: 4
 valid_beam_size: 1 # We do greedy here so it's faster to decode ...
 test_beam_size: 5
 
@@ -168,6 +154,7 @@ llm: !new:speechbrain.lobes.models.huggingface_transformers.llama.LLaMA
     freeze: True
 
 # Simply uncomment if you want to use LoRA adaptation.
+# lora_rank: 16
 # llm: !new:speechbrain.nnet.adapters.AdaptedModel
 #    model_to_adapt: !ref <llm>
 #    adapter_class: !name:speechbrain.nnet.adapters.LoRA
