@@ -57,6 +57,18 @@ You can run doctests with:
 tests/.run-doctests.sh
 ```
 
+## Recipe installation
+If you're trying to run a specific recipe, first follow the "Install locally" instructions above.
+
+Next, install any recipe-specific dependencies (if any) by executing:
+
+```bash
+cd recipes/<dataset>/<task>/
+pip install -r extra_requirements.txt
+```
+
+Any recipe-specific instructions should be clearly spelled out in the associated `README.md`.
+
 ## Operating Systems
 
 SpeechBrain supports Linux-based distributions and macOS. A solution for windows users can be found
