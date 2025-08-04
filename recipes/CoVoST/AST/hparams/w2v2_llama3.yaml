@@ -1,0 +1,246 @@
+# ############################################################################
+# Model: E2E AST with XLS-R and Llama3
+# Encoder: XLS-R
+# Decoder: LLama3
+# Tokens: unigram
+# losses: KLdiv (Label Smoothing loss)
+# Authors:  Titouan Parcollet
+# ############################################################################
+# Seed needs to be set at top of yaml, before objects with parameters are made
+seed: 3407
+__set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
+output_folder: !ref results/w2v2_llama/<seed>
+save_folder: !ref <output_folder>/save
+train_log: !ref <output_folder>/train_log.txt
+
+# Data files
+data_folder: !PLACEHOLDER  # e.g, /localscratch/cv-corpus-4.0-en/fr
+train_tsv_file: !PLACEHOLDER  # Standard CoVoST .tsv files
+dev_tsv_file: !PLACEHOLDER  # Standard CoVoST .tsv files
+test_tsv_file: !PLACEHOLDER  # Standard CoVoST .tsv files
+src_language: en
+tgt_language: de
+train_csv: !ref <output_folder>/train.csv
+valid_csv: !ref <output_folder>/dev.csv
+test_csv: !ref <output_folder>/test.csv
+skip_prep: False # Skip data preparation
+convert_to_wav: True # Switch this to True to convert all mp3 files to wav.
+
+# URL for the HuggingFace model we want to load (BASE here)
+wav2vec2_hub: microsoft/wavlm-large
+wav2vec2_folder: !ref <save_folder>/wav2vec2_checkpoint
+wav2vec2_frozen: False
+
+# LLM options
+llm_path: !PLACEHOLDER # e.g llama-2/llama-2-7b-hf
+llm_prompt: " Translate English speech to German text: "
+llm_emb_size: 3072
+
+# We remove utterance slonger than 10s in the train/dev/test sets as
+# longer sentences certainly correspond to "open microphones".
+avoid_if_longer_than: 10.0
+avoid_if_shorter_than: 1.0
+
+# THIS IS TERRIBLE BUT WE HAVE NO CHOICE.
+# Some version of the CV dataset may contain one or two files of more than
+# 40 sec in the validation and or test. This is an error by design of the dataset
+# as these files contain 90% of silence. We exclude them.
+avoid_if_longer_than_val_test: 40.0
+
+ckpt_interval_minutes: 15 # save checkpoint every N min
+
+####################### Training Parameters ####################################
+number_of_epochs: 15
+optimizer_step_limit: 80000
+batch_size: 32 # Only used if dynamic batching is off.
+grad_accumulation_factor: 1
+loss_reduction: 'batchmean'
+sorting: random
+num_workers: 4
+precision: fp16 # bf16, fp16 or fp32
+
+# stages related parameters
+lr_adam: 0.0005
+lr_wav2vec: 0.00002
+
+weight_decay: 0.001
+warmup_steps: 5000
+augment_warmup: 7500
+
+# Feature parameters
+sample_rate: 16000
+downsampling_factor: 5 # Used to downsample frames before llm projection.
+
+# This setup works well for A100 80GB GPU, adapts it to your needs.
+# Or turn it off (but training speed will decrease)
+dynamic_batching: True
+max_batch_length_train: 250
+max_batch_length_val: 100 # we reduce it as the beam is much wider (VRAM)
+num_bucket: 200
+shuffle: True # if true re-creates batches at each epoch shuffling examples.
+batch_ordering: random
+max_batch_ex: 256
+
+dynamic_batch_sampler_train:
+    max_batch_length: !ref <max_batch_length_train>
+    num_buckets: !ref <num_bucket>
+    shuffle: !ref <shuffle>
+    batch_ordering: !ref <batch_ordering>
+    max_batch_ex: !ref <max_batch_ex>
+
+dynamic_batch_sampler_valid:
+    max_batch_length: !ref <max_batch_length_val>
+    num_buckets: !ref <num_bucket>
+    shuffle: !ref <shuffle>
+    batch_ordering: !ref <batch_ordering>
+    max_batch_ex: !ref <max_batch_ex>
+
+# Dataloader options
+train_dataloader_opts:
+    batch_size: !ref <batch_size>
+    shuffle: True
+    num_workers: !ref <num_workers>
+    collate_fn: !name:speechbrain.dataio.batch.PaddedBatch
+        padding_kwargs:
+            value: 128256
+
+valid_dataloader_opts:
+    batch_size: 8
+    collate_fn: !name:speechbrain.dataio.batch.PaddedBatch
+        padding_kwargs:
+            value: 128256
+
+test_dataloader_opts:
+    batch_size: 8
+    collate_fn: !name:speechbrain.dataio.batch.PaddedBatch
+        padding_kwargs:
+            value: 128256
+
+
+####################### Model Parameters ###########################
+activation: !name:torch.nn.GELU
+
+# Frames - LLM projector params
+dnn_layers: 2
+dnn_neurons: !ref <llm_emb_size>
+
+# Decoding parameters
+valid_beam_size: 1 # We do greedy here so it's faster to decode ...
+test_beam_size: 5
+
+
+############################## models ################################
+
+normalize: !new:speechbrain.processing.features.InputNormalization
+    norm_type: sentence
+
+#wav2vec model
+wav2vec2: !new:speechbrain.lobes.models.huggingface_transformers.wav2vec2.Wav2Vec2
+    source: !ref <wav2vec2_hub>
+    output_norm: True
+    freeze: !ref <wav2vec2_frozen>
+    save_path: !ref <wav2vec2_folder>
+    normalize_wav: False
+
+proj: !new:speechbrain.lobes.models.VanillaNN.VanillaNN
+    input_shape: [null, null, 5120] # 5 x 1024
+    activation: !ref <activation>
+    dnn_blocks: !ref <dnn_layers>
+    dnn_neurons: !ref <dnn_neurons>
+
+llm: !new:speechbrain.lobes.models.huggingface_transformers.llama.LLaMA
+    source: !ref <llm_path>
+    save_path: !ref <save_folder>
+    freeze: True
+
+# Simply uncomment if you want to use LoRA adaptation.
+# lora_rank: 16
+# llm: !new:speechbrain.nnet.adapters.AdaptedModel
+#    model_to_adapt: !ref <llm>
+#    adapter_class: !name:speechbrain.nnet.adapters.LoRA
+#    all_linear: True
+#    adapter_kwargs:
+#        rank: !ref <lora_rank>
+
+feat_downsampler: !new:speechbrain.lobes.downsampling.ConcatDownsampler
+    downsampling_factor: !ref <downsampling_factor>
+
+modules:
+    wav2vec2: !ref <wav2vec2>
+    feat_downsampler: !ref <feat_downsampler>
+    llm: !ref <llm>
+    proj: !ref <proj>
+    normalize: !ref <normalize>
+
+model: !new:torch.nn.ModuleList
+    - [!ref <proj>]
+
+# We define two optimizers as we have two stages (training + finetuning)
+Adam: !name:torch.optim.AdamW
+    lr: !ref <lr_adam>
+    weight_decay: !ref <weight_decay>
+
+Adam_wav2vec2: !name:torch.optim.AdamW
+    lr: !ref <lr_wav2vec>
+    weight_decay: !ref <weight_decay>
+
+log_softmax: !new:torch.nn.LogSoftmax
+    dim: -1
+
+nll_loss: !name:speechbrain.nnet.losses.nll_loss
+    reduction: !ref <loss_reduction>
+
+noam_annealing: !new:speechbrain.nnet.schedulers.NoamScheduler
+    lr_initial: !ref <lr_adam>
+    n_warmup_steps: !ref <warmup_steps>
+
+lr_annealing_wav2vec: !new:speechbrain.nnet.schedulers.NewBobScheduler
+    initial_value: !ref <lr_wav2vec>
+    improvement_threshold: 0.0025
+    annealing_factor: 0.8
+    patient: 1
+
+############################## Augmentations ###################################
+
+# Frequency drop: randomly drops a number of frequency bands to zero.
+drop_freq: !new:speechbrain.augment.time_domain.DropFreq
+    drop_freq_low: 0
+    drop_freq_high: 1
+    drop_freq_count_low: 1
+    drop_freq_count_high: 3
+    drop_freq_width: 0.05
+
+# Time drop: randomly drops a number of temporal chunks.
+drop_chunk: !new:speechbrain.augment.time_domain.DropChunk
+    drop_length_low: 1000
+    drop_length_high: 2000
+    drop_count_low: 1
+    drop_count_high: 3
+
+# Augmenter: Combines previously defined augmentations to perform data augmentation
+wav_augment: !new:speechbrain.augment.augmenter.Augmenter
+    min_augmentations: 1
+    max_augmentations: 3
+    augment_prob: 1.0
+    augmentations: [
+        !ref <drop_freq>,
+        !ref <drop_chunk>]
+
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+    checkpoints_dir: !ref <save_folder>
+    recoverables:
+        proj: !ref <proj>
+        noam_scheduler: !ref <noam_annealing>
+        lr_annealing_wav2vec: !ref <lr_annealing_wav2vec>
+        counter: !ref <epoch_counter>
+        wav2vec2: !ref <wav2vec2>
+        llm: !ref <llm>
+
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+    limit: !ref <number_of_epochs>
+
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+    save_file: !ref <train_log>
+
+acc_computer: !name:speechbrain.utils.Accuracy.AccuracyStats
+bleu_computer: !name:speechbrain.utils.bleu.BLEUStats

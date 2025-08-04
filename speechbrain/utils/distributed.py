@@ -58,6 +58,19 @@ def get_rank() -> Optional[int]:
     return None
 
 
+def infer_device() -> str:
+    """Make a basic guess about intended running device based on
+    availability and distributed environment variable 'LOCAL_RANK'"""
+    if torch.cuda.is_available():
+        device = "cuda"
+        local_rank = os.environ.get("LOCAL_RANK")
+        if local_rank is not None:
+            device += f":{local_rank}"
+    else:
+        device = "cpu"
+    return device
+
+
 def run_on_main(
     func,
     args=None,
@@ -91,6 +104,11 @@ def run_on_main(
         Keyword args to pass to post_func.
     run_post_on_main : bool
         Whether to run post_func on main process as well. (default: False)
+
+    Returns
+    -------
+    On all processes: the value that func returned, when it ran on the main
+    process.
     """
     # Handle the mutable data types' default args:
     if args is None:
@@ -102,7 +120,7 @@ def run_on_main(
     if post_kwargs is None:
         post_kwargs = {}
 
-    main_process_only(func)(*args, **kwargs)
+    result = main_process_only(func)(*args, **kwargs)
     ddp_barrier()
 
     if post_func is not None:
@@ -114,6 +132,8 @@ def run_on_main(
             if not if_main_process():
                 post_func(*post_args, **post_kwargs)
             ddp_barrier()
+
+    return result
 
 
 def is_distributed_initialized() -> bool:
@@ -158,6 +178,8 @@ def main_process_only(function):
     r"""Function decorator to ensure the function runs only on the main process.
     This is useful for things like saving to the filesystem or logging
     to a web address where you only want it to happen on a single process.
+    The function will return the result computed on the main process to all
+    processes.
     """
 
     @wraps(function)
@@ -165,9 +187,10 @@ def main_process_only(function):
         """This decorated function runs only if this is the main process."""
         with MainProcessContext():
             if if_main_process():
-                return function(*args, **kwargs)
+                result = function(*args, **kwargs)
             else:
-                return None
+                result = None
+        return ddp_broadcast(result)
 
     return main_proc_wrapped_func
 

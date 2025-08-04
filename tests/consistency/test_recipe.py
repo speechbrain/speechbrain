@@ -27,6 +27,7 @@ def test_recipe_list(
         "hpopt.yaml",
         "recipes/LJSpeech/TTS/quantization/hparams/kmeans.yaml",
         "recipes/DNS/noisyspeech_synthesizer/noisyspeech_synthesizer.yaml",
+        "recipes/CoVoST/AST/hparams/w2v2_llama3.yaml",
     ],
 ):
     """This test checks if all the all hparam file of all the recipes are listed

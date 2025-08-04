@@ -8,6 +8,7 @@ on:    # yamllint disable-line rule:truthy
 
 jobs:
     docs:
+        if: github.event.pull_request.draft == false
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v2

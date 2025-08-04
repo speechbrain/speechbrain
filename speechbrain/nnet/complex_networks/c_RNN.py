@@ -4,6 +4,8 @@ Authors
  * Titouan Parcollet 2020
 """
 
+from typing import Optional
+
 import torch
 
 from speechbrain.nnet.complex_networks.c_linear import CLinear
@@ -283,8 +285,9 @@ class CLSTM_Layer(torch.nn.Module):
 
         self.drop_mask_te = torch.tensor([1.0]).float()
 
-    def forward(self, x, hx=None):
-        # type: (Tensor, Optional[Tensor]) -> torch.Tensor # noqa F821
+    def forward(
+        self, x: torch.Tensor, hx: Optional[torch.Tensor] = None
+    ) -> torch.Tensor:
         """Returns the output of the CRNN_layer.
 
         Arguments
@@ -703,8 +706,9 @@ class CRNN_Layer(torch.nn.Module):
         else:
             self.act = torch.nn.ReLU()
 
-    def forward(self, x, hx=None):
-        # type: (Tensor, Optional[Tensor]) -> torch.Tensor # noqa F821
+    def forward(
+        self, x: torch.Tensor, hx: Optional[torch.Tensor] = None
+    ) -> torch.Tensor:
         """Returns the output of the CRNN_layer.
 
         Arguments
@@ -1152,8 +1156,9 @@ class CLiGRU_Layer(torch.nn.Module):
         else:
             self.act = torch.nn.ReLU()
 
-    def forward(self, x, hx=None):
-        # type: (Tensor, Optional[Tensor], Optional[Bool]) -> torch.Tensor # noqa F821
+    def forward(
+        self, x: torch.Tensor, hx: Optional[bool] = None
+    ) -> torch.Tensor:
         """Returns the output of the Complex liGRU layer.
 
         Arguments

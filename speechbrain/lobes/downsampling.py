@@ -128,12 +128,13 @@ class PoolingDownsampler(Downsampler):
             pool_type=self.pool_type,
         )
 
+
 # Copied from https://github.com/X-LANCE/SLAM-LLM/blob/main/src/slam_llm/models/projector.py
 class ConcatDownsampler(Downsampler):
     """Concatenation downsampling with naive frame dropping.
     Frames are dropped to make the time dimension divisible by
     the downsampling_factor.
-    
+
     Arguments
     ---------
     downsampling_factor : int
@@ -146,15 +147,19 @@ class ConcatDownsampler(Downsampler):
     >>> print(a.shape)
     torch.Size([8, 20, 80])
     """
+
     def __init__(self, downsampling_factor):
         super().__init__()
         self.k = downsampling_factor
+
     def forward(self, x):
         """Downsamples x given the resampling factor.
+
         Arguments
         ---------
         x : torch.Tensor
             Factor of downsampling (i.e. ratio (length before ds / length after ds)).
+
         Returns
         -------
         x : torch.Tensor
@@ -165,6 +170,7 @@ class ConcatDownsampler(Downsampler):
         if num_frames_to_discard > 0:
             x = x[:, :-num_frames_to_discard, :]
         seq_len = x.size(1)
+
         x = x.contiguous()
         x = x.view(batch_size, seq_len // self.k, dim * self.k)
         return x
