@@ -6,7 +6,8 @@ between them. An additional CTC loss can be used for warmup with an ASR task.
 To run this recipe, do the following:
 > python train.py hparams/conformer_large.yaml
 
-Authors
+Author
+------
  * Titouan Parcollet 2025
 """
 import sys
@@ -42,7 +43,7 @@ class AST(sb.core.Brain):
             and hasattr(self.hparams, "fea_augment")
             and self.optimizer_step > self.hparams.augment_warmup
         ):
-            feats, fea_lens = self.hparams.fea_augment(feats, wav_lens)
+            feats, _ = self.hparams.fea_augment(feats, wav_lens)
 
         # forward modules
         src = self.modules.CNN(feats)
@@ -87,7 +88,6 @@ class AST(sb.core.Brain):
 
         ids = batch.id
         tokens_eos, tokens_eos_lens = batch.tokens_eos
-        tokens, tokens_lens = batch.tokens
         tokens_asr, tokens_asr_lens = batch.tokens_asr
 
         loss_seq = self.hparams.seq_cost(
@@ -398,6 +398,7 @@ if __name__ == "__main__":
             "test_tsv_file": hparams["test_tsv_file"],
             "src_language": hparams["src_language"],
             "tgt_language": hparams["tgt_language"],
+            "skip_prep": hparams["skip_prep"],
             "convert_to_wav": hparams["convert_to_wav"],
         },
     )
