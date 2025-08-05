@@ -45,6 +45,12 @@ class PaddedBatch:
         two tensors: the padded data, and another tensor for the data lengths.
     padding_kwargs : dict
         (Optional) Extra kwargs to pass to padding_func. E.G. mode, value
+        This is used as the default padding configuration for all keys.
+    padding_config : dict, None
+        (Optional) Per-key padding configuration. Keys in this dict should match
+        the keys in the examples. Each value should be a dict with padding parameters
+        (e.g., {'value': -100, 'mode': 'constant'}). If a key is not in this dict,
+        the global padding_kwargs will be used.
     apply_default_convert : bool
         Whether to apply PyTorch default_convert (numpy to torch recursively,
         etc.) on all data. Default:True, usually does the right thing.
@@ -99,6 +105,17 @@ class PaddedBatch:
     ...     {"text": ["How", "are", "you?"]}])
     >>> batch.text
     [['Hello'], ['How', 'are', 'you?']]
+    >>> # Per-key padding configuration:
+    >>> batch = PaddedBatch([
+    ...     {"wav": torch.tensor([1,2,3]), "labels": torch.tensor([1,2])},
+    ...     {"wav": torch.tensor([4,5]), "labels": torch.tensor([3])}],
+    ...     padding_config={"wav": {"value": 0}, "labels": {"value": -100}})
+    >>> batch.wav.data
+    tensor([[1, 2, 3],
+            [4, 5, 0]])
+    >>> batch.labels.data
+    tensor([[ 1,  2],
+            [ 3, -100]])
 
     """
 
@@ -109,6 +126,7 @@ class PaddedBatch:
         device_prep_keys=None,
         padding_func=batch_pad_right,
         padding_kwargs={},
+        padding_config=None,
         apply_default_convert=True,
         nonpadded_stack=True,
     ):
@@ -116,6 +134,11 @@ class PaddedBatch:
         self.__keys = list(examples[0].keys())
         self.__padded_keys = []
         self.__device_prep_keys = []
+        
+        # Initialize padding_config if None
+        if padding_config is None:
+            padding_config = {}
+        
         for key in self.__keys:
             values = [example[key] for example in examples]
             # Default convert usually does the right thing (numpy2torch etc.)
@@ -126,7 +149,14 @@ class PaddedBatch:
             ):
                 # Padding and PaddedData
                 self.__padded_keys.append(key)
-                padded = PaddedData(*padding_func(values, **padding_kwargs))
+                
+                # Use per-key padding config if available, otherwise fall back to global padding_kwargs
+                if key in padding_config:
+                    key_padding_kwargs = padding_config[key]
+                else:
+                    key_padding_kwargs = padding_kwargs
+                
+                padded = PaddedData(*padding_func(values, **key_padding_kwargs))
                 setattr(self, key, padded)
             else:
                 # Default PyTorch collate usually does the right thing
