@@ -46,7 +46,7 @@ class PaddedBatch:
     padding_kwargs : dict
         (Optional) Extra kwargs to pass to padding_func. E.G. mode, value
         This is used as the default padding configuration for all keys.
-    padding_config : dict, None
+    per_key_padding_kwargs : dict, None
         (Optional) Per-key padding configuration. Keys in this dict should match
         the keys in the examples. Each value should be a dict with padding parameters
         (e.g., {'value': -100, 'mode': 'constant'}). If a key is not in this dict,
@@ -109,7 +109,7 @@ class PaddedBatch:
     >>> batch = PaddedBatch([
     ...     {"wav": torch.tensor([1,2,3]), "labels": torch.tensor([1,2])},
     ...     {"wav": torch.tensor([4,5]), "labels": torch.tensor([3])}],
-    ...     padding_config={"wav": {"value": 0}, "labels": {"value": -100}})
+    ...     per_key_padding_kwargs={"wav": {"value": 0}, "labels": {"value": -100}})
     >>> batch.wav.data
     tensor([[1, 2, 3],
             [4, 5, 0]])
@@ -126,7 +126,7 @@ class PaddedBatch:
         device_prep_keys=None,
         padding_func=batch_pad_right,
         padding_kwargs={},
-        padding_config=None,
+        per_key_padding_kwargs=None,
         apply_default_convert=True,
         nonpadded_stack=True,
     ):
@@ -135,9 +135,9 @@ class PaddedBatch:
         self.__padded_keys = []
         self.__device_prep_keys = []
         
-        # Initialize padding_config if None
-        if padding_config is None:
-            padding_config = {}
+        # Initialize per_key_padding_kwargs if None
+        if per_key_padding_kwargs is None:
+            per_key_padding_kwargs = {}
         
         for key in self.__keys:
             values = [example[key] for example in examples]
@@ -151,8 +151,8 @@ class PaddedBatch:
                 self.__padded_keys.append(key)
                 
                 # Use per-key padding config if available, otherwise fall back to global padding_kwargs
-                if key in padding_config:
-                    key_padding_kwargs = padding_config[key]
+                if key in per_key_padding_kwargs:
+                    key_padding_kwargs = per_key_padding_kwargs[key]
                 else:
                     key_padding_kwargs = padding_kwargs
                 
