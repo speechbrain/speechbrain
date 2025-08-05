@@ -804,7 +804,6 @@ class ConformerEncoder(nn.Module):
 
         if (
             self.attention_type == "RelPosMHAXL"
-            or self.attention_type == "RoPEMHA"
         ):
             if pos_embs is None:
                 raise ValueError(
