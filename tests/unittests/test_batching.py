@@ -92,12 +92,12 @@ def test_paddedbatch_per_key_padding(device):
     ]
     
     # Configure different padding values for different keys
-    padding_config = {
+    per_key_padding_kwargs = {
         "wav": {"value": 0},      # Pad wav with 0
         "labels": {"value": -100}  # Pad labels with -100
     }
     
-    batch = PaddedBatch(examples, padding_config=padding_config)
+    batch = PaddedBatch(examples, per_key_padding_kwargs=per_key_padding_kwargs)
     
     # Check that wav is padded with 0
     assert torch.all(batch.wav.data[1, 2:] == 0)
@@ -126,17 +126,17 @@ def test_paddedbatch_mixed_padding_config(device):
     ]
     
     # Global padding config (default)
-    global_padding_kwargs = {"value": 0}
+    padding_kwargs = {"value": 0}
     
     # Per-key config (overrides global for specific keys)
-    padding_config = {
+    per_key_padding_kwargs = {
         "labels": {"value": -100}  # Only labels get special padding
     }
     
     batch = PaddedBatch(
         examples, 
-        padding_kwargs=global_padding_kwargs,
-        padding_config=padding_config
+        padding_kwargs=padding_kwargs,
+        per_key_padding_kwargs=per_key_padding_kwargs
     )
     
     # Check that wav uses global padding (0)
@@ -158,12 +158,12 @@ def test_paddedbatch_numpy_arrays():
         {"wav": np.array([4, 5]), "labels": np.array([3])}
     ]
     
-    padding_config = {
+    per_key_padding_kwargs = {
         "wav": {"value": 0},
         "labels": {"value": -100}
     }
     
-    batch = PaddedBatch(examples, padding_config=padding_config)
+    batch = PaddedBatch(examples, per_key_padding_kwargs=per_key_padding_kwargs)
     
     # Check that numpy arrays are converted to torch tensors and padded correctly
     assert isinstance(batch.wav.data, torch.Tensor)
@@ -186,11 +186,11 @@ def test_paddedbatch_backward_compatibility(device):
     # Test with only padding_kwargs (old behavior)
     batch_old = PaddedBatch(examples, padding_kwargs={"value": 0})
     
-    # Test with only padding_config (new behavior)
-    batch_new = PaddedBatch(examples, padding_config={"wav": {"value": 0}, "labels": {"value": 0}})
+    # Test with only per_key_padding_kwargs (new behavior)
+    batch_new = PaddedBatch(examples, per_key_padding_kwargs={"wav": {"value": 0}, "labels": {"value": 0}})
     
     # Both should produce the same result
     assert torch.allclose(batch_old.wav.data, batch_new.wav.data)
     assert torch.allclose(batch_old.labels.data, batch_new.labels.data)
     assert torch.allclose(batch_old.wav.lengths, batch_new.wav.lengths)
-    assert torch.allclose(batch_old.labels.lengths, batch_new.labels.lengths)
+    assert torch.allclose(batch_old.labels.lengths, batch_new.labels.lengths) 
