@@ -3,16 +3,22 @@
 
 Speech Encoder -> Adapter -> LLM
 
+module load gcc arrow/19.0.1
 source $HOME/sb/bin/activate
 
+# scp -r $SCRATCH/models/facebook/wav2vec2-large-960h/ 
+# scp -r $SCRATCH/models/smollm-360m/ . 
+
+
 cd $SLURM_TMPDIR
-scp -r $SCRATCH/models/facebook/wav2vec2-large-960h/ .
 scp -r $SCRATCH/models/meta-llama/Llama-3.2-1B .
+scp -r $SCRATCH/models/microsoft/wavlm-large/ .
 scp $HOME/projects/def-ravanelm/datasets/librispeech-*.tar.gz .
 for f in *.tar.gz; do tar -xf "$f"; done
 
-cd $HOME/proj/speechbrain/speechbrain/recipes/LibriSpeech/ASR/transformer
-python train_speechllm.py hparams/llama.yaml --data_folder $SLURM_TMPDIR/LibriSpeech/ --output_folder $SLURM_TMPDIR/test --ssl_hub $SLURM_TMPDIR/wav2vec2-large-960h/ --llm_path $SLURM_TMPDIR/Llama-3.2-1B/ 
+
+cd /home/adelmou/proj/speechbrain/speechllm_librispeech/speechbrain/recipes/LibriSpeech/ASR/transformer/
+python train_speechllm.py hparams/llama.yaml --data_folder $SLURM_TMPDIR/LibriSpeech/ --output_folder $SLURM_TMPDIR/test --ssl_hub $SLURM_TMPDIR/wavlm-large/ --llm_path $SLURM_TMPDIR/Llama-3.2-1B/ 
 
 # TODO:
 1) add max length (i.e. context length of the fine tune model)
@@ -64,7 +70,6 @@ class ASR(sb.core.Brain):
         audio_feats = self.modules.ssl(wavs, wav_lens)
         audio_down_feats = self.modules.feat_downsampler(audio_feats)
         projected_audio_feats = self.modules.proj(audio_down_feats)
-        # self.raw_modules.llm
         txt_embds = self.txt_embedding(tokens_bos)
         multimodal_embds = torch.cat([projected_audio_feats, txt_embds], dim=1)
         # attention_mask should be all the true audio features + all the true text features
@@ -80,14 +85,11 @@ class ASR(sb.core.Brain):
     def compute_objectives(self, predictions, batch, stage):
         """Computes the loss (CTC+NLL) given predictions and targets."""
         logits = predictions
-        tokens_eos, tokens_eos_lens = batch.tokens_eos
-        tokens, tokens_lens = batch.tokens
-
+        tokens_eos, _ = batch.tokens_eos
+    
+        num_audio_feats = logits.shape[1] - tokens_eos.shape[1]
         # prepend `-100` to the tokens_eos to ignore them in the loss which corresponds 
         # to the audio features
-        tokens_eos[tokens_eos == self.hparams.pad_token] = -100
-        
-        num_audio_feats = logits.shape[1] - tokens_eos.shape[1]
         target_tokens = torch.cat([
             torch.full((tokens_eos.shape[0], num_audio_feats), -100, device=self.device),
             tokens_eos
@@ -102,12 +104,14 @@ class ASR(sb.core.Brain):
 
     def on_stage_start(self, stage, epoch):
         """Gets called at the beginning of each epoch"""
-        # we save the txt embedding for easy access
-        self.txt_embedding = (
-            self.modules.llm.model.get_input_embeddings()
-            if not hasattr(self.modules.llm, "module")
-            else self.modules.llm.module.model.get_input_embeddings()
-        )
+        # check if txt_embedding is already set
+        if not hasattr(self, "txt_embedding"):
+            # we save the txt embedding for easy access
+            self.txt_embedding = (
+                self.modules.llm.model.get_input_embeddings()
+                if not hasattr(self.modules.llm, "module")
+                else self.modules.llm.module.model.get_input_embeddings()
+            )
 
         if stage != sb.Stage.TRAIN:
             self.acc_metric = self.hparams.acc_computer()

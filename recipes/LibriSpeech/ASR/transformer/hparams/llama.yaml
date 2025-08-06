@@ -34,7 +34,7 @@ ckpt_interval_minutes: 15 # save checkpoint every N min
 # URL for the HuggingFace model we want to load (BASE here)
 ssl_hub: /scratch/adelmou/models/facebook/wav2vec2-large-960h
 ssl_folder: !ref <save_folder>/ssl_checkpoint
-ssl_frozen: False
+ssl_frozen: True
 
 # LLM options
 llm_path: /scratch/adelmou/models/meta-llama/Llama-3.2-1B
@@ -47,7 +47,7 @@ grad_accumulation_factor: 1
 loss_reduction: 'batchmean'
 sorting: random
 num_workers: 4
-precision: fp16 # bf16, fp16 or fp32
+precision: bf16 # bf16, fp16 or fp32
 
 # stages related parameters
 lr_adam: 0.0005
@@ -95,20 +95,35 @@ train_dataloader_opts:
     shuffle: True
     num_workers: !ref <num_workers>
     collate_fn: !name:speechbrain.dataio.batch.PaddedBatch
-        padding_kwargs:
+        padding_kwargs: 
             value: !ref <pad_token>
+        per_key_padding_kwargs:
+            sig:
+                value: 0
+            tokens_eos:
+                value: -100
 
 valid_dataloader_opts:
     batch_size: 8
     collate_fn: !name:speechbrain.dataio.batch.PaddedBatch
-        padding_kwargs:
+        padding_kwargs: 
             value: !ref <pad_token>
+        per_key_padding_kwargs:
+            sig:
+                value: 0
+            tokens_eos:
+                value: -100
 
 test_dataloader_opts:
     batch_size: 8
     collate_fn: !name:speechbrain.dataio.batch.PaddedBatch
-        padding_kwargs:
+        padding_kwargs: 
             value: !ref <pad_token>
+        per_key_padding_kwargs:
+            sig:
+                value: 0
+            tokens_eos:
+                value: -100
 
 
 ####################### Model Parameters ###########################
@@ -149,20 +164,21 @@ proj: !new:speechbrain.lobes.models.VanillaNN.VanillaNN
     dnn_blocks: !ref <dnn_layers>
     dnn_neurons: !ref <dnn_neurons>
 
-llm: !new:speechbrain.lobes.models.huggingface_transformers.llama.LLaMA
+backbone_llm: !new:speechbrain.integrations.huggingface.llama.LLaMA
     source: !ref <llm_path>
     save_path: !ref <save_folder>
-    freeze: True
+    freeze: False
     attn_implementation: flash_attention_2
+    device: cuda
 
 
 # Simply uncomment if you want to use LoRA adaptation.
-# llm: !new:speechbrain.nnet.adapters.AdaptedModel
-#    model_to_adapt: !ref <llm>
-#    adapter_class: !name:speechbrain.nnet.adapters.LoRA
-#    all_linear: True
-#    adapter_kwargs:
-#        rank: !ref <lora_rank>
+llm: !new:speechbrain.nnet.adapters.AdaptedModel
+   model_to_adapt: !ref <backbone_llm>
+   adapter_class: !name:speechbrain.nnet.adapters.LoRA
+   all_linear: True
+   adapter_kwargs:
+       rank: !ref <lora_rank>
 
 feat_downsampler: !new:speechbrain.lobes.downsampling.ConcatDownsampler
     downsampling_factor: !ref <downsampling_factor>
