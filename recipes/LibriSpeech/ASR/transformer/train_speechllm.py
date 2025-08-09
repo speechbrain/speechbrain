@@ -1,14 +1,20 @@
 #!/usr/bin/env python3
 """
 
+# scp -r $SCRATCH/models/facebook/wav2vec2-large-960h/ 
+# scp -r $SCRATCH/models/smollm-360m/ . 
+
 Speech Encoder -> Adapter -> LLM
 
 module load gcc arrow/19.0.1
 source $HOME/sb/bin/activate
 
-# scp -r $SCRATCH/models/facebook/wav2vec2-large-960h/ 
-# scp -r $SCRATCH/models/smollm-360m/ . 
-
+export TORCH_NCCL_ASYNC_HANDLING=1
+export MASTER_ADDR=$(hostname)        # Use the current node's hostname as MASTER_ADDR
+export HF_HUB_OFFLINE=1
+export HF_HOME="/scratch/adelmou/hf_home/"
+export HF_HUB_CACHE="/scratch/adelmou/hf_home/hub/"
+export TOKENIZERS_PARALLELISM=false
 
 cd $SLURM_TMPDIR
 scp -r $SCRATCH/models/meta-llama/Llama-3.2-1B .
@@ -16,9 +22,9 @@ scp -r $SCRATCH/models/microsoft/wavlm-large/ .
 scp $HOME/projects/def-ravanelm/datasets/librispeech-*.tar.gz .
 for f in *.tar.gz; do tar -xf "$f"; done
 
-
 cd /home/adelmou/proj/speechbrain/speechllm_librispeech/speechbrain/recipes/LibriSpeech/ASR/transformer/
-python train_speechllm.py hparams/llama.yaml --data_folder $SLURM_TMPDIR/LibriSpeech/ --output_folder $SLURM_TMPDIR/test --ssl_hub $SLURM_TMPDIR/wavlm-large/ --llm_path $SLURM_TMPDIR/Llama-3.2-1B/ 
+python train_speechllm.py hparams/llama.yaml --data_folder $SLURM_TMPDIR/LibriSpeech/ 
+    --output_folder $SCRATCH/speechllm_results_ls/test/ --ssl_hub $SLURM_TMPDIR/wavlm-large/ --llm_path $SLURM_TMPDIR/Llama-3.2-1B/ 
 
 # TODO:
 1) add max length (i.e. context length of the fine tune model)
@@ -66,6 +72,7 @@ class ASR(sb.core.Brain):
         batch = batch.to(self.device)
         wavs, wav_lens = batch.sig
         tokens_bos, tokens_bos_lens = batch.tokens_bos
+        prompt_len = batch.prompt_len
         wavs = self.hparams.normalize(wavs, wav_lens)
         audio_feats = self.modules.ssl(wavs, wav_lens)
         audio_down_feats = self.modules.feat_downsampler(audio_feats)
@@ -80,16 +87,33 @@ class ASR(sb.core.Brain):
             inputs_embeds=multimodal_embds, 
             attention_mask=attention_mask
         ).logits
-        return logits 
+
+        if hasattr(self.modules.llm, "module"):
+            gen_func = self.modules.llm.module.model.generate
+        else:
+            gen_func = self.modules.llm.model.generate
+
+        hyps = None        
+        if stage != sb.Stage.TRAIN:
+            audio_and_prompt_len = projected_audio_feats.shape[1] + prompt_len[0]
+            hyps = gen_func(
+                inputs_embeds=multimodal_embds[
+                    :, :audio_and_prompt_len
+                ],  # give model audio features and prompt for inference
+                attention_mask=attention_mask[:, :audio_and_prompt_len],
+                generation_config=self.val_decoding_config,
+            )
+        return logits, hyps
 
     def compute_objectives(self, predictions, batch, stage):
         """Computes the loss (CTC+NLL) given predictions and targets."""
-        logits = predictions
+        logits, hyps = predictions
         tokens_eos, _ = batch.tokens_eos
-    
+        ids = batch.id
+
         num_audio_feats = logits.shape[1] - tokens_eos.shape[1]
-        # prepend `-100` to the tokens_eos to ignore them in the loss which corresponds 
-        # to the audio features
+        # We prepend `-100` to the tokens_eos to ignore them in the loss.
+        # This corresponds to the audio features.
         target_tokens = torch.cat([
             torch.full((tokens_eos.shape[0], num_audio_feats), -100, device=self.device),
             tokens_eos
@@ -100,11 +124,37 @@ class ASR(sb.core.Brain):
             target_tokens.view(-1),
             ignore_index=-100
         )
+        if stage != sb.Stage.TRAIN:
+            # replace -100 with pad token
+            target_tokens = target_tokens.masked_fill(target_tokens == -100, self.tokenizer.pad_token_id)
+            preds = self.tokenizer.batch_decode(hyps, skip_special_tokens=True)
+            preds_words = [pred.split(" ") for pred in preds]
+            targets = self.tokenizer.batch_decode(target_tokens, skip_special_tokens=True)
+            targets_words = [target.split(" ") for target in targets]
+            self.cer_metric.append(ids, preds_words, targets_words)
+            self.wer_metric.append(ids, preds_words, targets_words)
         return loss
 
     def on_stage_start(self, stage, epoch):
         """Gets called at the beginning of each epoch"""
         # check if txt_embedding is already set
+        import transformers
+        self.val_decoding_config = transformers.GenerationConfig(
+            pad_token_id=self.tokenizer.pad_token_id,
+            eos_token_id=self.tokenizer.eos_token_id,
+            max_new_tokens=20,
+            do_sample=False,
+            num_beams=1,
+            use_cache=True,
+            early_stopping=True,
+            max_length=50,
+            min_length=1,
+            temperature=1.0,
+            top_k=1,
+            repetition_penalty=1.0,
+            length_penalty=1.0,
+        )
+
         if not hasattr(self, "txt_embedding"):
             # we save the txt embedding for easy access
             self.txt_embedding = (
@@ -114,7 +164,7 @@ class ASR(sb.core.Brain):
             )
 
         if stage != sb.Stage.TRAIN:
-            self.acc_metric = self.hparams.acc_computer()
+            self.cer_metric = self.hparams.cer_computer()
             self.wer_metric = self.hparams.error_rate_computer()
 
     def on_stage_end(self, stage, stage_loss, epoch):
@@ -124,14 +174,8 @@ class ASR(sb.core.Brain):
         if stage == sb.Stage.TRAIN:
             self.train_stats = stage_stats
         else:
-            stage_stats["ACC"] = self.acc_metric.summarize()
-            current_epoch = self.hparams.epoch_counter.current
-            valid_search_interval = self.hparams.valid_search_interval
-            if (
-                current_epoch % valid_search_interval == 0
-                or stage == sb.Stage.TEST
-            ):
-                stage_stats["WER"] = self.wer_metric.summarize("error_rate")
+            stage_stats["CER"] = self.cer_metric.summarize("error_rate")
+            stage_stats["WER"] = self.wer_metric.summarize("error_rate")
 
         # log stats and save checkpoint at end-of-epoch
         if stage == sb.Stage.VALID:
@@ -151,9 +195,9 @@ class ASR(sb.core.Brain):
                 valid_stats=stage_stats,
             )
             self.checkpointer.save_and_keep_only(
-                meta={"ACC": stage_stats["ACC"], "epoch": epoch},
-                max_keys=["ACC"],
-                num_to_keep=self.hparams.avg_checkpoints,
+                meta={"WER": stage_stats["WER"], "epoch": epoch},
+                max_keys=["WER"],
+                # num_to_keep=self.hparams.avg_checkpoints,
             )
 
         elif stage == sb.Stage.TEST:
@@ -167,19 +211,10 @@ class ASR(sb.core.Brain):
                 ) as w:
                     self.wer_metric.write_stats(w)
 
-            # save the averaged checkpoint at the end of the evaluation stage
-            # delete the rest of the intermediate checkpoints
-            # ACC is set to 1.1 so checkpointer only keeps the averaged checkpoint
-            self.checkpointer.save_and_keep_only(
-                meta={"ACC": 1.1, "epoch": epoch},
-                max_keys=["ACC"],
-                num_to_keep=1,
-            )
-
     def on_fit_batch_end(self, batch, outputs, loss, should_step):
         """At the end of the optimizer step, apply noam annealing."""
-        if should_step:
-            self.hparams.noam_annealing(self.optimizer)
+        # if should_step:
+            # self.hparams.noam_annealing(self.optimizer)
 
 
 def dataio_prepare(hparams, tokenizer):
@@ -243,31 +278,38 @@ def dataio_prepare(hparams, tokenizer):
 
     bos_index = tokenizer.bos_token_id
     eos_index = tokenizer.eos_token_id
-    print(bos_index, eos_index)
+    prompt = "Transcribe speech to text."
+    print(bos_index, eos_index, prompt)
+
+    prompt_ids = tokenizer(
+        prompt, return_tensors="pt", add_special_tokens=False
+    ).input_ids.view(-1).tolist()
 
     # 3. Define text pipeline:
     @sb.utils.data_pipeline.takes("wrd")
     @sb.utils.data_pipeline.provides(
-        "wrd", "tokens_list", "tokens_bos", "tokens_eos", "tokens"
+        "wrd", "tokens_list", "tokens_bos", "tokens_eos", "tokens", "prompt_len"
     )
     def text_pipeline(wrd):
-        wrd = wrd[0] + wrd[1:].lower()
+        # wrd = wrd[0] + wrd[1:].lower()
         yield wrd
         tokens_list = tokenizer(wrd, add_special_tokens=False).input_ids
         yield tokens_list
-        tokens_bos = torch.LongTensor([bos_index] + tokens_list)
+        tokens_bos = torch.LongTensor(prompt_ids  + [bos_index] + tokens_list )
         yield tokens_bos
         tokens_eos = torch.LongTensor(tokens_list + [eos_index])
         yield tokens_eos
         tokens = torch.LongTensor(tokens_list)
         yield tokens
+        prompt_len = len(prompt_ids  + [bos_index])
+        yield prompt_len
 
     sb.dataio.dataset.add_dynamic_item(datasets, text_pipeline)
 
     # 4. Set output:
     sb.dataio.dataset.set_output_keys(
         datasets,
-        ["id", "sig", "wrd", "tokens_bos", "tokens_eos", "tokens"],
+        ["id", "sig", "wrd", "tokens_bos", "tokens_eos", "tokens", "prompt_len"],
     )
 
     # 5. If Dynamic Batching is used, we instantiate the needed samplers.
@@ -353,7 +395,7 @@ if __name__ == "__main__":
         run_opts=run_opts,
         checkpointer=hparams["checkpointer"],
     )
-
+    asr_brain.tokenizer = tokenizer
     # adding objects to trainer:
     train_dataloader_opts = hparams["train_dataloader_opts"]
     valid_dataloader_opts = hparams["valid_dataloader_opts"]
@@ -380,7 +422,6 @@ if __name__ == "__main__":
 
         if collate_fn is not None:
             valid_dataloader_opts["collate_fn"] = collate_fn
-
     # Training
     asr_brain.fit(
         asr_brain.hparams.epoch_counter,
@@ -399,6 +440,6 @@ if __name__ == "__main__":
         )
         asr_brain.evaluate(
             test_datasets[k],
-            max_key="ACC",
+            min_key="WER",
             test_loader_kwargs=hparams["test_dataloader_opts"],
         )
