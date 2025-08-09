@@ -6,7 +6,7 @@ seed: 3407
 __set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
 experiment_name: llama_3.2_1b_ASR
 output_folder: !ref results/<experiment_name>/<seed>
-output_bleu_folder: !ref <output_folder>/
+output_wer_folder: !ref <output_folder>/wer_results
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
@@ -17,7 +17,7 @@ data_folder: !PLACEHOLDER # e.g., /path/to/LibriSpeech
 # then data_folder_rirs should be /localscratch/xxx_corpus
 # otherwise the dataset will automatically be downloaded
 # data_folder_rirs: !ref <data_folder>
-train_splits: ["train-clean-100", "train-clean-360", "train-other-500"]
+train_splits: ["dev-clean"] # , "train-clean-360", "train-other-500"
 dev_splits: ["dev-clean"]
 test_splits: ["test-clean", "test-other"]
 skip_prep: False
@@ -48,12 +48,14 @@ loss_reduction: 'batchmean'
 sorting: random
 num_workers: 4
 precision: bf16 # bf16, fp16 or fp32
+eval_precision: bf16
+max_grad_norm: 1.0 
 
 # stages related parameters
 lr_adam: 0.0005
 lr_wav2vec: 0.00002
 
-weight_decay: 0.001
+weight_decay: 0.0
 warmup_steps: 5000
 augment_warmup: 7500
 
@@ -67,7 +69,7 @@ downsampling_factor: 5 # Used to downsample frames before llm projection.
 
 # This setup works well for A100 80GB GPU, adapts it to your needs.
 # Or turn it off (but training speed will decrease)
-dynamic_batching: True
+dynamic_batching: False
 max_batch_length_train: 250
 max_batch_length_val: 100 # we reduce it as the beam is much wider (VRAM)
 num_bucket: 200
@@ -151,11 +153,12 @@ normalize: !new:speechbrain.processing.features.InputNormalization
     norm_type: sentence
 
 #wav2vec model
-ssl: !new:speechbrain.lobes.models.huggingface_transformers.wav2vec2.Wav2Vec2
+ssl: !new:speechbrain.integrations.huggingface.wav2vec2.Wav2Vec2
     source: !ref <ssl_hub>
     output_norm: True
     freeze: !ref <ssl_frozen>
     save_path: !ref <ssl_folder>
+    device_map: 'cuda'
     # normalize_wav: False
 
 proj: !new:speechbrain.lobes.models.VanillaNN.VanillaNN
@@ -167,10 +170,9 @@ proj: !new:speechbrain.lobes.models.VanillaNN.VanillaNN
 backbone_llm: !new:speechbrain.integrations.huggingface.llama.LLaMA
     source: !ref <llm_path>
     save_path: !ref <save_folder>
-    freeze: False
+    freeze: True
     attn_implementation: flash_attention_2
     device: cuda
-
 
 # Simply uncomment if you want to use LoRA adaptation.
 llm: !new:speechbrain.nnet.adapters.AdaptedModel
@@ -199,11 +201,6 @@ Adam_wav2vec2: !name:torch.optim.AdamW
     lr: !ref <lr_wav2vec>
     weight_decay: !ref <weight_decay>
 
-log_softmax: !new:torch.nn.LogSoftmax
-    dim: -1
-
-nll_loss: !name:speechbrain.nnet.losses.nll_loss
-    reduction: !ref <loss_reduction>
 
 noam_annealing: !new:speechbrain.nnet.schedulers.NoamScheduler
     lr_initial: !ref <lr_adam>
@@ -232,5 +229,6 @@ epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
     save_file: !ref <train_log>
 
-acc_computer: !name:speechbrain.utils.Accuracy.AccuracyStats
-bleu_computer: !name:speechbrain.utils.bleu.BLEUStats
+cer_computer: !name:speechbrain.utils.metric_stats.ErrorRateStats
+    split_tokens: True
+error_rate_computer: !name:speechbrain.utils.metric_stats.ErrorRateStats
