@@ -17,7 +17,7 @@ data_folder: !PLACEHOLDER # e.g., /path/to/LibriSpeech
 # then data_folder_rirs should be /localscratch/xxx_corpus
 # otherwise the dataset will automatically be downloaded
 # data_folder_rirs: !ref <data_folder>
-train_splits: ["dev-clean"] # , "train-clean-360", "train-other-500"
+train_splits: ["train-clean-100", "train-clean-360", "train-other-500"] # , "train-clean-360", "train-other-500"
 dev_splits: ["dev-clean"]
 test_splits: ["test-clean", "test-other"]
 skip_prep: False
@@ -40,10 +40,10 @@ ssl_frozen: True
 llm_path: /scratch/adelmou/models/meta-llama/Llama-3.2-1B
 llm_emb_size: 2048
 
-number_of_epochs: 15
-optimizer_step_limit: 80000
+number_of_epochs: 20
 batch_size: 32 # Only used if dynamic batching is off.
-grad_accumulation_factor: 1
+# 400s * 10 => 1h / opt step
+grad_accumulation_factor: 5
 loss_reduction: 'batchmean'
 sorting: random
 num_workers: 4
@@ -52,7 +52,8 @@ eval_precision: bf16
 max_grad_norm: 1.0 
 
 # stages related parameters
-lr_adam: 0.0005
+initial_lr: 0.0005
+final_lr: 0.00001
 lr_wav2vec: 0.00002
 
 weight_decay: 0.0
@@ -69,8 +70,8 @@ downsampling_factor: 5 # Used to downsample frames before llm projection.
 
 # This setup works well for A100 80GB GPU, adapts it to your needs.
 # Or turn it off (but training speed will decrease)
-dynamic_batching: False
-max_batch_length_train: 250
+dynamic_batching: True
+max_batch_length_train: 400
 max_batch_length_val: 100 # we reduce it as the beam is much wider (VRAM)
 num_bucket: 200
 shuffle: True # if true re-creates batches at each epoch shuffling examples.
@@ -129,7 +130,7 @@ test_dataloader_opts:
 
 
 ####################### Model Parameters ###########################
-activation: !name:torch.nn.GELU
+activation: !name:speechbrain.nnet.activations.Swish
 asr_output_neurons: 1024
 lora_rank: 16
 
@@ -137,6 +138,7 @@ lora_rank: 16
 dnn_layers: 2
 dnn_neurons: !ref <llm_emb_size>
 downsampling_output_dim: 5120
+avg_checkpoints: 3
 
 # Outputs
 blank_index: 0
@@ -159,13 +161,20 @@ ssl: !new:speechbrain.integrations.huggingface.wav2vec2.Wav2Vec2
     freeze: !ref <ssl_frozen>
     save_path: !ref <ssl_folder>
     device_map: 'cuda'
+    # attn_implementation: sdpa
     # normalize_wav: False
 
-proj: !new:speechbrain.lobes.models.VanillaNN.VanillaNN
-    input_shape: [null, null, 5120] # 5 x 1024
+linear_projection: !new:torch.nn.Linear
+    in_features: 5120
+    out_features: !ref <llm_emb_size>
+    bias: False
+
+gated_nn: !new:speechbrain.lobes.models.GatedNN.GatedNN
+    input_shape: [null, null, !ref <llm_emb_size>] # 5 x 1024
     activation: !ref <activation>
-    dnn_blocks: !ref <dnn_layers>
-    dnn_neurons: !ref <dnn_neurons>
+    blocks: !ref <dnn_layers>
+    neurons: !ref <dnn_neurons>
+
 
 backbone_llm: !new:speechbrain.integrations.huggingface.llama.LLaMA
     source: !ref <llm_path>
@@ -173,6 +182,10 @@ backbone_llm: !new:speechbrain.integrations.huggingface.llama.LLaMA
     freeze: True
     attn_implementation: flash_attention_2
     device: cuda
+    torch_dtype: !name:torch.bfloat16
+    # add_tokens:
+    #     audio_bos_token: "<|start_of_audio|>"
+    #     audio_eos_token: "<|end_of_audio|>"
 
 # Simply uncomment if you want to use LoRA adaptation.
 llm: !new:speechbrain.nnet.adapters.AdaptedModel
@@ -189,12 +202,13 @@ modules:
     ssl: !ref <ssl>
     feat_downsampler: !ref <feat_downsampler>
     llm: !ref <llm>
-    proj: !ref <proj>
+    gated_nn: !ref <gated_nn>
+    linear_projection: !ref <linear_projection>
     normalize: !ref <normalize>
 
 # We define two optimizers as we have two stages (training + finetuning)
 Adam: !name:torch.optim.AdamW
-    lr: !ref <lr_adam>
+    lr: !ref <initial_lr>
     weight_decay: !ref <weight_decay>
 
 Adam_wav2vec2: !name:torch.optim.AdamW
@@ -202,9 +216,10 @@ Adam_wav2vec2: !name:torch.optim.AdamW
     weight_decay: !ref <weight_decay>
 
 
-noam_annealing: !new:speechbrain.nnet.schedulers.NoamScheduler
-    lr_initial: !ref <lr_adam>
-    n_warmup_steps: !ref <warmup_steps>
+scheduler: !new:speechbrain.nnet.schedulers.LinearScheduler
+    initial_value: !ref <initial_lr>
+    final_value: !ref <final_lr>
+    epoch_count: !ref <number_of_epochs>
 
 lr_annealing_wav2vec: !new:speechbrain.nnet.schedulers.NewBobScheduler
     initial_value: !ref <lr_wav2vec>
@@ -216,8 +231,9 @@ lr_annealing_wav2vec: !new:speechbrain.nnet.schedulers.NewBobScheduler
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     checkpoints_dir: !ref <save_folder>
     recoverables:
-        proj: !ref <proj>
-        noam_scheduler: !ref <noam_annealing>
+        gated_nn: !ref <gated_nn>
+        linear_projection: !ref <linear_projection>
+        scheduler: !ref <scheduler>
         lr_annealing_wav2vec: !ref <lr_annealing_wav2vec>
         counter: !ref <epoch_counter>
         ssl: !ref <ssl>
