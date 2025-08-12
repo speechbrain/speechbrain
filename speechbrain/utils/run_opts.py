@@ -316,6 +316,7 @@ class RunOptions:
                 kwargs["action"] = "store_true"
             elif default is not None:
                 kwargs["type"] = type(default)
+                kwargs["default"] = default
 
             # Any options with "precision" in the name can only take these values
             if "precision" in option:
