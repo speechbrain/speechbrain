@@ -33,11 +33,8 @@ class SGMSEBrain(sb.Brain):
         """
         super().on_fit_start()
 
-        log_dir = os.path.join(
-            self.hparams.tensorboard_logs, self.hparams.run_name
-        )
-        os.makedirs(log_dir, exist_ok=True)
-        self.writer = SummaryWriter(log_dir=log_dir)
+
+        self.writer = SummaryWriter(log_dir=self.hparams.save_dir)
 
         ema = self.modules["score_model"].ema
         self.checkpointer.add_recoverable(
