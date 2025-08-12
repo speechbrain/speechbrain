@@ -1,12 +1,11 @@
-output_folder: /export/home/1rochdi/speechbrain/results/Voicebank/enhance/SGMSE    # Main directory to store experiment results
+output_folder: results    # Main directory to store experiment results
 run_name: "RUN_NAME" # Will be updated with a unique name at runtime
 
 save_dir: !ref <output_folder>/<run_name>/checkpoints                    # Directory to save checkpoints
 enhanced_dir: !ref <output_folder>/<run_name>/enhanced_training          # Directory to store waveforms at validation during training
-inference_dir: !ref <output_folder>/<run_name>/enhanced_inference        # Directory to store waveforms at inference
 tensorboard_logs: !ref <output_folder>/tensorboard_logs/                 # Directory for TensorBoard logs
 
-data_dir: /data/datasets/noisy-vctk-16k         # Root dir for the dataset
+data_dir: !PLACEHOLDER        # Root dir for the dataset
 train_annotation: !ref <data_dir>/train.json    # JSON file listing training samples
 valid_annotation: !ref <data_dir>/valid.json    # JSON file listing validation samples
 test_annotation: !ref <data_dir>/test.json     # JSON file listing test samples
