@@ -17,6 +17,21 @@ This will:
 * Create a `run_name`, unique to each run.
 * Store checkpoints, logs, and validation / testing samples in `output_dir/run_name` (specified within the `hparams.yaml` file).
 
+### Resume Training from a previous run
+
+Point --resume to the existing run directory (the folder that contains hyperparams.yaml and checkpoints):
+
+```bash
+python recipes/Voicebank/enhance/SGMSE/train.py --resume path/to/results/run_YYYY-MM-DD_HH-MM-SS
+```
+
+When --resume is provided:
+
+*	The script loads hyperparams.yaml from the given run directory and uses that saved configuration.
+*	Training continues from the latest checkpoint in that directory (if present), keeping the same run_name.
+*	CLI overrides still work, but a new run_name is not generated.
+
+
 ### Inference (Speech Enhancement)
 You can enhance single audio files or entire directories using a trained model:
 
