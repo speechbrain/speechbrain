@@ -58,9 +58,7 @@ def main():
         hparams = load_hyperpyyaml(f)
 
     target_sr = hparams["sample_rate"]
-    inference_dir = Path(
-        hparams.get("inference_dir", run_dir / "enhanced_inference")
-    )
+    inference_dir = Path(run_dir / "enhanced_inference")
     inference_dir.mkdir(parents=True, exist_ok=True)
 
     modules = hparams["modules"]
