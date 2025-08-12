@@ -3,7 +3,6 @@ run_name: "RUN_NAME" # Will be updated with a unique name at runtime
 
 save_dir: !ref <output_folder>/<run_name>/checkpoints                    # Directory to save checkpoints
 enhanced_dir: !ref <output_folder>/<run_name>/enhanced_training          # Directory to store waveforms at validation during training
-tensorboard_logs: !ref <output_folder>/tensorboard_logs/                 # Directory for TensorBoard logs
 
 data_dir: !PLACEHOLDER        # Root dir for the dataset
 train_annotation: !ref <data_dir>/train.json    # JSON file listing training samples
