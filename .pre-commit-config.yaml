@@ -55,3 +55,13 @@ repos:
     rev: 5.13.2
     hooks:
       - id: isort
+
+  # The pre-commit hook for Pyright works only if the correct environment is
+  # set in pyproject.toml. See
+  # https://github.com/RobertCraigie/pyright-python?tab=readme-ov-file#pre-commit
+  # If you want to do this, uncomment the following:
+  # - repo: https://github.com/RobertCraigie/pyright-python
+  #   # Make sure "rev" matches the one in .github/workflows/pythonapp.yml
+  #   rev: v1.1.398
+  #   hooks:
+  #     - id: pyright
