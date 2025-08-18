@@ -962,7 +962,8 @@ class Dual_Path_Model(nn.Module):
         Global positional encodings.
     max_length : int
         Maximum sequence length.
-
+    activation_type : str
+        Activation function.
     Example
     -------
     >>> intra_block = SBTransformerBlock(1, 64, 8)
@@ -988,6 +989,7 @@ class Dual_Path_Model(nn.Module):
         linear_layer_after_inter_intra=True,
         use_global_pos_enc=False,
         max_length=20000,
+        activation_type='relu'
     ):
         super().__init__()
         self.K = K
@@ -999,6 +1001,7 @@ class Dual_Path_Model(nn.Module):
 
         if self.use_global_pos_enc:
             self.pos_enc = PositionalEncoding(max_length)
+        self.activation_type = activation_type
 
         self.dual_mdl = nn.ModuleList([])
         for i in range(num_layers):
@@ -1020,7 +1023,10 @@ class Dual_Path_Model(nn.Module):
         )
         self.end_conv1x1 = nn.Conv1d(out_channels, in_channels, 1, bias=False)
         self.prelu = nn.PReLU()
-        self.activation = nn.ReLU()
+        if self.activation_type == 'sigmoid':
+            self.activation = nn.Sigmoid()
+        else:    
+            self.activation = nn.ReLU()
         # gated output layer
         self.output = nn.Sequential(
             nn.Conv1d(out_channels, out_channels, 1), nn.Tanh()
@@ -1198,6 +1204,8 @@ class Dual_Path_Model(nn.Module):
             input = input[:, :, :-gap]
 
         return input
+
+
 
 
 class SepformerWrapper(nn.Module):

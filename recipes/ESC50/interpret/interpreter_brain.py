@@ -93,8 +93,15 @@ class InterpreterBrain(sb.core.Brain):
                 raise NotImplementedError
         else:
             if hasattr(self.hparams, "return_reps"):
-                embeddings, hs = self.hparams.embedding_model(X_stft_logpower)
-                hcat = hs
+                if self.hparams.return_reps:
+                    embeddings, hcat = self.hparams.embedding_model(
+                        X_stft_logpower
+                    )
+                else:
+                    embeddings = self.hparams.embedding_model(
+                        X_stft_logpower
+                    ).squeeze(1)
+                    hcat = embeddings
             else:
                 hcat = self.hparams.embedding_model(X_stft_logpower)
                 embeddings = hcat.mean((-1, -2))
@@ -110,30 +117,60 @@ class InterpreterBrain(sb.core.Brain):
     def extra_metrics(self):
         return {}
 
-    def viz_ints(self, X_stft, X_stft_logpower, batch, wavs):
+    def viz_ints(
+        self,
+        wavs,
+        original_spec,
+        interp,
+        interp_spec,
+        mask,
+        mask_decoded,
+        est_mask,
+        saliency_map,
+        batch,
+    ):
         """The helper function to create debugging images"""
-        X_int, _, X_stft_phase, _ = self.interpret_computation_steps(wavs)
+        wavs = wavs[0:1]
+        interp = interp[0:1]
 
-        X_int = torch.expm1(X_int)
+        classid, _ = batch.class_string_encoded
+        label = self.hparams.class_labels[classid[0].item()]
 
-        X_int = X_int[..., None]
-        X_int = X_int.permute(0, 2, 1, 3)
+        plt.figure(figsize=(60, 20), dpi=50)
 
-        X_stft_phase = X_stft_phase[:, : X_int.shape[1], :]
-
-        xhat_tm = self.invert_stft_with_phase(X_int, X_stft_phase)
-
-        plt.figure(figsize=(10, 5), dpi=100)
-
-        plt.subplot(121)
-        plt.imshow(X_stft_logpower[0].squeeze().cpu().t(), origin="lower")
+        plt.subplot(151)
+        plt.imshow(original_spec[0].squeeze().cpu().t(), origin="lower")
         plt.title("input")
         plt.colorbar()
 
-        plt.subplot(122)
-        plt.imshow(X_int[0].squeeze().cpu().t(), origin="lower")
+        plt.subplot(152)
+        plt.imshow(interp_spec[0].squeeze().cpu().t(), origin="lower")
         plt.colorbar()
         plt.title("interpretation")
+
+        plt.subplot(153)
+        plt.imshow(mask_decoded[0].squeeze().cpu().t(), origin="lower")
+        plt.colorbar()
+        plt.title("mask decoded")
+
+        plt.subplot(154)
+        plt.imshow(est_mask[0].cpu(), aspect="auto", origin="lower")
+        plt.colorbar()
+        plt.title("mask estimated")
+
+        plt.subplot(155)
+        saliency_map = saliency_map[0].squeeze().cpu().t()
+        saliency_map_normalized = (saliency_map - saliency_map.min()) / (
+            saliency_map.max() - saliency_map.min()
+        )
+        saliency_map_flipped_horizontally = torch.flip(
+            saliency_map_normalized, [0]
+        )  # TODO: CHECK
+        plt.imshow(
+            saliency_map_flipped_horizontally, origin="lower", vmin=0, vmax=1
+        )
+        plt.colorbar()
+        plt.title("saliency map")
 
         out_folder = os.path.join(
             self.hparams.output_folder,
@@ -152,7 +189,7 @@ class InterpreterBrain(sb.core.Brain):
 
         torchaudio.save(
             os.path.join(out_folder, "interpretation.wav"),
-            xhat_tm.data.cpu(),
+            interp.data.cpu(),
             self.hparams.sample_rate,
         )
 
@@ -161,6 +198,15 @@ class InterpreterBrain(sb.core.Brain):
             wavs.data.cpu(),
             self.hparams.sample_rate,
         )
+
+        torchaudio.save(
+            os.path.join(out_folder, "mask.wav"),
+            mask.data.cpu(),
+            self.hparams.sample_rate,
+        )
+
+        with open(os.path.join(out_folder, "label.txt"), "w") as f:
+            f.write(label)
 
     def compute_forward(self, batch, stage):
         """Interpreter training forward step."""
@@ -258,7 +304,7 @@ class InterpreterBrain(sb.core.Brain):
             )
             device = X.device
             attr = (
-                self.interpret_computation_steps(wavs)[1]
+                self.interpret_computation_steps(wavs)[0]
                 .transpose(1, 2)
                 .unsqueeze(1)
                 .clone()
@@ -293,7 +339,7 @@ class InterpreterBrain(sb.core.Brain):
             )
             device = X.device
             attr = (
-                self.interpret_computation_steps(wavs)[1]
+                self.interpret_computation_steps(wavs)[0]
                 .transpose(1, 2)
                 .unsqueeze(1)
                 .clone()
@@ -387,10 +433,10 @@ class InterpreterBrain(sb.core.Brain):
                 "AI": torch.Tensor(self.AI.scores).mean(),
                 "AD": torch.Tensor(self.AD.scores).mean(),
                 "AG": torch.Tensor(self.AG.scores).mean(),
-                "faithfulness_mean": torch.Tensor(
-                    self.faithfulness.scores
-                ).mean(),
             }
+            tt = torch.Tensor(self.faithfulness.scores).mean()
+            if not tt.isnan():
+                valid_stats.update({"faithfulness_mean": tt})
             valid_stats.update(extra_m)
             valid_stats.update(quantus_metrics)
 
@@ -403,7 +449,7 @@ class InterpreterBrain(sb.core.Brain):
 
             # Save the current checkpoint and delete previous checkpoints
             self.checkpointer.save_and_keep_only(
-                meta=valid_stats, max_keys=["faithfulnesstop-3_fid"]
+                meta=valid_stats, min_keys=["loss"]
             )
 
         if stage == sb.Stage.TEST:
