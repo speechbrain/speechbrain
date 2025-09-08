@@ -802,10 +802,7 @@ class ConformerEncoder(nn.Module):
             The attention values.
         """
 
-        if (
-            self.attention_type == "RelPosMHAXL"
-            or self.attention_type == "RoPEMHA"
-        ):
+        if self.attention_type == "RelPosMHAXL":
             if pos_embs is None:
                 raise ValueError(
                     f"The chosen attention type for the Conformer is {self.attention_type}. For this attention type, the positional embeddings are mandatory"
