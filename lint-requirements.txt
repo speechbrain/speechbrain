@@ -1,4 +1,4 @@
 codespell>=2.3.0
 pytest==7.4.0
-ruff>=0.3.0
+ruff==v0.12.4
 yamllint==1.35.1
