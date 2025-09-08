@@ -33,7 +33,6 @@ class SGMSEBrain(sb.Brain):
         """
         super().on_fit_start()
 
-
         self.writer = SummaryWriter(log_dir=self.hparams.save_dir)
 
         ema = self.modules["score_model"].ema
