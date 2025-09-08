@@ -35,7 +35,7 @@ Homepage = "https://speechbrain.github.io/"
 
 [project.optional-dependencies]
 dev = [
-    "ruff>=0.3.0",
+    "ruff==0.12.4",
     "pytest==7.4.0",
     "yamllint==1.35.1",
     "pre-commit>=2.3.0",
