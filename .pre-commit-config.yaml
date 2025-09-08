@@ -14,7 +14,7 @@ repos:
         args: [--maxkb=1024]
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.3.0
+    rev: v0.12.4
     hooks:
       - id: ruff
         types: [python]
