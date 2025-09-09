@@ -1,6 +1,15 @@
 # VoiceBank Speech Enhancement with SGMSE
 This recipe implements a speech enhancement system based on the SGMSE architecture using the VoiceBank dataset (based on the paper: [https://arxiv.org/abs/2208.05830](https://arxiv.org/abs/2208.05830)).
 
+## Results
+
+Experiment Date | PESQ | SI-SDR | STOI
+-|-|-|-
+2025-07-24 | 2.78 | 17.8 | 95.7
+
+You can find the full experiment folder (i.e., checkpoints, logs, etc) here:
+https://www.dropbox.com/scl/fo/bi8sln2de6ep8nrv38jt5/ACWQAOAIsYSMyjhcu2ZSavc?rlkey=xtqlon9xjcy43ghncnlbtruii&st=sql8s5r8&dl=0
+
 ## How to Run
 ### Training
 
