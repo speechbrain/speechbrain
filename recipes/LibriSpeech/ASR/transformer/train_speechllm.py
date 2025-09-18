@@ -55,7 +55,11 @@ class ASR(sb.core.Brain):
         # series of gated nn blocks preserving the shape of the input
         projected_audio_feats = self.modules.gated_nn(projected_audio_feats)
         txt_embds = self.txt_embedding(tokens_bos)
-        multimodal_embds = torch.cat([projected_audio_feats, txt_embds], dim=1)
+        multimodal_embds = torch.cat([
+            txt_embds[:, 0].unsqueeze(1), # B, D -> B, 1, D
+            projected_audio_feats, 
+            txt_embds[:, 1:]
+        ], dim=1)
         # attention_mask should be all the true audio features + all the true text features
         attention_mask = get_multimodal_attention_mask(
             projected_audio_feats, wav_lens, txt_embds, tokens_bos_lens, self.device
@@ -65,15 +69,10 @@ class ASR(sb.core.Brain):
             attention_mask=attention_mask
         ).logits
 
-        if hasattr(self.modules.llm, "module"):
-            gen_func = self.modules.llm.module.model.generate
-        else:
-            gen_func = self.modules.llm.model.generate
-
         hyps = None        
         if stage != sb.Stage.TRAIN:
             audio_and_prompt_len = projected_audio_feats.shape[1] + prompt_len[0]
-            hyps = gen_func(
+            hyps = self.gen_func(
                 inputs_embeds=multimodal_embds[
                     :, :audio_and_prompt_len
                 ],  # give model audio features and prompt for inference
@@ -128,32 +127,32 @@ class ASR(sb.core.Brain):
             repetition_penalty=1.0 # no repetition penalty
         )
 
-        if not hasattr(self, "txt_embedding"):
-            # we save the txt embedding for easy access
-            self.txt_embedding = (
-                self.modules.llm.model.get_input_embeddings()
-                if not hasattr(self.modules.llm, "module")
-                else self.modules.llm.module.model.get_input_embeddings()
-            )
+        # if not hasattr(self, "txt_embedding"):
+        #     # we save the txt embedding for easy access
+        #     self.txt_embedding = (
+        #         self.modules.llm.model.get_input_embeddings()
+        #         if not hasattr(self.modules.llm, "module")
+        #         else self.modules.llm.module.model.get_input_embeddings()
+        #     )
 
         if stage != sb.Stage.TRAIN:
             self.cer_metric = self.hparams.cer_computer()
             self.wer_metric = self.hparams.error_rate_computer()
 
-    def on_evaluate_start(self, max_key=None, min_key=None):
-        """perform checkpoint average if needed"""
-        super().on_evaluate_start()
+    # def on_evaluate_start(self, max_key=None, min_key=None):
+    #     """perform checkpoint average if needed"""
+    #     super().on_evaluate_start()
 
-        ckpts = self.checkpointer.find_checkpoints(
-            max_key=max_key,
-            min_key=min_key,
-        )
-        ckpt = sb.utils.checkpoints.average_checkpoints(
-            ckpts, recoverable_name="model"
-        )
+    #     ckpts = self.checkpointer.find_checkpoints(
+    #         max_key=max_key,
+    #         min_key=min_key,
+    #     )
+    #     ckpt = sb.utils.checkpoints.average_checkpoints(
+    #         ckpts, recoverable_name="model"
+    #     )
 
-        self.hparams.model.load_state_dict(ckpt, strict=True)
-        self.hparams.model.eval()
+    #     self.hparams.model.load_state_dict(ckpt, strict=True)
+    #     self.hparams.model.eval()
 
     def on_stage_end(self, stage, stage_loss, epoch):
         """Gets called at the end of a epoch."""
@@ -269,12 +268,18 @@ def dataio_prepare(hparams, tokenizer):
 
     sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline)
 
+    # todo: bos, eos, pad should be set by the user! they are hard to retrieve automatically
     bos_index = tokenizer.bos_token_id
+    if bos_index is None:
+        bos_index = 128000
     eos_index = tokenizer.eos_token_id
     pad_index = tokenizer.pad_token_id
+    start_of_audio_index = tokenizer.convert_tokens_to_ids("<|start_of_audio|>")
+    end_of_audio_index = tokenizer.convert_tokens_to_ids("<|end_of_audio|>")
     prompt = "Transcribe speech to text."
-    print(bos_index, eos_index, pad_index, prompt)
-
+    print(bos_index, eos_index, pad_index, start_of_audio_index, end_of_audio_index, prompt)
+    # exit()
+    # print(tokenizer.additional_special_tokens)
     prompt_ids = tokenizer(
         prompt, return_tensors="pt", add_special_tokens=False
     ).input_ids.view(-1).tolist()
@@ -289,13 +294,13 @@ def dataio_prepare(hparams, tokenizer):
         yield wrd
         tokens_list = tokenizer(wrd, add_special_tokens=False).input_ids
         yield tokens_list
-        tokens_bos = torch.LongTensor(prompt_ids  + [bos_index] + tokens_list )
+        tokens_bos = torch.LongTensor([start_of_audio_index] + [end_of_audio_index] + prompt_ids  + [bos_index] + tokens_list )
         yield tokens_bos
         tokens_eos = torch.LongTensor(tokens_list + [eos_index])
         yield tokens_eos
         tokens = torch.LongTensor(tokens_list)
         yield tokens
-        prompt_len = len(prompt_ids  + [bos_index])
+        prompt_len = len([start_of_audio_index] + [end_of_audio_index] + prompt_ids  + [bos_index])
         yield prompt_len
 
     sb.dataio.dataset.add_dynamic_item(datasets, text_pipeline)
@@ -392,6 +397,9 @@ if __name__ == "__main__":
     )
     # asr_brain.modules.llm = torch.compile(asr_brain.modules.llm)
     asr_brain.tokenizer = tokenizer
+    # gen_func = self.modules.llm.module.model.generate
+    asr_brain.gen_func = asr_brain.raw_modules.llm.model.generate
+    asr_brain.txt_embedding = asr_brain.raw_modules.llm.model.get_input_embeddings()
     # adding objects to trainer:
     train_dataloader_opts = hparams["train_dataloader_opts"]
     valid_dataloader_opts = hparams["valid_dataloader_opts"]

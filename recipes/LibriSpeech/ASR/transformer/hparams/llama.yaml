@@ -136,7 +136,7 @@ lora_rank: 16
 
 # Frames - LLM projector params
 dnn_layers: 2
-dnn_neurons: !ref <llm_emb_size>
+dnn_neurons: !ref <llm_emb_size> // 2
 downsampling_output_dim: 5120
 avg_checkpoints: 3
 
@@ -175,7 +175,7 @@ gated_nn: !new:speechbrain.lobes.models.GatedNN.GatedNN
     blocks: !ref <dnn_layers>
     neurons: !ref <dnn_neurons>
 
-
+output_hidden_states: False
 backbone_llm: !new:speechbrain.integrations.huggingface.llama.LLaMA
     source: !ref <llm_path>
     save_path: !ref <save_folder>
@@ -183,9 +183,10 @@ backbone_llm: !new:speechbrain.integrations.huggingface.llama.LLaMA
     attn_implementation: flash_attention_2
     device: cuda
     torch_dtype: !name:torch.bfloat16
-    # add_tokens:
-    #     audio_bos_token: "<|start_of_audio|>"
-    #     audio_eos_token: "<|end_of_audio|>"
+    additional_special_tokens:
+        - "<|start_of_audio|>"
+        - "<|end_of_audio|>"
+    output_hidden_states: !ref <output_hidden_states>
 
 # Simply uncomment if you want to use LoRA adaptation.
 llm: !new:speechbrain.nnet.adapters.AdaptedModel
@@ -205,6 +206,9 @@ modules:
     gated_nn: !ref <gated_nn>
     linear_projection: !ref <linear_projection>
     normalize: !ref <normalize>
+
+model: !new:torch.nn.ModuleList
+   - [!ref <ssl>, !ref <llm>, !ref <gated_nn>, !ref <linear_projection>]
 
 # We define two optimizers as we have two stages (training + finetuning)
 Adam: !name:torch.optim.AdamW
@@ -231,14 +235,11 @@ lr_annealing_wav2vec: !new:speechbrain.nnet.schedulers.NewBobScheduler
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     checkpoints_dir: !ref <save_folder>
     recoverables:
-        gated_nn: !ref <gated_nn>
-        linear_projection: !ref <linear_projection>
-        scheduler: !ref <scheduler>
+        model: !ref <model>
         lr_annealing_wav2vec: !ref <lr_annealing_wav2vec>
         counter: !ref <epoch_counter>
-        ssl: !ref <ssl>
-        llm: !ref <llm>
-
+        normalize: !ref <normalize>
+        
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
 

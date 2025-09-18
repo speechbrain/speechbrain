@@ -134,7 +134,6 @@ class PaddedBatch:
         self.__keys = list(examples[0].keys())
         self.__padded_keys = []
         self.__device_prep_keys = []
-        
         # Initialize per_key_padding_kwargs if None
         if per_key_padding_kwargs is None:
             per_key_padding_kwargs = {}
@@ -155,7 +154,6 @@ class PaddedBatch:
                     key_padding_kwargs = per_key_padding_kwargs[key]
                 else:
                     key_padding_kwargs = padding_kwargs
-                
                 padded = PaddedData(*padding_func(values, **key_padding_kwargs))
                 setattr(self, key, padded)
             else:
@@ -168,7 +166,6 @@ class PaddedBatch:
                 device_prep_keys is None and isinstance(values[0], torch.Tensor)
             ):
                 self.__device_prep_keys.append(key)
-
     def __len__(self):
         return self.__length
 

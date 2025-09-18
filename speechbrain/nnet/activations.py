@@ -169,3 +169,34 @@ class Swish(torch.nn.Module):
             x = x * self.beta
 
         return self.silu(x)
+
+class GeLU(torch.nn.Module):
+    """Gaussian Error Linear Unit activation.
+
+    Implements the GeLU activation from:
+    Hendrycks & Gimpel (2016) - https://arxiv.org/abs/1606.08415
+    With the exact formulation from:
+    Hendrycks & Gimpel (2016) and later approximate form in BERT.
+
+    Given input x:
+    GeLU(x) = 0.5 * x * (1 + erf(x / sqrt(2)))
+
+    Arguments
+    ---------
+    approximate : str
+        If 'none', uses the exact formulation (slower but precise).
+        If 'tanh', uses the tanh-based approximation from the BERT paper
+        (faster, widely used in transformers).
+
+    Example
+    -------
+    >>> x = torch.randn((8, 40, 120))
+    >>> act = GeLU(approximate='tanh')
+    >>> y = act(x)
+    """
+    def __init__(self, approximate: str = 'tanh'):
+        super().__init__()
+        self.approximate = approximate
+
+    def forward(self, x):
+        return F.gelu(x, approximate=self.approximate)

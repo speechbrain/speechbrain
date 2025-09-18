@@ -4,11 +4,12 @@ Authors
  * Titouan Parcollet 2025
  * Shucong Zhang 2025
  * Pooneh Mousavi 2023
+ * Adel Moumen 2025
 """
 
 import torch
 from transformers import BitsAndBytesConfig
-
+from typing import List
 from speechbrain.lobes.models.huggingface_transformers.huggingface import (
     HFTransformersInterface,
 )
@@ -38,7 +39,7 @@ class LLaMA(HFTransformersInterface):
     freeze : bool (default: false)
         If True, the model is frozen. If False, the model will be trained
         alongside with the rest of the pipeline.
-    pad_token : str (default: "PAD")
+    pad_token : str (default: "[PAD]")
         String representation of the padding token. This may change from one model to another.
     torch_dtype : torch.dtype (default: torch.float16)
         If no bnb_config is given, this parameter defines the loading type of the parameters of the model. This is useful to reduce memory footprint, but it does not change the compute dtype. For this just refer to mixed precision training in SpeechBrain.
@@ -63,12 +64,20 @@ class LLaMA(HFTransformersInterface):
         freeze: bool = False,
         pad_token: str = "[PAD]",
         torch_dtype: torch.dtype = torch.float16,
+        additional_special_tokens: List[str] = None,
         **kwargs,
     ) -> None:
         self.pad_token = pad_token
         self.source = source
         self.save_path = save_path
         self.bnb_config = bnb_config
+
+        # Capture config-only overrides to avoid passing them to from_pretrained
+        self._config_overrides = {}
+        if "output_hidden_states" in kwargs:
+            self._config_overrides["output_hidden_states"] = kwargs.pop(
+                "output_hidden_states"
+            )
 
         if self.bnb_config is not None:
             logger.info(
@@ -87,11 +96,27 @@ class LLaMA(HFTransformersInterface):
 
         self.load_tokenizer(source=source, pad_token=self.pad_token)
 
+        if additional_special_tokens is not None:
+            self.tokenizer.add_special_tokens({
+                "additional_special_tokens": additional_special_tokens
+            })
+
         # We resize the token embeddings size to a factor of 8 to maximise
         # the use of tensorcores.
         self.model.resize_token_embeddings(
             len(self.tokenizer), pad_to_multiple_of=8
         )
+
+    def override_config(self, config):
+        # Apply user-specified config overrides captured from kwargs
+        for key, value in getattr(self, "_config_overrides", {}).items():
+            if hasattr(config, key):
+                setattr(config, key, value)
+            else:
+                logger.warning(
+                    f"Config has no attribute '{key}', cannot apply override."
+                )
+        return config
 
     def forward(self, **kwargs):
         """This function wraps the HuggingFace forward function. See the HuggingFace documentation of your Llama model of interest to know which
