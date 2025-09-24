@@ -8,6 +8,7 @@ Authors:
 """
 
 import os
+import pathlib
 
 import torchaudio
 
@@ -180,17 +181,17 @@ def _handle_long_waveform(
         The index of the audio file in the list.
     """
     os.remove(filename)
+    filename = pathlib.Path(filename)
     for j in range(int(duration / max_length)):
         start = int(max_length * j * rate)
         stop = int(min(max_length * (j + 1), duration) * rate)
-        ext = filename.split(".")[1]
-        new_filename = filename.replace("." + ext, "_" + str(j) + "." + ext)
+        new_filename = filename.with_stem(filename.stem + f"_{j}")
 
         torchaudio.save(new_filename, signal[:, start:stop], rate)
         csv_row = (
             f"{ID}_{index}_{j}",
             str((stop - start) / rate),
-            new_filename,
+            str(new_filename),
             ext,
             "\n",
         )
