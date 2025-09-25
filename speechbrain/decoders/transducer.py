@@ -215,44 +215,50 @@ class TransducerBeamSearcher(torch.nn.Module):
         else:
             out_PN, hidden = hidden_state
 
+        max_iterations = 5
         # For each time step
         for t_step in range(tn_output.size(1)):
-            # do unsqueeze over since tjoint must be have a 4 dim [B,T,U,Hidden]
-            log_probs = self._joint_forward_step(
-                tn_output[:, t_step, :].unsqueeze(1).unsqueeze(1),
-                out_PN.unsqueeze(1),
-            )
-            # Sort outputs at time
-            logp_targets, positions = torch.max(
-                log_probs.squeeze(1).squeeze(1), dim=1
-            )
-            # Batch hidden update
-            have_update_hyp = []
-            for i in range(positions.size(0)):
-                # Update hiddens only if
-                # 1- current prediction is non blank
-                if positions[i].item() != self.blank_id:
-                    hyp["prediction"][i].append(positions[i].item())
-                    hyp["logp_scores"][i] += logp_targets[i]
-                    input_PN[i][0] = positions[i]
-                    have_update_hyp.append(i)
-            if len(have_update_hyp) > 0:
-                # Select sentence to update
-                # And do a forward steps + generated hidden
-                (
-                    selected_input_PN,
-                    selected_hidden,
-                ) = self._get_sentence_to_update(
-                    have_update_hyp, input_PN, hidden
+            count = 0
+            while count <= max_iterations: #avoid infinite loop
+                # do unsqueeze over since tjoint must be have a 4 dim [B,T,U,Hidden]
+                log_probs = self._joint_forward_step(
+                    tn_output[:, t_step, :].unsqueeze(1).unsqueeze(1),
+                    out_PN.unsqueeze(1),
                 )
-                selected_out_PN, selected_hidden = self._forward_PN(
-                    selected_input_PN, self.decode_network_lst, selected_hidden
+                # Sort outputs at time
+                logp_targets, positions = torch.max(
+                    log_probs.squeeze(1).squeeze(1), dim=1
                 )
-                # update hiddens and out_PN
-                out_PN[have_update_hyp] = selected_out_PN
-                hidden = self._update_hiddens(
-                    have_update_hyp, selected_hidden, hidden
-                )
+                # Batch hidden update
+                have_update_hyp = []
+                for i in range(positions.size(0)):
+                    # Update hiddens only if
+                    # 1- current prediction is non blank
+                    if positions[i].item() != self.blank_id:
+                        hyp["prediction"][i].append(positions[i].item())
+                        hyp["logp_scores"][i] += logp_targets[i]
+                        input_PN[i][0] = positions[i]
+                        have_update_hyp.append(i)
+                if len(have_update_hyp) > 0:
+                    # Select sentence to update
+                    # And do a forward steps + generated hidden
+                    (
+                        selected_input_PN,
+                        selected_hidden,
+                    ) = self._get_sentence_to_update(
+                        have_update_hyp, input_PN, hidden
+                    )
+                    selected_out_PN, selected_hidden = self._forward_PN(
+                        selected_input_PN, self.decode_network_lst, selected_hidden
+                    )
+                    # update hiddens and out_PN
+                    out_PN[have_update_hyp] = selected_out_PN
+                    hidden = self._update_hiddens(
+                        have_update_hyp, selected_hidden, hidden
+                    )
+                else:
+                    break
+                count += 1
 
         ret = (
             hyp["prediction"],
