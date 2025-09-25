@@ -1243,7 +1243,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
             alived_hyps,
         )
 
-    def init_beam_search_data(self, enc_states, wav_len, attention_mask=None):
+    def init_beam_search_data(self, enc_states, wav_len):
         """Initialize the beam search data.
 
         Arguments
@@ -1334,8 +1334,8 @@ class S2SBeamSearcher(S2SBaseSearcher):
 
         alived_hyps = self.init_hypotheses()
 
-        if attention_mask is not None:
-            attention_mask = torch.cat([attention_mask, torch.ones((self.batch_size, 1), device=self.device)], dim=1)
+        # if attention_mask is not None:
+            # attention_mask = torch.cat([attention_mask, torch.ones((self.batch_size, 1), device=self.device)], dim=1)
 
         return (
             alived_hyps,
@@ -1348,7 +1348,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
             prev_attn_peak,
             enc_states,
             enc_lens,
-            attention_mask,
+            # attention_mask,
         )
 
     def _update_hyps_and_scores_if_eos_token(
@@ -1649,8 +1649,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
             prev_attn_peak,
             enc_states,
             enc_lens,
-            attention_mask,
-        ) = self.init_beam_search_data(enc_states, wav_len, attention_mask)
+        ) = self.init_beam_search_data(enc_states, wav_len)
 
         for step in range(self.max_decode_steps):
             # terminate condition
