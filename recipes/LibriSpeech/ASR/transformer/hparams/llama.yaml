@@ -116,9 +116,9 @@ valid_dataloader_opts:
                 value: 0
             tokens_eos:
                 value: -100
-
+test_batch_size: 1
 test_dataloader_opts:
-    batch_size: 8
+    batch_size: !ref <test_batch_size>
     collate_fn: !name:speechbrain.dataio.batch.PaddedBatch
         padding_kwargs: 
             value: !ref <pad_token>
@@ -199,6 +199,23 @@ llm: !new:speechbrain.nnet.adapters.AdaptedModel
 feat_downsampler: !new:speechbrain.lobes.downsampling.ConcatDownsampler
     downsampling_factor: !ref <downsampling_factor>
 
+# valid_search: !new:speechbrain.decoders.seq2seq.S2SHuggingFaceLLMGreedySearcher
+#     llm_model: !ref <llm>
+#     min_decode_ratio: 0.0
+#     max_decode_ratio: 1.0
+#     bos_index: 0
+#     eos_index: 0
+
+
+valid_search: !new:speechbrain.decoders.seq2seq.S2SHuggingFaceLLMBeamSearcher
+    llm_model: !ref <llm>
+    min_decode_ratio: 0.0
+    max_decode_ratio: 1.0
+    bos_index: 0
+    eos_index: 0
+    beam_size: 5
+
+
 modules:
     ssl: !ref <ssl>
     feat_downsampler: !ref <feat_downsampler>
@@ -206,6 +223,7 @@ modules:
     gated_nn: !ref <gated_nn>
     linear_projection: !ref <linear_projection>
     normalize: !ref <normalize>
+    valid_search: !ref <valid_search>
 
 model: !new:torch.nn.ModuleList
    - [!ref <ssl>, !ref <llm>, !ref <gated_nn>, !ref <linear_projection>]
