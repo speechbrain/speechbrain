@@ -102,7 +102,7 @@ class S2SBaseSearcher(torch.nn.Module):
         raise NotImplementedError
         return
 
-    def forward_step(self, inp_tokens, memory, enc_states, enc_lens):
+    def forward_step(self, inp_tokens, memory, enc_states, enc_lens, attention_mask=None):
         """This method should implement one step of
         forwarding operation in the autoregressive model.
 
@@ -177,7 +177,7 @@ class S2SGreedySearcher(S2SBaseSearcher):
     """
 
     @torch.no_grad()
-    def forward(self, enc_states, wav_len):
+    def forward(self, enc_states, wav_len, attention_mask=None):
         """This method performs a greedy search.
 
         Arguments
@@ -187,6 +187,8 @@ class S2SGreedySearcher(S2SBaseSearcher):
             (ex. the encoded speech representation to be attended).
         wav_len : torch.Tensor
             The speechbrain-style relative length.
+        attention_mask : torch.Tensor
+            The attention mask to be used when decoding.
 
         Returns
         -------
@@ -220,8 +222,12 @@ class S2SGreedySearcher(S2SBaseSearcher):
 
         has_ended = enc_states.new_zeros(batch_size).bool()
         for step in range(min_decode_steps, max_decode_steps):
+            if attention_mask is not None:
+                attention_mask = torch.cat([attention_mask, torch.ones(batch_size, 1, device=device, dtype=torch.bool)], dim=1)
+                attention_mask[has_ended] = False
+
             logits, memory, _ = self.forward_step(
-                inp_tokens, memory, enc_states, enc_lens
+                inp_tokens, memory, enc_states, enc_lens, attention_mask
             )
 
             if self.temperature == 0:
@@ -236,7 +242,7 @@ class S2SGreedySearcher(S2SBaseSearcher):
             has_ended = has_ended | (inp_tokens == self.eos_index)
             log_probs[has_ended] = -torch.inf
             inp_tokens[has_ended] = self.eos_index
-
+            
             if has_ended.all() or self._check_end_condition(memory):
                 break
 
@@ -310,7 +316,6 @@ class S2SGreedySearcher(S2SBaseSearcher):
             top_log_probs.unsqueeze(1),
         )
 
-
 class S2STransformerGreedySearcher(S2SGreedySearcher):
     """This class implements the greedy decoding
     for Transformer.
@@ -341,13 +346,58 @@ class S2STransformerGreedySearcher(S2SGreedySearcher):
         """Needed to reset the memory during greedy search."""
         return None
 
-    def forward_step(self, inp_tokens, memory, enc_states, enc_lens):
+    def forward_step(self, inp_tokens, memory, enc_states, enc_lens, attention_mask=None):
         """Performs a step in the implemented greedy searcher."""
         memory = _update_mem(inp_tokens, memory)
         pred, attn = self.model.decode(memory, enc_states, enc_lens)
         logits = self.fc(pred)
         return logits[:, -1, :], memory, attn
 
+class S2SHuggingFaceLLMGreedySearcher(S2SGreedySearcher):
+    """This class implements the greedy decoding
+    for HuggingFace LLM.
+
+    Arguments
+    ---------
+    llm_model : torch.nn.Module
+        A HuggingFace LLM model.
+    temperature : float
+        Temperature to use during decoding.
+    **kwargs
+        Arguments to pass to S2SGreedySearcher
+    """
+
+    def __init__(self, llm_model, temperature=0.6, **kwargs):
+        super().__init__(**kwargs)
+
+        self.llm_model = llm_model
+        self.temperature = temperature
+        self.txt_embedding = llm_model.model.get_input_embeddings()
+
+    def reset_mem(self, batch_size, device):
+        """Needed to reset the memory during greedy search."""
+        return None
+
+    def _update_mem_embeddings(self, inp_tokens, memory):
+        """This method updates the memory during greedy search."""
+        inp_embds = self.txt_embedding(inp_tokens.long())
+        if memory is None: 
+            return inp_embds
+        return torch.cat([memory, inp_embds], dim=1)
+
+
+    def forward_step(self, inp_tokens, memory, enc_states, enc_lens, attention_mask):
+        """Performs a step in the implemented greedy searcher."""
+        memory = self._update_mem_embeddings(inp_tokens.unsqueeze(-1), memory)
+        multimodal_embds = torch.cat([
+            enc_states,
+            memory,
+        ], dim=1)
+        logits = self.llm_model(
+            inputs_embeds=multimodal_embds,
+            attention_mask=attention_mask,
+        ).logits
+        return logits[:, -1, :], memory, None
 
 class S2SWhisperGreedySearcher(S2SGreedySearcher):
     """
@@ -519,7 +569,7 @@ class S2SWhisperGreedySearcher(S2SGreedySearcher):
             self.lang_token = None
         return mem
 
-    def forward_step(self, inp_tokens, memory, enc_states, enc_lens):
+    def forward_step(self, inp_tokens, memory, enc_states, enc_lens, attention_mask=None):
         """Performs a step in the implemented beamsearcher."""
         tokens = _update_mem(inp_tokens, memory)
 
@@ -624,7 +674,7 @@ class S2SRNNGreedySearcher(S2SGreedySearcher):
         c = torch.zeros(batch_size, self.dec.attn_dim, device=device)
         return hs, c
 
-    def forward_step(self, inp_tokens, memory, enc_states, enc_lens):
+    def forward_step(self, inp_tokens, memory, enc_states, enc_lens, attention_mask=None):
         """Performs a step in the implemented beamsearcher."""
         hs, c = memory
         e = self.emb(inp_tokens)
@@ -810,7 +860,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
         )
 
     def _attn_weight_step(
-        self, inp_tokens, memory, enc_states, enc_lens, attn, log_probs
+        self, inp_tokens, memory, enc_states, enc_lens, attn, log_probs, attention_mask=None
     ):
         """This method computes a forward_step if attn_weight is superior to 0.
 
@@ -829,6 +879,8 @@ class S2SBeamSearcher(S2SBaseSearcher):
             The attention weight.
         log_probs : torch.Tensor
             The log-probabilities of the current step output.
+        attention_mask : torch.Tensor
+            The attention mask.
 
         Returns
         -------
@@ -842,7 +894,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
         """
         if self.attn_weight > 0:
             log_probs, memory, attn = self.forward_step(
-                inp_tokens, memory, enc_states, enc_lens
+                inp_tokens, memory, enc_states, enc_lens, attention_mask
             )
             log_probs = self.attn_weight * log_probs
         return log_probs, memory, attn
@@ -1191,7 +1243,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
             alived_hyps,
         )
 
-    def init_beam_search_data(self, enc_states, wav_len):
+    def init_beam_search_data(self, enc_states, wav_len, attention_mask=None):
         """Initialize the beam search data.
 
         Arguments
@@ -1282,6 +1334,9 @@ class S2SBeamSearcher(S2SBaseSearcher):
 
         alived_hyps = self.init_hypotheses()
 
+        if attention_mask is not None:
+            attention_mask = torch.cat([attention_mask, torch.ones((self.batch_size, 1), device=self.device)], dim=1)
+
         return (
             alived_hyps,
             inp_tokens,
@@ -1293,6 +1348,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
             prev_attn_peak,
             enc_states,
             enc_lens,
+            attention_mask,
         )
 
     def _update_hyps_and_scores_if_eos_token(
@@ -1414,6 +1470,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
         prev_attn_peak,
         enc_states,
         enc_lens,
+        attention_mask,
         step,
     ):
         """A search step for the next most likely tokens.
@@ -1442,6 +1499,8 @@ class S2SBeamSearcher(S2SBaseSearcher):
             The encoder states to be attended.
         enc_lens : torch.Tensor
             The actual length of each enc_states sequence.
+        attention_mask : torch.Tensor
+            The attention mask.
         step : int
             The current decoding step.
 
@@ -1467,7 +1526,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
             The scores of the current step output.
         """
         (log_probs, memory, attn) = self._attn_weight_step(
-            inp_tokens, memory, enc_states, enc_lens, attn, log_probs
+            inp_tokens, memory, enc_states, enc_lens, attn, log_probs, attention_mask
         )
 
         # Keep the original value
@@ -1556,7 +1615,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
 
         return eos_hyps_and_log_probs_scores
 
-    def forward(self, enc_states, wav_len):  # noqa: C901
+    def forward(self, enc_states, wav_len, attention_mask=None):  # noqa: C901
         """Applies beamsearch and returns the predicted tokens.
 
         Arguments
@@ -1565,6 +1624,8 @@ class S2SBeamSearcher(S2SBaseSearcher):
             The encoder states to be attended.
         wav_len : torch.Tensor
             The actual length of each enc_states sequence.
+        attention_mask : torch.Tensor
+            The attention mask.
 
         Returns
         -------
@@ -1588,12 +1649,22 @@ class S2SBeamSearcher(S2SBaseSearcher):
             prev_attn_peak,
             enc_states,
             enc_lens,
-        ) = self.init_beam_search_data(enc_states, wav_len)
+            attention_mask,
+        ) = self.init_beam_search_data(enc_states, wav_len, attention_mask)
 
         for step in range(self.max_decode_steps):
             # terminate condition
             if self._check_full_beams(eos_hyps_and_log_probs_scores):
                 break
+
+            if attention_mask is not None:
+                attention_mask = torch.cat(
+                    [
+                        attention_mask, 
+                        torch.ones(self.batch_size, 1, device=self.device, dtype=torch.bool)
+                    ], 
+                    dim=1
+                )
 
             (
                 alived_hyps,
@@ -1616,6 +1687,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
                 prev_attn_peak,
                 enc_states,
                 enc_lens,
+                attention_mask,
                 step,
             )
 
@@ -1743,7 +1815,7 @@ class S2SRNNBeamSearcher(S2SBeamSearcher):
         c = torch.zeros(batch_size, self.dec.attn_dim, device=device)
         return hs, c
 
-    def forward_step(self, inp_tokens, memory, enc_states, enc_lens):
+    def forward_step(self, inp_tokens, memory, enc_states, enc_lens, attention_mask=None):
         """Performs a step in the implemented beamsearcher."""
         with torch.no_grad():
             hs, c = memory
@@ -1844,7 +1916,7 @@ class S2STransformerBeamSearcher(S2SBeamSearcher):
         memory = torch.index_select(memory, dim=0, index=index)
         return memory
 
-    def forward_step(self, inp_tokens, memory, enc_states, enc_lens):
+    def forward_step(self, inp_tokens, memory, enc_states, enc_lens, attention_mask=None):
         """Performs a step in the implemented beamsearcher."""
         memory = _update_mem(inp_tokens, memory)
         pred, attn = self.model.decode(memory, enc_states, enc_lens)
@@ -2064,7 +2136,7 @@ class S2SWhisperBeamSearcher(S2SBeamSearcher):
         """set the number of output tokens."""
         return self.model.model.decoder.embed_tokens.weight.shape[0]
 
-    def forward_step(self, inp_tokens, memory, enc_states, enc_lens):
+    def forward_step(self, inp_tokens, memory, enc_states, enc_lens, attention_mask=None):
         """Performs a step in the implemented beamsearcher."""
         tokens = _update_mem(inp_tokens, memory)
 
@@ -2144,7 +2216,7 @@ class S2SHFTextBasedBeamSearcher(S2STransformerBeamSearcher):
         super().__init__(modules, **kwargs)
         self.vocab_size = vocab_size
 
-    def forward_step(self, inp_tokens, memory, enc_states, enc_lens):
+    def forward_step(self, inp_tokens, memory, enc_states, enc_lens, attention_mask=None):
         """Performs a step in the implemented beamsearcher."""
         memory = _update_mem(inp_tokens, memory)
         pred, attn = self.model.decode(memory, enc_states, enc_lens)
@@ -2156,3 +2228,58 @@ class S2SHFTextBasedBeamSearcher(S2STransformerBeamSearcher):
     def set_n_out(self):
         """set the number of output tokens."""
         return self.vocab_size
+
+class S2SHuggingFaceLLMBeamSearcher(S2SBeamSearcher):
+    """This class implements the beam search decoding
+    for the HuggingFace LLM models, such as mBART or NLLB.
+    It is NOT significantly different from S2STransformerBeamSearcher.
+    This is why it inherits S2STransformerBeamSearcher.
+    The main difference might arise when one wishes to use directly
+    the lm_head of the text-based HF model rather than making a new
+    projection layer (self.fc = None).
+    """ 
+
+    def __init__(self, llm_model, temperature=1.0, **kwargs):
+        super().__init__(
+            **kwargs,
+        )
+        self.llm_model = llm_model
+        self.temperature = temperature
+        self.txt_embedding = llm_model.model.get_input_embeddings()
+        self.softmax = torch.nn.LogSoftmax(dim=-1)
+
+    def reset_mem(self, batch_size, device):
+        """Needed to reset the memory during beamsearch."""
+        return None
+
+    def permute_mem(self, memory, index):
+        """Memory permutation during beamsearch."""
+        memory = torch.index_select(memory, dim=0, index=index)
+        return memory
+
+    def forward_step(self, inp_tokens, memory, enc_states, enc_lens, attention_mask=None):
+        """Performs a step in the implemented beamsearcher."""
+        memory = self._update_mem_embeddings(inp_tokens.unsqueeze(-1), memory)
+        multimodal_embds = torch.cat([
+            enc_states,
+            memory,
+        ], dim=1)
+        logits = self.llm_model(
+            inputs_embeds=multimodal_embds,
+            attention_mask=attention_mask,
+        ).logits
+        log_probs = self.softmax(logits[:, -1, :] / self.temperature)
+        return log_probs, memory, None
+
+    def set_n_out(self):
+        """set the number of output tokens."""
+        # if lora vs not lora
+        return self.llm_model.model.lm_head.pretrained_module.weight.shape[0]
+    
+    def _update_mem_embeddings(self, inp_tokens, memory):
+        """This method updates the memory during greedy search."""
+        inp_embds = self.txt_embedding(inp_tokens.long())
+        if memory is None: 
+            return inp_embds
+        return torch.cat([memory, inp_embds], dim=1)
+

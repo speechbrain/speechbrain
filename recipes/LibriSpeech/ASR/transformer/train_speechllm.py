@@ -68,16 +68,18 @@ class ASR(sb.core.Brain):
             inputs_embeds=multimodal_embds, 
             attention_mask=attention_mask
         ).logits
-
+        
         hyps = None        
         if stage != sb.Stage.TRAIN:
             audio_and_prompt_len = projected_audio_feats.shape[1] + prompt_len[0]
-            hyps = self.gen_func(
-                inputs_embeds=multimodal_embds[
-                    :, :audio_and_prompt_len
-                ],  # give model audio features and prompt for inference
-                attention_mask=attention_mask[:, :audio_and_prompt_len],
-                generation_config=self.val_decoding_config,
+            inputs_embeds = multimodal_embds[
+                :, :audio_and_prompt_len
+            ]
+            hyps = self.modules.valid_search(
+                inputs_embeds,
+                wav_lens,
+                attention_mask[:, :audio_and_prompt_len],
+                # generation_config=self.val_decoding_config,
             )
         return logits, hyps, projected_audio_feats.shape[1]
 
@@ -103,7 +105,7 @@ class ASR(sb.core.Brain):
         if stage != sb.Stage.TRAIN:
             # replace -100 with pad token
             target_tokens = target_tokens.masked_fill(target_tokens == -100, self.tokenizer.pad_token_id)
-            preds = self.tokenizer.batch_decode(hyps, skip_special_tokens=True)
+            preds = self.tokenizer.batch_decode(hyps[0], skip_special_tokens=True)
             preds_words = [pred.split(" ") for pred in preds]
             targets = self.tokenizer.batch_decode(target_tokens, skip_special_tokens=True)
             targets_words = [target.split(" ") for target in targets]
@@ -114,27 +116,6 @@ class ASR(sb.core.Brain):
     def on_stage_start(self, stage, epoch):
         """Gets called at the beginning of each epoch"""
         # check if txt_embedding is already set
-        import transformers
-        self.val_decoding_config = transformers.GenerationConfig(
-            pad_token_id=self.tokenizer.pad_token_id,
-            eos_token_id=self.tokenizer.eos_token_id,
-            max_new_tokens=500,
-            do_sample=False,       # disables sampling
-            num_beams=1,           # no beam search
-            temperature=1.0,       # irrelevant when do_sample=False, but keep default
-            top_k=0,               # not used when do_sample=False
-            top_p=1.0,              # not used when do_sample=False
-            repetition_penalty=1.0 # no repetition penalty
-        )
-
-        # if not hasattr(self, "txt_embedding"):
-        #     # we save the txt embedding for easy access
-        #     self.txt_embedding = (
-        #         self.modules.llm.model.get_input_embeddings()
-        #         if not hasattr(self.modules.llm, "module")
-        #         else self.modules.llm.module.model.get_input_embeddings()
-        #     )
-
         if stage != sb.Stage.TRAIN:
             self.cer_metric = self.hparams.cer_computer()
             self.wer_metric = self.hparams.error_rate_computer()
@@ -300,7 +281,7 @@ def dataio_prepare(hparams, tokenizer):
         yield tokens_eos
         tokens = torch.LongTensor(tokens_list)
         yield tokens
-        prompt_len = len([start_of_audio_index] + [end_of_audio_index] + prompt_ids  + [bos_index])
+        prompt_len = len([start_of_audio_index] + [end_of_audio_index] + prompt_ids)
         yield prompt_len
 
     sb.dataio.dataset.add_dynamic_item(datasets, text_pipeline)
