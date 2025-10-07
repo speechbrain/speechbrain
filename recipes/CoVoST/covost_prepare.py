@@ -102,7 +102,6 @@ def prepare_covost(
 
     # If csv already exists, we skip the data preparation
     if skip(save_csv_train, save_csv_dev, save_csv_test):
-
         msg = "%s already exists, skipping data preparation!" % (save_csv_train)
         logger.info(msg)
 
@@ -168,7 +167,7 @@ def create_csv(
         raise FileNotFoundError(msg)
 
     # We load and skip the header
-    csv_lines = open(orig_tsv_file, "r", encoding="utf-8").readlines()
+    csv_lines = open(orig_tsv_file, encoding="utf-8").readlines()
     csv_data_lines = csv_lines[1:]
     nb_samples = len(csv_data_lines)
 
@@ -271,7 +270,6 @@ def process_line(line, convert_to_wav, data_folder, src_language, tgt_language):
     translation = columns[2]
 
     if src_language == "en":
-
         # Corrupted files in english.
         if audio_path_filename in [
             "common_voice_fr_19528232.mp3",
@@ -381,7 +379,6 @@ def language_specific_preprocess(language, sentence):
         final_characters = set(" abcdefghijklmnopqrstuvwxyz1234567890-&'")
 
     if language in STOP_ACCENTED_CHAR_LANGUAGES:
-
         if language == "en":
             stop_characters = (
                 "["
@@ -389,11 +386,11 @@ def language_specific_preprocess(language, sentence):
                 # Suggests the sentence is not English but German.
                 "öÖßüÜ"
                 # All sorts of languages: Greek, Arabic...
-                "\u0370-\u1AAF"
+                "\u0370-\u1aaf"
                 # Chinese/Japanese/Korean.
-                "\u4E00-\u9FFF"
+                "\u4e00-\u9fff"
                 # Technical symbols.
-                "\u2190-\u23FF"
+                "\u2190-\u23ff"
                 # Symbols that could be pronounced in various ways.
                 "]"
             )
@@ -402,11 +399,11 @@ def language_specific_preprocess(language, sentence):
                 "["
                 "áÁàăâåãÃāảạæćčČçÇðéÉèÈêěëęēəğíîÎïīịıłṃńňñóÓòôőõøØōŌœŒřšŠşșȘúÚûūụýžþ"
                 # All sorts of languages: Greek, Arabic...
-                "\u0370-\u1AAF"
+                "\u0370-\u1aaf"
                 # Chinese/Japanese/Korean.
-                "\u4E00-\u9FFF"
+                "\u4e00-\u9fff"
                 # Technical symbols.
-                "\u2190-\u23FF"
+                "\u2190-\u23ff"
                 # Symbols that could be pronounced in various ways.
                 "]"
             )
@@ -415,16 +412,16 @@ def language_specific_preprocess(language, sentence):
                 "["
                 "áÁàăâåãÃāảạæćčČçÇðéÉèÈêěëęēəğíîÎïīịıłṃńňñóÓòôőõøØōŌœŒřšŠşșȘúÚûūụýžþ"
                 # All sorts of languages: Greek, Arabic...
-                "\u0370-\u1AAF"
+                "\u0370-\u1aaf"
                 # Chinese/Japanese/Korean.
-                "\u4E00-\u9FFF"
+                "\u4e00-\u9fff"
                 # Technical symbols.
-                "\u2190-\u23FF"
+                "\u2190-\u23ff"
                 # Symbols that could be pronounced in various ways.
                 "]"
             )
 
-        if not re.search(stop_characters, sentence) is None:
+        if re.search(stop_characters, sentence) is not None:
             return None
 
     # These characters mark word boundaries.

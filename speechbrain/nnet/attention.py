@@ -478,12 +478,12 @@ class RelPosMHAXL(nn.Module):
         self.head_dim = embed_dim // num_heads
         self.vhead_dim = self.vdim // num_heads
 
-        assert (
-            self.head_dim * num_heads == self.embed_dim
-        ), "embed_dim must be divisible by num_heads"
-        assert (
-            self.vhead_dim * num_heads == self.vdim
-        ), "vdim must be divisible by num_heads"
+        assert self.head_dim * num_heads == self.embed_dim, (
+            "embed_dim must be divisible by num_heads"
+        )
+        assert self.vhead_dim * num_heads == self.vdim, (
+            "vdim must be divisible by num_heads"
+        )
 
         if self._qkv_same_embed_dim is False:
             self.qk_proj_weight = nn.Parameter(
@@ -1238,12 +1238,12 @@ class RoPEMHA(nn.Module):
         self.head_dim = embed_dim // num_heads
         self.vhead_dim = self.vdim // num_heads
 
-        assert (
-            self.head_dim * num_heads == self.embed_dim
-        ), "embed_dim must be divisible by num_heads"
-        assert (
-            self.vhead_dim * num_heads == self.vdim
-        ), "vdim must be divisible by num_heads"
+        assert self.head_dim * num_heads == self.embed_dim, (
+            "embed_dim must be divisible by num_heads"
+        )
+        assert self.vhead_dim * num_heads == self.vdim, (
+            "vdim must be divisible by num_heads"
+        )
 
         if self._qkv_same_embed_dim is False:
             self.qk_proj_weight = nn.Parameter(

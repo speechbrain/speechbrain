@@ -314,9 +314,9 @@ def compute_gne(
     torch.Size([1, 98])
     """
 
-    assert (
-        audio.dim() == 2
-    ), "Expected audio to be 2-dimensional, [batch, sample]"
+    assert audio.dim() == 2, (
+        "Expected audio to be 2-dimensional, [batch, sample]"
+    )
 
     # Step 1. Downsample to 10 kHz since voice energy is low above 5 kHz
     old_sample_rate, sample_rate = sample_rate, 10000

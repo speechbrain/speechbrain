@@ -117,15 +117,11 @@ def add_clipping(audio, max_thresh_perc=0.8):
 
 
 def adsp_filter(Adspvqe, nearEndInput, nearEndOutput, farEndInput):
-    command_adsp_clean = (
-        "{0} --breakOnErrors 0 --sampleRate 16000 --useEchoCancellation 0 \
+    command_adsp_clean = f"{Adspvqe} --breakOnErrors 0 --sampleRate 16000 --useEchoCancellation 0 \
                     --operatingMode 2 --useDigitalAgcNearend 0 --useDigitalAgcFarend 0 \
                     --useVirtualAGC 0 --useComfortNoiseGenerator 0 --useAnalogAutomaticGainControl 0 \
-                    --useNoiseReduction 0 --loopbackInputFile {1} --farEndInputFile {2} \
-                    --nearEndInputFile {3} --nearEndOutputFile {4}".format(
-            Adspvqe, farEndInput, farEndInput, nearEndInput, nearEndOutput
-        )
-    )
+                    --useNoiseReduction 0 --loopbackInputFile {farEndInput} --farEndInputFile {farEndInput} \
+                    --nearEndInputFile {nearEndInput} --nearEndOutputFile {nearEndOutput}"
     subprocess.call(command_adsp_clean)
 
 

@@ -161,9 +161,9 @@ def prepare_gigaspeech(
 
     # check that `splits` input is valid
     for split in splits:
-        assert (
-            split in SPLITS + TRAIN_SUBSET
-        ), f"Split {split} not recognized. Valid splits are {SPLITS + TRAIN_SUBSET}."
+        assert split in SPLITS + TRAIN_SUBSET, (
+            f"Split {split} not recognized. Valid splits are {SPLITS + TRAIN_SUBSET}."
+        )
 
     # check that we are not using multiple train subsets
     if len(set(splits).intersection(TRAIN_SUBSET)) > 1:

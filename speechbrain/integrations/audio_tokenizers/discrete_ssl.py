@@ -149,13 +149,13 @@ class DiscreteSSL(nn.Module):
         if layers_num:
             if isinstance(num_clusters, int):
                 num_clusters = [num_clusters for i in layers_num]
-            assert len(num_clusters) == len(
-                layers_num
-            ), "length of num_clusters and layers_num should be the same!!!"
+            assert len(num_clusters) == len(layers_num), (
+                "length of num_clusters and layers_num should be the same!!!"
+            )
         if layers_num is None:
-            assert isinstance(
-                num_clusters, int
-            ), "num_clusters is expected to be int since the layers_num is not provided."
+            assert isinstance(num_clusters, int), (
+                "num_clusters is expected to be int since the layers_num is not provided."
+            )
         self.num_clusters = num_clusters
 
     def load_kmeans(
@@ -219,9 +219,9 @@ class DiscreteSSL(nn.Module):
                     )
                     kmeans_models.append(joblib.load(file))
 
-        assert (
-            len(layer_ids) > 0
-        ), f"There is no trained k-means model available for {repo_id}"
+        assert len(layer_ids) > 0, (
+            f"There is no trained k-means model available for {repo_id}"
+        )
 
         if isinstance(num_clusters, int):
             num_clusters = [num_clusters for i in layer_ids]
@@ -308,9 +308,9 @@ class DiscreteSSL(nn.Module):
         if bpe_tokenizers is None:
             bpe_tokenizers = [None] * len(SSL_layers)
 
-        assert (
-            len(deduplicates) == len(SSL_layers) == len(bpe_tokenizers)
-        ), "length of SSL_layers,deduplicates,bpe_tokenizers should be the same!!!"
+        assert len(deduplicates) == len(SSL_layers) == len(bpe_tokenizers), (
+            "length of SSL_layers,deduplicates,bpe_tokenizers should be the same!!!"
+        )
 
         embeddings = []
         token_ids = []

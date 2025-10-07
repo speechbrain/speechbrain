@@ -274,8 +274,7 @@ class CategoricalEncoder:
                     for didataset in from_didatasets:
                         if output_key is None:
                             raise ValueError(
-                                "Provide an output_key for "
-                                "DynamicItemDataset"
+                                "Provide an output_key for DynamicItemDataset"
                             )
                         self.update_from_didataset(
                             didataset, output_key, sequence_input
@@ -470,7 +469,7 @@ class CategoricalEncoder:
                 )
             else:
                 raise KeyError(
-                    f"Couldn't and wouldn't encode unknown label " f"{label}."
+                    f"Couldn't and wouldn't encode unknown label {label}."
                 )
 
     def encode_label_torch(self, label, allow_unk=True):

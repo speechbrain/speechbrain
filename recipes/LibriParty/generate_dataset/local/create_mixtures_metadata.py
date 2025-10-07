@@ -21,9 +21,9 @@ def _read_metadata(file_path, configs):
         channel = np.random.randint(0, meta.num_channels - 1)
     else:
         channel = 0
-    assert (
-        meta.sample_rate == configs["samplerate"]
-    ), "file samplerate is different from the one specified"
+    assert meta.sample_rate == configs["samplerate"], (
+        "file samplerate is different from the one specified"
+    )
 
     return meta, channel
 

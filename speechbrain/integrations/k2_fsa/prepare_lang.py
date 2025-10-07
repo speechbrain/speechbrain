@@ -73,9 +73,9 @@ def get_tokens(
     if manually_add_sil_to_tokens:
         ans.add(sil_token)
     for _, tokens in lexicon:
-        assert (
-            sil_token not in tokens
-        ), f"{sil_token} should not appear in the lexicon but it is found in {_}"
+        assert sil_token not in tokens, (
+            f"{sil_token} should not appear in the lexicon but it is found in {_}"
+        )
         ans.update(tokens)
     sorted_ans = sorted(list(ans))
     return sorted_ans

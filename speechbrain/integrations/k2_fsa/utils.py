@@ -128,7 +128,7 @@ def load_G(path: Union[str, Path], cache: bool = True) -> k2.Fsa:
     # If G_path is an fst.txt file then convert to .pt file
     if not os.path.isfile(path):
         raise FileNotFoundError(
-            f"File {path} not found. " "You need to run arpa_to_fst to get it."
+            f"File {path} not found. You need to run arpa_to_fst to get it."
         )
     with open(path, encoding="utf-8") as f:
         G = k2.Fsa.from_openfst(f.read(), acceptor=False)

@@ -1404,9 +1404,9 @@ class _SSIMLoss(_Loss):
 
         # This check might look redundant because kernel size is checked within the ssim function anyway.
         # However, this check allows to fail fast when the loss is being initialised and training has not been started.
-        assert (
-            kernel_size % 2 == 1
-        ), f"Kernel size must be odd, got [{kernel_size}]"
+        assert kernel_size % 2 == 1, (
+            f"Kernel size must be odd, got [{kernel_size}]"
+        )
         self.kernel_sigma = kernel_sigma
         self.k1 = k1
         self.k2 = k2
@@ -1470,36 +1470,38 @@ class _SSIMLoss(_Loss):
 
         for t in tensors:
             assert torch.is_tensor(t), f"Expected torch.Tensor, got {type(t)}"
-            assert (
-                t.device == x.device
-            ), f"Expected tensors to be on {x.device}, got {t.device}"
+            assert t.device == x.device, (
+                f"Expected tensors to be on {x.device}, got {t.device}"
+            )
 
             if size_range is None:
-                assert (
-                    t.size() == x.size()
-                ), f"Expected tensors with same size, got {t.size()} and {x.size()}"
+                assert t.size() == x.size(), (
+                    f"Expected tensors with same size, got {t.size()} and {x.size()}"
+                )
             else:
                 assert (
                     t.size()[size_range[0] : size_range[1]]
                     == x.size()[size_range[0] : size_range[1]]
-                ), f"Expected tensors with same size at given dimensions, got {t.size()} and {x.size()}"
+                ), (
+                    f"Expected tensors with same size at given dimensions, got {t.size()} and {x.size()}"
+                )
 
             if dim_range[0] == dim_range[1]:
-                assert (
-                    t.dim() == dim_range[0]
-                ), f"Expected number of dimensions to be {dim_range[0]}, got {t.dim()}"
+                assert t.dim() == dim_range[0], (
+                    f"Expected number of dimensions to be {dim_range[0]}, got {t.dim()}"
+                )
             elif dim_range[0] < dim_range[1]:
-                assert (
-                    dim_range[0] <= t.dim() <= dim_range[1]
-                ), f"Expected number of dimensions to be between {dim_range[0]} and {dim_range[1]}, got {t.dim()}"
+                assert dim_range[0] <= t.dim() <= dim_range[1], (
+                    f"Expected number of dimensions to be between {dim_range[0]} and {dim_range[1]}, got {t.dim()}"
+                )
 
             if data_range[0] < data_range[1]:
-                assert (
-                    data_range[0] <= t.min()
-                ), f"Expected values to be greater or equal to {data_range[0]}, got {t.min()}"
-                assert (
-                    t.max() <= data_range[1]
-                ), f"Expected values to be lower or equal to {data_range[1]}, got {t.max()}"
+                assert data_range[0] <= t.min(), (
+                    f"Expected values to be greater or equal to {data_range[0]}, got {t.min()}"
+                )
+                assert t.max() <= data_range[1], (
+                    f"Expected values to be lower or equal to {data_range[1]}, got {t.max()}"
+                )
 
     def gaussian_filter(self, kernel_size, sigma):
         """Returns 2D Gaussian kernel N(0,sigma^2)
@@ -1745,9 +1747,9 @@ class _SSIMLoss(_Loss):
         Value of Structural Similarity (SSIM) index. In case of 5D input tensors, complex value is returned
         as a tensor of size 2.
         """
-        assert (
-            kernel_size % 2 == 1
-        ), f"Kernel size must be odd, got [{kernel_size}]"
+        assert kernel_size % 2 == 1, (
+            f"Kernel size must be odd, got [{kernel_size}]"
+        )
         self._validate_input(
             [x, y], dim_range=(4, 5), data_range=(0, data_range)
         )

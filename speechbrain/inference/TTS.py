@@ -113,9 +113,9 @@ class Tacotron2(Pretrained):
             inputs = speechbrain.dataio.batch.PaddedBatch(inputs)
 
             lens = [self.text_to_seq(item)[1] for item in texts]
-            assert lens == sorted(
-                lens, reverse=True
-            ), "input lengths must be sorted in decreasing order"
+            assert lens == sorted(lens, reverse=True), (
+                "input lengths must be sorted in decreasing order"
+            )
             input_lengths = torch.tensor(lens, device=self.device)
 
             mel_outputs_postnet, mel_lengths, alignments = self.infer(
@@ -320,9 +320,9 @@ class MSTacotron2(Pretrained):
 
             inputs = speechbrain.dataio.batch.PaddedBatch(inputs)
 
-            assert lens == sorted(
-                lens, reverse=True
-            ), "input lengths must be sorted in decreasing order"
+            assert lens == sorted(lens, reverse=True), (
+                "input lengths must be sorted in decreasing order"
+            )
             input_lengths = torch.tensor(lens, device=self.device)
 
             mel_outputs_postnet, mel_lengths, alignments = self.infer(

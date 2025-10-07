@@ -385,9 +385,7 @@ def prompt_download_urban_sound_8k(destination):
         Place to put dataset.
     """
     print(
-        "UrbanSound8k data is missing from {}!\nRequest it from here: {}".format(
-            destination, URBAN_SOUND_8K_DOWNLOAD_FORM_URL
-        )
+        f"UrbanSound8k data is missing from {destination}!\nRequest it from here: {URBAN_SOUND_8K_DOWNLOAD_FORM_URL}"
     )
 
 

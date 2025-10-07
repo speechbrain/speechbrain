@@ -186,9 +186,7 @@ class Separation(sb.Brain):
         else:
             self.nonfinite_count += 1
             logger.info(
-                "infinite loss or empty loss! it happened {} times so far - skipping this batch".format(
-                    self.nonfinite_count
-                )
+                f"infinite loss or empty loss! it happened {self.nonfinite_count} times so far - skipping this batch"
             )
             loss.data = torch.tensor(0.0).to(self.device)
         self.optimizer.zero_grad()

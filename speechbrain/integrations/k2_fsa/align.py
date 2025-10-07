@@ -554,15 +554,22 @@ class CTCAligner(Aligner):
     >>> import torch
     >>> from speechbrain.inference import EncoderASR
     >>> from speechbrain.integrations.k2_fsa.align import CTCAligner
-    >>> asr_model = EncoderASR.from_hparams(source="speechbrain/asr-wav2vec2-librispeech", savedir="pretrained_models/asr-wav2vec2-librispeech")
+    >>> asr_model = EncoderASR.from_hparams(
+    ...     source="speechbrain/asr-wav2vec2-librispeech",
+    ...     savedir="pretrained_models/asr-wav2vec2-librispeech",
+    ... )
     >>> device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    >>> aligner = CTCAligner(model=asr_model, tokenizer=asr_model.tokenizer, device=device)
+    >>> aligner = CTCAligner(
+    ...     model=asr_model, tokenizer=asr_model.tokenizer, device=device
+    ... )
     >>> audio_files = ["tests/samples/ASR/spk1_snt1.wav"]
     >>> transcripts = ["THE CHILD ALMOST HURT THE SMALL DOG"]
     >>> # align one audio file to tokens
     >>> # alignment = aligner.align_audio_to_tokens(audio_files[0], transcripts[0])
     >>> # align one audio file to words
-    >>> alignment = aligner.align_audio_to_words(audio_files[0], transcripts[0], frame_shift=0.02)
+    >>> alignment = aligner.align_audio_to_words(
+    ...     audio_files[0], transcripts[0], frame_shift=0.02
+    ... )
     >>> alignment
     [(0.04, 0.1, 'THE'), (0.26, 0.6, 'CHILD'), (0.84, 1.18, 'ALMOST'), (1.380..., 1.58, 'HURT'), (1.84, 1.880..., 'THE'), (2.04, 2.32, 'SMALL'), (2.46, 2.72, 'DOG')]
     >>> # align a batch of audio files to tokens
@@ -633,9 +640,9 @@ class CTCAligner(Aligner):
         list: the encoded targets.
         """
 
-        assert hasattr(
-            self.model, "encode_batch"
-        ), "The model must have an encode_batch method."
+        assert hasattr(self.model, "encode_batch"), (
+            "The model must have an encode_batch method."
+        )
 
         encoded_texts = self.encode_texts(transcripts)
         sigs = []

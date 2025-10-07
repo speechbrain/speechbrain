@@ -142,7 +142,7 @@ class ConcatDownsampler(Downsampler):
     Example
     -------
     >>> down = ConcatDownsampler(2)
-    >>> a = torch.rand([8,40, 40])
+    >>> a = torch.rand([8, 40, 40])
     >>> a = down(a)
     >>> print(a.shape)
     torch.Size([8, 20, 80])

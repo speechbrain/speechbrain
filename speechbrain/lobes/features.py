@@ -739,9 +739,9 @@ class VocalFeatures(torch.nn.Module):
         self.eps = eps
         self.sma_neighbors = sma_neighbors
 
-        assert (
-            self.max_lag * PERIODIC_NEIGHBORS <= self.window_samples
-        ), f"Need at least {PERIODIC_NEIGHBORS} periods in a window"
+        assert self.max_lag * PERIODIC_NEIGHBORS <= self.window_samples, (
+            f"Need at least {PERIODIC_NEIGHBORS} periods in a window"
+        )
 
         self.compute_fbanks = Filterbank(
             sample_rate=sample_rate,
@@ -780,9 +780,9 @@ class VocalFeatures(torch.nn.Module):
              * spectral_flux: The 2-normed diff between successive spectral values.
              * mfcc_{0-n_mfcc}: The mel cepstral coefficients.
         """
-        assert (
-            audio.dim() == 2
-        ), "Expected audio to be 2-dimensional, [batch, samples]"
+        assert audio.dim() == 2, (
+            "Expected audio to be 2-dimensional, [batch, samples]"
+        )
 
         # Use frame-based autocorrelation to estimate harmonicity and f0
         frames = audio.unfold(

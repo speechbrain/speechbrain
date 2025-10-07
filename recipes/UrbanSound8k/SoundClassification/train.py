@@ -234,9 +234,7 @@ class UrbanSound8kBrain(sb.core.Brain):
                 self.valid_confusion_matrix, axis=1
             )
             per_class_acc_arr_str = "\n" + "\n".join(
-                "{:}: {:.3f}".format(
-                    self.hparams.label_encoder.decode_ndim(class_id), class_acc
-                )
+                f"{self.hparams.label_encoder.decode_ndim(class_id)}: {class_acc:.3f}"
                 for class_id, class_acc in enumerate(per_class_acc_arr)
             )
 

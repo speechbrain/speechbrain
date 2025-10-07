@@ -179,9 +179,9 @@ class PitWrapper(nn.Module):
         )
 
         loss_mat = self.base_loss(pred, target)
-        assert (
-            len(loss_mat.shape) >= 2
-        ), "Base loss should not perform any reduction operation"
+        assert len(loss_mat.shape) >= 2, (
+            "Base loss should not perform any reduction operation"
+        )
         mean_over = [x for x in range(len(loss_mat.shape))]
         loss_mat = loss_mat.mean(dim=mean_over[:-2])
 

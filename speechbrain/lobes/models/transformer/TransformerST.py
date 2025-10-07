@@ -201,13 +201,13 @@ class TransformerST(TransformerASR):
                     causal=self.causal,
                     attention_type=self.attention_type,
                 )
-                assert (
-                    normalize_before
-                ), "normalize_before must be True for Conformer"
+                assert normalize_before, (
+                    "normalize_before must be True for Conformer"
+                )
 
-                assert (
-                    conformer_activation is not None
-                ), "conformer_activation must not be None"
+                assert conformer_activation is not None, (
+                    "conformer_activation must not be None"
+                )
 
         # reset parameters using xavier_normal_
         self._init_params()

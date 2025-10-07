@@ -1175,7 +1175,7 @@ def merge_csvs(data_folder, csv_lst, merged_csv):
                     # Checking header
                     if line != header:
                         raise ValueError(
-                            "Different header for " f"{csv_lst[0]} and {csv}."
+                            f"Different header for {csv_lst[0]} and {csv}."
                         )
                     continue
                 lines.append(line)

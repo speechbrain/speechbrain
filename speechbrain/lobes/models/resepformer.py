@@ -556,17 +556,16 @@ class ResourceEfficientSeparationPipeline(nn.Module):
         self.mem_type = mem_type
         self.norm_type = norm_type
 
-        assert (
-            mem_type
-            in [
-                "hc",
-                "h",
-                "c",
-                "id",
-                "av",
-                None,
-            ]
-        ), f"only support 'hc', 'h', 'c', 'id', 'av' and None, current type: {mem_type}"
+        assert mem_type in [
+            "hc",
+            "h",
+            "c",
+            "id",
+            "av",
+            None,
+        ], (
+            f"only support 'hc', 'h', 'c', 'id', 'av' and None, current type: {mem_type}"
+        )
 
         self.seg_model = nn.ModuleList([])
         for i in range(num_blocks):

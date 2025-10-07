@@ -53,9 +53,9 @@ class GumbelVectorQuantizer(nn.Module):
         self.num_vars = num_vars
         self.vq_dim = vq_dim
 
-        assert (
-            vq_dim % groups == 0
-        ), f"dim {vq_dim} must be divisible by groups {groups} for concatenation"
+        assert vq_dim % groups == 0, (
+            f"dim {vq_dim} must be divisible by groups {groups} for concatenation"
+        )
 
         var_dim = vq_dim // groups
 

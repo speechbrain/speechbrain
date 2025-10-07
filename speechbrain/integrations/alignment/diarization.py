@@ -495,7 +495,7 @@ def _check_random_state(seed):
     if isinstance(seed, np.random.RandomState):
         return seed
     raise ValueError(
-        "%r cannot be used to seed a np.random.RandomState" " instance" % seed
+        "%r cannot be used to seed a np.random.RandomState instance" % seed
     )
 
 

@@ -451,9 +451,9 @@ class S2SWhisperGreedySearcher(S2SGreedySearcher):
         elif suppress_tokens is None or len(suppress_tokens) == 0:
             suppress_tokens = []  # interpret empty string as an empty list
         else:
-            assert isinstance(
-                suppress_tokens, list
-            ), "suppress_tokens must be a list"
+            assert isinstance(suppress_tokens, list), (
+                "suppress_tokens must be a list"
+            )
 
         suppress_tokens.extend(
             [
@@ -1968,9 +1968,9 @@ class S2SWhisperBeamSearcher(S2SBeamSearcher):
         elif suppress_tokens is None or len(suppress_tokens) == 0:
             suppress_tokens = []  # interpret empty string as an empty list
         else:
-            assert isinstance(
-                suppress_tokens, list
-            ), "suppress_tokens must be a list"
+            assert isinstance(suppress_tokens, list), (
+                "suppress_tokens must be a list"
+            )
 
         suppress_tokens.extend(
             [

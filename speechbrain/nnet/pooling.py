@@ -394,9 +394,9 @@ class AdaptivePool(nn.Module):
         assert condition, "output size must be int, list or tuple"
 
         if isinstance(output_size, tuple) or isinstance(output_size, list):
-            assert (
-                len(output_size) == 2
-            ), "len of output size must not be greater than 2"
+            assert len(output_size) == 2, (
+                "len of output size must not be greater than 2"
+            )
 
         if isinstance(output_size, int):
             self.pool = nn.AdaptiveAvgPool1d(output_size)

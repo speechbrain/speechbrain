@@ -2075,9 +2075,9 @@ class TorchAudioCTCPrefixBeamSearcher:
                 raise ImportError(
                     "cuda_ctc_decoder not found. Please install the latest version of torchaudio to use this decoder."
                 )
-            assert (
-                self.blank_index == 0
-            ), "Index of blank token has to be 0 when using CUDA CTC decoder."
+            assert self.blank_index == 0, (
+                "Index of blank token has to be 0 when using CUDA CTC decoder."
+            )
 
             self._ctc_decoder = cuda_ctc_decoder(
                 tokens=self.tokens,

@@ -1163,9 +1163,11 @@ class Checkpointer:
                     continue
                 else:
                     if self.optional_recoverables[name]:
-                        MSG = f"Trying to load checkpoint from {checkpoint.path}, \
+                        MSG = (
+                            f"Trying to load checkpoint from {checkpoint.path}, \
                                 but missing a load path for {name}. Skipping as this \
                                 recoverable is marked as optional."
+                        )
                         warnings.warn(MSG, UserWarning)
                         continue
                     MSG = f"Loading checkpoint from {checkpoint.path}, \

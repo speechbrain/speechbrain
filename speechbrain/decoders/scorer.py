@@ -1190,9 +1190,9 @@ class ScorerBuilder:
         partial_scorers=list(),
         scorer_beam_scale=2,
     ):
-        assert len(weights) == len(full_scorers) + len(
-            partial_scorers
-        ), "Weights and scorers are not matched."
+        assert len(weights) == len(full_scorers) + len(partial_scorers), (
+            "Weights and scorers are not matched."
+        )
 
         self.scorer_beam_scale = scorer_beam_scale
         all_scorer_names = [
@@ -1210,7 +1210,7 @@ class ScorerBuilder:
         ]
 
         # Have a default 0.0 weight for scorer not specified
-        init_weights = {k: 0.0 for k in all_scorer_names}
+        init_weights = dict.fromkeys(all_scorer_names, 0.0)
         self.weights = {**init_weights, **weights}
         self.full_scorers = dict(zip(full_scorer_names, full_scorers))
         self.partial_scorers = dict(zip(partial_scorer_names, partial_scorers))
@@ -2088,9 +2088,9 @@ class RescorerBuilder:
         weights=dict(),
         rescorers=list(),
     ):
-        assert len(weights) == len(
-            rescorers
-        ), "Weights and rescorers are not matched."
+        assert len(weights) == len(rescorers), (
+            "Weights and rescorers are not matched."
+        )
 
         self.weights = weights
 
@@ -2105,7 +2105,7 @@ class RescorerBuilder:
         ]
 
         # Have a default 0.0 weight for scorer not specified
-        init_weights = {k: 0.0 for k in all_rescorer_names}
+        init_weights = dict.fromkeys(all_rescorer_names, 0.0)
         self.weights = {**init_weights, **weights}
         self.rescorers = dict(zip(full_rescorer_names, rescorers))
 

@@ -190,13 +190,13 @@ class ConvolutionModule(nn.Module):
         if dynchunktrain_config is not None:
             # chances are chunking+causal is unintended; i don't know where it
             # may make sense, but if it does to you, feel free to implement it.
-            assert (
-                not self.causal
-            ), "Chunked convolution not supported with causal padding"
+            assert not self.causal, (
+                "Chunked convolution not supported with causal padding"
+            )
 
-            assert (
-                self.dilation == 1
-            ), "Current DynChunkTrain logic does not support dilation != 1"
+            assert self.dilation == 1, (
+                "Current DynChunkTrain logic does not support dilation != 1"
+            )
 
             # in a causal convolution, which is not the case here, an output
             # frame would never be able to depend on a input frame from any

@@ -146,9 +146,9 @@ class TransformerInterface(nn.Module):
         ]
         assert positional_encoding in ["fixed_abs_sine", None]
 
-        assert (
-            num_encoder_layers + num_decoder_layers > 0
-        ), "number of encoder layers and number of decoder layers cannot both be 0!"
+        assert num_encoder_layers + num_decoder_layers > 0, (
+            "number of encoder layers and number of decoder layers cannot both be 0!"
+        )
 
         if positional_encoding == "fixed_abs_sine":
             self.positional_encoding = PositionalEncoding(d_model, max_length)
@@ -203,13 +203,13 @@ class TransformerInterface(nn.Module):
                     output_hidden_states=self.output_hidden_states,
                     layerdrop_prob=self.layerdrop_prob,
                 )
-                assert (
-                    normalize_before
-                ), "normalize_before must be True for Conformer"
+                assert normalize_before, (
+                    "normalize_before must be True for Conformer"
+                )
 
-                assert (
-                    conformer_activation is not None
-                ), "conformer_activation must not be None"
+                assert conformer_activation is not None, (
+                    "conformer_activation must not be None"
+                )
             elif encoder_module == "branchformer":
                 self.encoder = BranchformerEncoder(
                     nhead=nhead,
@@ -620,9 +620,9 @@ class TransformerEncoder(nn.Module):
             The output of the hidden layers of the encoder.
             Only works if output_hidden_states is set to true.
         """
-        assert (
-            dynchunktrain_config is None
-        ), "Dynamic Chunk Training unsupported for this encoder"
+        assert dynchunktrain_config is None, (
+            "Dynamic Chunk Training unsupported for this encoder"
+        )
 
         output = src
 

@@ -867,9 +867,9 @@ class UnitHifiganGenerator(HifiganGenerator):
         x = x.transpose(1, 2)
 
         if self.duration_predictor:
-            assert (
-                x.size(0) == 1
-            ), "only support single sample batch in inference"
+            assert x.size(0) == 1, (
+                "only support single sample batch in inference"
+            )
             log_dur_pred = self.var_predictor(x.transpose(1, 2))
             dur_out = torch.clamp(
                 torch.round(torch.exp(log_dur_pred) - 1).long(), min=1
