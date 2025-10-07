@@ -6,6 +6,7 @@ Authors
  * Titouan Parcollet 2023
 """
 
+import importlib.util
 import logging
 import math
 import warnings
@@ -249,11 +250,11 @@ def cu_kernel_compute_grad(log_probs, labels, alpha, beta, grads, T, U, blank):
                     - beta[b, 0, 0]
                 )
         # compute the gradient for emit prob
-        for u, l in enumerate(labels[b]):
+        for u, fu in enumerate(labels[b]):
             if u < U[b]:
-                grads[b, t, u, l] = alpha[b, t, u] + beta[b, t, u + 1]
-                grads[b, t, u, l] = -math.exp(
-                    grads[b, t, u, l] + log_probs[b, t, u, l] - beta[b, 0, 0]
+                grads[b, t, u, fu] = alpha[b, t, u] + beta[b, t, u + 1]
+                grads[b, t, u, fu] = -math.exp(
+                    grads[b, t, u, fu] + log_probs[b, t, u, fu] - beta[b, 0, 0]
                 )
 
 
@@ -358,7 +359,7 @@ class TransducerLoss(Module):
         self.reduction = reduction
         self.loss = Transducer.apply
         try:
-            cuda.cuda_paths
+            importlib.util.find_spec("numba")
         except ImportError:
             err_msg = "cannot import numba. To use Transducer loss\n"
             err_msg += "=============================\n"

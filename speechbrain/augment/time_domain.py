@@ -1332,7 +1332,7 @@ class CutCat(torch.nn.Module):
                     start = idx_cut[i]
                     stop = idx_cut[i + 1]
                     waveforms[:, start:stop, ...] = waveforms_rolled[
-                        :, start:stop, ...  # noqa: W504
+                        :, start:stop, ...
                     ]
 
         return waveforms

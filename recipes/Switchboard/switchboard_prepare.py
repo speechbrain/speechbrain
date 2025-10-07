@@ -1207,8 +1207,8 @@ def fisher_data_prep(data_folder, save_folder):
         joined_path = os.path.join(data_folder, fisher_dir)
         transcript_files = get_all_files(joined_path, match_and=[".txt"])
 
-        for transcript_files in transcript_files:
-            with open(transcript_files, encoding="utf-8") as file:
+        for transcript_file in transcript_files:
+            with open(transcript_file, encoding="utf-8") as file:
                 for line in file:
                     # skip header and empty lines
                     if line.startswith("#") or len(line.strip()) < 1:

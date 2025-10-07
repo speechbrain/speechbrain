@@ -94,7 +94,6 @@ ignore = [
     "E266",  # too many leading '#' for block comment
     "E501",  # line too long (handled by formatter)
     "E721",  # Do not compare types, use `isinstance()`
-    "E741",  # Ambiguous variable name: `l`
     "F601",  # Dictionary key literal repeated
     "UP008",  # Use `super()` instead of `super(__class__, self)`
     "UP028",  # Replace `yield` over `for` loop with `yield from`
@@ -103,12 +102,9 @@ ignore = [
     "B008",  # do not perform function calls in argument defaults
     "B006",  # do not use mutable data structures for argument defaults
     "B011",  # Do not `assert False` (`python -O` removes these calls), raise `AssertionError()`
-    "B018",  # Found useless expression. Either assign it to a variable or remove it.
     "B019",  # Use of `functools.lru_cache` or `functools.cache` on methods can lead to memory leaks
-    "B020",  # Loop control variable overrides iterable it iterates
     "B023",  # Function definition does not bind loop variable
     "B026",  # Star-arg unpacking after a keyword argument is strongly discouraged
-    "C901",  # too complex
 ]
 
 [tool.ruff.lint.isort]
