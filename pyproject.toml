@@ -17,16 +17,16 @@ classifiers = [
 ]
 requires-python = ">=3.8.1"
 dependencies = [
-    "hyperpyyaml",
-    "joblib",
-    "numpy",
+    "hyperpyyaml>=0.0.1",
+    "joblib>=0.14.1",
+    "numpy>=1.17.0",
     "packaging",
-    "scipy",
-    "sentencepiece",
-    "torch>=1.9",
-    "torchaudio",
-    "tqdm",
-    "huggingface_hub",
+    "scipy>=1.4.1",
+    "sentencepiece>=0.1.91",
+    "torch>=2.1.0,<2.9",
+    "torchaudio>=2.1.0,<2.9",
+    "tqdm>=4.42.0",
+    "huggingface_hub>=0.8.0",
 ]
 keywords = ["speech", "audio", "pytorch", "deep-learning"]
 
