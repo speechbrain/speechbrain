@@ -16,7 +16,7 @@ Example
 ...     output_keys: ["foo", "bar"]
 ... '''
 >>> hparams = load_hyperpyyaml(yamlstring)
->>> hparams["pipeline"]({"a":1, "b":2})
+>>> hparams["pipeline"]({"a": 1, "b": 2})
 {'foo': 3, 'bar': 1}
 
 Author:
@@ -134,9 +134,10 @@ class GeneratorDynamicItem(DynamicItem):
     ...     encoded = [lab2ind[word] for word in words]
     ...     yield encoded
     >>> item = GeneratorDynamicItem(
-    ...         func=text_pipeline,
-    ...         takes=["text"],
-    ...         provides=["words", "words_encoded"])
+    ...     func=text_pipeline,
+    ...     takes=["text"],
+    ...     provides=["words", "words_encoded"],
+    ... )
     >>> # First create the integer-encoding:
     >>> ind = 1
     >>> for token in item("Is this it? - This is it."):
@@ -236,7 +237,7 @@ def takes(*argkeys):
     ... def tokenize(text):
     ...     return text.strip().lower().split()
     >>> tokenize.provides = ["tokenized"]
-    >>> tokenize('\tThis Example gets tokenized')
+    >>> tokenize("\tThis Example gets tokenized")
     ['this', 'example', 'gets', 'tokenized']
     """
 
@@ -284,12 +285,12 @@ def provides(*output_keys):
 
     >>> @provides("signal", "feat")
     ... def read_feat():
-    ...     wav = [.1,.2,-.1]
+    ...     wav = [0.1, 0.2, -0.1]
     ...     feat = [s**2 for s in wav]
     ...     return wav, feat
     >>> @provides("signal", "feat")
     ... def read_feat():
-    ...     wav = [.1,.2,-.1]
+    ...     wav = [0.1, 0.2, -0.1]
     ...     yield wav
     ...     feat = [s**2 for s in wav]
     ...     yield feat
@@ -298,7 +299,7 @@ def provides(*output_keys):
 
     >>> @provides("wav_read", ["left_channel", "right_channel"])
     ... def read_multi_channel():
-    ...     wav = [[.1,.2,-.1],[.2,.1,-.1]]
+    ...     wav = [[0.1, 0.2, -0.1], [0.2, 0.1, -0.1]]
     ...     yield wav
     ...     yield wav[0], wav[1]
 
@@ -339,8 +340,12 @@ class DataPipeline:
     >>> pipeline = DataPipeline(
     ...     static_data_keys=["text"],
     ...     dynamic_items=[
-    ...     {"func": lambda x: x.lower(), "takes": "text", "provides": "foo"},
-    ...     {"func": lambda x: x[::-1], "takes": "foo", "provides": "bar"},
+    ...         {
+    ...             "func": lambda x: x.lower(),
+    ...             "takes": "text",
+    ...             "provides": "foo",
+    ...         },
+    ...         {"func": lambda x: x[::-1], "takes": "foo", "provides": "bar"},
     ...     ],
     ...     output_keys=["bar"],
     ... )

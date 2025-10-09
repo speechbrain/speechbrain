@@ -23,9 +23,7 @@ logger = get_logger(__name__)
 
 def csv2text():
     """Read CSV file and convert specific data entries into text file."""
-    annotation_file = open(
-        hparams["train_csv"], "r", newline="", encoding="utf-8"
-    )
+    annotation_file = open(hparams["train_csv"], newline="", encoding="utf-8")
     reader = csv.reader(annotation_file)
     headers = next(reader, None)
     text_file = open(hparams["text_file"], "w+", encoding="utf-8")
@@ -76,7 +74,7 @@ if __name__ == "__main__":
     tmp_ngram_file = "ngram.arpa"
     cmd = f'lmplz -o {hparams["ngram"]} <"{hparams["text_file"]}" > "{tmp_ngram_file}"'
     os.system(cmd)
-    with open(tmp_ngram_file, "r", encoding="utf-8") as read_file, open(
+    with open(tmp_ngram_file, encoding="utf-8") as read_file, open(
         hparams["ngram_file"], "w", encoding="utf-8"
     ) as write_file:
         has_added_eos = False

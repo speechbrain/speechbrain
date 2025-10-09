@@ -259,9 +259,7 @@ class HifiGanBrain(sb.Brain):
                 inference_padding=self.hparams.inference_padding,
                 cond_channels=self.hparams.cond_channels,
                 conv_post_bias=self.hparams.conv_post_bias,
-            ).to(
-                self.device
-            )  # Gets a new instance
+            ).to(self.device)  # Gets a new instance
             inference_generator.load_state_dict(
                 self.hparams.generator.state_dict()
             )  # Copies weights

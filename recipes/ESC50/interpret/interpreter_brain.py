@@ -137,7 +137,7 @@ class InterpreterBrain(sb.core.Brain):
 
         out_folder = os.path.join(
             self.hparams.output_folder,
-            "interpretations/" f"{batch.id[0]}",
+            f"interpretations/{batch.id[0]}",
         )
         os.makedirs(
             out_folder,

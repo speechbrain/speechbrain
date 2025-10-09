@@ -2,7 +2,6 @@ import torch
 
 
 def test_normalize(device):
-
     import random
 
     import numpy as np
@@ -19,7 +18,6 @@ def test_normalize(device):
                 torch.rand((10, 100), device=device),
                 torch.rand((10, 100, 5), device=device),
             ]:
-
                 lengths = (
                     test_vec.size(1)
                     if len(test_vec.shape) > 1

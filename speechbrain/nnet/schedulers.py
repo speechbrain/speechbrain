@@ -76,11 +76,13 @@ class WarmAndExpDecayLRSchedule:
     Example
     -------
     >>> from speechbrain.nnet.linear import Linear
-    >>> inp_tensor = torch.rand([1,660,3])
+    >>> inp_tensor = torch.rand([1, 660, 3])
     >>> model = Linear(input_size=3, n_neurons=4)
     >>> optim = torch.optim.Adam(model.parameters(), lr=1)
     >>> output = model(inp_tensor)
-    >>> scheduler = WarmAndExpDecayLRSchedule(lr=1, n_warmup_steps=2, decay_factor=0.01, total_steps=6)
+    >>> scheduler = WarmAndExpDecayLRSchedule(
+    ...     lr=1, n_warmup_steps=2, decay_factor=0.01, total_steps=6
+    ... )
     >>> scheduler(optim)
     >>> optim.param_groups[0]["lr"]
     0.0
@@ -483,18 +485,18 @@ class NoamScheduler:
     Example
     -------
     >>> from speechbrain.nnet.linear import Linear
-    >>> inp_tensor = torch.rand([1,660,3])
+    >>> inp_tensor = torch.rand([1, 660, 3])
     >>> model = Linear(input_size=3, n_neurons=4)
     >>> optim = torch.optim.Adam(model.parameters(), lr=1)
     >>> output = model(inp_tensor)
-    >>> scheduler =NoamScheduler(optim.param_groups[0]["lr"], 3)
-    >>> curr_lr,next_lr=scheduler(optim)
+    >>> scheduler = NoamScheduler(optim.param_groups[0]["lr"], 3)
+    >>> curr_lr, next_lr = scheduler(optim)
     >>> optim.param_groups[0]["lr"]
     0.3333333333333333
-    >>> curr_lr,next_lr=scheduler(optim)
+    >>> curr_lr, next_lr = scheduler(optim)
     >>> optim.param_groups[0]["lr"]
     0.6666666666666666
-    >>> curr_lr,next_lr=scheduler(optim)
+    >>> curr_lr, next_lr = scheduler(optim)
     >>> optim.param_groups[0]["lr"]
     0.9999999999999999
     """
@@ -584,18 +586,18 @@ class NoamIntervalScheduler:
     Example
     -------
     >>> from speechbrain.nnet.linear import Linear
-    >>> inp_tensor = torch.rand([1,660,3])
+    >>> inp_tensor = torch.rand([1, 660, 3])
     >>> model = Linear(input_size=3, n_neurons=4)
     >>> optim = torch.optim.Adam(model.parameters(), lr=1)
     >>> output = model(inp_tensor)
     >>> scheduler = NoamIntervalScheduler(
-    ...    lr_initial=optim.param_groups[0]["lr"],
-    ...    n_warmup_steps=3,
-    ...    anneal_steps=[6, 9],
-    ...    anneal_rates=[0.5, 0.1],
+    ...     lr_initial=optim.param_groups[0]["lr"],
+    ...     n_warmup_steps=3,
+    ...     anneal_steps=[6, 9],
+    ...     anneal_rates=[0.5, 0.1],
     ... )
     >>> for _ in range(10):
-    ...     curr_lr,next_lr=scheduler(optim)
+    ...     curr_lr, next_lr = scheduler(optim)
     ...     print(optim.param_groups[0]["lr"])
     0.3333333333333333
     0.6666666666666666
@@ -701,24 +703,24 @@ class LinearNoamScheduler:
     Example
     -------
     >>> from speechbrain.nnet.linear import Linear
-    >>> inp_tensor = torch.rand([1,660,3])
+    >>> inp_tensor = torch.rand([1, 660, 3])
     >>> model = Linear(input_size=3, n_neurons=4)
     >>> optim = torch.optim.Adam(model.parameters(), lr=1)
     >>> output = model(inp_tensor)
-    >>> scheduler =LinearNoamScheduler(optim.param_groups[0]["lr"], 2, 2)
-    >>> curr_lr,next_lr=scheduler(optim)
+    >>> scheduler = LinearNoamScheduler(optim.param_groups[0]["lr"], 2, 2)
+    >>> curr_lr, next_lr = scheduler(optim)
     >>> optim.param_groups[0]["lr"]
     0.5
-    >>> curr_lr,next_lr=scheduler(optim)
+    >>> curr_lr, next_lr = scheduler(optim)
     >>> optim.param_groups[0]["lr"]
     1.0
-    >>> curr_lr,next_lr=scheduler(optim)
+    >>> curr_lr, next_lr = scheduler(optim)
     >>> optim.param_groups[0]["lr"]
     1.0
-    >>> curr_lr,next_lr=scheduler(optim)
+    >>> curr_lr, next_lr = scheduler(optim)
     >>> optim.param_groups[0]["lr"]
     1.0
-    >>> curr_lr,next_lr=scheduler(optim)
+    >>> curr_lr, next_lr = scheduler(optim)
     >>> optim.param_groups[0]["lr"]
     0.6666666666666666
     """
@@ -804,18 +806,18 @@ class CyclicCosineScheduler:
     Example
     -------
     >>> from speechbrain.nnet.linear import Linear
-    >>> inp_tensor = torch.rand([1,660,3])
+    >>> inp_tensor = torch.rand([1, 660, 3])
     >>> model = Linear(input_size=3, n_neurons=4)
     >>> optim = torch.optim.Adam(model.parameters(), lr=1)
     >>> output = model(inp_tensor)
-    >>> scheduler =CyclicCosineScheduler(3, optim.param_groups[0]["lr"])
-    >>> curr_lr,next_lr=scheduler(optim)
+    >>> scheduler = CyclicCosineScheduler(3, optim.param_groups[0]["lr"])
+    >>> curr_lr, next_lr = scheduler(optim)
     >>> optim.param_groups[0]["lr"]
     0.9999999990130395
-    >>> curr_lr,next_lr=scheduler(optim)
+    >>> curr_lr, next_lr = scheduler(optim)
     >>> optim.param_groups[0]["lr"]
     0.9999999997532598
-    >>> curr_lr,next_lr=scheduler(optim)
+    >>> curr_lr, next_lr = scheduler(optim)
     >>> optim.param_groups[0]["lr"]
     1.0
     """
@@ -904,15 +906,23 @@ class ReduceLROnPlateau:
     -------
     >>> from torch.optim import Adam
     >>> from speechbrain.nnet.linear import Linear
-    >>> inp_tensor = torch.rand([1,660,3])
+    >>> inp_tensor = torch.rand([1, 660, 3])
     >>> model = Linear(n_neurons=10, input_size=3)
     >>> optim = Adam(lr=1.0, params=model.parameters())
     >>> output = model(inp_tensor)
     >>> scheduler = ReduceLROnPlateau(0.25, 0.5, 2, 1)
-    >>> curr_lr,next_lr=scheduler([optim],current_epoch=1, current_loss=10.0)
-    >>> curr_lr,next_lr=scheduler([optim],current_epoch=2, current_loss=11.0)
-    >>> curr_lr,next_lr=scheduler([optim],current_epoch=3, current_loss=13.0)
-    >>> curr_lr,next_lr=scheduler([optim],current_epoch=4, current_loss=14.0)
+    >>> curr_lr, next_lr = scheduler(
+    ...     [optim], current_epoch=1, current_loss=10.0
+    ... )
+    >>> curr_lr, next_lr = scheduler(
+    ...     [optim], current_epoch=2, current_loss=11.0
+    ... )
+    >>> curr_lr, next_lr = scheduler(
+    ...     [optim], current_epoch=3, current_loss=13.0
+    ... )
+    >>> curr_lr, next_lr = scheduler(
+    ...     [optim], current_epoch=4, current_loss=14.0
+    ... )
     >>> next_lr
     0.5
     """
@@ -1051,7 +1061,7 @@ class CyclicLRScheduler:
     Example
     -------
     >>> from speechbrain.nnet.linear import Linear
-    >>> inp_tensor = torch.rand([1,660,3])
+    >>> inp_tensor = torch.rand([1, 660, 3])
     >>> model = Linear(input_size=3, n_neurons=4)
     >>> optim = torch.optim.Adam(model.parameters(), lr=1)
     >>> output = model(inp_tensor)
@@ -1186,11 +1196,11 @@ class IntervalScheduler:
     >>> model = Linear(input_size=3, n_neurons=4)
     >>> optim = torch.optim.Adam(model.parameters(), lr=1)
     >>> scheduler = IntervalScheduler(
-    ...    intervals=[
-    ...        {"steps": 2, "lr": 0.01},
-    ...        {"steps": 5, "lr": 0.005},
-    ...        {"steps": 9, "lr": 0.001}
-    ...    ]
+    ...     intervals=[
+    ...         {"steps": 2, "lr": 0.01},
+    ...         {"steps": 5, "lr": 0.005},
+    ...         {"steps": 9, "lr": 0.001},
+    ...     ]
     ... )
     >>> optim.param_groups[0]["lr"]
     1
@@ -1352,11 +1362,18 @@ class WarmCoolDecayLRSchedule:
     Example
     -------
     >>> from speechbrain.nnet.linear import Linear
-    >>> inp_tensor = torch.rand([1,660,3])
+    >>> inp_tensor = torch.rand([1, 660, 3])
     >>> model = Linear(input_size=3, n_neurons=4)
     >>> optim = torch.optim.Adam(model.parameters(), lr=1)
     >>> output = model(inp_tensor)
-    >>> scheduler = WarmCoolDecayLRSchedule(lr=1, warmup=2, total_steps=6, decay_factor=0.5, decay_every=1, cooldown=1)
+    >>> scheduler = WarmCoolDecayLRSchedule(
+    ...     lr=1,
+    ...     warmup=2,
+    ...     total_steps=6,
+    ...     decay_factor=0.5,
+    ...     decay_every=1,
+    ...     cooldown=1,
+    ... )
     >>> optim.param_groups[0]["lr"]
     1
     >>> scheduler(optim, 1)
@@ -1457,10 +1474,10 @@ class ScheduledLoss(nn.Module):
     ...     schedule=[
     ...         {"steps": 3, "loss_fn": nn.MSELoss()},
     ...         {"steps": 2, "loss_fn": nn.L1Loss()},
-    ...         {"loss_fn": nn.SmoothL1Loss()}
+    ...         {"loss_fn": nn.SmoothL1Loss()},
     ...     ]
     ... )
-    >>> x = torch.tensor([1., 2.])
+    >>> x = torch.tensor([1.0, 2.0])
     >>> y = torch.tensor([1.5, 2.5])
     >>> for idx in range(10):
     ...     loss = loss_fn(x, y)
@@ -1560,11 +1577,19 @@ class TriStageLRSchedule:
     Example
     -------
     >>> from speechbrain.nnet.linear import Linear
-    >>> inp_tensor = torch.rand([1,660,3])
+    >>> inp_tensor = torch.rand([1, 660, 3])
     >>> model = Linear(input_size=3, n_neurons=4)
     >>> optim = torch.optim.Adam(model.parameters(), lr=1)
     >>> output = model(inp_tensor)
-    >>> scheduler = TriStageLRSchedule(lr=1, warmup_steps=2, hold_steps=2, decay_steps=2, total_steps=6, init_lr_scale=0.01, final_lr_scale=0.05)
+    >>> scheduler = TriStageLRSchedule(
+    ...     lr=1,
+    ...     warmup_steps=2,
+    ...     hold_steps=2,
+    ...     decay_steps=2,
+    ...     total_steps=6,
+    ...     init_lr_scale=0.01,
+    ...     final_lr_scale=0.05,
+    ... )
     >>> optim.param_groups[0]["lr"]
     1
     >>> scheduler(optim, 1)

@@ -284,7 +284,6 @@ def check_performance(
         return False
 
     for line in lines_filt:
-
         # Search variable value
         var_value = extract_value(line, variable)
 
@@ -336,9 +335,7 @@ def extract_value(string, key):
 
     # Create the regular expression pattern to match the argument and its corresponding value
     pattern = (
-        r"(?P<key>{})\s*:\s*(?P<value>[-+]?\d*\.\d+([eE][-+]?\d+)?)".format(
-            escaped_key
-        )
+        rf"(?P<key>{escaped_key})\s*:\s*(?P<value>[-+]?\d*\.\d+([eE][-+]?\d+)?)"
     )
 
     # Search for the pattern in the input string
@@ -523,7 +520,6 @@ def run_recipe_tests(
     # Run  script (check how to get std out, std err and save them in files)
     check = True
     for i, recipe_id in enumerate(sorted(test_script.keys())):
-
         # Check if the output folder is specified in test_field
         spec_outfold = False
         if "--output_folder" in test_flag[recipe_id]:

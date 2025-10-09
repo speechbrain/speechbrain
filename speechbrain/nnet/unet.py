@@ -155,10 +155,7 @@ class AttentionPool2d(nn.Module):
     Example
     -------
     >>> attn_pool = AttentionPool2d(
-    ...     spatial_dim=64,
-    ...     embed_dim=16,
-    ...     num_heads_channels=2,
-    ...     output_dim=4
+    ...     spatial_dim=64, embed_dim=16, num_heads_channels=2, output_dim=4
     ... )
     >>> x = torch.randn(4, 1, 64, 64)
     >>> x_pool = attn_pool(x)
@@ -234,22 +231,16 @@ class TimestepEmbedSequential(nn.Sequential, TimestepBlock):
     >>> class MyBlock(TimestepBlock):
     ...     def __init__(self, input_size, output_size, emb_size):
     ...         super().__init__()
-    ...         self.lin = Linear(
-    ...             n_neurons=output_size,
-    ...             input_size=input_size
-    ...         )
+    ...         self.lin = Linear(n_neurons=output_size, input_size=input_size)
     ...         self.emb_proj = Linear(
     ...             n_neurons=output_size,
     ...             input_size=emb_size,
     ...         )
+    ...
     ...     def forward(self, x, emb):
     ...         return self.lin(x) + self.emb_proj(emb)
     >>> tes = TimestepEmbedSequential(
-    ...     MyBlock(128, 64, 16),
-    ...     Linear(
-    ...         n_neurons=32,
-    ...         input_size=64
-    ...     )
+    ...     MyBlock(128, 64, 16), Linear(n_neurons=32, input_size=64)
     ... )
     >>> x = torch.randn(4, 10, 128)
     >>> emb = torch.randn(4, 10, 16)
@@ -574,10 +565,7 @@ class AttentionBlock(nn.Module):
     Example
     -------
     >>> attn = AttentionBlock(
-    ...     channels=8,
-    ...     num_heads=4,
-    ...     num_head_channels=4,
-    ...     norm_num_groups=2
+    ...     channels=8, num_heads=4, num_head_channels=4, norm_num_groups=2
     ... )
     >>> x = torch.randn(4, 8, 16, 16)
     >>> out = attn(x)
@@ -598,9 +586,9 @@ class AttentionBlock(nn.Module):
         if num_head_channels == -1:
             self.num_heads = num_heads
         else:
-            assert (
-                channels % num_head_channels == 0
-            ), f"q,k,v channels {channels} is not divisible by num_head_channels {num_head_channels}"
+            assert channels % num_head_channels == 0, (
+                f"q,k,v channels {channels} is not divisible by num_head_channels {num_head_channels}"
+            )
             self.num_heads = channels // num_head_channels
         self.norm = nn.GroupNorm(norm_num_groups, channels)
         self.qkv = conv_nd(1, channels, channels * 3, 1)
@@ -785,11 +773,11 @@ class UNetModel(nn.Module):
     Example
     -------
     >>> model = UNetModel(
-    ...    in_channels=3,
-    ...    model_channels=32,
-    ...    out_channels=1,
-    ...    num_res_blocks=1,
-    ...    attention_resolutions=[1]
+    ...     in_channels=3,
+    ...     model_channels=32,
+    ...     out_channels=1,
+    ...     num_res_blocks=1,
+    ...     attention_resolutions=[1],
     ... )
     >>> x = torch.randn(4, 3, 16, 32)
     >>> ts = torch.tensor([10, 100, 50, 25])
@@ -1106,11 +1094,11 @@ class EncoderUNetModel(nn.Module):
     Example
     -------
     >>> model = EncoderUNetModel(
-    ...    in_channels=3,
-    ...    model_channels=32,
-    ...    out_channels=1,
-    ...    num_res_blocks=1,
-    ...    attention_resolutions=[1]
+    ...     in_channels=3,
+    ...     model_channels=32,
+    ...     out_channels=1,
+    ...     num_res_blocks=1,
+    ...     attention_resolutions=[1],
     ... )
     >>> x = torch.randn(4, 3, 16, 32)
     >>> ts = torch.tensor([10, 100, 50, 25])
@@ -1447,11 +1435,11 @@ class DecoderUNetModel(nn.Module):
     Example
     -------
     >>> model = DecoderUNetModel(
-    ...    in_channels=1,
-    ...    model_channels=32,
-    ...    out_channels=3,
-    ...    num_res_blocks=1,
-    ...    attention_resolutions=[1]
+    ...     in_channels=1,
+    ...     model_channels=32,
+    ...     out_channels=3,
+    ...     num_res_blocks=1,
+    ...     attention_resolutions=[1],
     ... )
     >>> x = torch.randn(4, 1, 2, 4)
     >>> ts = torch.tensor([10, 100, 50, 25])
@@ -1654,7 +1642,7 @@ class DownsamplingPadding(nn.Module):
     -------
     >>> padding = DownsamplingPadding(factor=4, dims=[1, 2], len_dim=1)
     >>> x = torch.randn(4, 7, 14)
-    >>> length = torch.tensor([1., 0.8, 1., 0.7])
+    >>> length = torch.tensor([1.0, 0.8, 1.0, 0.7])
     >>> x, length_new = padding(x, length)
     >>> x.shape
     torch.Size([4, 8, 16])

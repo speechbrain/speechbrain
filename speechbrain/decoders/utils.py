@@ -1,4 +1,4 @@
-""" Utils functions for the decoding modules.
+"""Utils functions for the decoding modules.
 
 Authors
  * Adel Moumen 2023
@@ -51,7 +51,7 @@ def inflate_tensor(tensor, times, dim):
 
     Example
     -------
-    >>> tensor = torch.Tensor([[1,2,3], [4,5,6]])
+    >>> tensor = torch.Tensor([[1, 2, 3], [4, 5, 6]])
     >>> new_tensor = inflate_tensor(tensor, 2, dim=0)
     >>> new_tensor
     tensor([[1., 2., 3.],
@@ -82,7 +82,7 @@ def mask_by_condition(tensor, cond, fill_value):
 
     Example
     -------
-    >>> tensor = torch.Tensor([[1,2,3], [4,5,6]])
+    >>> tensor = torch.Tensor([[1, 2, 3], [4, 5, 6]])
     >>> cond = torch.BoolTensor([[True, True, False], [True, False, False]])
     >>> mask_by_condition(tensor, cond, 0)
     tensor([[1., 2., 0.],
@@ -108,7 +108,10 @@ def batch_filter_seq2seq_output(prediction, eos_id=-1):
 
     Example
     -------
-    >>> predictions = [torch.IntTensor([1,2,3,4]), torch.IntTensor([2,3,4,5,6])]
+    >>> predictions = [
+    ...     torch.IntTensor([1, 2, 3, 4]),
+    ...     torch.IntTensor([2, 3, 4, 5, 6]),
+    ... ]
     >>> predictions = batch_filter_seq2seq_output(predictions, eos_id=4)
     >>> predictions
     [[1, 2, 3], [2, 3]]
@@ -137,8 +140,8 @@ def filter_seq2seq_output(string_pred, eos_id=-1):
 
     Example
     -------
-    >>> string_pred = ['a','b','c','d','eos','e']
-    >>> string_out = filter_seq2seq_output(string_pred, eos_id='eos')
+    >>> string_pred = ["a", "b", "c", "d", "eos", "e"]
+    >>> string_out = filter_seq2seq_output(string_pred, eos_id="eos")
     >>> string_out
     ['a', 'b', 'c', 'd']
     """

@@ -21,8 +21,10 @@ class AudioNormalizer:
     Example
     -------
     >>> import torchaudio
-    >>> example_file = 'tests/samples/multi-mic/speech_-0.82918_0.55279_-0.082918.flac'
-    >>> signal, sr = torchaudio.load(example_file, channels_first = False)
+    >>> example_file = (
+    ...     "tests/samples/multi-mic/speech_-0.82918_0.55279_-0.082918.flac"
+    ... )
+    >>> signal, sr = torchaudio.load(example_file, channels_first=False)
     >>> normalizer = AudioNormalizer(sample_rate=8000)
     >>> normalized = normalizer(signal, sr)
     >>> signal.shape

@@ -1,4 +1,4 @@
-""" Specifies the inference interfaces for speech and audio encoders.
+"""Specifies the inference interfaces for speech and audio encoders.
 
 Authors:
  * Aku Rouhe 2021
@@ -40,8 +40,10 @@ class WaveformEncoder(Pretrained):
     >>> ssl_model = WaveformEncoder.from_hparams(
     ...     source="speechbrain/ssl-wav2vec2-base-libri",
     ...     savedir=tmpdir,
-    ... ) # doctest: +SKIP
-    >>> ssl_model.encode_file("samples/audio_samples/example_fr.wav") # doctest: +SKIP
+    ... )  # doctest: +SKIP
+    >>> ssl_model.encode_file(
+    ...     "samples/audio_samples/example_fr.wav"
+    ... )  # doctest: +SKIP
     """
 
     MODULES_NEEDED = ["encoder"]
@@ -120,18 +122,22 @@ class MelSpectrogramEncoder(Pretrained):
     >>> encoder = MelSpectrogramEncoder.from_hparams(
     ...     source="speechbrain/tts-ecapa-voxceleb",
     ...     savedir=tmpdir,
-    ... ) # doctest: +SKIP
+    ... )  # doctest: +SKIP
 
     >>> # Compute embedding from a waveform (sample_rate must match the sample rate of the encoder)
-    >>> signal, fs = torchaudio.load("tests/samples/single-mic/example1.wav") # doctest: +SKIP
-    >>> spk_emb = encoder.encode_waveform(signal) # doctest: +SKIP
+    >>> signal, fs = torchaudio.load(
+    ...     "tests/samples/single-mic/example1.wav"
+    ... )  # doctest: +SKIP
+    >>> spk_emb = encoder.encode_waveform(signal)  # doctest: +SKIP
 
     >>> # Compute embedding from a mel-spectrogram (sample_rate must match the sample rate of the ecoder)
-    >>> mel_spec = encoder.mel_spectogram(audio=signal) # doctest: +SKIP
-    >>> spk_emb = encoder.encode_mel_spectrogram(mel_spec) # doctest: +SKIP
+    >>> mel_spec = encoder.mel_spectogram(audio=signal)  # doctest: +SKIP
+    >>> spk_emb = encoder.encode_mel_spectrogram(mel_spec)  # doctest: +SKIP
 
     >>> # Compute embeddings for a batch of mel-spectrograms
-    >>> spk_embs = encoder.encode_mel_spectrogram_batch(mel_spec) # doctest: +SKIP
+    >>> spk_embs = encoder.encode_mel_spectrogram_batch(
+    ...     mel_spec
+    ... )  # doctest: +SKIP
     """
 
     MODULES_NEEDED = ["normalizer", "embedding_model"]

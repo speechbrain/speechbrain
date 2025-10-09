@@ -47,16 +47,16 @@ class DynamicItemDataset(Dataset):
     Altogether the data collection could look like this:
 
     >>> data = {
-    ...  "spk1utt1": {
-    ...      "wav_file": "/path/to/spk1utt1.wav",
-    ...      "text": "hello world",
-    ...      "speaker": "spk1",
-    ...      },
-    ...  "spk1utt2": {
-    ...      "wav_file": "/path/to/spk1utt2.wav",
-    ...      "text": "how are you world",
-    ...      "speaker": "spk1",
-    ...      }
+    ...     "spk1utt1": {
+    ...         "wav_file": "/path/to/spk1utt1.wav",
+    ...         "text": "hello world",
+    ...         "speaker": "spk1",
+    ...     },
+    ...     "spk1utt2": {
+    ...         "wav_file": "/path/to/spk1utt2.wav",
+    ...         "text": "how are you world",
+    ...         "speaker": "spk1",
+    ...     },
     ... }
 
     NOTE
@@ -75,23 +75,33 @@ class DynamicItemDataset(Dataset):
 
     >>> import torch
     >>> dynamic_items = [
-    ...     {"func": lambda l: torch.Tensor(l),
-    ...     "takes": ["wav_loaded"],
-    ...     "provides": "wav"},
-    ...     {"func": lambda path: [ord(c)/100 for c in path],  # Fake "loading"
-    ...     "takes": ["wav_file"],
-    ...     "provides": "wav_loaded"},
-    ...     {"func": lambda t: t.split(),
-    ...     "takes": ["text"],
-    ...     "provides": "words"}]
+    ...     {
+    ...         "func": lambda l: torch.Tensor(l),
+    ...         "takes": ["wav_loaded"],
+    ...         "provides": "wav",
+    ...     },
+    ...     {
+    ...         "func": lambda path: [
+    ...             ord(c) / 100 for c in path
+    ...         ],  # Fake "loading"
+    ...         "takes": ["wav_file"],
+    ...         "provides": "wav_loaded",
+    ...     },
+    ...     {
+    ...         "func": lambda t: t.split(),
+    ...         "takes": ["text"],
+    ...         "provides": "words",
+    ...     },
+    ... ]
 
     With these, different views of the data can be loaded:
 
     >>> from speechbrain.dataio.dataloader import SaveableDataLoader
     >>> from speechbrain.dataio.batch import PaddedBatch
     >>> dataset = DynamicItemDataset(data, dynamic_items)
-    >>> dataloader = SaveableDataLoader(dataset, collate_fn=PaddedBatch,
-    ...     batch_size=2)
+    >>> dataloader = SaveableDataLoader(
+    ...     dataset, collate_fn=PaddedBatch, batch_size=2
+    ... )
     >>> # First, create encoding for words:
     >>> dataset.set_output_keys(["words"])
     >>> encoding = {}
@@ -104,10 +114,12 @@ class DynamicItemDataset(Dataset):
     ...                 next_id += 1
     >>> # Next, add an encoded words_tensor dynamic item:
     >>> dataset.add_dynamic_item(
-    ...     func = lambda ws: torch.tensor([encoding[w] for w in ws],
-    ...             dtype=torch.long),
-    ...     takes = ["words"],
-    ...     provides = "words_encoded")
+    ...     func=lambda ws: torch.tensor(
+    ...         [encoding[w] for w in ws], dtype=torch.long
+    ...     ),
+    ...     takes=["words"],
+    ...     provides="words_encoded",
+    ... )
     >>> # Now we can get word and audio tensors:
     >>> dataset.set_output_keys(["id", "wav", "words_encoded"])
     >>> batch = next(iter(dataloader))
@@ -121,7 +133,9 @@ class DynamicItemDataset(Dataset):
 
     Output keys can also be a map:
 
-    >>> dataset.set_output_keys({"id":"id", "signal": "wav", "words": "words_encoded"})
+    >>> dataset.set_output_keys(
+    ...     {"id": "id", "signal": "wav", "words": "words_encoded"}
+    ... )
     >>> batch = next(iter(dataloader))
     >>> batch.words
     PaddedData(data=tensor([[1, 2, 0, 0],
@@ -222,8 +236,10 @@ class DynamicItemDataset(Dataset):
 
         Example
         -------
-        >>> dataset = DynamicItemDataset({"a":{"x":1,"y":2},"b":{"x":3,"y":4}},
-        ...     output_keys = ["x"])
+        >>> dataset = DynamicItemDataset(
+        ...     {"a": {"x": 1, "y": 2}, "b": {"x": 3, "y": 4}},
+        ...     output_keys=["x"],
+        ... )
         >>> with dataset.output_keys_as(["y"]):
         ...     print(dataset[0])
         {'y': 2}

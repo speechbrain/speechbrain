@@ -66,10 +66,10 @@ def prepare_librilight(
 
     Example
     -------
-    >>> data_folder = 'datasets/Libri-Light_VAD'
-    >>> dev_folder = 'datasets/LibriSpeech/dev-clean'
-    >>> vad_splits = ['small_vad']
-    >>> save_folder = 'librilight_prepared'
+    >>> data_folder = "datasets/Libri-Light_VAD"
+    >>> dev_folder = "datasets/LibriSpeech/dev-clean"
+    >>> vad_splits = ["small_vad"]
+    >>> save_folder = "librilight_prepared"
     >>> prepare_librilight(data_folder, dev_folder, save_folder, vad_splits)
     """
 

@@ -400,15 +400,15 @@ class HifiganGenerator(torch.nn.Module):
     Example
     -------
     >>> inp_tensor = torch.rand([4, 80, 33])
-    >>> hifigan_generator= HifiganGenerator(
-    ...    in_channels = 80,
-    ...    out_channels = 1,
-    ...    resblock_type = "1",
-    ...    resblock_dilation_sizes = [[1, 3, 5], [1, 3, 5], [1, 3, 5]],
-    ...    resblock_kernel_sizes = [3, 7, 11],
-    ...    upsample_kernel_sizes = [16, 16, 4, 4],
-    ...    upsample_initial_channel = 512,
-    ...    upsample_factors = [8, 8, 2, 2],
+    >>> hifigan_generator = HifiganGenerator(
+    ...     in_channels=80,
+    ...     out_channels=1,
+    ...     resblock_type="1",
+    ...     resblock_dilation_sizes=[[1, 3, 5], [1, 3, 5], [1, 3, 5]],
+    ...     resblock_kernel_sizes=[3, 7, 11],
+    ...     upsample_kernel_sizes=[16, 16, 4, 4],
+    ...     upsample_initial_channel=512,
+    ...     upsample_factors=[8, 8, 2, 2],
     ... )
     >>> out_tensor = hifigan_generator(inp_tensor)
     >>> out_tensor.shape
@@ -568,12 +568,12 @@ class VariancePredictor(nn.Module):
     -------
     >>> inp_tensor = torch.rand([4, 80, 128])
     >>> duration_predictor = VariancePredictor(
-    ...    encoder_embed_dim = 128,
-    ...    var_pred_hidden_dim = 128,
-    ...    var_pred_kernel_size = 3,
-    ...    var_pred_dropout = 0.5,
+    ...     encoder_embed_dim=128,
+    ...     var_pred_hidden_dim=128,
+    ...     var_pred_kernel_size=3,
+    ...     var_pred_dropout=0.5,
     ... )
-    >>> out_tensor = duration_predictor (inp_tensor)
+    >>> out_tensor = duration_predictor(inp_tensor)
     >>> out_tensor.shape
     torch.Size([4, 80])
     """
@@ -686,21 +686,21 @@ class UnitHifiganGenerator(HifiganGenerator):
     Example
     -------
     >>> inp_tensor = torch.randint(0, 100, (4, 10, 1))
-    >>> unit_hifigan_generator= UnitHifiganGenerator(
-    ...    in_channels = 128,
-    ...    out_channels = 1,
-    ...    resblock_type = "1",
-    ...    resblock_dilation_sizes = [[1, 3, 5], [1, 3, 5], [1, 3, 5]],
-    ...    resblock_kernel_sizes = [3, 7, 11],
-    ...    upsample_kernel_sizes = [11, 8, 8, 4, 4],
-    ...    upsample_initial_channel = 512,
-    ...    upsample_factors = [5, 4, 4, 2, 2],
-    ...    vocab_size = 100,
-    ...    embedding_dim = 128,
-    ...    duration_predictor = True,
-    ...    var_pred_hidden_dim = 128,
-    ...    var_pred_kernel_size = 3,
-    ...    var_pred_dropout = 0.5,
+    >>> unit_hifigan_generator = UnitHifiganGenerator(
+    ...     in_channels=128,
+    ...     out_channels=1,
+    ...     resblock_type="1",
+    ...     resblock_dilation_sizes=[[1, 3, 5], [1, 3, 5], [1, 3, 5]],
+    ...     resblock_kernel_sizes=[3, 7, 11],
+    ...     upsample_kernel_sizes=[11, 8, 8, 4, 4],
+    ...     upsample_initial_channel=512,
+    ...     upsample_factors=[5, 4, 4, 2, 2],
+    ...     vocab_size=100,
+    ...     embedding_dim=128,
+    ...     duration_predictor=True,
+    ...     var_pred_hidden_dim=128,
+    ...     var_pred_kernel_size=3,
+    ...     var_pred_dropout=0.5,
     ... )
     >>> out_tensor, _ = unit_hifigan_generator(inp_tensor)
     >>> out_tensor.shape
@@ -867,12 +867,12 @@ class UnitHifiganGenerator(HifiganGenerator):
         x = x.transpose(1, 2)
 
         if self.duration_predictor:
-            assert (
-                x.size(0) == 1
-            ), "only support single sample batch in inference"
+            assert x.size(0) == 1, (
+                "only support single sample batch in inference"
+            )
             log_dur_pred = self.var_predictor(x.transpose(1, 2))
             dur_out = torch.clamp(
-                torch.round((torch.exp(log_dur_pred) - 1)).long(), min=1
+                torch.round(torch.exp(log_dur_pred) - 1).long(), min=1
             )
             # B x C x T
             x = torch.repeat_interleave(x, dur_out.view(-1), dim=2)
@@ -1146,7 +1146,7 @@ class HifiganDiscriminator(nn.Module):
     Example
     -------
     >>> inp_tensor = torch.rand([4, 1, 8192])
-    >>> hifigan_discriminator= HifiganDiscriminator()
+    >>> hifigan_discriminator = HifiganDiscriminator()
     >>> scores, feats = hifigan_discriminator(inp_tensor)
     >>> len(scores)
     8

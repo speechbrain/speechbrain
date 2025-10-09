@@ -39,21 +39,19 @@ class TransformerWordEmbeddings(nn.Module):
     Example
     -------
     >>> from transformers import AutoTokenizer, AutoModel
-    >>> from speechbrain.integrations.huggingface.wordemb.transformer import TransformerWordEmbeddings
+    >>> from speechbrain.integrations.huggingface.wordemb.transformer import (
+    ...     TransformerWordEmbeddings,
+    ... )
     >>> model_name = "bert-base-uncased"
     >>> tokenizer = AutoTokenizer.from_pretrained(
-    ...    model_name, return_tensors='pt')
-    >>> model = AutoModel.from_pretrained(
-    ...     model_name,
-    ...     output_hidden_states=True)
+    ...     model_name, return_tensors="pt"
+    ... )
+    >>> model = AutoModel.from_pretrained(model_name, output_hidden_states=True)
     >>> word_emb = TransformerWordEmbeddings(
-    ...     model=model,
-    ...     layers=4,
-    ...     tokenizer=tokenizer
+    ...     model=model, layers=4, tokenizer=tokenizer
     ... )
     >>> embedding = word_emb.embedding(
-    ...     sentence="THIS IS A TEST SENTENCE",
-    ...     word="TEST"
+    ...     sentence="THIS IS A TEST SENTENCE", word="TEST"
     ... )
     >>> embedding[:8]
     tensor([ 3.4332, -3.6702,  0.5152, -1.9301,  0.9197,  2.1628, -0.2841, -0.3549])
@@ -67,7 +65,7 @@ class TransformerWordEmbeddings(nn.Module):
     >>> sentences = [
     ...     "This is the first test sentence",
     ...     "This is the second test sentence",
-    ...     "A quick brown fox jumped over the lazy dog"
+    ...     "A quick brown fox jumped over the lazy dog",
     ... ]
     >>> batch_embeddings = word_emb.batch_embeddings(sentences)
     >>> batch_embeddings.shape

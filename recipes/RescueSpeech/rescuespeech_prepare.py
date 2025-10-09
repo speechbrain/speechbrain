@@ -195,7 +195,7 @@ def create_asr_csv(
         raise FileNotFoundError(msg)
 
     # We load and skip the header
-    loaded_csv = open(orig_tsv_file, "r", encoding="utf-8").readlines()[1:]
+    loaded_csv = open(orig_tsv_file, encoding="utf-8").readlines()[1:]
     nb_samples = str(len(loaded_csv))
 
     msg = "Preparing CSV files for %s samples ..." % (str(nb_samples))

@@ -126,7 +126,7 @@ def prepare_GSC(
 
     Example
     -------
-    >>> data_folder = '/path/to/GSC'
+    >>> data_folder = "/path/to/GSC"
     >>> prepare_GSC(data_folder)
     """
 

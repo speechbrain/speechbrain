@@ -43,8 +43,8 @@ class SignalDownsampler(Downsampler):
 
     Example
     -------
-    >>> sd = SignalDownsampler(2,16000)
-    >>> a = torch.rand([8,28000])
+    >>> sd = SignalDownsampler(2, 16000)
+    >>> a = torch.rand([8, 28000])
     >>> a = sd(a)
     >>> print(a.shape)
     torch.Size([8, 14000])
@@ -70,8 +70,8 @@ class Conv1DDownsampler(Downsampler):
         Kernel size of the 1D filter (must be an odd integer)
     Example
     -------
-    >>> sd = Conv1DDownsampler(3,161)
-    >>> a = torch.rand([8,33000])
+    >>> sd = Conv1DDownsampler(3, 161)
+    >>> a = torch.rand([8, 33000])
     >>> a = sd(a)
     >>> print(a.shape)
     torch.Size([8, 10947])
@@ -105,8 +105,8 @@ class PoolingDownsampler(Downsampler):
         Pooling approach, must be within ["avg","max"]
     Example
     -------
-    >>> sd = PoolingDownsampler(3,41)
-    >>> a = torch.rand([8,33000])
+    >>> sd = PoolingDownsampler(3, 41)
+    >>> a = torch.rand([8, 33000])
     >>> a = sd(a)
     >>> print(a.shape)
     torch.Size([8, 10987])
@@ -142,7 +142,7 @@ class ConcatDownsampler(Downsampler):
     Example
     -------
     >>> down = ConcatDownsampler(2)
-    >>> a = torch.rand([8,40, 40])
+    >>> a = torch.rand([8, 40, 40])
     >>> a = down(a)
     >>> print(a.shape)
     torch.Size([8, 20, 80])

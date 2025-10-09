@@ -7,6 +7,7 @@ Does the following feature set work out together on some environment?
 Authors:
     * Andreas Nautsch 2023
 """
+
 import os
 import sys
 from copy import deepcopy
@@ -47,7 +48,7 @@ def eval_reporting(reports, single_node=False):
     for log_metric, specs in reports.items():
         if not single_node:
             print(
-                f'{log_metric} on DDP rank {int(os.environ["RANK"])}: {specs["tracker"].summarize()}'
+                f"{log_metric} on DDP rank {int(os.environ['RANK'])}: {specs['tracker'].summarize()}"
             )
             result_list = [None for _ in range(int(os.environ["WORLD_SIZE"]))]
             # WARNING: https://pytorch.org/docs/stable/distributed.html - underlying `pickle` module is known to be insecure
@@ -59,7 +60,7 @@ def eval_reporting(reports, single_node=False):
                 specs["tracker"].scores.extend(r)
         summary = specs["tracker"].summarize()
         print(f"\tSummary: {summary}")
-        logger.info(f'{log_metric}: {summary[specs["field"]]}\n')
+        logger.info(f"{log_metric}: {summary[specs['field']]}\n")
 
 
 def eval_test_use_recipe_dataio(

@@ -524,7 +524,9 @@ class ResourceEfficientSeparationPipeline(nn.Module):
     >>> x = torch.randn(10, 100, 64)
     >>> seg_mdl = SBTransformerBlock_wnormandskip(1, 64, 8)
     >>> mem_mdl = SBTransformerBlock_wnormandskip(1, 64, 8)
-    >>> resepf_pipeline = ResourceEfficientSeparationPipeline(64, 64, 128, seg_model=seg_mdl, mem_model=mem_mdl)
+    >>> resepf_pipeline = ResourceEfficientSeparationPipeline(
+    ...     64, 64, 128, seg_model=seg_mdl, mem_model=mem_mdl
+    ... )
     >>> out = resepf_pipeline.forward(x)
     >>> out.shape
     torch.Size([10, 100, 128])
@@ -561,7 +563,9 @@ class ResourceEfficientSeparationPipeline(nn.Module):
             "id",
             "av",
             None,
-        ], f"only support 'hc', 'h', 'c', 'id', 'av' and None, current type: {mem_type}"
+        ], (
+            f"only support 'hc', 'h', 'c', 'id', 'av' and None, current type: {mem_type}"
+        )
 
         self.seg_model = nn.ModuleList([])
         for i in range(num_blocks):
@@ -697,7 +701,9 @@ class ResourceEfficientSeparator(nn.Module):
     >>> x = torch.randn(10, 64, 100)
     >>> seg_mdl = SBTransformerBlock_wnormandskip(1, 64, 8)
     >>> mem_mdl = SBTransformerBlock_wnormandskip(1, 64, 8)
-    >>> resepformer = ResourceEfficientSeparator(64, num_spk=3, mem_type='av', seg_model=seg_mdl, mem_model=mem_mdl)
+    >>> resepformer = ResourceEfficientSeparator(
+    ...     64, num_spk=3, mem_type="av", seg_model=seg_mdl, mem_model=mem_mdl
+    ... )
     >>> out = resepformer.forward(x)
     >>> out.shape
     torch.Size([3, 10, 64, 100])
@@ -724,7 +730,7 @@ class ResourceEfficientSeparator(nn.Module):
         self.segment_size = segment_size
 
         if mem_type not in ("hc", "h", "c", "id", "av", None):
-            raise ValueError("Not supporting mem_type={}".format(mem_type))
+            raise ValueError(f"Not supporting mem_type={mem_type}")
 
         self.model = ResourceEfficientSeparationPipeline(
             input_size=input_dim,
@@ -741,7 +747,7 @@ class ResourceEfficientSeparator(nn.Module):
         )
 
         if nonlinear not in ("sigmoid", "relu", "tanh"):
-            raise ValueError("Not supporting nonlinear={}".format(nonlinear))
+            raise ValueError(f"Not supporting nonlinear={nonlinear}")
 
         self.nonlinear = {
             "sigmoid": torch.nn.Sigmoid(),

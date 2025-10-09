@@ -47,12 +47,14 @@ class WavTokenizer(nn.Module):
     -------
     >>> model_hub = "novateur/WavTokenizer"
     >>> save_path = "savedir"
-    >>> config="wavtokenizer_smalldata_frame40_3s_nq1_code4096_dim512_kmeans200_attn.yaml"
-    >>> checkpoint="WavTokenizer_small_600_24k_4096.ckpt"
-    >>> model = WavTokenizer(model_hub, save_path,config=config,checkpoint=checkpoint)
+    >>> config = "wavtokenizer_smalldata_frame40_3s_nq1_code4096_dim512_kmeans200_attn.yaml"
+    >>> checkpoint = "WavTokenizer_small_600_24k_4096.ckpt"
+    >>> model = WavTokenizer(
+    ...     model_hub, save_path, config=config, checkpoint=checkpoint
+    ... )
     >>> audio = torch.randn(4, 48000)
-    >>> length = torch.tensor([1.0, .5, .75, 1.0])
-    >>> tokens, embs= model.encode(audio)
+    >>> length = torch.tensor([1.0, 0.5, 0.75, 1.0])
+    >>> tokens, embs = model.encode(audio)
     >>> tokens.shape
     torch.Size([4, 1, 80])
     >>> embs.shape

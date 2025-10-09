@@ -7,6 +7,7 @@ Author
 ------
  * Titouan Parcollet 2025
 """
+
 import sys
 
 import torch
@@ -143,7 +144,6 @@ class AST(sb.core.Brain):
         )
 
         if stage != sb.Stage.TRAIN:
-
             # Removing the eos
             predictions = self.tokenizer.batch_decode(predicted_tokens)
             targets = self.tokenizer.batch_decode(tokens_translation)

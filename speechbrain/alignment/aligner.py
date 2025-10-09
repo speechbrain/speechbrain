@@ -52,25 +52,31 @@ class HMMAligner(torch.nn.Module):
 
     Example
     -------
-    >>> log_posteriors = torch.tensor([[[ -1., -10., -10.],
-    ...                                 [-10.,  -1., -10.],
-    ...                                 [-10., -10.,  -1.]],
-    ...
-    ...                                [[ -1., -10., -10.],
-    ...                                 [-10.,  -1., -10.],
-    ...                                 [-10., -10., -10.]]])
-    >>> lens = torch.tensor([1., 0.66])
-    >>> phns = torch.tensor([[0, 1, 2],
-    ...                      [0, 1, 0]])
-    >>> phn_lens = torch.tensor([1., 0.66])
+    >>> log_posteriors = torch.tensor(
+    ...     [
+    ...         [
+    ...             [-1.0, -10.0, -10.0],
+    ...             [-10.0, -1.0, -10.0],
+    ...             [-10.0, -10.0, -1.0],
+    ...         ],
+    ...         [
+    ...             [-1.0, -10.0, -10.0],
+    ...             [-10.0, -1.0, -10.0],
+    ...             [-10.0, -10.0, -10.0],
+    ...         ],
+    ...     ]
+    ... )
+    >>> lens = torch.tensor([1.0, 0.66])
+    >>> phns = torch.tensor([[0, 1, 2], [0, 1, 0]])
+    >>> phn_lens = torch.tensor([1.0, 0.66])
     >>> aligner = HMMAligner()
     >>> forward_scores = aligner(
-    ...        log_posteriors, lens, phns, phn_lens, 'forward'
+    ...     log_posteriors, lens, phns, phn_lens, "forward"
     ... )
     >>> forward_scores.shape
     torch.Size([2])
     >>> viterbi_scores, alignments = aligner(
-    ...        log_posteriors, lens, phns, phn_lens, 'viterbi'
+    ...     log_posteriors, lens, phns, phn_lens, "viterbi"
     ... )
     >>> alignments
     [[0, 1, 2], [0, 1]]
@@ -101,7 +107,7 @@ class HMMAligner(torch.nn.Module):
         self.lexicon_path = lexicon_path
 
         if self.lexicon_path is not None:
-            with open(self.lexicon_path, "r", encoding="utf-8") as f:
+            with open(self.lexicon_path, encoding="utf-8") as f:
                 lines = f.readlines()
 
             for i, line in enumerate(lines):
@@ -171,9 +177,7 @@ class HMMAligner(torch.nn.Module):
         """
 
         number_of_states = 0
-        words_prime = (
-            []
-        )  # This will contain one "word" for each optional silence and pronunciation.
+        words_prime = []  # This will contain one "word" for each optional silence and pronunciation.
         # structure of each "word_prime":
         # [word index, [[state sequence 1], [state sequence 2]], <is this an optional silence?>]
         word_index = 0
@@ -332,20 +336,16 @@ class HMMAligner(torch.nn.Module):
         Example
         -------
         >>> aligner = HMMAligner()
-        >>> aligner.lexicon = {
-        ...                     "a": {0: "a"},
-        ...                     "b": {0: "b", 1: "c"}
-        ...                   }
+        >>> aligner.lexicon = {"a": {0: "a"}, "b": {0: "b", 1: "c"}}
         >>> words = [["a", "b"]]
         >>> aligner.lex_lab2ind = {
-        ...                   "sil": 0,
-        ...                   "a":  1,
-        ...                   "b":  2,
-        ...                   "c":  3,
-        ...                 }
-        >>> poss_phns, poss_phn_lens, trans_prob, pi_prob, final_states = aligner.use_lexicon(
-        ...     words,
-        ...     interword_sils = True
+        ...     "sil": 0,
+        ...     "a": 1,
+        ...     "b": 2,
+        ...     "c": 3,
+        ... }
+        >>> poss_phns, poss_phn_lens, trans_prob, pi_prob, final_states = (
+        ...     aligner.use_lexicon(words, interword_sils=True)
         ... )
         >>> poss_phns
         tensor([[0, 1, 0, 2, 3, 0]])
@@ -370,9 +370,8 @@ class HMMAligner(torch.nn.Module):
         >>> final_states
         [[3, 4, 5]]
         >>> # With no optional silences between words
-        >>> poss_phns_, _, trans_prob_, pi_prob_, final_states_ = aligner.use_lexicon(
-        ...     words,
-        ...     interword_sils = False
+        >>> poss_phns_, _, trans_prob_, pi_prob_, final_states_ = (
+        ...     aligner.use_lexicon(words, interword_sils=False)
         ... )
         >>> poss_phns_
         tensor([[0, 1, 2, 3, 0]])
@@ -389,9 +388,8 @@ class HMMAligner(torch.nn.Module):
         >>> # With sampling of a single possible pronunciation
         >>> import random
         >>> random.seed(0)
-        >>> poss_phns_, _, trans_prob_, pi_prob_, final_states_ = aligner.use_lexicon(
-        ...     words,
-        ...     sample_pron = True
+        >>> poss_phns_, _, trans_prob_, pi_prob_, final_states_ = (
+        ...     aligner.use_lexicon(words, sample_pron=True)
         ... )
         >>> poss_phns_
         tensor([[0, 1, 0, 2, 0]])
@@ -959,12 +957,11 @@ class HMMAligner(torch.nn.Module):
 
         Example
         -------
-        >>> phns = torch.tensor([[0., 3., 5., 0.],
-        ...                      [0., 2., 0., 0.]])
-        >>> phn_lens = torch.tensor([1., 0.75])
-        >>> aligner = HMMAligner(states_per_phoneme = 3)
+        >>> phns = torch.tensor([[0.0, 3.0, 5.0, 0.0], [0.0, 2.0, 0.0, 0.0]])
+        >>> phn_lens = torch.tensor([1.0, 0.75])
+        >>> aligner = HMMAligner(states_per_phoneme=3)
         >>> expanded_phns = aligner.expand_phns_by_states_per_phoneme(
-        ...         phns, phn_lens
+        ...     phns, phn_lens
         ... )
         >>> expanded_phns
         tensor([[ 0.,  1.,  2.,  9., 10., 11., 15., 16., 17.,  0.,  1.,  2.],
@@ -1004,12 +1001,12 @@ class HMMAligner(torch.nn.Module):
         Example
         -------
         >>> aligner = HMMAligner()
-        >>> ids = ['id1', 'id2']
+        >>> ids = ["id1", "id2"]
         >>> alignments = [[0, 2, 4], [1, 2, 3, 4]]
         >>> aligner.store_alignments(ids, alignments)
         >>> aligner.align_dict.keys()
         dict_keys(['id1', 'id2'])
-        >>> aligner.align_dict['id1']
+        >>> aligner.align_dict["id1"]
         tensor([0, 2, 4], dtype=torch.int16)
         """
 
@@ -1139,21 +1136,27 @@ class HMMAligner(torch.nn.Module):
 
         Example
         -------
-        >>> ids = ['id1', 'id2']
-        >>> emission_pred = torch.tensor([[[ -1., -10., -10.],
-        ...                                [-10.,  -1., -10.],
-        ...                                [-10., -10.,  -1.]],
-        ...
-        ...                               [[ -1., -10., -10.],
-        ...                                [-10.,  -1., -10.],
-        ...                                [-10., -10., -10.]]])
-        >>> lens = torch.tensor([1., 0.66])
-        >>> phns = torch.tensor([[0, 1, 2],
-        ...                      [0, 1, 0]])
-        >>> phn_lens = torch.tensor([1., 0.66])
+        >>> ids = ["id1", "id2"]
+        >>> emission_pred = torch.tensor(
+        ...     [
+        ...         [
+        ...             [-1.0, -10.0, -10.0],
+        ...             [-10.0, -1.0, -10.0],
+        ...             [-10.0, -10.0, -1.0],
+        ...         ],
+        ...         [
+        ...             [-1.0, -10.0, -10.0],
+        ...             [-10.0, -1.0, -10.0],
+        ...             [-10.0, -10.0, -10.0],
+        ...         ],
+        ...     ]
+        ... )
+        >>> lens = torch.tensor([1.0, 0.66])
+        >>> phns = torch.tensor([[0, 1, 2], [0, 1, 0]])
+        >>> phn_lens = torch.tensor([1.0, 0.66])
         >>> aligner = HMMAligner()
         >>> alignment_batch = aligner.get_prev_alignments(
-        ...        ids, emission_pred, lens, phns, phn_lens
+        ...     ids, emission_pred, lens, phns, phn_lens
         ... )
         >>> alignment_batch
         tensor([[0, 1, 2],
@@ -1250,8 +1253,8 @@ class HMMAligner(torch.nn.Module):
         Example
         -------
         >>> aligner = HMMAligner()
-        >>> alignments = [[0., 0., 0., 1.]]
-        >>> phns = [[0., 1.]]
+        >>> alignments = [[0.0, 0.0, 0.0, 1.0]]
+        >>> phns = [[0.0, 1.0]]
         >>> ends = [[2, 4]]
         >>> mean_acc = aligner.calc_accuracy(alignments, ends, phns)
         >>> mean_acc.item()
@@ -1295,7 +1298,7 @@ class HMMAligner(torch.nn.Module):
 
         Example
         -------
-        >>> aligner = HMMAligner(states_per_phoneme = 3)
+        >>> aligner = HMMAligner(states_per_phoneme=3)
         >>> alignments = [0, 1, 2, 3, 4, 5, 3, 4, 5, 0, 1, 2]
         >>> sequence = aligner.collapse_alignments(alignments)
         >>> sequence
@@ -1357,13 +1360,13 @@ def map_inds_to_intersect(lists1, lists2, ind2labs):
     >>> lists1 = [[0, 1]]
     >>> lists2 = [[0, 1]]
     >>> ind2lab1 = {
-    ...        0: "a",
-    ...        1: "b",
-    ...        }
+    ...     0: "a",
+    ...     1: "b",
+    ... }
     >>> ind2lab2 = {
-    ...        0: "a",
-    ...        1: "c",
-    ...        }
+    ...     0: "a",
+    ...     1: "c",
+    ... }
     >>> ind2labs = (ind2lab1, ind2lab2)
     >>> out1, out2 = map_inds_to_intersect(lists1, lists2, ind2labs)
     >>> out1
@@ -1419,17 +1422,27 @@ def batch_log_matvecmul(A, b):
 
     Example
     -------
-    >>> A = torch.tensor([[[   0., 0.],
-    ...                    [ -1e5, 0.]]])
-    >>> b = torch.tensor([[0., 0.,]])
+    >>> A = torch.tensor([[[0.0, 0.0], [-1e5, 0.0]]])
+    >>> b = torch.tensor(
+    ...     [
+    ...         [
+    ...             0.0,
+    ...             0.0,
+    ...         ]
+    ...     ]
+    ... )
     >>> x = batch_log_matvecmul(A, b)
     >>> x
     tensor([[0.6931, 0.0000]])
     >>>
     >>> # non-log domain equivalent without batching functionality
-    >>> A_ = torch.tensor([[1., 1.],
-    ...                    [0., 1.]])
-    >>> b_ = torch.tensor([1., 1.,])
+    >>> A_ = torch.tensor([[1.0, 1.0], [0.0, 1.0]])
+    >>> b_ = torch.tensor(
+    ...     [
+    ...         1.0,
+    ...         1.0,
+    ...     ]
+    ... )
     >>> x_ = torch.matmul(A_, b_)
     >>> x_
     tensor([2., 1.])
@@ -1460,9 +1473,15 @@ def batch_log_maxvecmul(A, b):
 
     Example
     -------
-    >>> A = torch.tensor([[[   0., -1.],
-    ...                    [ -1e5,  0.]]])
-    >>> b = torch.tensor([[0., 0.,]])
+    >>> A = torch.tensor([[[0.0, -1.0], [-1e5, 0.0]]])
+    >>> b = torch.tensor(
+    ...     [
+    ...         [
+    ...             0.0,
+    ...             0.0,
+    ...         ]
+    ...     ]
+    ... )
     >>> x, argmax = batch_log_maxvecmul(A, b)
     >>> x
     tensor([[0., 0.]])

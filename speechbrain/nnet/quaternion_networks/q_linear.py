@@ -80,7 +80,9 @@ class QLinear(torch.nn.Module):
     Example
     -------
     >>> inputs = torch.rand(10, 50, 40)
-    >>> lin = QLinear(n_neurons=100, input_shape=inputs.shape, weight_init='unitary')
+    >>> lin = QLinear(
+    ...     n_neurons=100, input_shape=inputs.shape, weight_init="unitary"
+    ... )
     >>> output = lin(inputs)
     >>> output.shape
     torch.Size([10, 50, 400])

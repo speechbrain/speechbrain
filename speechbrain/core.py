@@ -28,8 +28,10 @@ import torch
 import yaml
 from hyperpyyaml import resolve_references
 from packaging import version
-from torch.nn import DataParallel as DP
-from torch.nn import SyncBatchNorm
+from torch.nn import (
+    DataParallel as DP,
+    SyncBatchNorm,
+)
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data import DataLoader, DistributedSampler, IterableDataset
 from tqdm import tqdm
@@ -207,6 +209,7 @@ class Brain:
     >>> class SimpleBrain(Brain):
     ...     def compute_forward(self, batch, stage):
     ...         return self.modules.model(batch[0] * self.hparams.scalar)
+    ...
     ...     def compute_objectives(self, predictions, batch, stage):
     ...         return torch.nn.functional.l1_loss(predictions, batch[0])
     >>> model = torch.nn.Linear(in_features=10, out_features=10)

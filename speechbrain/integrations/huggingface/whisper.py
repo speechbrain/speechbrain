@@ -82,7 +82,9 @@ class Whisper(HFTransformersInterface):
     >>> save_path = "savedir"
     >>> sampling_rate = 16000
     >>> model = Whisper(model_hub, save_path, sampling_rate)
-    >>> tokens = torch.tensor([[1, 1]]) * model.model.config.decoder_start_token_id
+    >>> tokens = (
+    ...     torch.tensor([[1, 1]]) * model.model.config.decoder_start_token_id
+    ... )
     >>> inputs = torch.randn([1, 93680])
     >>> outputs = model(inputs, tokens)
     """

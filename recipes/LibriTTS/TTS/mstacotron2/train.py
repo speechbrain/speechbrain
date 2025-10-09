@@ -1,17 +1,17 @@
-# -*- coding: utf-8 -*-
 """
- Recipe for training the Zero-Shot Multi-Speaker Tacotron Text-To-Speech model, an end-to-end
- neural text-to-speech (TTS) system
+Recipe for training the Zero-Shot Multi-Speaker Tacotron Text-To-Speech model, an end-to-end
+neural text-to-speech (TTS) system
 
- To run this recipe, do the following:
- # python train.py --device=cuda:0 --max_grad_norm=1.0 --data_folder=/path_to_data_folder hparams/train.yaml
+To run this recipe, do the following:
+# python train.py --device=cuda:0 --max_grad_norm=1.0 --data_folder=/path_to_data_folder hparams/train.yaml
 
- Authors
- * Georges Abous-Rjeili 2021
- * Artem Ploujnikov 2021
- * Yingzhi Wang 2022
- * Pradnya Kandarkar 2023
+Authors
+* Georges Abous-Rjeili 2021
+* Artem Ploujnikov 2021
+* Yingzhi Wang 2022
+* Pradnya Kandarkar 2023
 """
+
 import os
 import sys
 

@@ -284,7 +284,7 @@ def arpa_to_fst(
     >>> from speechbrain.lm.arpa import arpa_to_fst
 
     >>> # Create a small arpa model
-    >>> arpa_file = getfixture('tmpdir').join("bigram.arpa")
+    >>> arpa_file = getfixture("tmpdir").join("bigram.arpa")
     >>> arpa_file.write(
     ...     "Anything can be here\n"
     ...     + "\n"
@@ -296,23 +296,20 @@ def arpa_to_fst(
     ...     + "0 <s>\n"
     ...     + "-0.6931 a\n"
     ...     + "-0.6931 b 0.\n"
-    ...     + "" # Ends unigram section
+    ...     + ""  # Ends unigram section
     ...     + "\\2-grams:\n"
     ...     + "-0.6931 <s> a\n"
     ...     + "-0.6931 a a\n"
     ...     + "-0.6931 a b\n"
     ...     + "-0.6931 b a\n"
     ...     + "\n"  # Ends bigram section
-    ...     + "\\end\\\n")  # Ends whole file
+    ...     + "\\end\\\n"
+    ... )  # Ends whole file
     >>> # Create words vocab
-    >>> vocav = getfixture('tmpdir').join("words.txt")
-    >>> vocav.write(
-    ...     "a 1\n"
-    ...     + "b 2\n"
-    ...     + "<s> 3\n"
-    ...     + "#0 4")  # Ends whole file
-    >>> out = getfixture('tmpdir').join("bigram.txt.fst")
-    >>> arpa_to_fst(vocav, arpa_file, out, 2) # doctest: +SKIP
+    >>> vocav = getfixture("tmpdir").join("words.txt")
+    >>> vocav.write("a 1\n" + "b 2\n" + "<s> 3\n" + "#0 4")  # Ends whole file
+    >>> out = getfixture("tmpdir").join("bigram.txt.fst")
+    >>> arpa_to_fst(vocav, arpa_file, out, 2)  # doctest: +SKIP
     """
     try:
         from kaldilm.arpa2fst import arpa2fst
@@ -334,8 +331,7 @@ def arpa_to_fst(
         return
     if not in_arpa.exists():
         raise FileNotFoundError(
-            f"{in_arpa} not found while trying to create"
-            f" the {ngram_order} FST."
+            f"{in_arpa} not found while trying to create the {ngram_order} FST."
         )
     try:
         logger.info(f"Converting arpa LM '{in_arpa}' to FST")

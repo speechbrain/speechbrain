@@ -39,7 +39,7 @@ DISAMBIG_PATTERN: re.Pattern = re.compile(
 )  # pattern for disambiguation symbols.
 
 
-class Lexicon(object):
+class Lexicon:
     """
     Unit based lexicon. It is used to map a list of words to each word's
     sequence of tokens (characters). It also stores the lexicon graph which
@@ -58,11 +58,13 @@ class Lexicon(object):
     -------
     >>> from speechbrain.integrations.k2_fsa import k2
     >>> from speechbrain.integrations.k2_fsa.lexicon import Lexicon
-    >>> from speechbrain.integrations.k2_fsa.graph_compiler import CtcGraphCompiler
+    >>> from speechbrain.integrations.k2_fsa.graph_compiler import (
+    ...     CtcGraphCompiler,
+    ... )
     >>> from speechbrain.integrations.k2_fsa.prepare_lang import prepare_lang
 
     >>> # Create a small lexicon containing only two words and write it to a file.
-    >>> lang_tmpdir = getfixture('tmpdir')
+    >>> lang_tmpdir = getfixture("tmpdir")
     >>> lexicon_sample = '''hello h e l l o\\nworld w o r l d'''
     >>> lexicon_file = lang_tmpdir.join("lexicon.txt")
     >>> lexicon_file.write(lexicon_sample)
@@ -83,7 +85,7 @@ class Lexicon(object):
         self.token_table = k2.SymbolTable.from_file(lang_dir / "tokens.txt")
         self.word_table = k2.SymbolTable.from_file(lang_dir / "words.txt")
         self.word2tokenids = {}
-        with open(lang_dir / "lexicon.txt", "r", encoding="utf-8") as f:
+        with open(lang_dir / "lexicon.txt", encoding="utf-8") as f:
             for line in f:
                 word = line.strip().split()[0]
                 tokens = line.strip().split()[1:]
@@ -233,9 +235,9 @@ class Lexicon(object):
             texts, log_unknown_warning, _mapper="word_table"
         )
         if add_sil_token_as_separator:
-            assert (
-                sil_token_id is not None
-            ), "sil_token_id=None while add_sil_token_as_separator=True"
+            assert sil_token_id is not None, (
+                "sil_token_id=None while add_sil_token_as_separator=True"
+            )
             for i in range(len(word_ids)):
                 word_ids[i] = [
                     x for item in word_ids[i] for x in (item, sil_token_id)
@@ -463,27 +465,32 @@ def prepare_char_lexicon(
     >>> # The first line is the header, and the remaining lines are in the following
     >>> # format:
     >>> # ID, duration, wav, spk_id, wrd (transcription)
-    >>> csv_file = getfixture('tmpdir').join("train.csv")
+    >>> csv_file = getfixture("tmpdir").join("train.csv")
     >>> # Data to be written to the CSV file.
     >>> import csv
     >>> data = [
-    ...    ["ID", "duration", "wav", "spk_id", "wrd"],
-    ...    [1, 1, 1, 1, "hello world"],
-    ...    [2, 0.5, 1, 1, "hello"]
+    ...     ["ID", "duration", "wav", "spk_id", "wrd"],
+    ...     [1, 1, 1, 1, "hello world"],
+    ...     [2, 0.5, 1, 1, "hello"],
     ... ]
-    >>> with open(csv_file, "w", newline="", encoding="utf-8")  as f:
-    ...    writer = csv.writer(f)
-    ...    writer.writerows(data)
+    >>> with open(csv_file, "w", newline="", encoding="utf-8") as f:
+    ...     writer = csv.writer(f)
+    ...     writer.writerows(data)
     >>> extra_csv_files = [csv_file]
-    >>> lang_dir = getfixture('tmpdir')
+    >>> lang_dir = getfixture("tmpdir")
     >>> vocab_files = []
-    >>> prepare_char_lexicon(lang_dir, vocab_files, extra_csv_files=extra_csv_files, add_word_boundary=False)
+    >>> prepare_char_lexicon(
+    ...     lang_dir,
+    ...     vocab_files,
+    ...     extra_csv_files=extra_csv_files,
+    ...     add_word_boundary=False,
+    ... )
     """
     # Read train.csv, dev-clean.csv to generate a lexicon.txt for k2 training
     lexicon = dict()
     if len(extra_csv_files) != 0:
         for file in extra_csv_files:
-            with open(file, "r", encoding="utf-8") as f:
+            with open(file, encoding="utf-8") as f:
                 csv_reader = csv.DictReader(f)
                 for row in csv_reader:
                     # Split the transcription into words
@@ -537,7 +544,7 @@ def read_lexicon(filename: str) -> List[Tuple[str, List[str]]]:
     """
     ans = []
 
-    with open(filename, "r", encoding="utf-8") as f:
+    with open(filename, encoding="utf-8") as f:
         whitespace = re.compile("[ \t]+")
         for line in f:
             a = whitespace.split(line.strip(" \t\r\n"))

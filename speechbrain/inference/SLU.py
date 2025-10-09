@@ -1,4 +1,4 @@
-""" Specifies the inference interfaces for Spoken Language Understanding (SLU) modules.
+"""Specifies the inference interfaces for Spoken Language Understanding (SLU) modules.
 
 Authors:
  * Aku Rouhe 2021
@@ -40,7 +40,9 @@ class EndToEndSLU(Pretrained):
     ...     source="speechbrain/slu-timers-and-such-direct-librispeech-asr",
     ...     savedir=tmpdir,
     ... )  # doctest: +SKIP
-    >>> slu_model.decode_file("tests/samples/single-mic/example6.wav") # doctest: +SKIP
+    >>> slu_model.decode_file(
+    ...     "tests/samples/single-mic/example6.wav"
+    ... )  # doctest: +SKIP
     "{'intent': 'SimpleMath', 'slots': {'number1': 37.67, 'number2': 75.7, 'op': ' minus '}}"
     """
 

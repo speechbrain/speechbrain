@@ -326,7 +326,7 @@ def create_csv(
         raise FileNotFoundError(msg)
 
     # We load and skip the header
-    csv_lines = open(orig_tsv_file, "r", encoding="utf-8").readlines()
+    csv_lines = open(orig_tsv_file, encoding="utf-8").readlines()
     header_line = csv_lines[0]
     csv_data_lines = csv_lines[1:]
     nb_samples = len(csv_data_lines)
@@ -491,7 +491,8 @@ def language_specific_preprocess(language, words):
         words = words.replace("O'", "O")
         words = words.replace("X'", "X")
         words = words.replace(
-            "AUJOURD' HUI", "AUJOURD'HUI"  # cspell:disable-line
+            "AUJOURD' HUI",
+            "AUJOURD'HUI",  # cspell:disable-line
         )
     elif language == "ar":
         HAMZA = "\u0621"
