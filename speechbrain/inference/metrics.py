@@ -1,4 +1,4 @@
-""" Specifies the inference interfaces for metric estimation modules.
+"""Specifies the inference interfaces for metric estimation modules.
 
 Authors:
  * Aku Rouhe 2021

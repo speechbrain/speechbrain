@@ -1,5 +1,4 @@
-""" Package containing the different decoders (ctc, beamsearch ...)
-"""
+"""Package containing the different decoders (ctc, beamsearch ...)"""
 
 from .ctc import *  # noqa
 from .scorer import *  # noqa

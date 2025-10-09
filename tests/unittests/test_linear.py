@@ -3,7 +3,6 @@ import torch.nn
 
 
 def test_linear(device):
-
     from speechbrain.nnet.linear import Linear
 
     inputs = torch.rand(1, 2, 4, device=device)

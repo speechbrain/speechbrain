@@ -55,7 +55,7 @@ def parse_libri_folder(libri_folders):
     # step 2: we then build an hashtable for words for each utterance
     words_dict = {}
     for trans in txt_files:
-        with open(trans, "r", encoding="utf-8") as f:
+        with open(trans, encoding="utf-8") as f:
             for line in f:
                 splitted = line.split(" ")
                 utt_id = splitted[0]
@@ -97,7 +97,7 @@ os.makedirs(os.path.join(params["out_folder"], "metadata"), exist_ok=True)
 
 # we generate metadata for each split
 for index, split in enumerate(["train", "dev", "eval"]):
-    print("Generating metadata for {} set".format(split))
+    print(f"Generating metadata for {split} set")
     # we parse librispeech utterances for current split
     c_libri_folder = params["librispeech_folders"][split]
     c_utterances, c_words = parse_libri_folder(c_libri_folder)
@@ -122,7 +122,7 @@ for index, split in enumerate(["train", "dev", "eval"]):
         encoding="utf-8",
     ) as f:
         c_meta = json.load(f)
-    print("Creating {} set".format(split))
+    print(f"Creating {split} set")
     for sess in tqdm(c_meta.keys()):
         c_folder = os.path.join(params["out_folder"], split)
         os.makedirs(c_folder, exist_ok=True)

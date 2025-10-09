@@ -41,7 +41,9 @@ class EncoderPreNet(nn.Module):
     -------
     >>> from speechbrain.nnet.embedding import Embedding
     >>> from speechbrain.lobes.models.FastSpeech2 import EncoderPreNet
-    >>> encoder_prenet_layer = EncoderPreNet(n_vocab=40, blank_id=0, out_channels=384)
+    >>> encoder_prenet_layer = EncoderPreNet(
+    ...     n_vocab=40, blank_id=0, out_channels=384
+    ... )
     >>> x = torch.rand(3, 5)
     >>> y = encoder_prenet_layer(x)
     >>> y.shape
@@ -182,7 +184,9 @@ class DurationPredictor(nn.Module):
     Example
     -------
     >>> from speechbrain.lobes.models.FastSpeech2 import FastSpeech2
-    >>> duration_predictor_layer = DurationPredictor(in_channels=384, out_channels=384, kernel_size=3)
+    >>> duration_predictor_layer = DurationPredictor(
+    ...     in_channels=384, out_channels=384, kernel_size=3
+    ... )
     >>> x = torch.randn(3, 400, 384)
     >>> mask = torch.ones(3, 400, 384)
     >>> y = duration_predictor_layer(x, mask)
@@ -456,44 +460,58 @@ class FastSpeech2(nn.Module):
     >>> import torch
     >>> from speechbrain.lobes.models.FastSpeech2 import FastSpeech2
     >>> model = FastSpeech2(
-    ...    enc_num_layers=6,
-    ...    enc_num_head=2,
-    ...    enc_d_model=384,
-    ...    enc_ffn_dim=1536,
-    ...    enc_k_dim=384,
-    ...    enc_v_dim=384,
-    ...    enc_dropout=0.1,
-    ...    dec_num_layers=6,
-    ...    dec_num_head=2,
-    ...    dec_d_model=384,
-    ...    dec_ffn_dim=1536,
-    ...    dec_k_dim=384,
-    ...    dec_v_dim=384,
-    ...    dec_dropout=0.1,
-    ...    normalize_before=False,
-    ...    ffn_type='1dcnn',
-    ...    ffn_cnn_kernel_size_list=[9, 1],
-    ...    n_char=40,
-    ...    n_mels=80,
-    ...    postnet_embedding_dim=512,
-    ...    postnet_kernel_size=5,
-    ...    postnet_n_convolutions=5,
-    ...    postnet_dropout=0.5,
-    ...    padding_idx=0,
-    ...    dur_pred_kernel_size=3,
-    ...    pitch_pred_kernel_size=3,
-    ...    energy_pred_kernel_size=3,
-    ...    variance_predictor_dropout=0.5)
-    >>> inputs = torch.tensor([
-    ...     [13, 12, 31, 14, 19],
-    ...     [31, 16, 30, 31, 0],
-    ... ])
+    ...     enc_num_layers=6,
+    ...     enc_num_head=2,
+    ...     enc_d_model=384,
+    ...     enc_ffn_dim=1536,
+    ...     enc_k_dim=384,
+    ...     enc_v_dim=384,
+    ...     enc_dropout=0.1,
+    ...     dec_num_layers=6,
+    ...     dec_num_head=2,
+    ...     dec_d_model=384,
+    ...     dec_ffn_dim=1536,
+    ...     dec_k_dim=384,
+    ...     dec_v_dim=384,
+    ...     dec_dropout=0.1,
+    ...     normalize_before=False,
+    ...     ffn_type="1dcnn",
+    ...     ffn_cnn_kernel_size_list=[9, 1],
+    ...     n_char=40,
+    ...     n_mels=80,
+    ...     postnet_embedding_dim=512,
+    ...     postnet_kernel_size=5,
+    ...     postnet_n_convolutions=5,
+    ...     postnet_dropout=0.5,
+    ...     padding_idx=0,
+    ...     dur_pred_kernel_size=3,
+    ...     pitch_pred_kernel_size=3,
+    ...     energy_pred_kernel_size=3,
+    ...     variance_predictor_dropout=0.5,
+    ... )
+    >>> inputs = torch.tensor(
+    ...     [
+    ...         [13, 12, 31, 14, 19],
+    ...         [31, 16, 30, 31, 0],
+    ...     ]
+    ... )
     >>> input_lengths = torch.tensor([5, 4])
-    >>> durations = torch.tensor([
-    ...     [2, 4, 1, 5, 3],
-    ...     [1, 2, 4, 3, 0],
-    ... ])
-    >>> mel_post, postnet_output, predict_durations, predict_pitch, avg_pitch, predict_energy, avg_energy, mel_lens = model(inputs, durations=durations)
+    >>> durations = torch.tensor(
+    ...     [
+    ...         [2, 4, 1, 5, 3],
+    ...         [1, 2, 4, 3, 0],
+    ...     ]
+    ... )
+    >>> (
+    ...     mel_post,
+    ...     postnet_output,
+    ...     predict_durations,
+    ...     predict_pitch,
+    ...     avg_pitch,
+    ...     predict_energy,
+    ...     avg_energy,
+    ...     mel_lens,
+    ... ) = model(inputs, durations=durations)
     >>> mel_post.shape, predict_durations.shape
     (torch.Size([2, 15, 80]), torch.Size([2, 5]))
     >>> predict_pitch.shape, predict_energy.shape
@@ -1386,9 +1404,9 @@ class _SSIMLoss(_Loss):
 
         # This check might look redundant because kernel size is checked within the ssim function anyway.
         # However, this check allows to fail fast when the loss is being initialised and training has not been started.
-        assert (
-            kernel_size % 2 == 1
-        ), f"Kernel size must be odd, got [{kernel_size}]"
+        assert kernel_size % 2 == 1, (
+            f"Kernel size must be odd, got [{kernel_size}]"
+        )
         self.kernel_sigma = kernel_sigma
         self.k1 = k1
         self.k2 = k2
@@ -1452,36 +1470,38 @@ class _SSIMLoss(_Loss):
 
         for t in tensors:
             assert torch.is_tensor(t), f"Expected torch.Tensor, got {type(t)}"
-            assert (
-                t.device == x.device
-            ), f"Expected tensors to be on {x.device}, got {t.device}"
+            assert t.device == x.device, (
+                f"Expected tensors to be on {x.device}, got {t.device}"
+            )
 
             if size_range is None:
-                assert (
-                    t.size() == x.size()
-                ), f"Expected tensors with same size, got {t.size()} and {x.size()}"
+                assert t.size() == x.size(), (
+                    f"Expected tensors with same size, got {t.size()} and {x.size()}"
+                )
             else:
                 assert (
                     t.size()[size_range[0] : size_range[1]]
                     == x.size()[size_range[0] : size_range[1]]
-                ), f"Expected tensors with same size at given dimensions, got {t.size()} and {x.size()}"
+                ), (
+                    f"Expected tensors with same size at given dimensions, got {t.size()} and {x.size()}"
+                )
 
             if dim_range[0] == dim_range[1]:
-                assert (
-                    t.dim() == dim_range[0]
-                ), f"Expected number of dimensions to be {dim_range[0]}, got {t.dim()}"
+                assert t.dim() == dim_range[0], (
+                    f"Expected number of dimensions to be {dim_range[0]}, got {t.dim()}"
+                )
             elif dim_range[0] < dim_range[1]:
-                assert (
-                    dim_range[0] <= t.dim() <= dim_range[1]
-                ), f"Expected number of dimensions to be between {dim_range[0]} and {dim_range[1]}, got {t.dim()}"
+                assert dim_range[0] <= t.dim() <= dim_range[1], (
+                    f"Expected number of dimensions to be between {dim_range[0]} and {dim_range[1]}, got {t.dim()}"
+                )
 
             if data_range[0] < data_range[1]:
-                assert (
-                    data_range[0] <= t.min()
-                ), f"Expected values to be greater or equal to {data_range[0]}, got {t.min()}"
-                assert (
-                    t.max() <= data_range[1]
-                ), f"Expected values to be lower or equal to {data_range[1]}, got {t.max()}"
+                assert data_range[0] <= t.min(), (
+                    f"Expected values to be greater or equal to {data_range[0]}, got {t.min()}"
+                )
+                assert t.max() <= data_range[1], (
+                    f"Expected values to be lower or equal to {data_range[1]}, got {t.max()}"
+                )
 
     def gaussian_filter(self, kernel_size, sigma):
         """Returns 2D Gaussian kernel N(0,sigma^2)
@@ -1727,9 +1747,9 @@ class _SSIMLoss(_Loss):
         Value of Structural Similarity (SSIM) index. In case of 5D input tensors, complex value is returned
         as a tensor of size 2.
         """
-        assert (
-            kernel_size % 2 == 1
-        ), f"Kernel size must be odd, got [{kernel_size}]"
+        assert kernel_size % 2 == 1, (
+            f"Kernel size must be odd, got [{kernel_size}]"
+        )
         self._validate_input(
             [x, y], dim_range=(4, 5), data_range=(0, data_range)
         )
@@ -1982,7 +2002,9 @@ class AlignmentNetwork(torch.nn.Module):
     ... )
     >>> phoneme_feats = torch.rand(2, 512, 20)
     >>> mels = torch.rand(2, 80, 100)
-    >>> alignment_soft, alignment_logprob = aligner(mels, phoneme_feats, None, None)
+    >>> alignment_soft, alignment_logprob = aligner(
+    ...     mels, phoneme_feats, None, None
+    ... )
     >>> alignment_soft.shape, alignment_logprob.shape
     (torch.Size([2, 1, 100, 20]), torch.Size([2, 1, 100, 20]))
     """
@@ -2165,46 +2187,64 @@ class FastSpeech2WithAlignment(nn.Module):
     Example
     -------
     >>> import torch
-    >>> from speechbrain.lobes.models.FastSpeech2 import FastSpeech2WithAlignment
+    >>> from speechbrain.lobes.models.FastSpeech2 import (
+    ...     FastSpeech2WithAlignment,
+    ... )
     >>> model = FastSpeech2WithAlignment(
-    ...    enc_num_layers=6,
-    ...    enc_num_head=2,
-    ...    enc_d_model=384,
-    ...    enc_ffn_dim=1536,
-    ...    enc_k_dim=384,
-    ...    enc_v_dim=384,
-    ...    enc_dropout=0.1,
-    ...    in_query_channels=80,
-    ...    in_key_channels=384,
-    ...    attn_channels=80,
-    ...    temperature=0.0005,
-    ...    dec_num_layers=6,
-    ...    dec_num_head=2,
-    ...    dec_d_model=384,
-    ...    dec_ffn_dim=1536,
-    ...    dec_k_dim=384,
-    ...    dec_v_dim=384,
-    ...    dec_dropout=0.1,
-    ...    normalize_before=False,
-    ...    ffn_type='1dcnn',
-    ...    ffn_cnn_kernel_size_list=[9, 1],
-    ...    n_char=40,
-    ...    n_mels=80,
-    ...    postnet_embedding_dim=512,
-    ...    postnet_kernel_size=5,
-    ...    postnet_n_convolutions=5,
-    ...    postnet_dropout=0.5,
-    ...    padding_idx=0,
-    ...    dur_pred_kernel_size=3,
-    ...    pitch_pred_kernel_size=3,
-    ...    energy_pred_kernel_size=3,
-    ...    variance_predictor_dropout=0.5)
-    >>> inputs = torch.tensor([
-    ...     [13, 12, 31, 14, 19],
-    ...     [31, 16, 30, 31, 0],
-    ... ])
+    ...     enc_num_layers=6,
+    ...     enc_num_head=2,
+    ...     enc_d_model=384,
+    ...     enc_ffn_dim=1536,
+    ...     enc_k_dim=384,
+    ...     enc_v_dim=384,
+    ...     enc_dropout=0.1,
+    ...     in_query_channels=80,
+    ...     in_key_channels=384,
+    ...     attn_channels=80,
+    ...     temperature=0.0005,
+    ...     dec_num_layers=6,
+    ...     dec_num_head=2,
+    ...     dec_d_model=384,
+    ...     dec_ffn_dim=1536,
+    ...     dec_k_dim=384,
+    ...     dec_v_dim=384,
+    ...     dec_dropout=0.1,
+    ...     normalize_before=False,
+    ...     ffn_type="1dcnn",
+    ...     ffn_cnn_kernel_size_list=[9, 1],
+    ...     n_char=40,
+    ...     n_mels=80,
+    ...     postnet_embedding_dim=512,
+    ...     postnet_kernel_size=5,
+    ...     postnet_n_convolutions=5,
+    ...     postnet_dropout=0.5,
+    ...     padding_idx=0,
+    ...     dur_pred_kernel_size=3,
+    ...     pitch_pred_kernel_size=3,
+    ...     energy_pred_kernel_size=3,
+    ...     variance_predictor_dropout=0.5,
+    ... )
+    >>> inputs = torch.tensor(
+    ...     [
+    ...         [13, 12, 31, 14, 19],
+    ...         [31, 16, 30, 31, 0],
+    ...     ]
+    ... )
     >>> mels = torch.rand(2, 100, 80)
-    >>> mel_post, postnet_output, durations, predict_pitch, avg_pitch, predict_energy, avg_energy, mel_lens, alignment_durations, alignment_soft, alignment_logprob, alignment_mas = model(inputs, mels)
+    >>> (
+    ...     mel_post,
+    ...     postnet_output,
+    ...     durations,
+    ...     predict_pitch,
+    ...     avg_pitch,
+    ...     predict_energy,
+    ...     avg_energy,
+    ...     mel_lens,
+    ...     alignment_durations,
+    ...     alignment_soft,
+    ...     alignment_logprob,
+    ...     alignment_mas,
+    ... ) = model(inputs, mels)
     >>> mel_post.shape, durations.shape
     (torch.Size([2, 100, 80]), torch.Size([2, 5]))
     >>> predict_pitch.shape, predict_energy.shape

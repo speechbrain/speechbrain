@@ -162,16 +162,16 @@ def prepare_aishell1mix(
     if "Aishell1" in aishell1mix_outdir:
         # Aishell1 Mix2/3 datasets
         if n_spks == 2:
-            assert (
-                "Aishell1Mix2" in aishell1mix_outdir
-            ), "Inconsistent number of speakers and datapath"
+            assert "Aishell1Mix2" in aishell1mix_outdir, (
+                "Inconsistent number of speakers and datapath"
+            )
             create_aishell1mix2_csv(
                 aishell1mix_outdir, savepath, addnoise=aishell1mix_addnoise
             )
         elif n_spks == 3:
-            assert (
-                "Aishell1Mix3" in aishell1mix_outdir
-            ), "Inconsistent number of speakers and datapath"
+            assert "Aishell1Mix3" in aishell1mix_outdir, (
+                "Inconsistent number of speakers and datapath"
+            )
             create_aishell1mix3_csv(
                 aishell1mix_outdir, savepath, addnoise=aishell1mix_addnoise
             )
@@ -372,7 +372,7 @@ def apply_fx(sound_path, speed):
     s = fx(s)
     # Write the file
     sf.write(
-        f"""{sound_path.replace('.wav', f"sp{str(speed).replace('.', '')}" + '.wav')}""",
+        f"""{sound_path.replace(".wav", f"sp{str(speed).replace('.', '')}" + ".wav")}""",
         s,
         rate,
     )

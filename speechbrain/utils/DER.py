@@ -71,14 +71,16 @@ def DER(
     Example
     -------
     >>> import pytest
-    >>> pytest.skip('Skipping because of Perl dependency')
+    >>> pytest.skip("Skipping because of Perl dependency")
     >>> ref_rttm = "../../tests/samples/rttm/ref_rttm/ES2014c.rttm"
     >>> sys_rttm = "../../tests/samples/rttm/sys_rttm/ES2014c.rttm"
     >>> ignore_overlap = True
     >>> collar = 0.25
     >>> individual_file_scores = True
-    >>> Scores = DER(ref_rttm, sys_rttm, ignore_overlap, collar, individual_file_scores)
-    >>> print (Scores)
+    >>> Scores = DER(
+    ...     ref_rttm, sys_rttm, ignore_overlap, collar, individual_file_scores
+    ... )
+    >>> print(Scores)
     (array([0., 0.]), array([0., 0.]), array([7.16923618, 7.16923618]), array([7.16923618, 7.16923618]))
     """
     curr = os.path.abspath(os.path.dirname(__file__))

@@ -115,8 +115,16 @@ def prepare_esc50(
 
     Example
     -------
-    >>> data_folder = '/path/to/ESC-50-master'
-    >>> prepare_urban_sound_8k(data_folder, 'train.json', 'valid.json', 'test.json', [1,2,3], [4], [5])
+    >>> data_folder = "/path/to/ESC-50-master"
+    >>> prepare_urban_sound_8k(
+    ...     data_folder,
+    ...     "train.json",
+    ...     "valid.json",
+    ...     "test.json",
+    ...     [1, 2, 3],
+    ...     [4],
+    ...     [5],
+    ... )
     """
     download_esc50(data_folder)
 
@@ -409,7 +417,7 @@ def dataio_prep(hparams):
         """Load the signal, and pass it and its length to the corruption class.
         This is done on the CPU in the `collate_fn`."""
 
-        wave_file = data_audio_folder + "/{:}".format(wav)
+        wave_file = data_audio_folder + f"/{wav}"
 
         sig, read_sr = torchaudio.load(wave_file)
 

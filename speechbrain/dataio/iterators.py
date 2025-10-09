@@ -34,6 +34,7 @@ def padding_ratio(lengths):
 @dataclass(order=True)
 class RatioIndex:
     "Data class for Ratio."
+
     ratio: float
     index: int
 

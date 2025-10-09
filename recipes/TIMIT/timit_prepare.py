@@ -60,8 +60,8 @@ def prepare_timit(
     Example
     -------
     >>> from recipes.TIMIT.timit_prepare import prepare_timit
-    >>> data_folder = 'datasets/TIMIT'
-    >>> prepare_timit(data_folder, 'train.json', 'valid.json', 'test.json')
+    >>> data_folder = "datasets/TIMIT"
+    >>> prepare_timit(data_folder, "train.json", "valid.json", "test.json")
     """
 
     # Skip if needed

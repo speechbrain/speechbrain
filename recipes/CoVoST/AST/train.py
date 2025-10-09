@@ -10,6 +10,7 @@ Author
 ------
  * Titouan Parcollet 2025
 """
+
 import sys
 
 import torch
@@ -112,7 +113,6 @@ class AST(sb.core.Brain):
             if current_epoch % valid_search_interval == 0 or (
                 stage == sb.Stage.TEST
             ):
-
                 predictions = [
                     self.tgt_detokenizer.detokenize(
                         self.tokenizer.sp.decode_ids(utt_seq).split(" ")

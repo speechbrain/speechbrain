@@ -44,7 +44,7 @@ def make_splits(sph_file, stm_file, utt_save_folder, avoid_if_shorter_than):
         return
 
     # load the annotation of the entire speech recording
-    annotation_file = open(stm_file, "r", encoding="utf-8")
+    annotation_file = open(stm_file, encoding="utf-8")
     annotations = annotation_file.readlines()
 
     # load the original speech recording
@@ -173,9 +173,9 @@ def prepare_tedlium2(
 
     Example
     -------
-    >>> data_folder = 'datasets/TEDLIUM_release2'
-    >>> utt_save_folder = 'datasets/TEDLIUM_release2_processed'
-    >>> csv_save_folder = 'TEDLIUM2'
+    >>> data_folder = "datasets/TEDLIUM_release2"
+    >>> utt_save_folder = "datasets/TEDLIUM_release2_processed"
+    >>> csv_save_folder = "TEDLIUM2"
     >>> prepare_tedlium2(data_folder, utt_save_folder, csv_save_folder)
     """
     if skip_prep:

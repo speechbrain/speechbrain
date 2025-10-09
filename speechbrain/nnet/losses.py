@@ -179,9 +179,9 @@ class PitWrapper(nn.Module):
         )
 
         loss_mat = self.base_loss(pred, target)
-        assert (
-            len(loss_mat.shape) >= 2
-        ), "Base loss should not perform any reduction operation"
+        assert len(loss_mat.shape) >= 2, (
+            "Base loss should not perform any reduction operation"
+        )
         mean_over = [x for x in range(len(loss_mat.shape))]
         loss_mat = loss_mat.mean(dim=mean_over[:-2])
 
@@ -323,7 +323,7 @@ def l1_loss(
     Example
     -------
     >>> probs = torch.tensor([[0.9, 0.1, 0.1, 0.9]])
-    >>> l1_loss(probs, torch.tensor([[1., 0., 0., 1.]]))
+    >>> l1_loss(probs, torch.tensor([[1.0, 0.0, 0.0, 1.0]]))
     tensor(0.1000)
     """
     predictions, targets = truncate(predictions, targets, allowed_len_diff)
@@ -360,7 +360,7 @@ def mse_loss(
     Example
     -------
     >>> probs = torch.tensor([[0.9, 0.1, 0.1, 0.9]])
-    >>> mse_loss(probs, torch.tensor([[1., 0., 0., 1.]]))
+    >>> mse_loss(probs, torch.tensor([[1.0, 0.0, 0.0, 1.0]]))
     tensor(0.0100)
     """
     predictions, targets = truncate(predictions, targets, allowed_len_diff)
@@ -688,12 +688,14 @@ def distance_diff_loss(
     Example
     -------
     >>> predictions = torch.tensor(
-    ...    [[0.25, 0.5, 0.25, 0.0],
-    ...     [0.05, 0.05, 0.9, 0.0],
-    ...     [8.0, 0.10, 0.05, 0.05]]
+    ...     [
+    ...         [0.25, 0.5, 0.25, 0.0],
+    ...         [0.05, 0.05, 0.9, 0.0],
+    ...         [8.0, 0.10, 0.05, 0.05],
+    ...     ]
     ... )
-    >>> targets = torch.tensor([2., 3., 1.])
-    >>> length = torch.tensor([.75, .75, 1.])
+    >>> targets = torch.tensor([2.0, 3.0, 1.0])
+    >>> length = torch.tensor([0.75, 0.75, 1.0])
     >>> loss = distance_diff_loss(predictions, targets, length)
     >>> loss
     tensor(0.2967)
@@ -877,7 +879,7 @@ def compute_length_mask(data, length=None, len_dim=1):
              [ 5, 10],
              [ 6, 12],
              [ 7, 14]]])
-    >>> compute_length_mask(data, torch.tensor([1., .4, .8]))
+    >>> compute_length_mask(data, torch.tensor([1.0, 0.4, 0.8]))
     tensor([[[1, 1],
              [1, 1],
              [1, 1],
@@ -895,7 +897,7 @@ def compute_length_mask(data, length=None, len_dim=1):
              [1, 1],
              [1, 1],
              [0, 0]]])
-    >>> compute_length_mask(data, torch.tensor([.5, 1., .5]), len_dim=2)
+    >>> compute_length_mask(data, torch.tensor([0.5, 1.0, 0.5]), len_dim=2)
     tensor([[[1, 0],
              [1, 0],
              [1, 0],
@@ -1226,10 +1228,12 @@ class AngularMargin(nn.Module):
     Example
     -------
     >>> pred = AngularMargin()
-    >>> outputs = torch.tensor([ [1., -1.], [-1., 1.], [0.9, 0.1], [0.1, 0.9] ])
-    >>> targets = torch.tensor([ [1., 0.], [0., 1.], [ 1., 0.], [0.,  1.] ])
+    >>> outputs = torch.tensor(
+    ...     [[1.0, -1.0], [-1.0, 1.0], [0.9, 0.1], [0.1, 0.9]]
+    ... )
+    >>> targets = torch.tensor([[1.0, 0.0], [0.0, 1.0], [1.0, 0.0], [0.0, 1.0]])
     >>> predictions = pred(outputs, targets)
-    >>> predictions[:,0] > predictions[:,1]
+    >>> predictions[:, 0] > predictions[:, 1]
     tensor([ True, False,  True, False])
     """
 
@@ -1273,11 +1277,13 @@ class AdditiveAngularMargin(AngularMargin):
 
     Example
     -------
-    >>> outputs = torch.tensor([ [1., -1.], [-1., 1.], [0.9, 0.1], [0.1, 0.9] ])
-    >>> targets = torch.tensor([ [1., 0.], [0., 1.], [ 1., 0.], [0.,  1.] ])
+    >>> outputs = torch.tensor(
+    ...     [[1.0, -1.0], [-1.0, 1.0], [0.9, 0.1], [0.1, 0.9]]
+    ... )
+    >>> targets = torch.tensor([[1.0, 0.0], [0.0, 1.0], [1.0, 0.0], [0.0, 1.0]])
     >>> pred = AdditiveAngularMargin()
     >>> predictions = pred(outputs, targets)
-    >>> predictions[:,0] > predictions[:,1]
+    >>> predictions[:, 0] > predictions[:, 1]
     tensor([ True, False,  True, False])
     """
 
@@ -1326,9 +1332,11 @@ class LogSoftmaxWrapper(nn.Module):
 
     Example
     -------
-    >>> outputs = torch.tensor([ [1., -1.], [-1., 1.], [0.9, 0.1], [0.1, 0.9] ])
+    >>> outputs = torch.tensor(
+    ...     [[1.0, -1.0], [-1.0, 1.0], [0.9, 0.1], [0.1, 0.9]]
+    ... )
     >>> outputs = outputs.unsqueeze(1)
-    >>> targets = torch.tensor([ [0], [1], [0], [1] ])
+    >>> targets = torch.tensor([[0], [1], [0], [1]])
     >>> log_prob = LogSoftmaxWrapper(nn.Identity())
     >>> loss = log_prob(outputs, targets)
     >>> 0 <= loss < 1
@@ -1337,8 +1345,12 @@ class LogSoftmaxWrapper(nn.Module):
     >>> loss = log_prob(outputs, targets)
     >>> 0 <= loss < 1
     tensor(True)
-    >>> outputs = torch.tensor([ [1., -1.], [-1., 1.], [0.9, 0.1], [0.1, 0.9] ])
-    >>> log_prob = LogSoftmaxWrapper(AdditiveAngularMargin(margin=0.3, scale=32))
+    >>> outputs = torch.tensor(
+    ...     [[1.0, -1.0], [-1.0, 1.0], [0.9, 0.1], [0.1, 0.9]]
+    ... )
+    >>> log_prob = LogSoftmaxWrapper(
+    ...     AdditiveAngularMargin(margin=0.3, scale=32)
+    ... )
     >>> loss = log_prob(outputs, targets)
     >>> 0 <= loss < 1
     tensor(True)
@@ -1490,7 +1502,7 @@ def nll_loss_kd(probabilities, targets, rel_lab_lengths):
     -------
     >>> probabilities = torch.tensor([[[0.8, 0.2], [0.2, 0.8]]])
     >>> targets = torch.tensor([[[0.9, 0.1], [0.1, 0.9]]])
-    >>> rel_lab_lengths = torch.tensor([1.])
+    >>> rel_lab_lengths = torch.tensor([1.0])
     >>> nll_loss_kd(probabilities, targets, rel_lab_lengths)
     tensor(-0.7400)
     """
@@ -1603,35 +1615,23 @@ class VariationalAutoencoderLoss(nn.Module):
     >>> from speechbrain.nnet.autoencoders import VariationalAutoencoderOutput
     >>> vae_loss = VariationalAutoencoderLoss(dist_loss_weight=0.5)
     >>> predictions = VariationalAutoencoderOutput(
-    ...     rec=torch.tensor(
-    ...         [[0.8, 1.0],
-    ...          [1.2, 0.6],
-    ...          [0.4, 1.4]]
-    ...         ),
+    ...     rec=torch.tensor([[0.8, 1.0], [1.2, 0.6], [0.4, 1.4]]),
     ...     mean=torch.tensor(
-    ...         [[0.5, 1.0],
-    ...          [1.5, 1.0],
-    ...          [1.0, 1.4]],
-    ...         ),
+    ...         [[0.5, 1.0], [1.5, 1.0], [1.0, 1.4]],
+    ...     ),
     ...     log_var=torch.tensor(
-    ...         [[0.0, -0.2],
-    ...          [2.0, -2.0],
-    ...          [0.2,  0.4]],
-    ...         ),
+    ...         [[0.0, -0.2], [2.0, -2.0], [0.2, 0.4]],
+    ...     ),
     ...     latent=torch.randn(3, 1),
     ...     latent_sample=torch.randn(3, 1),
-    ...     latent_length=torch.tensor([1., 1., 1.]),
+    ...     latent_length=torch.tensor([1.0, 1.0, 1.0]),
     ... )
-    >>> targets = torch.tensor(
-    ...     [[0.9, 1.1],
-    ...      [1.4, 0.6],
-    ...      [0.2, 1.4]]
-    ... )
+    >>> targets = torch.tensor([[0.9, 1.1], [1.4, 0.6], [0.2, 1.4]])
     >>> loss = vae_loss(predictions, targets)
     >>> loss
     tensor(1.1264)
     >>> details = vae_loss.details(predictions, targets)
-    >>> details  #doctest: +NORMALIZE_WHITESPACE
+    >>> details  # doctest: +NORMALIZE_WHITESPACE
     VariationalAutoencoderLossDetails(loss=tensor(1.1264),
                                       rec_loss=tensor(0.0333),
                                       dist_loss=tensor(2.1861),
@@ -1738,21 +1738,13 @@ class AutoencoderLoss(nn.Module):
     -------
     >>> from speechbrain.nnet.autoencoders import AutoencoderOutput
     >>> ae_loss = AutoencoderLoss()
-    >>> rec = torch.tensor(
-    ...   [[0.8, 1.0],
-    ...    [1.2, 0.6],
-    ...    [0.4, 1.4]]
-    ... )
+    >>> rec = torch.tensor([[0.8, 1.0], [1.2, 0.6], [0.4, 1.4]])
     >>> predictions = AutoencoderOutput(
     ...     rec=rec,
     ...     latent=torch.randn(3, 1),
-    ...     latent_length=torch.tensor([1., 1.])
+    ...     latent_length=torch.tensor([1.0, 1.0]),
     ... )
-    >>> targets = torch.tensor(
-    ...     [[0.9, 1.1],
-    ...      [1.4, 0.6],
-    ...      [0.2, 1.4]]
-    ... )
+    >>> targets = torch.tensor([[0.9, 1.1], [1.4, 0.6], [0.2, 1.4]])
     >>> ae_loss(predictions, targets)
     tensor(0.0333)
     >>> ae_loss.details(predictions, targets)
@@ -1937,9 +1929,7 @@ class LaplacianVarianceLoss(nn.Module):
              [1., 1., 1., 1., 1., 1.]]])
     >>> lap_loss(data)
     tensor(-0.)
-    >>> data = (
-    ...     torch.eye(6) + torch.eye(6).flip(0)
-    ... ).unsqueeze(0)
+    >>> data = (torch.eye(6) + torch.eye(6).flip(0)).unsqueeze(0)
     >>> data
     tensor([[[1., 0., 0., 0., 0., 1.],
              [0., 1., 0., 0., 1., 0.],

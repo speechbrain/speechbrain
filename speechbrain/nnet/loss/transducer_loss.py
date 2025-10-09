@@ -6,6 +6,7 @@ Authors
  * Titouan Parcollet 2023
 """
 
+import importlib.util
 import logging
 import math
 import warnings
@@ -249,11 +250,11 @@ def cu_kernel_compute_grad(log_probs, labels, alpha, beta, grads, T, U, blank):
                     - beta[b, 0, 0]
                 )
         # compute the gradient for emit prob
-        for u, l in enumerate(labels[b]):
+        for u, fu in enumerate(labels[b]):
             if u < U[b]:
-                grads[b, t, u, l] = alpha[b, t, u] + beta[b, t, u + 1]
-                grads[b, t, u, l] = -math.exp(
-                    grads[b, t, u, l] + log_probs[b, t, u, l] - beta[b, 0, 0]
+                grads[b, t, u, fu] = alpha[b, t, u] + beta[b, t, u + 1]
+                grads[b, t, u, fu] = -math.exp(
+                    grads[b, t, u, fu] + log_probs[b, t, u, fu] - beta[b, 0, 0]
                 )
 
 
@@ -313,7 +314,7 @@ class Transducer(Function):
         elif reduction == "none":
             return -log_p_alpha
         else:
-            raise Exception("Unexpected reduction {}".format(reduction))
+            raise Exception(f"Unexpected reduction {reduction}")
 
     @staticmethod
     def backward(ctx, grad_output):
@@ -343,8 +344,8 @@ class TransducerLoss(Module):
     -------
     >>> import torch
     >>> loss = TransducerLoss(blank=0)
-    >>> logits = torch.randn((1,2,3,5)).cuda().requires_grad_()
-    >>> labels = torch.Tensor([[1,2]]).cuda().int()
+    >>> logits = torch.randn((1, 2, 3, 5)).cuda().requires_grad_()
+    >>> labels = torch.Tensor([[1, 2]]).cuda().int()
     >>> act_length = torch.Tensor([2]).cuda().int()
     >>> # U = label_length+1
     >>> label_length = torch.Tensor([2]).cuda().int()
@@ -358,7 +359,7 @@ class TransducerLoss(Module):
         self.reduction = reduction
         self.loss = Transducer.apply
         try:
-            cuda.cuda_paths
+            importlib.util.find_spec("numba")
         except ImportError:
             err_msg = "cannot import numba. To use Transducer loss\n"
             err_msg += "=============================\n"

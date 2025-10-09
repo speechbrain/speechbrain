@@ -35,9 +35,9 @@ class QPooling2d(sb.nnet.pooling.Pooling2d):
 
     Example
     -------
-    >>> pool = QPooling2d('max',(5,3))
+    >>> pool = QPooling2d("max", (5, 3))
     >>> inputs = torch.rand(10, 15, 12)
-    >>> output=pool(inputs)
+    >>> output = pool(inputs)
     >>> output.shape
     torch.Size([10, 3, 4])
     """

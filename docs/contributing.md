@@ -52,8 +52,8 @@ We target a specific range of supported Python versions, which are tested via CI
 
 ### Formatting & linting
 
-Use `pre-commit run -a` to run formatting and linting, using tools like `black`
-and `flake8` under the hood (see [`.pre-commit-config.yaml`](../.pre-commit-config.yaml)).
+Use `pre-commit run -a` to run formatting and linting, using tools like `ruff`
+under the hood (see [`.pre-commit-config.yaml`](../.pre-commit-config.yaml)).
 Some passes automatically fix your code, and some may require your intervention.
 
 These checks are run and enforced on the CI.

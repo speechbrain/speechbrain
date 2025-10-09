@@ -32,6 +32,7 @@ Authors
  * Titouan Parcollet 2021, 2022
  * Dominik Wagner 2022
 """
+
 import functools
 import os
 import sys

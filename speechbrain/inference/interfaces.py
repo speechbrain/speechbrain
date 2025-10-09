@@ -21,8 +21,10 @@ from types import SimpleNamespace
 import torch
 import torchaudio
 from hyperpyyaml import load_hyperpyyaml
-from torch.nn import DataParallel as DP
-from torch.nn import SyncBatchNorm
+from torch.nn import (
+    DataParallel as DP,
+    SyncBatchNorm,
+)
 from torch.nn.parallel import DistributedDataParallel as DDP
 
 from speechbrain.dataio.batch import PaddedBatch, PaddedData

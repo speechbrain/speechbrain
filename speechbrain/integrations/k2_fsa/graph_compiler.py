@@ -18,8 +18,10 @@ import torch
 
 from speechbrain.utils.logger import get_logger
 
-from . import k2  # import k2 from ./__init__.py
-from . import lexicon
+from . import (
+    k2,  # import k2 from ./__init__.py
+    lexicon,
+)
 
 logger = get_logger(__name__)
 
@@ -237,7 +239,9 @@ class CtcGraphCompiler(GraphCompiler):
     -------
     >>> import torch
     >>> from speechbrain.integrations.k2_fsa.losses import ctc_k2
-    >>> from speechbrain.integrations.k2_fsa.graph_compiler import CtcGraphCompiler
+    >>> from speechbrain.integrations.k2_fsa.graph_compiler import (
+    ...     CtcGraphCompiler,
+    ... )
     >>> from speechbrain.integrations.k2_fsa.lexicon import Lexicon
     >>> from speechbrain.integrations.k2_fsa.prepare_lang import prepare_lang
 
@@ -249,7 +253,7 @@ class CtcGraphCompiler(GraphCompiler):
     >>> # Assume all utterances have the same length so no padding was needed.
     >>> input_lens = torch.ones(batch_size)
     >>> # Create a small lexicon containing only two words and write it to a file.
-    >>> lang_tmpdir = getfixture('tmpdir')
+    >>> lang_tmpdir = getfixture("tmpdir")
     >>> lexicon_sample = "hello h e l l o\\nworld w o r l d\\n<UNK> <unk>"
     >>> lexicon_file = lang_tmpdir.join("lexicon.txt")
     >>> lexicon_file.write(lexicon_sample)

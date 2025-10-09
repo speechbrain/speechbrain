@@ -24,6 +24,7 @@ reverberation are automatically added to each sample from OpenRIR.
 Authors
  * Mirco Ravanelli 2021
 """
+
 import os
 import sys
 
@@ -177,7 +178,6 @@ class SpkIdBrain(sb.Brain):
 
         # At the end of validation...
         if stage == sb.Stage.VALID:
-
             old_lr, new_lr = self.hparams.lr_annealing(epoch)
             sb.nnet.schedulers.update_learning_rate(self.optimizer, new_lr)
 
@@ -273,7 +273,6 @@ def dataio_prep(hparams):
 
 # Recipe begins!
 if __name__ == "__main__":
-
     # Reading command line arguments.
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
 

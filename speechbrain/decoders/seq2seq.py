@@ -451,9 +451,9 @@ class S2SWhisperGreedySearcher(S2SGreedySearcher):
         elif suppress_tokens is None or len(suppress_tokens) == 0:
             suppress_tokens = []  # interpret empty string as an empty list
         else:
-            assert isinstance(
-                suppress_tokens, list
-            ), "suppress_tokens must be a list"
+            assert isinstance(suppress_tokens, list), (
+                "suppress_tokens must be a list"
+            )
 
         suppress_tokens.extend(
             [
@@ -1707,9 +1707,9 @@ class S2SRNNBeamSearcher(S2SBeamSearcher):
     >>> lin = sb.nnet.linear.Linear(n_neurons=vocab_size, input_size=3)
     >>> coverage_scorer = sb.decoders.scorer.CoverageScorer(vocab_size)
     >>> scorer = sb.decoders.scorer.ScorerBuilder(
-    ...     full_scorers = [coverage_scorer],
-    ...     partial_scorers = [],
-    ...     weights= dict(coverage=1.5)
+    ...     full_scorers=[coverage_scorer],
+    ...     partial_scorers=[],
+    ...     weights=dict(coverage=1.5),
     ... )
     >>> searcher = S2SRNNBeamSearcher(
     ...     embedding=emb,
@@ -1798,17 +1798,26 @@ class S2STransformerBeamSearcher(S2SBeamSearcher):
     Example
     -------
     >>> from speechbrain.nnet.linear import Linear
-    >>> from speechbrain.lobes.models.transformer.TransformerASR import TransformerASR
+    >>> from speechbrain.lobes.models.transformer.TransformerASR import (
+    ...     TransformerASR,
+    ... )
     >>> from speechbrain.decoders import S2STransformerBeamSearcher
-    >>> batch_size=8
-    >>> n_channels=6
-    >>> input_size=40
-    >>> d_model=128
-    >>> tgt_vocab=140
+    >>> batch_size = 8
+    >>> n_channels = 6
+    >>> input_size = 40
+    >>> d_model = 128
+    >>> tgt_vocab = 140
     >>> src = torch.rand([batch_size, n_channels, input_size])
     >>> tgt = torch.randint(0, tgt_vocab, [batch_size, n_channels])
     >>> net = TransformerASR(
-    ...    tgt_vocab, input_size, d_model, 8, 1, 1, 1024, activation=torch.nn.GELU
+    ...     tgt_vocab,
+    ...     input_size,
+    ...     d_model,
+    ...     8,
+    ...     1,
+    ...     1,
+    ...     1024,
+    ...     activation=torch.nn.GELU,
     ... )
     >>> ctc_lin = Linear(input_shape=(1, 40, d_model), n_neurons=tgt_vocab)
     >>> lin = Linear(input_shape=(1, 40, d_model), n_neurons=tgt_vocab)
@@ -1823,7 +1832,7 @@ class S2STransformerBeamSearcher(S2SBeamSearcher):
     ...     temperature=1.15,
     ... )
     >>> enc, dec = net.forward(src, tgt)
-    >>> hyps, _, _, _  = searcher(enc, torch.ones(batch_size))
+    >>> hyps, _, _, _ = searcher(enc, torch.ones(batch_size))
     """
 
     def __init__(self, modules, temperature=1.0, **kwargs):
@@ -1959,9 +1968,9 @@ class S2SWhisperBeamSearcher(S2SBeamSearcher):
         elif suppress_tokens is None or len(suppress_tokens) == 0:
             suppress_tokens = []  # interpret empty string as an empty list
         else:
-            assert isinstance(
-                suppress_tokens, list
-            ), "suppress_tokens must be a list"
+            assert isinstance(suppress_tokens, list), (
+                "suppress_tokens must be a list"
+            )
 
         suppress_tokens.extend(
             [

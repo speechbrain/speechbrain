@@ -55,9 +55,12 @@ class PaddedBatch:
 
     Example
     -------
-    >>> batch = PaddedBatch([
-    ...     {"id": "ex1", "foo": torch.Tensor([1.])},
-    ...     {"id": "ex2", "foo": torch.Tensor([2., 1.])}])
+    >>> batch = PaddedBatch(
+    ...     [
+    ...         {"id": "ex1", "foo": torch.Tensor([1.0])},
+    ...         {"id": "ex2", "foo": torch.Tensor([2.0, 1.0])},
+    ...     ]
+    ... )
     >>> # Attribute or key-based access:
     >>> batch.id
     ['ex1', 'ex2']
@@ -80,23 +83,32 @@ class PaddedBatch:
     tensor([0.5000, 1.0000], dtype=torch.float16)
     >>> # Numpy tensors get converted to torch and padded as well:
     >>> import numpy as np
-    >>> batch = PaddedBatch([
-    ...     {"wav": np.asarray([1,2,3,4])},
-    ...     {"wav": np.asarray([1,2,3])}])
+    >>> batch = PaddedBatch(
+    ...     [{"wav": np.asarray([1, 2, 3, 4])}, {"wav": np.asarray([1, 2, 3])}]
+    ... )
     >>> batch.wav  # +ELLIPSIS
     PaddedData(data=tensor([[1, 2,...
     >>> # Basic stacking collation deals with non padded data:
-    >>> batch = PaddedBatch([
-    ...     {"spk_id": torch.tensor([1]), "wav": torch.tensor([.1,.0,.3])},
-    ...     {"spk_id": torch.tensor([2]), "wav": torch.tensor([.2,.3,-.1])}],
-    ...     padded_keys=["wav"])
+    >>> batch = PaddedBatch(
+    ...     [
+    ...         {
+    ...             "spk_id": torch.tensor([1]),
+    ...             "wav": torch.tensor([0.1, 0.0, 0.3]),
+    ...         },
+    ...         {
+    ...             "spk_id": torch.tensor([2]),
+    ...             "wav": torch.tensor([0.2, 0.3, -0.1]),
+    ...         },
+    ...     ],
+    ...     padded_keys=["wav"],
+    ... )
     >>> batch.spk_id
     tensor([[1],
             [2]])
     >>> # And some data is left alone:
-    >>> batch = PaddedBatch([
-    ...     {"text": ["Hello"]},
-    ...     {"text": ["How", "are", "you?"]}])
+    >>> batch = PaddedBatch(
+    ...     [{"text": ["Hello"]}, {"text": ["How", "are", "you?"]}]
+    ... )
     >>> batch.text
     [['Hello'], ['How', 'are', 'you?']]
 
@@ -157,14 +169,17 @@ class PaddedBatch:
 
         Example
         -------
-        >>> batch = PaddedBatch([
-        ...     {"id": "ex1", "val": torch.Tensor([1.])},
-        ...     {"id": "ex2", "val": torch.Tensor([2., 1.])}])
+        >>> batch = PaddedBatch(
+        ...     [
+        ...         {"id": "ex1", "val": torch.Tensor([1.0])},
+        ...         {"id": "ex2", "val": torch.Tensor([2.0, 1.0])},
+        ...     ]
+        ... )
         >>> ids, vals = batch
         >>> ids
         ['ex1', 'ex2']
         """
-        return iter((getattr(self, key) for key in self.__keys))
+        return iter(getattr(self, key) for key in self.__keys)
 
     def pin_memory(self):
         """In-place, moves relevant elements to pinned memory."""
@@ -205,13 +220,15 @@ class BatchsizeGuesser:
     -------
     >>> guesser = BatchsizeGuesser()
     >>> # Works with simple tensors:
-    >>> guesser(torch.randn((2,3)))
+    >>> guesser(torch.randn((2, 3)))
     2
     >>> # Works with sequences of tensors:
-    >>> guesser((torch.randn((2,3)), torch.randint(high=5, size=(2,))))
+    >>> guesser((torch.randn((2, 3)), torch.randint(high=5, size=(2,))))
     2
     >>> # Works with PaddedBatch:
-    >>> guesser(PaddedBatch([{"wav": [1.,2.,3.]}, {"wav": [4.,5.,6.]}]))
+    >>> guesser(
+    ...     PaddedBatch([{"wav": [1.0, 2.0, 3.0]}, {"wav": [4.0, 5.0, 6.0]}])
+    ... )
     2
     >>> guesser("Even weird non-batches have a fallback")
     1

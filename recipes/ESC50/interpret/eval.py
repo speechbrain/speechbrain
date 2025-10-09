@@ -9,6 +9,7 @@ Authors
     * Francesco Paissan 2024
     * Cem Subakan 2024
 """
+
 import os
 import random
 import sys
@@ -162,9 +163,9 @@ if __name__ == "__main__":
         )
 
     if hparams["overlap_type"] == "LJSpeech":
-        assert (
-            ljspeech_tr is not None
-        ), "Specify a path if you want to generate OOD with LJSpeech."
+        assert ljspeech_tr is not None, (
+            "Specify a path if you want to generate OOD with LJSpeech."
+        )
 
     run_on_main(
         prepare_esc50,
@@ -226,9 +227,9 @@ if __name__ == "__main__":
     if hparams["add_wham_noise"]:
         ood_dataset = datasets["valid"]
 
-    assert (
-        hparams["pretrained_interpreter"] is not None
-    ), "You need to specify a path for the pretrained_interpreter!"
+    assert hparams["pretrained_interpreter"] is not None, (
+        "You need to specify a path for the pretrained_interpreter!"
+    )
     hparams["psi_model"].load_state_dict(
         torch.load(hparams["pretrained_interpreter"], map_location="cpu")
     )

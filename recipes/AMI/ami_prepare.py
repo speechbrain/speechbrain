@@ -69,12 +69,14 @@ def prepare_ami(
     Example
     -------
     >>> from recipes.AMI.ami_prepare import prepare_ami
-    >>> data_folder = '/network/datasets/ami/amicorpus/'
-    >>> manual_annot_folder = '/home/mila/d/dawalatn/nauman/ami_public_manual/'
-    >>> save_folder = 'results/save/'
-    >>> split_type = 'full_corpus_asr'
-    >>> mic_type = 'Lapel'
-    >>> prepare_ami(data_folder, manual_annot_folder, save_folder, split_type, mic_type)
+    >>> data_folder = "/network/datasets/ami/amicorpus/"
+    >>> manual_annot_folder = "/home/mila/d/dawalatn/nauman/ami_public_manual/"
+    >>> save_folder = "results/save/"
+    >>> split_type = "full_corpus_asr"
+    >>> mic_type = "Lapel"
+    >>> prepare_ami(
+    ...     data_folder, manual_annot_folder, save_folder, split_type, mic_type
+    ... )
     """
 
     # Meta files
@@ -263,9 +265,7 @@ def prepare_segs_for_RTTM(
             list_spkr_xmls = glob.glob(f)
             list_spkr_xmls.sort()  # A, B, C, D, E etc (Speakers)
             segs = []
-            spkrs_list = (
-                []
-            )  # Since non-scenario recordings contains 3-5 speakers
+            spkrs_list = []  # Since non-scenario recordings contains 3-5 speakers
 
             for spkr_xml_file in list_spkr_xmls:
                 # Speaker ID
@@ -406,7 +406,7 @@ def prepare_metadata(
 
     # Read RTTM
     RTTM = []
-    with open(rttm_file, "r", encoding="utf-8") as f:
+    with open(rttm_file, encoding="utf-8") as f:
         for line in f:
             entry = line[:-1]
             RTTM.append(entry)

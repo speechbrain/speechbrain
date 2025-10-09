@@ -41,11 +41,10 @@ download_file(
 for data_split in ["train", "dev", "eval"]:
     with open(
         os.path.join(metadata_folder, data_split + ".json"),
-        "r",
         encoding="utf-8",
     ) as f:
         metadata = json.load(f)
-    print("Creating data for {} set".format(data_split))
+    print(f"Creating data for {data_split} set")
     c_folder = os.path.join(params["out_folder"], data_split)
     os.makedirs(c_folder, exist_ok=True)
     for sess in tqdm(metadata.keys()):

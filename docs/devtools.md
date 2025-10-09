@@ -2,11 +2,12 @@
 
 ## Linting/formatting/testing
 
-### flake8
-- A bit like pycodestyle: make sure the codestyle is according to guidelines.
-- Compatible with black, in fact, current flake8 config directly taken from black
-- Code compliance can be tested simply with: `flake8 <file-or-directory>`
-- You can bypass flake8 for a line with `# noqa: <QA-CODE> E.G. # noqa: E731 to allow lambda assignment`
+### ruff
+- A fast Python linter and formatter that replaces multiple tools like flake8, isort, and pycodestyle
+- Compatible with black and provides similar functionality to flake8
+- Code compliance can be tested simply with: `ruff check <file-or-directory>`
+- You can bypass ruff for a line with `# noqa: <RULE-CODE>` E.G. `# noqa: E731` to allow lambda assignment
+- Can also format code with: `ruff format <file-or-directory>`
 
 ### pre-commit
 - Python tool which takes a configuration file (.pre-commit-config.yaml) and installs the git commit hooks specified in it.
@@ -14,19 +15,18 @@
 - The tool can also install pre-push hooks. This is done separately with: `pre-commit install --hook-type pre-push --config .pre-push-config.yaml`
 
 ### the git pre-commit hooks
-- Automatically run black
+- Automatically run ruff (linting and formatting)
 - Automatically fix trailing whitespace, end of file, sort requirements.txt
 - Check that no large (>512kb) files are added by accident
-- Automatically run flake8
 - Automatically run cspell
-- NOTE: If the hooks fix something (e.g. trailing whitespace or reformat with black), these changes are not automatically added and committed. You’ll have to add the fixed files again and run the commit again. I guess this is a safeguard: don’t blindly accept changes from git hooks.
+- NOTE: If the hooks fix something (e.g. trailing whitespace or reformat with ruff), these changes are not automatically added and committed. You'll have to add the fixed files again and run the commit again. I guess this is a safeguard: don't blindly accept changes from git hooks.
 - NOTE2: The hooks are only run on the files you git added to the commit. This is in contrast to the CI pipeline, which always tests everything.
 - NOTE3: If a word is flagged as a spelling error but it should be kept, you can add the word to `.dict-speechbrain.txt`
 
 ### the git pre-push hooks
-- Black and flake8 as checks on the whole repo
+- Ruff as checks on the whole repo
 - Unit-tests and doctests run on the whole repo
-- These hooks can only be run in the full environment, so if you install these, you’ll need to e.g. activate virtualenv before pushing.
+- These hooks can only be run in the full environment, so if you install these, you'll need to e.g. activate virtualenv before pushing.
 
 ### pytest doctests
 - This is not an additional dependency, but just that doctests are now run with pytest. Use: `pytest --doctest-modules <file-or-directory>`
@@ -46,8 +46,8 @@
 - CD stands for continuous deployment, check out the "Releasing a new version" section.
 
 ### Our test suite
-- Code linters are run. This means black and flake8. These are run on everything in speechbrain (the library directory), everything in recipes and everything in tests.
-- Note that black will only error out if it would change a file here, but won’t reformat anything at this stage. You’ll have to run black on your code and push a new commit. The black commit hook helps avoid these errors.
+- Code linters are run. This means ruff. These are run on everything in speechbrain (the library directory), everything in recipes and everything in tests.
+- Note that ruff will only error out if it would change a file here, but won't reformat anything at this stage. You'll have to run ruff on your code and push a new commit. The ruff commit hook helps avoid these errors.
 - All unit-tests and doctests are run. You can check that these pass by running them yourself before pushing, with `pytest tests`  and `pytest --doctest-modules speechbrain`
 - Integration tests (minimal examples). The minimal examples serve both to
   illustrate basic tasks and experiment running, but also as integration tests

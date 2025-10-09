@@ -84,9 +84,9 @@ def prepare_voxceleb(
     Example
     -------
     >>> from recipes.VoxCeleb.voxceleb1_prepare import prepare_voxceleb
-    >>> data_folder = 'data/VoxCeleb1/'
-    >>> save_folder = 'VoxData/'
-    >>> splits = ['train', 'dev']
+    >>> data_folder = "data/VoxCeleb1/"
+    >>> save_folder = "VoxData/"
+    >>> splits = ["train", "dev"]
     >>> split_ratio = [90, 10]
     >>> prepare_voxceleb(data_folder, save_folder, splits, split_ratio)
     """
@@ -442,9 +442,7 @@ def prepare_csv_enrol_test(data_folders, save_folder, verification_pairs_file):
     # msg = '\t"Creating csv lists in  %s..."' % (csv_file)
     # logger.debug(msg)
 
-    csv_output_head = [
-        ["ID", "duration", "wav", "start", "stop", "spk_id"]
-    ]  # noqa E231
+    csv_output_head = [["ID", "duration", "wav", "start", "stop", "spk_id"]]  # noqa E231
 
     for data_folder in data_folders:
         test_lst_file = verification_pairs_file

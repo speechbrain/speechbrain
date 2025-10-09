@@ -146,9 +146,9 @@ class TransformerInterface(nn.Module):
         ]
         assert positional_encoding in ["fixed_abs_sine", None]
 
-        assert (
-            num_encoder_layers + num_decoder_layers > 0
-        ), "number of encoder layers and number of decoder layers cannot both be 0!"
+        assert num_encoder_layers + num_decoder_layers > 0, (
+            "number of encoder layers and number of decoder layers cannot both be 0!"
+        )
 
         if positional_encoding == "fixed_abs_sine":
             self.positional_encoding = PositionalEncoding(d_model, max_length)
@@ -203,13 +203,13 @@ class TransformerInterface(nn.Module):
                     output_hidden_states=self.output_hidden_states,
                     layerdrop_prob=self.layerdrop_prob,
                 )
-                assert (
-                    normalize_before
-                ), "normalize_before must be True for Conformer"
+                assert normalize_before, (
+                    "normalize_before must be True for Conformer"
+                )
 
-                assert (
-                    conformer_activation is not None
-                ), "conformer_activation must not be None"
+                assert conformer_activation is not None, (
+                    "conformer_activation must not be None"
+                )
             elif encoder_module == "branchformer":
                 self.encoder = BranchformerEncoder(
                     nhead=nhead,
@@ -534,7 +534,9 @@ class TransformerEncoder(nn.Module):
 
     >>> import torch
     >>> x = torch.rand((8, 60, 512))
-    >>> net = TransformerEncoder(1, 8, 512, d_model=512, output_hidden_states=True)
+    >>> net = TransformerEncoder(
+    ...     1, 8, 512, d_model=512, output_hidden_states=True
+    ... )
     >>> output, attn_list, hidden_list = net(x)
     >>> hidden_list[0].shape
     torch.Size([8, 60, 512])
@@ -618,9 +620,9 @@ class TransformerEncoder(nn.Module):
             The output of the hidden layers of the encoder.
             Only works if output_hidden_states is set to true.
         """
-        assert (
-            dynchunktrain_config is None
-        ), "Dynamic Chunk Training unsupported for this encoder"
+        assert dynchunktrain_config is None, (
+            "Dynamic Chunk Training unsupported for this encoder"
+        )
 
         output = src
 
@@ -1011,7 +1013,7 @@ def get_key_padding_mask(padded_input, pad_idx):
 
     Example
     -------
-    >>> a = torch.LongTensor([[1,1,0], [2,3,0], [4,5,0]])
+    >>> a = torch.LongTensor([[1, 1, 0], [2, 3, 0], [4, 5, 0]])
     >>> get_key_padding_mask(a, pad_idx=0)
     tensor([[False, False,  True],
             [False, False,  True],
@@ -1047,7 +1049,7 @@ def get_lookahead_mask(padded_input):
 
     Example
     -------
-    >>> a = torch.LongTensor([[1,1,0], [2,3,0], [4,5,0]])
+    >>> a = torch.LongTensor([[1, 1, 0], [2, 3, 0], [4, 5, 0]])
     >>> get_lookahead_mask(a)
     tensor([[0., -inf, -inf],
             [0., 0., -inf],
@@ -1061,7 +1063,7 @@ def get_lookahead_mask(padded_input):
     mask = (
         mask.float()
         .masked_fill(mask == 0, float("-inf"))
-        .masked_fill(mask == 1, float(0.0))
+        .masked_fill(mask == 1, 0.0)
     )
     return mask.detach().to(padded_input.device)
 

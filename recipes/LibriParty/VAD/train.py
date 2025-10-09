@@ -126,7 +126,7 @@ class VADBrain(sb.Brain):
                 meta={"loss": stage_loss, "summary": summary},
                 num_to_keep=1,
                 min_keys=["loss"],
-                name="epoch_{}".format(epoch),
+                name=f"epoch_{epoch}",
             )
 
         elif stage == sb.Stage.TEST:

@@ -82,7 +82,9 @@ class FairseqWav2Vec2(nn.Module):
     Example
     -------
     >>> inputs = torch.rand([10, 600])
-    >>> model_url = "https://dl.fbaipublicfiles.com/fairseq/wav2vec/wav2vec_small.pt"
+    >>> model_url = (
+    ...     "https://dl.fbaipublicfiles.com/fairseq/wav2vec/wav2vec_small.pt"
+    ... )
     >>> save_path = "models_checkpoints/wav2vec2.pt"
     >>> model = FairseqWav2Vec2(model_url, save_path)
     >>> outputs = model(inputs)

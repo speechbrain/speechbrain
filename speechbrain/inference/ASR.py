@@ -1,4 +1,4 @@
-""" Specifies the inference interfaces for Automatic speech Recognition (ASR) modules.
+"""Specifies the inference interfaces for Automatic speech Recognition (ASR) modules.
 
 Authors:
  * Aku Rouhe 2021
@@ -54,7 +54,9 @@ class EncoderDecoderASR(Pretrained):
     ...     source="speechbrain/asr-crdnn-rnnlm-librispeech",
     ...     savedir=tmpdir,
     ... )  # doctest: +SKIP
-    >>> asr_model.transcribe_file("tests/samples/single-mic/example2.flac")  # doctest: +SKIP
+    >>> asr_model.transcribe_file(
+    ...     "tests/samples/single-mic/example2.flac"
+    ... )  # doctest: +SKIP
     "MY FATHER HAS REVEALED THE CULPRIT'S NAME"
     """
 
@@ -192,8 +194,10 @@ class EncoderASR(Pretrained):
     >>> asr_model = EncoderASR.from_hparams(
     ...     source="speechbrain/asr-wav2vec2-commonvoice-fr",
     ...     savedir=tmpdir,
-    ... ) # doctest: +SKIP
-    >>> asr_model.transcribe_file("samples/audio_samples/example_fr.wav") # doctest: +SKIP
+    ... )  # doctest: +SKIP
+    >>> asr_model.transcribe_file(
+    ...     "samples/audio_samples/example_fr.wav"
+    ... )  # doctest: +SKIP
     """
 
     HPARAMS_NEEDED = ["tokenizer", "decoding_function"]
@@ -441,12 +445,21 @@ class WhisperASR(Pretrained):
     -------
     >>> from speechbrain.inference.ASR import WhisperASR
     >>> tmpdir = getfixture("tmpdir")
-    >>> asr_model = WhisperASR.from_hparams(source="speechbrain/asr-whisper-medium-commonvoice-it", savedir=tmpdir,) # doctest: +SKIP
-    >>> hyp = asr_model.transcribe_file("speechbrain/asr-whisper-medium-commonvoice-it/example-it.wav")  # doctest: +SKIP
+    >>> asr_model = WhisperASR.from_hparams(
+    ...     source="speechbrain/asr-whisper-medium-commonvoice-it",
+    ...     savedir=tmpdir,
+    ... )  # doctest: +SKIP
+    >>> hyp = asr_model.transcribe_file(
+    ...     "speechbrain/asr-whisper-medium-commonvoice-it/example-it.wav"
+    ... )  # doctest: +SKIP
     >>> hyp  # doctest: +SKIP
     buongiorno a tutti e benvenuti a bordo
-    >>> _, probs = asr_model.detect_language_file("speechbrain/asr-whisper-medium-commonvoice-it/example-it.wav")  # doctest: +SKIP
-    >>> print(f"Detected language: {max(probs[0], key=probs[0].get)}")  # doctest: +SKIP
+    >>> _, probs = asr_model.detect_language_file(
+    ...     "speechbrain/asr-whisper-medium-commonvoice-it/example-it.wav"
+    ... )  # doctest: +SKIP
+    >>> print(
+    ...     f"Detected language: {max(probs[0], key=probs[0].get)}"
+    ... )  # doctest: +SKIP
     Detected language: it
     """
 
@@ -515,9 +528,11 @@ class WhisperASR(Pretrained):
         >>> asr_model = WhisperASR.from_hparams(
         ...     source="speechbrain/asr-whisper-medium-commonvoice-it",
         ...     savedir=tmpdir,
-        ... ) # doctest: +SKIP
-        >>> wav, _ = torchaudio.load("your_audio") # doctest: +SKIP
-        >>> language_tokens, language_probs = asr_model.detect_language(wav) # doctest: +SKIP
+        ... )  # doctest: +SKIP
+        >>> wav, _ = torchaudio.load("your_audio")  # doctest: +SKIP
+        >>> language_tokens, language_probs = asr_model.detect_language(
+        ...     wav
+        ... )  # doctest: +SKIP
         """
         mel = self.mods.whisper._get_mel(wav)
         language_tokens, language_probs = self.mods.whisper.detect_language(mel)
@@ -973,8 +988,14 @@ class StreamingASR(Pretrained):
     >>> from speechbrain.inference.ASR import StreamingASR
     >>> from speechbrain.utils.dynamic_chunk_training import DynChunkTrainConfig
     >>> tmpdir = getfixture("tmpdir")
-    >>> asr_model = StreamingASR.from_hparams(source="speechbrain/asr-conformer-streaming-librispeech", savedir=tmpdir,) # doctest: +SKIP
-    >>> asr_model.transcribe_file("speechbrain/asr-conformer-streaming-librispeech/test-en.wav", DynChunkTrainConfig(24, 8)) # doctest: +SKIP
+    >>> asr_model = StreamingASR.from_hparams(
+    ...     source="speechbrain/asr-conformer-streaming-librispeech",
+    ...     savedir=tmpdir,
+    ... )  # doctest: +SKIP
+    >>> asr_model.transcribe_file(
+    ...     "speechbrain/asr-conformer-streaming-librispeech/test-en.wav",
+    ...     DynChunkTrainConfig(24, 8),
+    ... )  # doctest: +SKIP
     """
 
     HPARAMS_NEEDED = [
@@ -1097,10 +1118,11 @@ class StreamingASR(Pretrained):
         rel_length = torch.tensor([1.0])
         context = self.make_streaming_context(dynchunktrain_config)
 
-        final_chunks = [
-            torch.zeros((1, chunk_size), device=self.device)
-        ] * self.hparams.fea_streaming_extractor.get_recommended_final_chunk_count(
-            chunk_size
+        final_chunks = (
+            [torch.zeros((1, chunk_size), device=self.device)]
+            * self.hparams.fea_streaming_extractor.get_recommended_final_chunk_count(
+                chunk_size
+            )
         )
 
         for chunk in itertools.chain(chunks, final_chunks):

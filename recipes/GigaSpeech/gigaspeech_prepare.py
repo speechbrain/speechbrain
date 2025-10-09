@@ -161,9 +161,9 @@ def prepare_gigaspeech(
 
     # check that `splits` input is valid
     for split in splits:
-        assert (
-            split in SPLITS + TRAIN_SUBSET
-        ), f"Split {split} not recognized. Valid splits are {SPLITS + TRAIN_SUBSET}."
+        assert split in SPLITS + TRAIN_SUBSET, (
+            f"Split {split} not recognized. Valid splits are {SPLITS + TRAIN_SUBSET}."
+        )
 
     # check that we are not using multiple train subsets
     if len(set(splits).intersection(TRAIN_SUBSET)) > 1:
@@ -243,7 +243,7 @@ def prepare_gigaspeech(
         check_gigaspeech_folders(data_folder, json_file)
 
         logger.info(f"Starting reading {json_file}.")
-        with open(json_file, "r", encoding="utf-8") as f:
+        with open(json_file, encoding="utf-8") as f:
             info = json.load(f)
         logger.info(f"Reading {json_file} done.")
 
@@ -293,7 +293,6 @@ def process_line(
         The list of utterances for the given split.
     """
     if ("{" + split + "}") in audio["subsets"]:
-
         audio_path = os.path.join(data_folder, audio["path"])
         assert os.path.isfile(audio_path), f"File not found: {audio_path}"
 
@@ -619,7 +618,9 @@ def preprocess_text(text: str, punctuation: bool, stopwords) -> str:
     Examples
     --------
     >>> text = " DOUGLAS MCGRAY IS GOING TO BE OUR GUIDE YOU WALK THROUGH THE DOOR <COMMA> YOU SEE THE RED CARPETING <COMMA> YOU SEE SOMEONE IN A SUIT <PERIOD> THEY MAY BE GREETING YOU <PERIOD>"
-    >>> preprocess_text(text, punctuation=True, stopwords=GARBAGE_UTTERANCE_TAGS)
+    >>> preprocess_text(
+    ...     text, punctuation=True, stopwords=GARBAGE_UTTERANCE_TAGS
+    ... )
     "DOUGLAS MCGRAY IS GOING TO BE OUR GUIDE YOU WALK THROUGH THE DOOR, YOU SEE THE RED CARPETING, YOU SEE SOMEONE IN A SUIT. THEY MAY BE GREETING YOU."
     """
 

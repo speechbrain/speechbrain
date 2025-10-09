@@ -97,7 +97,7 @@ def removeSilentFrames(x, y, dyn_range=40, N=256, K=128):
     )
 
     Max_energy = torch.max(energy)
-    msk = torch.squeeze((energy - Max_energy + dyn_range > 0))
+    msk = torch.squeeze(energy - Max_energy + dyn_range > 0)
 
     Y1 = y[0 : int(y.shape[0]) // N * N].reshape(int(y.shape[0]) // N, N).T
     Y2 = (

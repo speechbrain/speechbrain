@@ -41,7 +41,7 @@ def test_get_lexicon(tmp_path, tmp_csv_file):
     )
 
     # Read the output and assert its content
-    with open(lang_dir / "lexicon.txt", "r", encoding="utf-8") as f:
+    with open(lang_dir / "lexicon.txt", encoding="utf-8") as f:
         assert f.read() == "<UNK> <unk>\nhello h e l l o\nworld w o r l d\n"
 
 
@@ -60,7 +60,7 @@ def test_get_lexicon_with_boundary(tmp_path, tmp_csv_file):
     )
 
     # Read the output and assert its content
-    with open(lang_dir / "lexicon.txt", "r", encoding="utf-8") as f:
+    with open(lang_dir / "lexicon.txt", encoding="utf-8") as f:
         assert (
             f.read()
             == "<UNK> <unk>\nhello h e l l o <eow>\nworld w o r l d <eow>\n"
@@ -110,7 +110,7 @@ def test_write_lexicon(tmp_path):
     expected_content = "hello h e l l o\nworld w o r l d\n"
 
     # Read back the content of the file and assert its correctness.
-    with open(lexicon_file, "r", encoding="utf-8") as f:
+    with open(lexicon_file, encoding="utf-8") as f:
         assert f.read() == expected_content
 
 

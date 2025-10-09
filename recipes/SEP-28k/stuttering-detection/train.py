@@ -186,7 +186,7 @@ if __name__ == "__main__":
         hparams_file, run_opts, overrides = hp_ctx.parse_arguments(
             sys.argv[1:]
         )  # <-- Replace sb with hp_ctx
-        with open(hparams_file, "r", encoding="utf-8") as fin:
+        with open(hparams_file, encoding="utf-8") as fin:
             hparams = load_hyperpyyaml(fin, overrides)
             if hp_ctx.reporter is not None:
                 hparams["output_folder"] = (
