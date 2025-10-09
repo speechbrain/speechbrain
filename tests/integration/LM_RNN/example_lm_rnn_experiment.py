@@ -6,6 +6,7 @@ attention-based encoder-decoder pipeline. The encoder is based on a simple LSTM.
 Given the tiny dataset, the expected behavior is to overfit the training dataset
 (with a validation performance that stays high).
 """
+
 import math
 import pathlib
 
@@ -93,7 +94,7 @@ def main(device="cpu"):
     data_folder = (experiment_dir / data_folder).resolve()
 
     # Load model hyper parameters:
-    with open(hparams_file) as fin:
+    with open(hparams_file, encoding="utf-8") as fin:
         hparams = load_hyperpyyaml(fin)
 
     # Dataset creation

@@ -149,7 +149,7 @@ embedding_model_path: ../classification/results/focalnet-base-esc50/1234/save/CK
 classifier_model_path: ../classification/results/focalnet-base-esc50/1234/save/CKPT+2024-02-08+18-59-37+00/classifier.ckpt
 ```
 
-## Evaluation
+## Evaluation and Inference
 
 ### Out of distribution (OOD) tests
 
@@ -174,6 +174,15 @@ python eval.py hparams/<config>.yaml --data_folder /yourpath/esc50 --add_wham_no
 ```
 
 This will evaluate the model using the test set contaminated with WHAM! noise samples.
+
+
+### Single-sample inference
+
+If you want to run inference on a single sample, you can use the following command:
+```shell
+python eval.py hparams/<config>.yaml --data_folder /yourpath/esc50 --add_wham_noise True --wham_folder /yourpath/wham_noise --pretrained_interpreter yourpath/psi_model.ckpt --single_sample $PATH_TO_WAV
+
+```
 
 ---------------------------------------------------------------------------------------------------------
 

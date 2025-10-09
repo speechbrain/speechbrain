@@ -7,7 +7,7 @@ Does the following feature set work out together on some environment?
 Authors:
     * Andreas Nautsch 2023
 """
-import logging
+
 import os
 import sys
 from copy import deepcopy
@@ -16,7 +16,7 @@ import torch
 from ASR_template_train import ASR, dataio_prepare
 from hyperpyyaml import load_hyperpyyaml
 from torch.utils.data import DataLoader
-from tqdm.contrib import tqdm
+from tqdm import tqdm
 
 import speechbrain as sb
 from speechbrain.dataio.dataio import read_audio  # read_audio_multichannel,
@@ -30,8 +30,9 @@ from speechbrain.dataio.sampler import DynamicBatchSampler
 from speechbrain.inference.ASR import EncoderDecoderASR
 from speechbrain.utils.data_utils import batch_pad_right
 from speechbrain.utils.distributed import ddp_barrier, run_on_main
+from speechbrain.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def eval_reporting(reports, single_node=False):
@@ -47,7 +48,7 @@ def eval_reporting(reports, single_node=False):
     for log_metric, specs in reports.items():
         if not single_node:
             print(
-                f'{log_metric} on DDP rank {int(os.environ["RANK"])}: {specs["tracker"].summarize()}'
+                f"{log_metric} on DDP rank {int(os.environ['RANK'])}: {specs['tracker'].summarize()}"
             )
             result_list = [None for _ in range(int(os.environ["WORLD_SIZE"]))]
             # WARNING: https://pytorch.org/docs/stable/distributed.html - underlying `pickle` module is known to be insecure
@@ -59,7 +60,7 @@ def eval_reporting(reports, single_node=False):
                 specs["tracker"].scores.extend(r)
         summary = specs["tracker"].summarize()
         print(f"\tSummary: {summary}")
-        logger.info(f'{log_metric}: {summary[specs["field"]]}\n')
+        logger.info(f"{log_metric}: {summary[specs['field']]}\n")
 
 
 def eval_test_use_recipe_dataio(
@@ -173,7 +174,7 @@ if __name__ == "__main__":
     # DDP init
     sb.utils.distributed.ddp_init_group(run_opts)
 
-    with open(hparams_file) as fin:
+    with open(hparams_file, encoding="utf-8") as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
     # Kept aside for later

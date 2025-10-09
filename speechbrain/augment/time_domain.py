@@ -79,10 +79,12 @@ class AddNoise(torch.nn.Module):
     -------
     >>> import pytest
     >>> from speechbrain.dataio.dataio import read_audio
-    >>> signal = read_audio('tests/samples/single-mic/example1.wav')
-    >>> clean = signal.unsqueeze(0) # [batch, time, channels]
-    >>> noisifier = AddNoise('tests/samples/annotation/noise.csv',
-    ...                     replacements={'noise_folder': 'tests/samples/noise'})
+    >>> signal = read_audio("tests/samples/single-mic/example1.wav")
+    >>> clean = signal.unsqueeze(0)  # [batch, time, channels]
+    >>> noisifier = AddNoise(
+    ...     "tests/samples/annotation/noise.csv",
+    ...     replacements={"noise_folder": "tests/samples/noise"},
+    ... )
     >>> noisy = noisifier(clean, torch.ones(1))
     """
 
@@ -340,10 +342,12 @@ class AddReverb(torch.nn.Module):
     -------
     >>> import pytest
     >>> from speechbrain.dataio.dataio import read_audio
-    >>> signal = read_audio('tests/samples/single-mic/example1.wav')
-    >>> clean = signal.unsqueeze(0) # [batch, time, channels]
-    >>> reverb = AddReverb('tests/samples/annotation/RIRs.csv',
-    ...                     replacements={'rir_folder': 'tests/samples/RIRs'})
+    >>> signal = read_audio("tests/samples/single-mic/example1.wav")
+    >>> clean = signal.unsqueeze(0)  # [batch, time, channels]
+    >>> reverb = AddReverb(
+    ...     "tests/samples/annotation/RIRs.csv",
+    ...     replacements={"rir_folder": "tests/samples/RIRs"},
+    ... )
     >>> reverbed = reverb(clean)
     """
 
@@ -466,7 +470,7 @@ class SpeedPerturb(torch.nn.Module):
     Example
     -------
     >>> from speechbrain.dataio.dataio import read_audio
-    >>> signal = read_audio('tests/samples/single-mic/example1.wav')
+    >>> signal = read_audio("tests/samples/single-mic/example1.wav")
     >>> perturbator = SpeedPerturb(orig_freq=16000, speeds=[90])
     >>> clean = signal.unsqueeze(0)
     >>> perturbed = perturbator(clean)
@@ -535,8 +539,8 @@ class Resample(torch.nn.Module):
     Example
     -------
     >>> from speechbrain.dataio.dataio import read_audio
-    >>> signal = read_audio('tests/samples/single-mic/example1.wav')
-    >>> signal = signal.unsqueeze(0) # [batch, time, channels]
+    >>> signal = read_audio("tests/samples/single-mic/example1.wav")
+    >>> signal = signal.unsqueeze(0)  # [batch, time, channels]
     >>> resampler = Resample(orig_freq=16000, new_freq=8000)
     >>> resampled = resampler(signal)
     >>> signal.shape
@@ -619,12 +623,17 @@ class DropFreq(torch.nn.Module):
     drop_freq_width : float
         The width of the frequency band to drop, as
         a fraction of the sampling_rate / 2.
+    epsilon : float
+        A small positive value to prevent issues such as filtering 0 Hz,
+        division by zero, or other numerical instabilities. This value sets
+        the absolute minimum for normalized frequencies used in the filter.
+        The default value is 1e-12.
 
     Example
     -------
     >>> from speechbrain.dataio.dataio import read_audio
     >>> dropper = DropFreq()
-    >>> signal = read_audio('tests/samples/single-mic/example1.wav')
+    >>> signal = read_audio("tests/samples/single-mic/example1.wav")
     >>> dropped_signal = dropper(signal.unsqueeze(0))
     """
 
@@ -635,6 +644,7 @@ class DropFreq(torch.nn.Module):
         drop_freq_count_low=1,
         drop_freq_count_high=3,
         drop_freq_width=0.05,
+        epsilon=1e-12,
     ):
         super().__init__()
         self.drop_freq_low = drop_freq_low
@@ -642,6 +652,7 @@ class DropFreq(torch.nn.Module):
         self.drop_freq_count_low = drop_freq_count_low
         self.drop_freq_count_high = drop_freq_count_high
         self.drop_freq_width = drop_freq_width
+        self.epsilon = epsilon
 
     def forward(self, waveforms):
         """
@@ -673,8 +684,7 @@ class DropFreq(torch.nn.Module):
         drop_range = self.drop_freq_high - self.drop_freq_low
         drop_frequency = (
             torch.rand(drop_count) * drop_range + self.drop_freq_low
-        )
-
+        ).clamp(min=self.epsilon)
         # Filter parameters
         filter_length = 101
         pad = filter_length // 2
@@ -743,9 +753,9 @@ class DropChunk(torch.nn.Module):
     Example
     -------
     >>> from speechbrain.dataio.dataio import read_audio
-    >>> dropper = DropChunk(drop_start=100, drop_end=200, noise_factor=0.)
-    >>> signal = read_audio('tests/samples/single-mic/example1.wav')
-    >>> signal = signal.unsqueeze(0) # [batch, time, channels]
+    >>> dropper = DropChunk(drop_start=100, drop_end=200, noise_factor=0.0)
+    >>> signal = read_audio("tests/samples/single-mic/example1.wav")
+    >>> signal = signal.unsqueeze(0)  # [batch, time, channels]
     >>> length = torch.ones(1)
     >>> dropped_signal = dropper(signal, length)
     >>> float(dropped_signal[:, 150])
@@ -1063,7 +1073,7 @@ class DoClip(torch.nn.Module):
     -------
     >>> from speechbrain.dataio.dataio import read_audio
     >>> clipper = DoClip(clip_low=0.01, clip_high=0.01)
-    >>> signal = read_audio('tests/samples/single-mic/example1.wav')
+    >>> signal = read_audio("tests/samples/single-mic/example1.wav")
     >>> clipped_signal = clipper(signal.unsqueeze(0))
     """
 
@@ -1120,7 +1130,7 @@ class RandAmp(torch.nn.Module):
     -------
     >>> from speechbrain.dataio.dataio import read_audio
     >>> rand_amp = RandAmp(amp_low=0.25, amp_high=1.75)
-    >>> signal = read_audio('tests/samples/single-mic/example1.wav')
+    >>> signal = read_audio("tests/samples/single-mic/example1.wav")
     >>> output_signal = rand_amp(signal.unsqueeze(0))
     """
 
@@ -1271,8 +1281,14 @@ class CutCat(torch.nn.Module):
 
     Example
     -------
-    >>> signal = torch.ones((4, 256, 22)) * torch.arange(4).reshape((4, 1, 1,))
-    >>> cutcat =  CutCat()
+    >>> signal = torch.ones((4, 256, 22)) * torch.arange(4).reshape(
+    ...     (
+    ...         4,
+    ...         1,
+    ...         1,
+    ...     )
+    ... )
+    >>> cutcat = CutCat()
     >>> output_signal = cutcat(signal)
     """
 
@@ -1316,7 +1332,7 @@ class CutCat(torch.nn.Module):
                     start = idx_cut[i]
                     stop = idx_cut[i + 1]
                     waveforms[:, start:stop, ...] = waveforms_rolled[
-                        :, start:stop, ...  # noqa: W504
+                        :, start:stop, ...
                     ]
 
         return waveforms
@@ -1349,7 +1365,7 @@ def pink_noise_like(waveforms, alpha_low=1.0, alpha_high=1.0, sample_rate=50):
 
     Example
     -------
-    >>> waveforms = torch.randn(4,257,10)
+    >>> waveforms = torch.randn(4, 257, 10)
     >>> noise = pink_noise_like(waveforms)
     >>> noise.shape
     torch.Size([4, 257, 10])
@@ -1471,3 +1487,53 @@ class DropBitResolution(torch.nn.Module):
         # To dequantize and recover the original float32 values
         dequantized_tensor = quantized_tensor.to(torch.float32) / scale_factor
         return dequantized_tensor
+
+
+class SignFlip(torch.nn.Module):
+    """Flip the sign of a signal.
+
+    This module negates all the values in a tensor with a given probability.
+    If the sign is not flipped, the original signal is returned
+    unchanged. This technique is outlined in the paper:
+    "CADDA: Class-wise Automatic Differentiable Data Augmentation for EEG Signals"
+    https://arxiv.org/pdf/2106.13695
+
+    Arguments
+    ---------
+    flip_prob : float
+        The probability with which to flip the sign of the signal. Default is 0.5.
+
+    Example
+    -------
+    >>> import torch
+    >>> x = torch.tensor([1, 2, 3, 4, 5])
+    >>> flip = SignFlip(flip_prob=1)  # 100% chance to flip sign
+    >>> flip(x)
+    tensor([-1, -2, -3, -4, -5])
+    """
+
+    def __init__(self, flip_prob=0.5):
+        super().__init__()
+        self.flip_prob = flip_prob
+
+    def forward(self, waveform):
+        """
+        Arguments
+        ---------
+        waveform : torch.Tensor
+            Input tensor representaing waveform, shape does not matter.
+
+        Returns
+        -------
+        torch.Tensor
+            The output tensor with same shape as the input, where the
+            sign of all values in the tensor has been flipped with
+            probability `flip_prob`.
+
+        """
+
+        # Flip sign with `flip_prob` probability.
+        if torch.rand(1).item() < self.flip_prob:
+            return -waveform
+
+        return waveform

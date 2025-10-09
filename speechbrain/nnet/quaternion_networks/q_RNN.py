@@ -4,15 +4,15 @@ Authors
  * Titouan Parcollet 2020
 """
 
-import logging
 from typing import Optional
 
 import torch
 
 from speechbrain.nnet.quaternion_networks.q_linear import QLinear
 from speechbrain.nnet.quaternion_networks.q_normalization import QBatchNorm
+from speechbrain.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class QLSTM(torch.nn.Module):

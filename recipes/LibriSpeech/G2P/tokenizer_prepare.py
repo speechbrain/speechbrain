@@ -1,6 +1,4 @@
-"""A script to prepare annotations for tokenizers
-
-"""
+"""A script to prepare annotations for tokenizers"""
 
 import json
 import os
@@ -53,7 +51,7 @@ def prepare_annotation(src, destination_file_name, phonemes):
         }
         for item in src
     }
-    with open(destination_file_name, "w") as dst_file:
+    with open(destination_file_name, "w", encoding="utf-8") as dst_file:
         json.dump(annotation, dst_file, indent=2)
 
 

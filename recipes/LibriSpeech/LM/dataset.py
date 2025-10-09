@@ -1,4 +1,3 @@
-# coding=utf-8
 # Copyright 2020 The torch.TensorFlow Datasets Authors and the HuggingFace Datasets Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -20,8 +19,6 @@ Librispeech language modeling dataset.
 Authors
  * Jianyuan Zhong 2021
 """
-
-from __future__ import absolute_import, division, print_function
 
 import re
 
@@ -101,7 +98,7 @@ class LibrispeechLm(datasets.GeneratorBasedBuilder):
         """Yields examples."""
         key = 0
         for p in archive_path:
-            with open(p, "r", encoding="utf-8") as f:
+            with open(p, encoding="utf-8") as f:
                 for line in f:
                     line = re.sub(
                         r"\d+-\d+-\d+\s", "", line

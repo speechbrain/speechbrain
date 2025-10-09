@@ -1,4 +1,4 @@
-""" Specifies the inference interfaces for Speech Translation (ST) modules.
+"""Specifies the inference interfaces for Speech Translation (ST) modules.
 
 Authors:
  * Aku Rouhe 2021
@@ -36,8 +36,13 @@ class EncoderDecoderS2UT(Pretrained):
     -------
     >>> from speechbrain.inference.ST import EncoderDecoderS2UT
     >>> tmpdir = getfixture("tmpdir")
-    >>> s2ut_model = EncoderDecoderS2UT.from_hparams(source="speechbrain/s2st-transformer-fr-en-hubert-l6-k100-cvss", savedir=tmpdir) # doctest: +SKIP
-    >>> s2ut_model.translate_file("speechbrain/s2st-transformer-fr-en-hubert-l6-k100-cvss/example-fr.wav") # doctest: +SKIP
+    >>> s2ut_model = EncoderDecoderS2UT.from_hparams(
+    ...     source="speechbrain/s2st-transformer-fr-en-hubert-l6-k100-cvss",
+    ...     savedir=tmpdir,
+    ... )  # doctest: +SKIP
+    >>> s2ut_model.translate_file(
+    ...     "speechbrain/s2st-transformer-fr-en-hubert-l6-k100-cvss/example-fr.wav"
+    ... )  # doctest: +SKIP
     """
 
     HPARAMS_NEEDED = ["sample_rate"]

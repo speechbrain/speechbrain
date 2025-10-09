@@ -7,7 +7,7 @@
 
 # Basic parameters
 seed: 1986
-__set_seed: !apply:torch.manual_seed [!ref <seed>]
+__set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
 
 # Use 12 for V2 12 task and 35 for V2 35 task
 number_of_commands: 12

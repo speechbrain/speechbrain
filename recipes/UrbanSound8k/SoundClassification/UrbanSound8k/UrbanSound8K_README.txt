@@ -7,7 +7,7 @@ Created By
 Justin Salamon*^, Christopher Jacoby* and Juan Pablo Bello*
 * Music and Audio Research Lab (MARL), New York University, USA
 ^ Center for Urban Science and Progress (CUSP), New York University, USA
-http://serv.cusp.nyu.edu/projects/urbansounddataset
+http://serv.cusp.nyu.edu/projects/urbansounddataset (dead link? ignore-url-check)
 http://cusp.nyu.edu/
 
 Version 1.0

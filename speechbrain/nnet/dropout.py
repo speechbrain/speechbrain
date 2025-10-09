@@ -4,12 +4,12 @@ Authors
  * Mirco Ravanelli 2020
 """
 
-import logging
-
 import torch  # noqa: F401
 import torch.nn as nn
 
-logger = logging.getLogger(__name__)
+from speechbrain.utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class Dropout2d(nn.Module):
@@ -27,7 +27,7 @@ class Dropout2d(nn.Module):
     -------
     >>> drop = Dropout2d(drop_rate=0.5)
     >>> inputs = torch.rand(10, 50, 40)
-    >>> output=drop(inputs)
+    >>> output = drop(inputs)
     >>> output.shape
     torch.Size([10, 50, 40])
     """

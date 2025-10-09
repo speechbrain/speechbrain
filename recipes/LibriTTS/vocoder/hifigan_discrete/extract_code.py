@@ -16,14 +16,9 @@ from tqdm import tqdm
 
 import speechbrain as sb
 from speechbrain.dataio.dataio import load_pkl, save_pkl
-from speechbrain.lobes.models.huggingface_transformers import (
-    hubert,
-    wav2vec2,
-    wavlm,
-)
-from speechbrain.lobes.models.huggingface_transformers.discrete_ssl import (
-    DiscreteSSL,
-)
+from speechbrain.integrations.huggingface import hubert, wav2vec2, wavlm
+from speechbrain.integrations.huggingface.discrete_ssl import DiscreteSSL
+from speechbrain.utils.logger import get_logger
 
 OPT_FILE = "opt_libritts_extract_code.pkl"
 TRAIN_JSON = "train.json"
@@ -41,7 +36,7 @@ def setup_logger():
     """Set up a logger with a log format and logging level."""
     log_format = "[%(asctime)s] [%(levelname)s]: %(message)s"
     logging.basicConfig(format=log_format, level=logging.INFO)
-    logger = logging.getLogger(__name__)
+    logger = get_logger(__name__)
     return logger
 
 
@@ -49,8 +44,8 @@ def get_device(use_cuda):
     """Determine and return the appropriate device for computation."""
     use_cuda = use_cuda and torch.cuda.is_available()
     print("\n" + "=" * 30)
-    print("USE_CUDA SET TO: {}".format(use_cuda))
-    print("CUDA AVAILABLE?: {}".format(torch.cuda.is_available()))
+    print(f"USE_CUDA SET TO: {use_cuda}")
+    print(f"CUDA AVAILABLE?: {torch.cuda.is_available()}")
     print("=" * 30 + "\n")
     return torch.device("cuda" if use_cuda else "cpu")
 
@@ -66,6 +61,15 @@ def skip(splits, save_folder, conf):
     """
     Detects if the ljspeech data_extraction has been already done.
     If the extraction has been done, we can skip it.
+
+    Arguments
+    ---------
+    splits : list
+        List of splits to check for existence.
+    save_folder : str
+        Folder containing prepared data.
+    conf : dict
+        The loaded configuration options.
 
     Returns
     -------
@@ -141,18 +145,33 @@ def extract_libritts(
     skip_extract: Bool
         If True, skip extraction.
 
+    Returns
+    -------
+    None
+
     Example
     -------
-    >>> from recipes.LibriTTS.TTS.vocoder.hifigan_unit.extract_code import extract_libritts
-    >>> data_folder = 'data/LibriTTS/'
-    >>> splits = ['train', 'valid']
-    >>> kmeans_folder = 'speechbrain/SSL_Quantization'
-    >>> kmeans_dataset = LibriSpeech-100-360-500
-    >>> encoder_type = 'HuBERT'
-    >>> encoder_source = facebook/hubert-large-ll60k
+    >>> from recipes.LibriTTS.TTS.vocoder.hifigan_unit.extract_code import (
+    ...     extract_libritts,
+    ... )
+    >>> data_folder = "data/LibriTTS/"
+    >>> splits = ["train", "valid"]
+    >>> kmeans_folder = "speechbrain/SSL_Quantization"
+    >>> kmeans_dataset = LibriSpeech - 100 - 360 - 500
+    >>> encoder_type = "HuBERT"
+    >>> encoder_source = facebook / hubert - large - ll60k
     >>> layer = [7]
-    >>> save_folder = 'save/'
-    >>> extract_libritts(data_folder, splits, kmeans_folder, kmeans_filename, encoder_type, encoder_source, layer, save_folder)
+    >>> save_folder = "save/"
+    >>> extract_libritts(
+    ...     data_folder,
+    ...     splits,
+    ...     kmeans_folder,
+    ...     kmeans_filename,
+    ...     encoder_type,
+    ...     encoder_source,
+    ...     layer,
+    ...     save_folder,
+    ... )
     """
     logger = setup_logger()
 
@@ -211,7 +230,7 @@ def extract_libritts(
     for split in splits:
         dataset_path = data_folder / f"{split}.json"
         logger.info(f"Reading dataset from {dataset_path} ...")
-        meta_json = json.load(open(dataset_path))
+        meta_json = json.load(open(dataset_path, encoding="utf-8"))
         for key in tqdm(meta_json.keys()):
             item = meta_json[key]
             wav = item["wav"]

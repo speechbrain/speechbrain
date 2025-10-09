@@ -1,8 +1,8 @@
-""" This file implements the CNN14 model from https://arxiv.org/abs/1912.10211
+"""This file implements the CNN14 model from https://arxiv.org/abs/1912.10211
 
- Authors
- * Cem Subakan 2022
- * Francesco Paissan 2022
+Authors
+* Cem Subakan 2022
+* Francesco Paissan 2022
 """
 
 import torch
@@ -37,9 +37,9 @@ class ConvBlock(nn.Module):
     norm_type : str in ['bn', 'in', 'ln']
         The type of normalization
 
-    Example:
-    --------
-    >>> convblock = ConvBlock(10, 20, 'ln')
+    Example
+    -------
+    >>> convblock = ConvBlock(10, 20, "ln")
     >>> x = torch.rand(5, 10, 20, 30)
     >>> y = convblock(x)
     >>> print(y.shape)
@@ -80,7 +80,7 @@ class ConvBlock(nn.Module):
             self.norm1 = nn.GroupNorm(1, out_channels)
             self.norm2 = nn.GroupNorm(1, out_channels)
         else:
-            raise ValueError("Unknown norm type {}".format(norm_type))
+            raise ValueError(f"Unknown norm type {norm_type}")
 
         self.init_weight()
 
@@ -96,18 +96,22 @@ class ConvBlock(nn.Module):
     def forward(self, x, pool_size=(2, 2), pool_type="avg"):
         """The forward pass for convblocks in CNN14
 
-        Arguments:
-        ----------
+        Arguments
+        ---------
         x : torch.Tensor
             input tensor with shape B x C_in x D1 x D2
-        where B = Batchsize
-              C_in = Number of input channel
-              D1 = Dimensionality of the first spatial dim
-              D2 = Dimensionality of the second spatial dim
+            where B = Batchsize
+                  C_in = Number of input channel
+                  D1 = Dimensionality of the first spatial dim
+                  D2 = Dimensionality of the second spatial dim
         pool_size : tuple with integer values
             Amount of pooling at each layer
         pool_type : str in ['max', 'avg', 'avg+max']
             The type of pooling
+
+        Returns
+        -------
+        The output of one conv block
         """
 
         x = F.relu_(self.norm1(self.conv1(x)))
@@ -138,9 +142,11 @@ class Cnn14(nn.Module):
         The type of normalization
     return_reps: bool (default=False)
         If True the model returns intermediate representations as well for interpretation
+    l2i : bool
+        If True, remove one of the outputs.
 
-    Example:
-    --------
+    Example
+    -------
     >>> cnn14 = Cnn14(120, 256)
     >>> x = torch.rand(3, 400, 120)
     >>> h = cnn14.forward(x)
@@ -165,7 +171,7 @@ class Cnn14(nn.Module):
         elif norm_type == "ln":
             self.norm0 = nn.GroupNorm(1, mel_bins)
         else:
-            raise ValueError("Unknown norm type {}".format(norm_type))
+            raise ValueError(f"Unknown norm type {norm_type}")
 
         self.conv_block1 = ConvBlock(
             in_channels=1, out_channels=64, norm_type=norm_type
@@ -197,14 +203,18 @@ class Cnn14(nn.Module):
         """
         The forward pass for the CNN14 encoder
 
-        Arguments:
-        ----------
+        Arguments
+        ---------
         x : torch.Tensor
             input tensor with shape B x C_in x D1 x D2
-        where B = Batchsize
-              C_in = Number of input channel
-              D1 = Dimensionality of the first spatial dim
-              D2 = Dimensionality of the second spatial dim
+            where B = Batchsize
+                  C_in = Number of input channel
+                  D1 = Dimensionality of the first spatial dim
+                  D2 = Dimensionality of the second spatial dim
+
+        Returns
+        -------
+        Outputs of CNN14 encoder
         """
 
         if x.dim() == 3:
@@ -250,12 +260,8 @@ class CNN14PSI(nn.Module):
     dim : int
         Dimensionality of the embeddings
 
-    Returns
-    --------
-        Estimated saliency map (before sigmoid)
-
-    Example:
-    --------
+    Example
+    -------
     >>> from speechbrain.lobes.models.Cnn14 import Cnn14
     >>> classifier_embedder = Cnn14(mel_bins=80, emb_dim=2048, return_reps=True)
     >>> x = torch.randn(2, 201, 80)
@@ -288,12 +294,14 @@ class CNN14PSI(nn.Module):
         Forward step. Given the classifier representations estimates a saliency map.
 
         Arguments
-        --------
+        ---------
         hs : torch.Tensor
             Classifier's representations.
+        labels : None
+            Unused
 
         Returns
-        --------
+        -------
         xhat : torch.Tensor
             Estimated saliency map (before sigmoid)
         """
@@ -337,13 +345,8 @@ class CNN14PSI_stft(nn.Module):
     outdim : int
         Defines the number of output channels in the saliency map.
 
-    Returns
-    --------
-    xhat : torch.Tensor
-        Estimated saliency map (before sigmoid)
-
-    Example:
-    --------
+    Example
+    -------
     >>> from speechbrain.lobes.models.Cnn14 import Cnn14
     >>> classifier_embedder = Cnn14(mel_bins=80, emb_dim=2048, return_reps=True)
     >>> x = torch.randn(2, 201, 80)
@@ -354,11 +357,7 @@ class CNN14PSI_stft(nn.Module):
     torch.Size([2, 1, 201, 513])
     """
 
-    def __init__(
-        self,
-        dim=128,
-        outdim=1,
-    ):
+    def __init__(self, dim=128, outdim=1):
         super().__init__()
 
         self.convt1 = nn.ConvTranspose2d(dim, dim, 3, (2, 4), 1)

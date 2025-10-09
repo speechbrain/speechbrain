@@ -4,9 +4,9 @@ Authors
 * Jianyuan Zhong 2020
 * Titouan Parcollet 2024
 * Luca Della Libera 2024
+* Shucong Zhang 2024
 """
 
-import logging
 from dataclasses import dataclass
 from typing import Any, Optional
 
@@ -24,8 +24,9 @@ from speechbrain.nnet.activations import Swish
 from speechbrain.nnet.containers import ModuleList
 from speechbrain.nnet.linear import Linear
 from speechbrain.utils.dynamic_chunk_training import DynChunkTrainConfig
+from speechbrain.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 @dataclass
@@ -224,6 +225,10 @@ class TransformerASR(TransformerInterface):
     use_linear_after_conv: bool, optional
         If True, will apply a linear transformation of size input_size//2.
         -> Branchformer
+    output_hidden_states: bool, optional
+        Whether the model should output the hidden states as a list of tensor.
+    layerdrop_prob: float
+        The probability to drop an entire layer.
 
     Example
     -------
@@ -253,16 +258,18 @@ class TransformerASR(TransformerInterface):
         positional_encoding="fixed_abs_sine",
         normalize_before=False,
         kernel_size: Optional[int] = 31,
-        bias: Optional[bool] = True,
-        encoder_module: Optional[str] = "transformer",
-        conformer_activation: Optional[nn.Module] = Swish,
-        branchformer_activation: Optional[nn.Module] = nn.GELU,
-        attention_type: Optional[str] = "regularMHA",
-        max_length: Optional[int] = 2500,
+        bias: bool = True,
+        encoder_module: str = "transformer",
+        conformer_activation: type = Swish,
+        branchformer_activation: type = nn.GELU,
+        attention_type: str = "regularMHA",
+        max_length: int = 2500,
         causal: Optional[bool] = None,
-        csgu_linear_units: Optional[int] = 3072,
-        gate_activation: Optional[nn.Module] = nn.Identity,
-        use_linear_after_conv: Optional[bool] = False,
+        csgu_linear_units: int = 3072,
+        gate_activation: type = nn.Identity,
+        use_linear_after_conv: bool = False,
+        output_hidden_states=False,
+        layerdrop_prob=0.0,
     ):
         if causal is None:
             logger.warning(
@@ -294,6 +301,8 @@ class TransformerASR(TransformerInterface):
             csgu_linear_units=csgu_linear_units,
             gate_activation=gate_activation,
             use_linear_after_conv=use_linear_after_conv,
+            output_hidden_states=output_hidden_states,
+            layerdrop_prob=layerdrop_prob,
         )
 
         self.custom_src_module = ModuleList(
@@ -317,7 +326,7 @@ class TransformerASR(TransformerInterface):
     def forward(self, src, tgt, wav_len=None, pad_idx=0):
         """
         Arguments
-        ----------
+        ---------
         src : torch.Tensor
             The sequence to the encoder.
         tgt : torch.Tensor
@@ -326,6 +335,16 @@ class TransformerASR(TransformerInterface):
             Torch Tensor of shape (batch, ) containing the relative length to padded length for each example.
         pad_idx : int, optional
             The index for <pad> token (default=0).
+
+        Returns
+        -------
+        encoder_out : torch.Tensor
+            The output of the encoder.
+        decoder_out : torch.Tensor
+            The output of the decoder
+        hidden_state_lst : list, optional
+            The output of the hidden layers of the encoder.
+            Only works if output_hidden_states is set to true.
         """
 
         # reshape the src vector to [Batch, Time, Fea] is a 4d vector is given
@@ -344,15 +363,18 @@ class TransformerASR(TransformerInterface):
 
         src = self.custom_src_module(src)
         # add pos encoding to queries if are sinusoidal ones else
-        if self.attention_type == "hypermixing":
+        if (
+            self.attention_type == "hypermixing"
+            or self.attention_type == "RoPEMHA"
+        ):
             pos_embs_encoder = None
         elif self.attention_type == "RelPosMHAXL":
             pos_embs_encoder = self.positional_encoding(src)
         elif self.positional_encoding_type == "fixed_abs_sine":
-            src = src + self.positional_encoding(src)  # add the encodings here
+            src = src + self.positional_encoding(src)
             pos_embs_encoder = None
 
-        encoder_out, _ = self.encoder(
+        outputs = self.encoder(
             src=src,
             src_mask=src_mask,
             src_key_padding_mask=src_key_padding_mask,
@@ -361,13 +383,21 @@ class TransformerASR(TransformerInterface):
 
         # if encoder only, we return the output of the encoder
         if tgt is None:
-            return encoder_out, None
+            return outputs
+
+        if self.output_hidden_states:
+            encoder_out, _, hidden_states = outputs
+        else:
+            encoder_out, _ = outputs
 
         tgt = self.custom_tgt_module(tgt)
 
-        if self.attention_type == "RelPosMHAXL":
+        if (
+            self.attention_type == "RelPosMHAXL"
+            or self.attention_type == "RoPEMHA"
+        ):
             tgt = tgt + self.positional_encoding_decoder(tgt)
-            pos_embs_encoder = None  # self.positional_encoding(src)
+            pos_embs_encoder = None
             pos_embs_target = None
         elif (
             self.positional_encoding_type == "fixed_abs_sine"
@@ -388,7 +418,10 @@ class TransformerASR(TransformerInterface):
             pos_embs_src=pos_embs_encoder,
         )
 
-        return encoder_out, decoder_out
+        if self.output_hidden_states:
+            return encoder_out, hidden_states, decoder_out
+        else:
+            return encoder_out, decoder_out
 
     @torch.no_grad()
     def decode(self, tgt, encoder_out, enc_len=None):
@@ -413,15 +446,19 @@ class TransformerASR(TransformerInterface):
             src_key_padding_mask = (1 - length_to_mask(enc_len)).bool()
 
         tgt = self.custom_tgt_module(tgt)
-        if self.attention_type == "RelPosMHAXL":
+
+        if (
+            self.attention_type == "RelPosMHAXL"
+            or self.attention_type == "RoPEMHA"
+        ):
             tgt = tgt + self.positional_encoding_decoder(tgt)
-            pos_embs_encoder = None  # self.positional_encoding(src)
+            pos_embs_encoder = None
             pos_embs_target = None
         elif (
             self.positional_encoding_type == "fixed_abs_sine"
             or self.attention_type == "hypermixing"
         ):
-            tgt = tgt + self.positional_encoding(tgt)  # add the encodings here
+            tgt = tgt + self.positional_encoding(tgt)
             pos_embs_target = None
             pos_embs_encoder = None
 
@@ -480,7 +517,10 @@ class TransformerASR(TransformerInterface):
         )
 
         src = self.custom_src_module(src)
-        if self.attention_type == "hypermixing":
+        if (
+            self.attention_type == "hypermixing"
+            or self.attention_type == "RoPEMHA"
+        ):
             pos_embs_source = None
         elif self.attention_type == "RelPosMHAXL":
             pos_embs_source = self.positional_encoding(src)
@@ -488,7 +528,7 @@ class TransformerASR(TransformerInterface):
             src = src + self.positional_encoding(src)
             pos_embs_source = None
 
-        encoder_out, _ = self.encoder(
+        outputs = self.encoder(
             src=src,
             src_mask=src_mask,
             src_key_padding_mask=src_key_padding_mask,
@@ -496,7 +536,12 @@ class TransformerASR(TransformerInterface):
             dynchunktrain_config=dynchunktrain_config,
         )
 
-        return encoder_out
+        if self.output_hidden_states:
+            encoder_out, _, hidden_states = outputs
+            return encoder_out, hidden_states
+        else:
+            encoder_out, _ = outputs
+            return encoder_out
 
     def encode_streaming(self, src, context: TransformerASRStreamingContext):
         """
@@ -518,8 +563,12 @@ class TransformerASR(TransformerInterface):
         Example
         -------
         >>> import torch
-        >>> from speechbrain.lobes.models.transformer.TransformerASR import TransformerASR
-        >>> from speechbrain.utils.dynamic_chunk_training import DynChunkTrainConfig
+        >>> from speechbrain.lobes.models.transformer.TransformerASR import (
+        ...     TransformerASR,
+        ... )
+        >>> from speechbrain.utils.dynamic_chunk_training import (
+        ...     DynChunkTrainConfig,
+        ... )
         >>> net = TransformerASR(
         ...     tgt_vocab=100,
         ...     input_size=64,
@@ -581,6 +630,8 @@ class TransformerASR(TransformerInterface):
         src = self.custom_src_module(src)
         if self.attention_type == "RelPosMHAXL":
             pos_embs_source = self.positional_encoding(pos_encoding_dummy)
+        elif self.attention_type == "RoPEMHA":
+            pos_embs_source = None
 
         elif self.positional_encoding_type == "fixed_abs_sine":
             src = src + self.positional_encoding(pos_encoding_dummy)

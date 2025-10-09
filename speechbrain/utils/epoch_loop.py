@@ -5,17 +5,18 @@ Authors
  * Davide Borra 2021
 """
 
-import logging
-
 import yaml
+
+from speechbrain.utils.logger import get_logger
 
 from .checkpoints import (
     mark_as_loader,
     mark_as_saver,
+    mark_as_transfer,
     register_checkpoint_hooks,
 )
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 @register_checkpoint_hooks
@@ -34,7 +35,7 @@ class EpochCounter:
     Example
     -------
     >>> from speechbrain.utils.checkpoints import Checkpointer
-    >>> tmpdir = getfixture('tmpdir')
+    >>> tmpdir = getfixture("tmpdir")
     >>> epoch_counter = EpochCounter(10)
     >>> recoverer = Checkpointer(tmpdir, {"epoch": epoch_counter})
     >>> recoverer.recover_if_possible()
@@ -61,16 +62,17 @@ class EpochCounter:
 
     @mark_as_saver
     def _save(self, path):
-        with open(path, "w") as fo:
+        with open(path, "w", encoding="utf-8") as fo:
             fo.write(str(self.current))
 
     @mark_as_loader
+    @mark_as_transfer
     def _recover(self, path, end_of_epoch=True):
         # NOTE: end_of_epoch = True by default so that when
         #  loaded in parameter transfer, this starts a new epoch.
         #  However, parameter transfer to EpochCounter should
         #  probably never be used really.
-        with open(path) as fi:
+        with open(path, encoding="utf-8") as fi:
             saved_value = int(fi.read())
             if end_of_epoch:
                 self.current = saved_value
@@ -98,7 +100,9 @@ class EpochCounterWithStopper(EpochCounter):
     >>> limit_to_stop = 5
     >>> limit_warmup = 2
     >>> direction = "min"
-    >>> epoch_counter = EpochCounterWithStopper(limit, limit_to_stop, limit_warmup, direction)
+    >>> epoch_counter = EpochCounterWithStopper(
+    ...     limit, limit_to_stop, limit_warmup, direction
+    ... )
     >>> for epoch in epoch_counter:
     ...     # Run training...
     ...     # Track a validation metric, (insert calculation here)
@@ -171,7 +175,7 @@ class EpochCounterWithStopper(EpochCounter):
 
     @mark_as_saver
     def _save(self, path):
-        with open(path, "w") as fo:
+        with open(path, "w", encoding="utf-8") as fo:
             yaml.dump(
                 {
                     "current_epoch": self.current,
@@ -183,9 +187,10 @@ class EpochCounterWithStopper(EpochCounter):
             )
 
     @mark_as_loader
+    @mark_as_transfer
     def _recover(self, path, end_of_epoch=True, device=None):
         del device  # Not used.
-        with open(path) as fi:
+        with open(path, encoding="utf-8") as fi:
             saved_dict = yaml.safe_load(fi)
             if end_of_epoch:
                 self.current = saved_dict["current_epoch"]

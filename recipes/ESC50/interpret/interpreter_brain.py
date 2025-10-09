@@ -112,7 +112,7 @@ class InterpreterBrain(sb.core.Brain):
 
     def viz_ints(self, X_stft, X_stft_logpower, batch, wavs):
         """The helper function to create debugging images"""
-        X_int, _, X_stft_phase = self.interpret_computation_steps(wavs)
+        X_int, _, X_stft_phase, _ = self.interpret_computation_steps(wavs)
 
         X_int = torch.expm1(X_int)
 
@@ -137,7 +137,7 @@ class InterpreterBrain(sb.core.Brain):
 
         out_folder = os.path.join(
             self.hparams.output_folder,
-            "interpretations/" f"{batch.id[0]}",
+            f"interpretations/{batch.id[0]}",
         )
         os.makedirs(
             out_folder,

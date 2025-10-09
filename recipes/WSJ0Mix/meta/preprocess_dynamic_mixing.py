@@ -67,8 +67,7 @@ def resample_folder(input_folder, output_folder, fs, regex):
 
         relative_path = os.path.join(
             Path(f).relative_to(Path(input_folder)).parent,
-            Path(f).relative_to(Path(input_folder)).stem
-            + "_peak_{}.wav".format(peak),
+            Path(f).relative_to(Path(input_folder)).stem + f"_peak_{peak}.wav",
         )
 
         os.makedirs(

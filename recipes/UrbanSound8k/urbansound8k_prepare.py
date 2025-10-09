@@ -39,15 +39,15 @@ Authors:
 """
 
 import json
-import logging
 import ntpath
 import os
 
 import torchaudio
 
 from speechbrain.dataio.dataio import load_data_csv, read_audio
+from speechbrain.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 URBAN_SOUND_8K_DOWNLOAD_FORM_URL = (
     "https://urbansounddataset.weebly.com/download-urbansound8k.html"
@@ -102,8 +102,16 @@ def prepare_urban_sound_8k(
 
     Example
     -------
-    >>> data_folder = '/path/to/UrbanSound8k'
-    >>> prepare_urban_sound_8k(data_folder, 'train.json', 'valid.json', 'test.json', [1,2,3,4,5,6,7,8], [9], [10])
+    >>> data_folder = "/path/to/UrbanSound8k"
+    >>> prepare_urban_sound_8k(
+    ...     data_folder,
+    ...     "train.json",
+    ...     "valid.json",
+    ...     "test.json",
+    ...     [1, 2, 3, 4, 5, 6, 7, 8],
+    ...     [9],
+    ...     [10],
+    ... )
     """
 
     # Tease params to correct type if necessary
@@ -258,7 +266,7 @@ def create_json(metadata, audio_data_folder, folds_list, json_file):
     if not os.path.exists(parent_dir):
         os.mkdir(parent_dir)
 
-    with open(json_file, mode="w") as json_f:
+    with open(json_file, mode="w", encoding="utf-8") as json_f:
         json.dump(json_dict, json_f, indent=2)
 
     logger.info(f"{json_file} successfully created!")
@@ -377,9 +385,7 @@ def prompt_download_urban_sound_8k(destination):
         Place to put dataset.
     """
     print(
-        "UrbanSound8k data is missing from {}!\nRequest it from here: {}".format(
-            destination, URBAN_SOUND_8K_DOWNLOAD_FORM_URL
-        )
+        f"UrbanSound8k data is missing from {destination}!\nRequest it from here: {URBAN_SOUND_8K_DOWNLOAD_FORM_URL}"
     )
 
 

@@ -78,7 +78,7 @@ def combine_batches(clean, noise_loader):
 
     Returns
     -------
-        Mixture. : torch.Tensor
+    Mixture : torch.Tensor
     """
     batch_size = clean.shape[0]
 
@@ -112,6 +112,10 @@ def download_wham(wham_path: str):
     ---------
     wham_path: str or Path
         Directory used to save the dataset.
+
+    Returns
+    -------
+    None
     """
     if len(os.listdir(wham_path)) != 0:
         return

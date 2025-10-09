@@ -7,6 +7,7 @@ the output probabilities to detect the final sequence of phonemes. Given the
 tiny dataset, the expected behavior is to overfit the training dataset
 (with a validation performance that stays high).
 """
+
 import pathlib
 
 from hyperpyyaml import load_hyperpyyaml
@@ -134,7 +135,7 @@ def main(device="cpu"):
     data_folder = (experiment_dir / data_folder).resolve()
 
     # Load model hyper parameters:
-    with open(hparams_file) as fin:
+    with open(hparams_file, encoding="utf-8") as fin:
         hparams = load_hyperpyyaml(fin)
 
     # Dataset creation

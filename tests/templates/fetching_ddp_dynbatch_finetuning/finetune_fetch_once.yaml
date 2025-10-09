@@ -13,7 +13,7 @@
 
 # Seed needs to be set at top of yaml, before objects with parameters are instantiated
 seed: 2602
-__set_seed: !apply:torch.manual_seed [!ref <seed>]
+__set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
 
 # Reading data from the local disk of the compute node
 data_folder: ../../../templates/speech_recognition/data # In this case, data will be automatically downloaded here.

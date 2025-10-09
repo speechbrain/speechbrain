@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Data preparation.
 
@@ -13,14 +12,14 @@ Authors:
 """
 
 import json
-import logging
 import os
 import string
 
 from speechbrain.dataio.dataio import read_audio
 from speechbrain.utils.data_utils import get_all_files
+from speechbrain.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 LEXICON_URL = "http://www.openslr.org/resources/11/librispeech-lexicon.txt"
 TRAIN_JSON = "train_revb.json"
 TEST_JSON = "test_revb.json"
@@ -176,8 +175,8 @@ def prepare_voicebank(
 
     Example
     -------
-    >>> data_folder = '/path/to/datasets/Voicebank'
-    >>> save_folder = 'exp/Voicebank_exp'
+    >>> data_folder = "/path/to/datasets/Voicebank"
+    >>> save_folder = "exp/Voicebank_exp"
     >>> prepare_voicebank(data_folder, save_folder)
     """
 
@@ -308,7 +307,7 @@ def create_json(wav_lst, json_file, clean_folder):
         }
 
     # Writing the json lines
-    with open(json_file, mode="w") as json_f:
+    with open(json_file, mode="w", encoding="utf-8") as json_f:
         json.dump(json_dict, json_f, indent=2)
 
     logger.info(f"{json_file} successfully created!")

@@ -8,6 +8,7 @@ Authors
     * Cem Subakan 2022, 2023
     * Francesco Paissan 2022, 2023, 2024
 """
+
 import sys
 
 import torch
@@ -115,7 +116,7 @@ class L2I(InterpreterBrain):
             ret_mask[idx] = mask
             ret_X_stft_phase[idx] = X_stft_phase
 
-        return ret_X_int, ret_mask, ret_X_stft_phase
+        return ret_X_int, ret_mask, ret_X_stft_phase, X_stft_logpower[None]
 
     def compute_forward(self, batch, stage):
         """Computation pipeline based on a encoder + sound classifier.
@@ -197,7 +198,9 @@ class L2I(InterpreterBrain):
         X_stft_logpower = torch.log1p(X_stft_power)
 
         with torch.no_grad():
-            tmp, _, _ = self.interpret_computation_steps(wavs)  # returns log1p
+            tmp, _, _, _ = self.interpret_computation_steps(
+                wavs
+            )  # returns log1p
             interpretations = torch.expm1(tmp).transpose(2, 1)
 
             if self.hparams.use_melspectra_log1p:
@@ -335,7 +338,6 @@ class L2I(InterpreterBrain):
 
 
 if __name__ == "__main__":
-
     # CLI:
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
 
@@ -343,13 +345,14 @@ if __name__ == "__main__":
     sb.utils.distributed.ddp_init_group(run_opts)
 
     # Load hyperparameters file with command-line overrides
-    with open(hparams_file) as fin:
+    with open(hparams_file, encoding="utf-8") as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
     print("Eval only hparams:")
     print("overlap_type=", hparams["overlap_type"])
     print("int_method=", hparams["int_method"])
     print("ljspeech_path=", hparams["ljspeech_path"])
+    print("single_sample=", hparams["single_sample"])
 
     print(
         "Interpreter class is inheriting the train_logger",

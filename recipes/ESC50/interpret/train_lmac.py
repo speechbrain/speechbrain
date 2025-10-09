@@ -11,6 +11,7 @@ Authors
     * Francesco Paissan 2024
     * Cem Subakan 2024
 """
+
 import sys
 
 import torch
@@ -98,7 +99,12 @@ class LMAC(InterpreterBrain):
             xhat = F.sigmoid(xhat)
             X_int = xhat * X_stft_logpower[:, :Tmax, :]
 
-        return X_int.transpose(1, 2), xhat.transpose(1, 2), X_stft_phase
+        return (
+            X_int.transpose(1, 2),
+            xhat.transpose(1, 2),
+            X_stft_phase,
+            X_stft_logpower,
+        )
 
     def compute_forward(self, batch, stage):
         """Forward computation defined for to generate the saliency maps with L-MAC"""
@@ -294,7 +300,6 @@ class LMAC(InterpreterBrain):
 
 
 if __name__ == "__main__":
-
     # CLI:
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
 
@@ -302,13 +307,14 @@ if __name__ == "__main__":
     sb.utils.distributed.ddp_init_group(run_opts)
 
     # Load hyperparameters file with command-line overrides
-    with open(hparams_file) as fin:
+    with open(hparams_file, encoding="utf-8") as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
     print("Eval only hparams:")
     print("overlap_type=", hparams["overlap_type"])
     print("int_method=", hparams["int_method"])
     print("ljspeech_path=", hparams["ljspeech_path"])
+    print("single_sample=", hparams["single_sample"])
 
     print("Inherited hparams:")
     print("use_melspectra_log1p=", hparams["use_melspectra_log1p"])

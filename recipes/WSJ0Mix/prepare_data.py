@@ -4,7 +4,7 @@ The .csv preparation functions for WSJ0-Mix.
 Author
  * Cem Subakan 2020
 
- """
+"""
 
 import csv
 import os
@@ -35,14 +35,14 @@ def prepare_wsjmix(
 
     if "wsj" in datapath:
         if n_spks == 2:
-            assert (
-                "2speakers" in datapath
-            ), "Inconsistent number of speakers and datapath"
+            assert "2speakers" in datapath, (
+                "Inconsistent number of speakers and datapath"
+            )
             create_wsj_csv(datapath, savepath)
         elif n_spks == 3:
-            assert (
-                "3speakers" in datapath
-            ), "Inconsistent number of speakers and datapath"
+            assert "3speakers" in datapath, (
+                "Inconsistent number of speakers and datapath"
+            )
             create_wsj_csv_3spks(datapath, savepath)
         else:
             raise ValueError("Unsupported Number of Speakers")
@@ -95,7 +95,9 @@ def create_custom_dataset(
         ]
 
         with open(
-            os.path.join(savepath, dataset_name + "_" + set_type + ".csv"), "w"
+            os.path.join(savepath, dataset_name + "_" + set_type + ".csv"),
+            "w",
+            encoding="utf-8",
         ) as csvfile:
             writer = csv.DictWriter(csvfile, fieldnames=csv_columns)
             writer.writeheader()
@@ -151,7 +153,12 @@ def create_wsj_csv(datapath, savepath):
             "s2_wav_opts",
         ]
 
-        with open(savepath + "/wsj_" + set_type + ".csv", "w") as csvfile:
+        with open(
+            savepath + "/wsj_" + set_type + ".csv",
+            "w",
+            newline="",
+            encoding="utf-8",
+        ) as csvfile:
             writer = csv.DictWriter(csvfile, fieldnames=csv_columns)
             writer.writeheader()
             for i, (mix_path, s1_path, s2_path) in enumerate(
@@ -211,7 +218,12 @@ def create_wsj_csv_3spks(datapath, savepath):
             "s3_wav_opts",
         ]
 
-        with open(savepath + "/wsj_" + set_type + ".csv", "w") as csvfile:
+        with open(
+            savepath + "/wsj_" + set_type + ".csv",
+            "w",
+            newline="",
+            encoding="utf-8",
+        ) as csvfile:
             writer = csv.DictWriter(csvfile, fieldnames=csv_columns)
             writer.writeheader()
             for i, (mix_path, s1_path, s2_path, s3_path) in enumerate(

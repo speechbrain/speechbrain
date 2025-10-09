@@ -11,7 +11,6 @@ Authors
 
 import importlib
 import json
-import logging
 import os
 import sys
 from datetime import datetime
@@ -19,8 +18,9 @@ from datetime import datetime
 from hyperpyyaml import load_hyperpyyaml
 
 import speechbrain as sb
+from speechbrain.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 MODULE_ORION = "orion.client"
 FORMAT_TIMESTAMP = "%Y%m%d%H%M%S%f"
@@ -58,12 +58,15 @@ def hpopt_mode(mode):
     Example
     -------
     >>> @hpopt_mode("raw")
-    ... class RawHyperparameterOptimizationReporter(HyperparameterOptimizationReporter):
-    ...    def __init__(self, *args, **kwargs):
-    ...        super().__init__(    *args, **kwargs)
-    ...    def report_objective(self, result):
-    ...        objective = result[self.objective_key]
-    ...        print(f"Objective: {objective}")
+    ... class RawHyperparameterOptimizationReporter(
+    ...     HyperparameterOptimizationReporter
+    ... ):
+    ...     def __init__(self, *args, **kwargs):
+    ...         super().__init__(*args, **kwargs)
+    ...
+    ...     def report_objective(self, result):
+    ...         objective = result[self.objective_key]
+    ...         print(f"Objective: {objective}")
 
     >>> reporter = get_reporter("raw", objective_key="error")
     >>> result = {"error": 1.2, "train_loss": 7.2}
@@ -174,7 +177,7 @@ class GenericHyperparameterOptimizationReporter(
         >>> import datetime
         >>> reporter = GenericHyperparameterOptimizationReporter(
         ...     objective_key="error",
-        ...     reference_date=datetime.datetime(2021, 1, 3)
+        ...     reference_date=datetime.datetime(2021, 1, 3),
         ... )
         >>> print(reporter.trial_id)
         20210103000000000000
@@ -319,8 +322,7 @@ class HyperparameterOptimizationContext:
     Example
     -------
     >>> ctx = HyperparameterOptimizationContext(
-    ...     reporter_args=[],
-    ...     reporter_kwargs={"objective_key": "error"}
+    ...     reporter_args=[], reporter_kwargs={"objective_key": "error"}
     ... )
     """
 
@@ -387,7 +389,7 @@ class HyperparameterOptimizationContext:
                 hpopt_mode, *self.reporter_args, **self.reporter_kwargs
             )
             if isinstance(hpopt, str) and os.path.exists(hpopt):
-                with open(hpopt) as hpopt_file:
+                with open(hpopt, encoding="utf-8") as hpopt_file:
                     trial_id = get_trial_id()
                     hpopt_overrides = load_hyperpyyaml(
                         hpopt_file,
@@ -437,10 +439,11 @@ def hyperparameter_optimization(*args, **kwargs):
     Example
     -------
     >>> import sys
-    >>> with hyperparameter_optimization(objective_key="error", output=sys.stdout) as hp_ctx:
+    >>> with hyperparameter_optimization(
+    ...     objective_key="error", output=sys.stdout
+    ... ) as hp_ctx:
     ...     result = {"error": 3.5, "train_loss": 2.1}
     ...     report_result(result)
-    ...
     {"error": 3.5, "train_loss": 2.1, "objective": 3.5}
     """
     hpfit = HyperparameterOptimizationContext(args, kwargs)

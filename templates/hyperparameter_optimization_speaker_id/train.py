@@ -3,7 +3,7 @@
 
 For a tutorial on hyperparameter optimization, refer to this tutorial:
 
-https://colab.research.google.com/drive/1b-5EOjZC7M9RvfWZ0Pq0HMV0KmQKu730#scrollTo=lJup9mNnYw_0
+https://speechbrain.readthedocs.io/en/latest/tutorials/advanced/hyperparameter-optimization.html
 
 The template can use used as a
 basic example for any signal classification task such as language_id,
@@ -31,6 +31,7 @@ Authors
  * Mirco Ravanelli 2021
  * Artem Ploujnikov 2021
 """
+
 import os
 import sys
 
@@ -184,7 +185,6 @@ class SpkIdBrain(sb.Brain):
 
         # At the end of validation...
         if stage == sb.Stage.VALID:
-
             old_lr, new_lr = self.hparams.lr_annealing(epoch)
             sb.nnet.schedulers.update_learning_rate(self.optimizer, new_lr)
 
@@ -284,9 +284,7 @@ def dataio_prep(hparams):
 
 # Recipe begins!
 if __name__ == "__main__":
-
     with hp.hyperparameter_optimization(objective_key="error") as hp_ctx:
-
         # Reading command line arguments
         hparams_file, run_opts, overrides = hp_ctx.parse_arguments(
             sys.argv[1:], pass_trial_id=False
@@ -296,7 +294,7 @@ if __name__ == "__main__":
         sb.utils.distributed.ddp_init_group(run_opts)
 
         # Load hyperparameters file with command-line overrides.
-        with open(hparams_file) as fin:
+        with open(hparams_file, encoding="utf-8") as fin:
             hparams = load_hyperpyyaml(fin, overrides)
 
         # Create experiment directory

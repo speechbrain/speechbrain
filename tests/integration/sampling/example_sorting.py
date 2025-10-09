@@ -1,5 +1,4 @@
-"""This minimal example checks on sampling with ascending/descending sorting and random shuffling; w/ & w/o DDP.
-"""
+"""This minimal example checks on sampling with ascending/descending sorting and random shuffling; w/ & w/o DDP."""
 
 import itertools
 import os
@@ -142,7 +141,7 @@ def recipe(device="cpu", yaml_file="hyperparams.yaml", run_opts=None):
     hparams_file = os.path.join(experiment_dir, yaml_file)
     data_folder = "../../samples/"
     data_folder = (experiment_dir / data_folder).resolve()
-    with open(hparams_file) as fin:
+    with open(hparams_file, encoding="utf-8") as fin:
         hparams = load_hyperpyyaml(fin)
 
     # usually here: sb.utils.distributed.ddp_init_group(run_opts)

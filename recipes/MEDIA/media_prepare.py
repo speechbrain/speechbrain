@@ -13,7 +13,6 @@ Gaëlle Laperrière 2023
 
 import csv
 import glob
-import logging
 import os
 import re
 import subprocess
@@ -21,7 +20,9 @@ import xml.dom.minidom as DOM
 
 from tqdm import tqdm
 
-logger = logging.getLogger(__name__)
+from speechbrain.utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 def prepare_media(
@@ -405,7 +406,7 @@ def append_data(save_folder, data, corpus):
     if to_append is not None:
         write_first_row(save_folder, corpus)
         path = save_folder + "/csv/" + corpus + ".csv"
-        SB_file = open(path, "a")
+        SB_file = open(path, "a", encoding="utf-8")
         writer = csv.writer(SB_file, delimiter=",")
         writer.writerows(to_append)
         SB_file.close()
@@ -899,7 +900,12 @@ def write_first_row(save_folder, corpus):
         Either 'train', 'dev', 'test', or 'test2'.
     """
 
-    SB_file = open(save_folder + "/csv/" + corpus + ".csv", "w")
+    SB_file = open(
+        save_folder + "/csv/" + corpus + ".csv",
+        "w",
+        newline="",
+        encoding="utf-8",
+    )
     writer = csv.writer(SB_file, delimiter=",")
     writer.writerow(
         [
@@ -1089,7 +1095,7 @@ def get_channels(path):
 
     channels = []
     filenames = []
-    with open(path) as file:
+    with open(path, encoding="utf-8") as file:
         reader = csv.reader(file, delimiter=",")
         for row in reader:
             channels.append(row[0])
@@ -1136,7 +1142,7 @@ def get_concepts_full_relax(path):
 
     concepts_full = []
     concepts_relax = []
-    with open(path) as file:
+    with open(path, encoding="utf-8") as file:
         reader = csv.reader(file, delimiter=",")
         for row in reader:
             concepts_full.append(row[0])

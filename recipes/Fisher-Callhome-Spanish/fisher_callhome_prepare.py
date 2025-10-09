@@ -7,7 +7,6 @@ YAO-FEI, CHENG 2021
 """
 
 import json
-import logging
 import os
 import re
 import string
@@ -21,6 +20,7 @@ from tqdm import tqdm
 
 from speechbrain.augment.time_domain import Resample
 from speechbrain.utils.data_utils import get_all_files
+from speechbrain.utils.logger import get_logger
 from speechbrain.utils.torch_audio_backend import check_torchaudio_backend
 
 try:
@@ -30,7 +30,7 @@ except ImportError:
     err_msg += "Install using `pip install sacremoses`.\n"
     raise ImportError(err_msg)
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 check_torchaudio_backend()
 
 es_normalizer = MosesPunctNormalizer(lang="es")
@@ -95,8 +95,8 @@ def prepare_fisher_callhome_spanish(
 
     Example
     -------
-    >>> data_folder = '/path/to/fisher-callhome'
-    >>> save_folder = 'data'
+    >>> data_folder = "/path/to/fisher-callhome"
+    >>> save_folder = "data"
     >>> prepare_fisher_callhome_spanish(data_folder, save_folder)
     """
 
@@ -270,7 +270,7 @@ def check_folders(*folders) -> bool:
 
 
 def get_data_list(path: str) -> str:
-    with open(path, "r", encoding="utf-8") as data_file:
+    with open(path, encoding="utf-8") as data_file:
         return data_file.readlines()
 
 
@@ -278,7 +278,7 @@ def extract_transcription(transcription_path: str) -> List[TDF]:
     """Extract transcriptions from given file"""
     extracted_transcriptions = []
 
-    with open(transcription_path) as transcription_file:
+    with open(transcription_path, encoding="utf-8") as transcription_file:
         # get rid of the first three useless headers
         transcriptions = transcription_file.readlines()[3:]
 
@@ -313,7 +313,7 @@ def concate_transcriptions_by_mapping_file(
 ) -> List[Data]:
     """return concated transcriptions from the given mapping file"""
 
-    with open(mapping_file_path, "r", encoding="utf-8") as fisher_mapping_file:
+    with open(mapping_file_path, encoding="utf-8") as fisher_mapping_file:
         fisher_mapping = fisher_mapping_file.readlines()
         utterances = []
 
@@ -330,8 +330,9 @@ def concate_transcriptions_by_mapping_file(
             if len(need_to_be_concate_lines) > 1:
                 # index shift one is because id is count from 1 in file however, list start from 0
                 concated_transcripts = selected_transcription[
-                    need_to_be_concate_lines[0]
-                    - 1 : need_to_be_concate_lines[-1]
+                    need_to_be_concate_lines[0] - 1 : need_to_be_concate_lines[
+                        -1
+                    ]
                 ]
                 concated_transcripts = list(
                     map(lambda tdf: tdf.transcript, concated_transcripts)
@@ -478,7 +479,7 @@ def make_data_splits(
         for fisher_split in fisher_splits:
             split = set()
             with open(
-                f"{mapping_folder}/fisher_{fisher_split}", "r", encoding="utf-8"
+                f"{mapping_folder}/fisher_{fisher_split}", encoding="utf-8"
             ) as fisher_file, open(
                 f"./splits/{fisher_split}", "a+", encoding="utf-8"
             ) as split_file:
@@ -502,7 +503,7 @@ def remove_punctuation(text: str) -> str:
     text = text.replace("'", "apostrophe")
 
     # based on the definition of [[:punct]]
-    punctuation = r"[{}]".format(string.punctuation)
+    punctuation = rf"[{string.punctuation}]"
 
     text = re.sub(punctuation, "", text)
     text = text.replace("spacemark", "<space>")
@@ -652,7 +653,7 @@ def clean_transcription(transcription: str) -> str:
     transcription = transcription.replace("<", "larrow")
     transcription = transcription.replace(">", "rarrow")
 
-    punctuation = r"[{}]".format(string.punctuation)
+    punctuation = rf"[{string.punctuation}]"
     transcription = re.sub(punctuation, "", transcription)
 
     transcription = transcription.replace("larrow", "<")

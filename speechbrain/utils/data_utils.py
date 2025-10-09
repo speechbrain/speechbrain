@@ -43,9 +43,9 @@ def undo_padding(batch, lengths):
 
     Example
     -------
-    >>> batch=torch.rand([4,100])
-    >>> lengths=torch.tensor([0.5,0.6,0.7,1.0])
-    >>> snt_list=undo_padding(batch, lengths)
+    >>> batch = torch.rand([4, 100])
+    >>> lengths = torch.tensor([0.5, 0.6, 0.7, 1.0])
+    >>> snt_list = undo_padding(batch, lengths)
     >>> len(snt_list)
     4
     """
@@ -90,7 +90,7 @@ def get_all_files(
 
     Example
     -------
-    >>> get_all_files('tests/samples/RIRs', match_and=['3.wav'])
+    >>> get_all_files("tests/samples/RIRs", match_and=["3.wav"])
     ['tests/samples/RIRs/rir3.wav']
     """
     # Match/exclude variable initialization
@@ -105,7 +105,6 @@ def get_all_files(
 
     # Iterate over all the entries
     for entry in listOfFile:
-
         # Create full path
         fullPath = os.path.join(dirName, entry)
 
@@ -119,7 +118,6 @@ def get_all_files(
                 exclude_or=exclude_or,
             )
         else:
-
             # Check match_and case
             if match_and is not None:
                 match_and_entry = False
@@ -188,7 +186,7 @@ def get_list_from_csv(csvfile, field, delimiter=",", skipinitialspace=True):
     The list of files in the given field of a csv
     """
     lst = []
-    with open(csvfile, newline="") as csvf:
+    with open(csvfile, newline="", encoding="utf-8") as csvf:
         reader = csv.DictReader(
             csvf, delimiter=delimiter, skipinitialspace=skipinitialspace
         )
@@ -243,7 +241,7 @@ def recursive_items(dictionary):
 
     Example
     -------
-    >>> rec_dict={'lev1': {'lev2': {'lev3': 'current_val'}}}
+    >>> rec_dict = {"lev1": {"lev2": {"lev3": "current_val"}}}
     >>> [item for item in recursive_items(rec_dict)]
     [('lev3', 'current_val')]
     """
@@ -286,8 +284,8 @@ def recursive_update(d, u, must_match=False):
 
     Example
     -------
-    >>> d = {'a': 1, 'b': {'c': 2}}
-    >>> recursive_update(d, {'b': {'d': 3}})
+    >>> d = {"a": 1, "b": {"c": 2}}
+    >>> recursive_update(d, {"b": {"d": 3}})
     >>> d
     {'a': 1, 'b': {'c': 2, 'd': 3}}
     """
@@ -324,6 +322,16 @@ def download_file(
         Destination path.
     unpack : bool
         If True, it unpacks the data in the dest folder.
+        The archive is preserved.
+
+        File formats supported for unpacking/decompression are:
+
+        - any format enumerated by `shutil.get_archive_formats()`, usually
+          including `.tar`, `.tar.gz`, `.zip`.
+        - plain `.gz` file (when not a `.tar` archive)
+
+        Note that you should ALWAYS trust an archive you are extracting, for
+        security reasons.
     dest_unpack: path
         Path where to store the unpacked dataset
     replace_existing : bool
@@ -373,18 +381,16 @@ def download_file(
                 if dest_unpack is None:
                     dest_unpack = os.path.dirname(dest)
                 print(f"Extracting {dest} to {dest_unpack}")
-                # shutil unpack_archive does not work with tar.gz files
-                if (
-                    source.endswith(".tar.gz")
-                    or source.endswith(".tgz")
-                    or source.endswith(".gz")
-                ):
-                    out = dest.replace(".gz", "")
+
+                if dest.endswith(".gz") and not dest.endswith(".tar.gz"):
+                    # just a gzip'd file, but not an actual archive.
+                    # merely uncompress it and remove the `.gz`.
                     with gzip.open(dest, "rb") as f_in:
-                        with open(out, "wb") as f_out:
+                        with open(dest[:-3], "wb") as f_out:
                             shutil.copyfileobj(f_in, f_out)
                 else:
                     shutil.unpack_archive(dest, dest_unpack)
+
                 if write_permissions:
                     set_writing_permissions(dest_unpack)
 
@@ -437,9 +443,9 @@ def pad_right_to(tensor, target_shape, mode="constant", value=0):
     i = len(target_shape) - 1  # iterating over target_shape ndims
     j = 0
     while i >= 0:
-        assert (
-            target_shape[i] >= tensor.shape[i]
-        ), "Target shape must be >= original shape for every dim"
+        assert target_shape[i] >= tensor.shape[i], (
+            "Target shape must be >= original shape for every dim"
+        )
         pads.extend([0, target_shape[i] - tensor.shape[i]])
         valid_vals.append(tensor.shape[j] / target_shape[j])
         i -= 1
@@ -493,7 +499,7 @@ def batch_pad_right(tensors: list, mode="constant", value=0):
             if not all(
                 [x.shape[dim] == tensors[0].shape[dim] for x in tensors[1:]]
             ):
-                raise EnvironmentError(
+                raise OSError(
                     "Tensors should have same dimensions except for the first one"
                 )
         max_shape.append(max([x.shape[dim] for x in tensors]))
@@ -706,9 +712,8 @@ def pad_divisible(tensor, length=None, factor=2, len_dim=1, pad_value=0):
 
     Example
     -------
-    >>> x = torch.tensor([[1, 2, 3, 4],
-    ...                   [5, 6, 0, 0]])
-    >>> lens = torch.tensor([1., .5])
+    >>> x = torch.tensor([[1, 2, 3, 4], [5, 6, 0, 0]])
+    >>> lens = torch.tensor([1.0, 0.5])
     >>> x_pad, lens_pad = pad_divisible(x, length=lens, factor=5)
     >>> x_pad
     tensor([[1, 2, 3, 4, 0],

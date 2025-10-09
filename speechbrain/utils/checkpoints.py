@@ -26,10 +26,11 @@ Example
 ...     def __init__(self, param):
 ...         super().__init__()
 ...         self.param = torch.nn.Parameter(torch.tensor([param]))
+...
 ...     def forward(self, x):
 ...         return x * self.param
->>> model = Recoverable(1.)
->>> tempdir = getfixture('tmpdir')
+>>> model = Recoverable(1.0)
+>>> tempdir = getfixture("tmpdir")
 >>> # In simple cases, the module aims to have a terse syntax,
 >>> # consisting of three steps.
 >>> # 1. Specifying where to save checkpoints and what is included in a
@@ -40,7 +41,7 @@ Example
 >>> # Run your experiment:
 >>> data = [(0.1, 0.9), (0.3, 0.8)]
 >>> for example, target in data:
-...     loss = (model(example) - target)**2
+...     loss = (model(example) - target) ** 2
 ...     # 3. Save checkpoints, and keep by default just one, the newest:
 ...     ckpt = checkpointer.save_and_keep_only()
 
@@ -71,8 +72,9 @@ from speechbrain.utils.distributed import (
     if_main_process,
     main_process_only,
 )
+from speechbrain.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 CKPT_PREFIX = "CKPT"
 METAFNAME = f"{CKPT_PREFIX}.yaml"  # Important that this is not .ckpt
@@ -80,6 +82,7 @@ PARAMFILE_EXT = ".ckpt"  # ...because these files will be
 # some keys have been renamed in the new version of the code
 KEYS_MAPPING: Dict[str, str] = {
     ".mutihead_attn": ".multihead_attn",  # see PR #2489
+    ".convs_intermedite": ".convs_intermediate",  # fix for PostNet blame #2463
 }
 
 
@@ -127,7 +130,7 @@ def map_old_state_dict_weights(
 
 
 def hook_on_loading_state_dict_checkpoint(
-    state_dict: Dict[str, torch.Tensor]
+    state_dict: Dict[str, torch.Tensor],
 ) -> Dict[str, torch.Tensor]:
     """Hook to be called when loading a state_dict checkpoint.
 
@@ -187,9 +190,13 @@ def torch_patched_state_dict_load(path, device="cpu"):
     ---------
     path : str, pathlib.Path
         Path where to load from.
-    device
+    device : str
         Device where the loaded `state_dict` tensors should reside. This is
         forwarded to :func:`torch.load`; see its documentation for details.
+
+    Returns
+    -------
+    The loaded state dict.
     """
     state_dict = torch.load(path, map_location=device)
     state_dict = hook_on_loading_state_dict_checkpoint(state_dict)
@@ -253,13 +260,11 @@ DEFAULT_LOAD_HOOKS = {
     torch.nn.Module: torch_recovery,
     torch.optim.Optimizer: torch_recovery,
     torch.optim.lr_scheduler.ReduceLROnPlateau: torch_recovery,
-    torch.cuda.amp.grad_scaler.GradScaler: torch_recovery,
 }
 DEFAULT_SAVE_HOOKS = {
     torch.nn.Module: torch_save,
     torch.optim.Optimizer: torch_save,
     torch.optim.lr_scheduler.ReduceLROnPlateau: torch_save,
-    torch.cuda.amp.grad_scaler.GradScaler: torch_save,
 }
 if version.parse(torch.__version__) < version.parse("2.0.0"):
     DEFAULT_LOAD_HOOKS[torch.optim.lr_scheduler._LRScheduler] = torch_recovery
@@ -267,6 +272,13 @@ if version.parse(torch.__version__) < version.parse("2.0.0"):
 else:
     DEFAULT_LOAD_HOOKS[torch.optim.lr_scheduler.LRScheduler] = torch_recovery
     DEFAULT_SAVE_HOOKS[torch.optim.lr_scheduler.LRScheduler] = torch_save
+
+if version.parse(torch.__version__) < version.parse("2.4.0"):
+    DEFAULT_LOAD_HOOKS[torch.cuda.amp.grad_scaler.GradScaler] = torch_recovery
+    DEFAULT_SAVE_HOOKS[torch.cuda.amp.grad_scaler.GradScaler] = torch_save
+else:
+    DEFAULT_LOAD_HOOKS[torch.amp.grad_scaler.GradScaler] = torch_recovery
+    DEFAULT_SAVE_HOOKS[torch.amp.grad_scaler.GradScaler] = torch_save
 
 DEFAULT_TRANSFER_HOOKS = {
     torch.nn.Module: torch_parameter_transfer,
@@ -418,13 +430,13 @@ def register_checkpoint_hooks(cls, save_on_main_only=True):
     ...
     ...     @mark_as_saver
     ...     def save(self, path):
-    ...         with open(path, "w") as fo:
+    ...         with open(path, "w", encoding="utf-8") as fo:
     ...             fo.write(str(self.param))
     ...
     ...     @mark_as_loader
     ...     def load(self, path, end_of_epoch):
     ...         del end_of_epoch  # Unused here
-    ...         with open(path) as fi:
+    ...         with open(path, encoding="utf-8") as fi:
     ...             self.param = int(fi.read())
     """
     global DEFAULT_LOAD_HOOKS
@@ -541,23 +553,24 @@ class Checkpointer:
     Example
     -------
     >>> import torch
-    >>> #SETUP:
-    >>> tempdir = getfixture('tmpdir')
+    >>> # SETUP:
+    >>> tempdir = getfixture("tmpdir")
     >>> class Recoverable(torch.nn.Module):
     ...     def __init__(self, param):
     ...         super().__init__()
     ...         self.param = torch.nn.Parameter(torch.tensor([param]))
+    ...
     ...     def forward(self, x):
     ...         return x * self.param
-    >>> recoverable = Recoverable(1.)
-    >>> recoverables = {'recoverable': recoverable}
+    >>> recoverable = Recoverable(1.0)
+    >>> recoverables = {"recoverable": recoverable}
     >>> # SETUP DONE.
     >>> checkpointer = Checkpointer(tempdir, recoverables)
     >>> first_ckpt = checkpointer.save_checkpoint()
-    >>> recoverable.param.data = torch.tensor([2.])
+    >>> recoverable.param.data = torch.tensor([2.0])
     >>> loaded_ckpt = checkpointer.recover_if_possible()
     >>> # Parameter has been loaded:
-    >>> assert recoverable.param.data == torch.tensor([1.])
+    >>> assert recoverable.param.data == torch.tensor([1.0])
     >>> # With this call, by default, oldest checkpoints are deleted:
     >>> checkpointer.save_and_keep_only()
     >>> assert first_ckpt not in checkpointer.list_checkpoints()
@@ -1150,9 +1163,11 @@ class Checkpointer:
                     continue
                 else:
                     if self.optional_recoverables[name]:
-                        MSG = f"Trying to load checkpoint from {checkpoint.path}, \
+                        MSG = (
+                            f"Trying to load checkpoint from {checkpoint.path}, \
                                 but missing a load path for {name}. Skipping as this \
                                 recoverable is marked as optional."
+                        )
                         warnings.warn(MSG, UserWarning)
                         continue
                     MSG = f"Loading checkpoint from {checkpoint.path}, \
@@ -1188,7 +1203,7 @@ class Checkpointer:
         # directory paths (as produced by _list_checkpoint_dirs)
         checkpoints = []
         for ckpt_dir in checkpoint_dirs:
-            with open(ckpt_dir / METAFNAME) as fi:
+            with open(ckpt_dir / METAFNAME, encoding="utf-8") as fi:
                 meta = yaml.load(fi, Loader=yaml.Loader)
             paramfiles = {}
             for ckptfile in ckpt_dir.iterdir():
@@ -1232,7 +1247,7 @@ class Checkpointer:
         # This internal method saves the meta information in the given path
         meta = {"unixtime": time.time(), "end-of-epoch": end_of_epoch}
         meta.update(meta_to_include)
-        with open(fpath, "w") as fo:
+        with open(fpath, "w", encoding="utf-8") as fo:
             fo.write("# yamllint disable\n")
             fo.write(yaml.dump(meta))
         return meta
@@ -1319,18 +1334,21 @@ def average_checkpoints(
     ...     def __init__(self, param):
     ...         super().__init__()
     ...         self.param = torch.nn.Parameter(torch.tensor([param]))
+    ...
     ...     def forward(self, x):
     ...         return x * self.param
     >>> # Now let's make some checkpoints:
-    >>> model = Recoverable(1.)
-    >>> tempdir = getfixture('tmpdir')
+    >>> model = Recoverable(1.0)
+    >>> tempdir = getfixture("tmpdir")
     >>> checkpointer = Checkpointer(tempdir, {"model": model})
     >>> for new_param in range(10):
     ...     model.param.data = torch.tensor([float(new_param)])
-    ...     _ = checkpointer.save_checkpoint()  # Suppress output with assignment
+    ...     _ = (
+    ...         checkpointer.save_checkpoint()
+    ...     )  # Suppress output with assignment
     >>> # Let's average the 3 latest checkpoints
     >>> # (parameter values 7, 8, 9 -> avg=8)
-    >>> ckpt_list = checkpointer.find_checkpoints(max_num_checkpoints = 3)
+    >>> ckpt_list = checkpointer.find_checkpoints(max_num_checkpoints=3)
     >>> averaged_state = average_checkpoints(ckpt_list, "model")
     >>> # Now load that state in the normal way:
     >>> _ = model.load_state_dict(averaged_state)  # Suppress output

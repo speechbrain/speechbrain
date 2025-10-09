@@ -12,7 +12,7 @@ for each batch during training.
 Authors
  * Artem Ploujnikov 2022
 """
-import logging
+
 import os
 import sys
 from collections import namedtuple
@@ -37,9 +37,10 @@ from speechbrain.utils.data_utils import (
     match_shape,
 )
 from speechbrain.utils.distributed import run_on_main
+from speechbrain.utils.logger import get_logger
 from speechbrain.utils.train_logger import plot_spectrogram
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class DiffusionMode(Enum):
@@ -1292,7 +1293,7 @@ class DiffusionBrain(sb.Brain):
 
         """
         epoch_sample_path = os.path.join(self.hparams.sample_folder, str(epoch))
-        samples, samples_denorm, wav, labels, samples_rec, wav_rec = [
+        samples, samples_denorm, wav, labels, samples_rec, wav_rec = (
             data.get(key)
             for key in [
                 "samples",
@@ -1302,7 +1303,7 @@ class DiffusionBrain(sb.Brain):
                 "samples_rec",
                 "wav_rec",
             ]
-        ]
+        )
         if not torch.is_tensor(samples):
             samples = torch.stack(samples)
         samples_log = data.get("samples_cut", samples)
@@ -1598,7 +1599,7 @@ if __name__ == "__main__":
     sb.utils.distributed.ddp_init_group(run_opts)
 
     # Load hyperparameters file with command-line overrides.
-    with open(hparams_file) as fin:
+    with open(hparams_file, encoding="utf-8") as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
     # Check whether Tensorboard is available and enabled

@@ -346,17 +346,17 @@ class RandomShift(torch.nn.Module):
     -------
     >>> # time shift
     >>> signal = torch.zeros(4, 100, 80)
-    >>> signal[0,50,:] = 1
-    >>> rand_shift =  RandomShift(dim=1, min_shift=-10, max_shift=10)
-    >>> lengths = torch.tensor([0.2, 0.8, 0.9,1.0])
-    >>> output_signal, lengths = rand_shift(signal,lengths)
+    >>> signal[0, 50, :] = 1
+    >>> rand_shift = RandomShift(dim=1, min_shift=-10, max_shift=10)
+    >>> lengths = torch.tensor([0.2, 0.8, 0.9, 1.0])
+    >>> output_signal, lengths = rand_shift(signal, lengths)
 
     >>> # frequency shift
     >>> signal = torch.zeros(4, 100, 80)
-    >>> signal[0,:,40] = 1
-    >>> rand_shift =  RandomShift(dim=2, min_shift=-10, max_shift=10)
-    >>> lengths = torch.tensor([0.2, 0.8, 0.9,1.0])
-    >>> output_signal, lengths = rand_shift(signal,lengths)
+    >>> signal[0, :, 40] = 1
+    >>> rand_shift = RandomShift(dim=2, min_shift=-10, max_shift=10)
+    >>> lengths = torch.tensor([0.2, 0.8, 0.9, 1.0])
+    >>> output_signal, lengths = rand_shift(signal, lengths)
     """
 
     def __init__(self, min_shift=0, max_shift=0, dim=1):

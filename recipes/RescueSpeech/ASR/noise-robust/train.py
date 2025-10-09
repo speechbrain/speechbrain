@@ -20,7 +20,6 @@ Authors
 """
 
 import csv
-import logging
 import os
 import sys
 
@@ -36,9 +35,10 @@ from tqdm import tqdm
 import speechbrain as sb
 from speechbrain.utils.data_utils import undo_padding
 from speechbrain.utils.distributed import run_on_main
+from speechbrain.utils.logger import get_logger
 from speechbrain.utils.metric_stats import MetricStats
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 # Define training procedure
@@ -348,7 +348,7 @@ class ASR(sb.core.Brain):
                 stats_meta={"Epoch loaded": self.hparams.epoch_counter.current},
                 test_stats=stage_stats,
             )
-            with open(self.hparams.test_wer_file, "w") as w:
+            with open(self.hparams.test_wer_file, "w", encoding="utf-8") as w:
                 self.wer_metric.write_stats(w)
 
     def add_speed_perturb(self, clean, targ_lens):
@@ -511,7 +511,7 @@ class ASR(sb.core.Brain):
 
         test_loader = sb.dataio.dataloader.make_dataloader(test_data)
 
-        with open(save_file, "w") as results_csv:
+        with open(save_file, "w", newline="", encoding="utf-8") as results_csv:
             writer = csv.DictWriter(results_csv, fieldnames=csv_columns)
             writer.writeheader()
 
@@ -629,13 +629,13 @@ class ASR(sb.core.Brain):
                 }
                 writer.writerow(row)
 
-        logger.info("Mean SISNR is {}".format(np.array(all_sisnrs).mean()))
-        logger.info("Mean SISNRi is {}".format(np.array(all_sisnrs_i).mean()))
-        logger.info("Mean PESQ {}".format(np.array(all_pesqs).mean()))
-        logger.info("Mean STOI {}".format(np.array(all_stois).mean()))
-        logger.info("Mean SDR is {}".format(np.array(all_sdrs).mean()))
-        logger.info("Mean SDRi is {}".format(np.array(all_sdrs_i).mean()))
-        logger.info("Total discarded files {}".format(count))
+        logger.info(f"Mean SISNR is {np.array(all_sisnrs).mean()}")
+        logger.info(f"Mean SISNRi is {np.array(all_sisnrs_i).mean()}")
+        logger.info(f"Mean PESQ {np.array(all_pesqs).mean()}")
+        logger.info(f"Mean STOI {np.array(all_stois).mean()}")
+        logger.info(f"Mean SDR is {np.array(all_sdrs).mean()}")
+        logger.info(f"Mean SDRi is {np.array(all_sdrs_i).mean()}")
+        logger.info(f"Total discarded files {count}")
 
 
 # Define custom data procedure
@@ -780,7 +780,7 @@ if __name__ == "__main__":
     # create ddp_group with the right communication protocol
     sb.utils.distributed.ddp_init_group(run_opts)
 
-    with open(hparams_file) as fin:
+    with open(hparams_file, encoding="utf-8") as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
     # Create experiment directory

@@ -11,8 +11,9 @@ Description:
 Usage:
     python readme_builder.py
 
-Authors:
-    - Mirco Ravanelli 2023
+Authors
+-------
+ * Mirco Ravanelli 2023
 """
 
 import argparse
@@ -26,17 +27,20 @@ def create_table(fid_w, csv_file):
     """
     Reads the input CSV file and adds performance tables to the output file.
 
-    Args:
-        fid_w (file pointer): Pointer to the output performance file.
-        csv_file (str): Path to the recipe CSV file containing recipe information
-                        (e.g., 'tests/recipes/LibriSpeech.csv').
+    Arguments
+    ---------
+    fid_w : file pointer
+        Pointer to the output performance file.
+    csv_file : str
+        Path to the recipe CSV file containing recipe information
+        (e.g., 'tests/recipes/LibriSpeech.csv').
 
     Returns
     -------
-        None
+    None
     """
     # Read CSV file into a list of dictionaries
-    with open(csv_file, "r") as file:
+    with open(csv_file, encoding="utf-8") as file:
         csv_reader = csv.DictReader(file)
         recipes_lst = [row for row in csv_reader]
 
@@ -63,13 +67,13 @@ def create_table(fid_w, csv_file):
         if not recipes_task:
             continue  # Skip empty task
 
-        print(f"### {task} \n", file=fid_w)
+        print(f"### {task}\n", file=fid_w)
 
         performance_dict = extract_name_value_pairs(
             recipes_task[0]["performance"]
         )
         performance_metrics = performance_dict.keys()
-        performance_metrics = " | ".join(performance_metrics) + " | "
+        performance_metrics = " | ".join(performance_metrics) + " |"
 
         print(
             f"| Model | Checkpoints | HuggingFace | {performance_metrics}",
@@ -82,18 +86,18 @@ def create_table(fid_w, csv_file):
 
         for recipe in recipes_task:
             performance_dict = extract_name_value_pairs(recipe["performance"])
-            performance_values = " | ".join(performance_dict.values()) + " | "
+            performance_values = " | ".join(performance_dict.values()) + " |"
 
             str_res = (
-                f'[here]({recipe["Result_url"]})'
+                f"[here]({recipe['Result_url']})"
                 if recipe["Result_url"]
                 else "-"
             )
             hf_repo = (
-                f'[here]({recipe["HF_repo"]})' if recipe["HF_repo"] else "-"
+                f"[here]({recipe['HF_repo']})" if recipe["HF_repo"] else "-"
             )
 
-            performance_line = f' | {recipe["Hparam_file"]} | {str_res} | {hf_repo} | {performance_values}'
+            performance_line = f" | [`{recipe['Hparam_file']}`]({recipe['Hparam_file']}) | {str_res} | {hf_repo} | {performance_values}"
             print(performance_line, file=fid_w)
 
         print("\n", file=fid_w)
@@ -103,12 +107,15 @@ def extract_name_value_pairs(input_string):
     """
     Extracts performance metrics and their values from the performance line.
 
-    Args:
-        input_string (str): The string containing the performance.
+    Arguments
+    ---------
+    input_string : str
+        The string containing the performance.
 
     Returns
     -------
-        dict: A dictionary containing the detected performance metrics and their values.
+    result : dict
+        A dictionary containing the detected performance metrics and their values.
     """
     pattern = re.compile(r"(\w+(?:-\w+)?)=(\S+)")
     matches = pattern.findall(input_string)
@@ -117,7 +124,6 @@ def extract_name_value_pairs(input_string):
 
 
 if __name__ == "__main__":
-
     parser = argparse.ArgumentParser(
         description=(
             "Create the performance file from the recipe info csv files."
@@ -136,16 +142,17 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    file_w = open(args.output_file, "w")
+    file_w = open(args.output_file, "w", encoding="utf-8")
 
     # List of recipe files
     recipe_files = get_all_files(
         args.recipe_info_dir, match_and=[".csv"], exclude_or=["~"]
     )
 
-    header = """# SpeechBrain Performance Report
-    This document provides an overview of the performance achieved on key datasets and tasks supported by SpeechBrain.
-    """
+    header = """\
+# SpeechBrain Performance Report
+This document provides an overview of the performance achieved on key datasets and tasks supported by SpeechBrain.
+"""
 
     print(header, file=file_w)
 

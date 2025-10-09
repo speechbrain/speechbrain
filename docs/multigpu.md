@@ -27,7 +27,7 @@ Using SpeechBrain, this would look like:
 
 ```bash
 cd recipes/<dataset>/<task>/
-torchrun --nproc_per_node=4 experiment.py hyperparams.yaml
+torchrun --standalone --nproc_per_node=4 experiment.py hyperparams.yaml
 ```
 
 ... where `nproc_per_node` is the the number of processes to spawn/GPUs to use.

@@ -1,23 +1,22 @@
-# -*- coding: utf-8 -*-
 """
- Recipe for training the Tacotron Text-To-Speech model, an end-to-end
- neural text-to-speech (TTS) system
+Recipe for training the Tacotron Text-To-Speech model, an end-to-end
+neural text-to-speech (TTS) system
 
- To run this recipe, do the following:
- # python train.py --device=cuda:0 --max_grad_norm=1.0 --data_folder=/your_folder/LJSpeech-1.1 hparams/train.yaml
+To run this recipe, do the following:
+# python train.py --device=cuda:0 --max_grad_norm=1.0 --data_folder=/your_folder/LJSpeech-1.1 hparams/train.yaml
 
- to infer simply load saved model and do
- savemodel.infer(text_Sequence,len(textsequence))
+to infer simply load saved model and do
+savemodel.infer(text_Sequence,len(textsequence))
 
- were text_Sequence is the output of the text_to_sequence function from
- textToSequence.py (from textToSequence import text_to_sequence)
+were text_Sequence is the output of the text_to_sequence function from
+textToSequence.py (from textToSequence import text_to_sequence)
 
- Authors
- * Georges Abous-Rjeili 2021
- * Artem Ploujnikov 2021
- * Yingzhi Wang 2022
+Authors
+* Georges Abous-Rjeili 2021
+* Artem Ploujnikov 2021
+* Yingzhi Wang 2022
 """
-import logging
+
 import sys
 
 import torch
@@ -25,9 +24,10 @@ from hyperpyyaml import load_hyperpyyaml
 
 import speechbrain as sb
 from speechbrain.utils.data_utils import scalarize
+from speechbrain.utils.logger import get_logger
 from speechbrain.utils.text_to_sequence import text_to_sequence
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class Tacotron2Brain(sb.Brain):
@@ -337,7 +337,7 @@ if __name__ == "__main__":
     # Load hyperparameters file with command-line overrides
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
 
-    with open(hparams_file) as fin:
+    with open(hparams_file, encoding="utf-8") as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
     # create ddp_group with the right communication protocol

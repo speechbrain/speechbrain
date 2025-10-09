@@ -7,10 +7,9 @@ Authors
  * Aku Rouhe 2021
  * Andreas Nautsch 2022
  * Sylvain de Langen 2023
- * Adel Moumen 2023
+ * Adel Moumen 2023, 2024
 """
 
-import argparse
 import inspect
 import logging
 import os
@@ -21,7 +20,6 @@ import tempfile
 import time
 import warnings
 from contextlib import contextmanager
-from dataclasses import dataclass
 from datetime import date
 from enum import Enum, auto
 from types import SimpleNamespace
@@ -29,11 +27,14 @@ from types import SimpleNamespace
 import torch
 import yaml
 from hyperpyyaml import resolve_references
-from torch.nn import DataParallel as DP
-from torch.nn import SyncBatchNorm
+from packaging import version
+from torch.nn import (
+    DataParallel as DP,
+    SyncBatchNorm,
+)
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data import DataLoader, DistributedSampler, IterableDataset
-from tqdm.contrib import tqdm
+from tqdm import tqdm
 
 import speechbrain as sb
 from speechbrain.dataio.dataloader import LoopedLoader, SaveableDataLoader
@@ -41,94 +42,21 @@ from speechbrain.dataio.sampler import (
     DistributedSamplerWrapper,
     ReproducibleRandomSampler,
 )
+from speechbrain.utils.autocast import AMPConfig, TorchAutocast
+from speechbrain.utils.distributed import is_distributed_initialized
+from speechbrain.utils.logger import get_logger
 from speechbrain.utils.optimizers import rm_vector_weight_decay
 from speechbrain.utils.profiling import prepare_profiler
+from speechbrain.utils.run_opts import RunOptions
 
-logger = logging.getLogger(__name__)
+sb.utils.quirks.apply_quirks()
+
+logger = get_logger(__name__)
 DEFAULT_LOG_CONFIG = os.path.dirname(os.path.abspath(__file__))
 DEFAULT_LOG_CONFIG = os.path.join(DEFAULT_LOG_CONFIG, "log-config.yaml")
-torch._C._jit_set_profiling_executor(False)
-torch._C._jit_set_profiling_mode(False)
 INTRA_EPOCH_CKPT_FLAG = "brain_intra_epoch_ckpt"
 PYTHON_VERSION_MAJOR = 3
 PYTHON_VERSION_MINOR = 8
-
-# Arguments passed via the run opts dictionary
-run_opt_defaults = {
-    "test_only": False,
-    "debug": False,
-    "debug_batches": 2,
-    "debug_epochs": 2,
-    "debug_persistently": False,
-    "device": "cpu",
-    "data_parallel_backend": False,
-    "distributed_backend": "nccl",
-    "find_unused_parameters": False,
-    "jit": False,
-    "jit_module_keys": None,
-    "compile": False,
-    "compile_module_keys": None,
-    "compile_mode": "reduce-overhead",
-    "compile_using_fullgraph": False,
-    "compile_using_dynamic_shape_tracing": False,
-    "precision": "fp32",
-    "eval_precision": "fp32",
-    "auto_mix_prec": False,
-    "bfloat16_mix_prec": False,
-    "max_grad_norm": 5.0,
-    "skip_nonfinite_grads": False,
-    "nonfinite_patience": 3,
-    "noprogressbar": False,
-    "ckpt_interval_minutes": 0,
-    "ckpt_interval_steps": 0,
-    "grad_accumulation_factor": 1,
-    "optimizer_step_limit": None,
-    "tqdm_colored_bar": False,
-    "tqdm_barcolor": {"train": "GREEN", "valid": "MAGENTA", "test": "CYAN"},
-    "remove_vector_weight_decay": False,
-    "profile_training": False,
-    "profile_warmup": 5,
-    "profile_steps": 5,
-}
-
-
-@dataclass
-class AMPConfig:
-    """Configuration for automatic mixed precision (AMP).
-
-    Arguments
-    ---------
-    dtype : torch.dtype
-        The dtype to use for AMP.
-    """
-
-    dtype: torch.dtype
-
-    @classmethod
-    def from_name(self, name):
-        """Create an AMPConfig from a string name.
-
-        Arguments
-        ---------
-        name : str
-            The name of the AMPConfig to create.  Must be one of `fp32`,
-            `fp16`, or `bf16`.
-
-        Returns
-        -------
-        AMPConfig
-            The AMPConfig corresponding to the name.
-        """
-        if name is None or name == "fp32":
-            return AMPConfig(torch.float32)
-        elif name == "fp16":
-            return AMPConfig(torch.float16)
-        elif name == "bf16":
-            return AMPConfig(torch.bfloat16)
-        else:
-            raise ValueError(
-                f"Specified autocast mode ({name}) incorrect, expected one of `fp32`, `fp16`, `bf16`."
-            )
 
 
 def create_experiment_directory(
@@ -167,9 +95,9 @@ def create_experiment_directory(
                 hyperparams_filename = os.path.join(
                     experiment_directory, "hyperparams.yaml"
                 )
-                with open(hyperparams_to_save) as f:
+                with open(hyperparams_to_save, encoding="utf-8") as f:
                     resolved_yaml = resolve_references(f, overrides)
-                with open(hyperparams_filename, "w") as w:
+                with open(hyperparams_filename, "w", encoding="utf-8") as w:
                     print("# Generated %s from:" % date.today(), file=w)
                     print("# %s" % os.path.abspath(hyperparams_to_save), file=w)
                     print("# yamllint disable", file=w)
@@ -189,6 +117,11 @@ def create_experiment_directory(
             sb.utils.logger.setup_logging(log_config, logger_overrides)
             sys.excepthook = _logging_excepthook
 
+            # Log quirks again so that it makes it to the log file.
+            # Quirks are applied way earlier, before logging is properly setup,
+            # so this gives a chance to the user to see them, lowering surprise.
+            sb.utils.quirks.log_applied_quirks()
+
             # Log beginning of experiment!
             logger.info("Beginning experiment!")
             logger.info(f"Experiment folder: {experiment_directory}")
@@ -197,7 +130,9 @@ def create_experiment_directory(
             if save_env_desc:
                 description_str = sb.utils.logger.get_environment_description()
                 with open(
-                    os.path.join(experiment_directory, "env.log"), "w"
+                    os.path.join(experiment_directory, "env.log"),
+                    "w",
+                    encoding="utf-8",
                 ) as fo:
                     fo.write(description_str)
     finally:
@@ -208,301 +143,6 @@ def create_experiment_directory(
 def _logging_excepthook(exc_type, exc_value, exc_traceback):
     """Interrupt exception raising to log the error."""
     logger.error("Exception:", exc_info=(exc_type, exc_value, exc_traceback))
-
-
-def parse_arguments(arg_list=None):
-    """Parse command-line arguments to the experiment.
-
-    Arguments
-    ---------
-    arg_list : list, None
-        A list of arguments to parse.  If not given, this is read from
-        `sys.argv[1:]`
-
-    Returns
-    -------
-    param_file : str
-        The location of the parameters file.
-    run_opts : dict
-        Run options, such as distributed, device, etc.
-    overrides : dict
-        The overrides to pass to ``load_hyperpyyaml``.
-
-    Example
-    -------
-    >>> argv = ['hyperparams.yaml', '--device', 'cuda:1', '--seed', '10']
-    >>> filename, run_opts, overrides = parse_arguments(argv)
-    >>> filename
-    'hyperparams.yaml'
-    >>> run_opts["device"]
-    'cuda:1'
-    >>> overrides
-    'seed: 10'
-    """
-    if arg_list is None:
-        arg_list = sys.argv[1:]
-    parser = argparse.ArgumentParser(description="Run a SpeechBrain experiment")
-    parser.add_argument(
-        "param_file",
-        type=str,
-        help="A yaml-formatted file using the extended YAML syntax. "
-        "defined by SpeechBrain.",
-    )
-    parser.add_argument(
-        "--test_only",
-        default=False,
-        action="store_true",
-        help="Run the experiment in evaluate only mode."
-        "It skips the training and goes directly to the evaluation."
-        "The model is expected to be already trained.",
-    )
-    parser.add_argument(
-        "--debug",
-        default=False,
-        action="store_true",
-        help="Run the experiment with only a few batches for all "
-        "datasets, to ensure code runs without crashing.",
-    )
-    parser.add_argument(
-        "--debug_batches",
-        type=int,
-        default=2,
-        help="Number of batches to run in debug mode.",
-    )
-    parser.add_argument(
-        "--debug_epochs",
-        type=int,
-        default=2,
-        help="Number of epochs to run in debug mode. "
-        "If a non-positive number is passed, all epochs are run.",
-    )
-    parser.add_argument(
-        "--debug_persistently",
-        default=False,
-        action="store_true",
-        help="Keep data stored during debug mode (not using /tmp).",
-    )
-    parser.add_argument(
-        "--log_config",
-        type=str,
-        help="A file storing the configuration options for logging",
-    )
-    parser.add_argument(
-        "--device",
-        type=str,
-        default="cuda:0",
-        help="The device to run the experiment on (e.g. 'cuda:0')",
-    )
-    parser.add_argument(
-        "--data_parallel_backend",
-        default=False,
-        action="store_true",
-        help="This flag enables training with data_parallel.",
-    )
-    parser.add_argument(
-        "--distributed_backend",
-        type=str,
-        default="nccl",
-        help="One of {nccl, gloo, mpi}",
-    )
-    parser.add_argument(
-        "--find_unused_parameters",
-        default=False,
-        action="store_true",
-        help="This flag disable unused parameters detection",
-    )
-    parser.add_argument(
-        "--jit",
-        default=False,
-        action="store_true",
-        help="Enables jit compilation for all modules. "
-        "Compilation may fail depending on the modules. "
-        "Use --jit_module_keys to compile a subset of modules.",
-    )
-    parser.add_argument(
-        "--jit_module_keys",
-        type=str,
-        nargs="*",
-        help="A list of keys in the 'modules' dict to jitify",
-    )
-    parser.add_argument(
-        "--compile",
-        default=False,
-        action="store_true",
-        help="Enabling this flag compiles all modules using torch.compile (if available). "
-        "Beta feature. Use --compile_module_keys to compile a subset of modules. "
-        "Set the compilation flags below properly. "
-        "Compilation can be time-consuming and might fail.",
-    )
-    parser.add_argument(
-        "--compile_module_keys",
-        type=str,
-        nargs="*",
-        help="A list of keys in the 'modules' dict to compile using "
-        "TorchInductor. If a module also has a JIT key specified, "
-        "TorchInductor will take precedence when available.",
-    )
-    parser.add_argument(
-        "--compile_mode",
-        type=str,
-        nargs="*",
-        help="One of {default, reduce-overhead, max-autotune}",
-    )
-    parser.add_argument(
-        "--compile_using_fullgraph",
-        type=bool,
-        nargs="*",
-        help="Whether it is ok to break model into several subgraphs",
-    )
-    parser.add_argument(
-        "--compile_using_dynamic_shape_tracing",
-        type=bool,
-        nargs="*",
-        help="Use dynamic shape tracing for compilation",
-    )
-    parser.add_argument(
-        "--precision",
-        type=str,
-        help="This flag enables training with automatic mixed-precision."
-        "It can be set to `fp32`, `fp16`, or `bf16`.",
-    )
-    parser.add_argument(
-        "--eval_precision",
-        type=str,
-        help="This flag enables inference with automatic mixed-precision."
-        "It can be set to `fp32`, `fp16`, or `bf16`.",
-    )
-    parser.add_argument(
-        "--auto_mix_prec",
-        default=None,
-        action="store_true",
-        help="This flag enables training with automatic mixed-precision.",
-    )
-    parser.add_argument(
-        "--bfloat16_mix_prec",
-        default=None,
-        action="store_true",
-        help="This flag enables training with bfloat16 mixed-precision.",
-    )
-    parser.add_argument(
-        "--max_grad_norm",
-        type=float,
-        help="Gradient norm will be clipped to this value, "
-        "enter negative value to disable.",
-    )
-    parser.add_argument(
-        "--skip_nonfinite_grads",
-        default=False,
-        action="store_true",
-        help="Set the gradients to None if they are nonfinite (inf or nan).",
-    )
-    parser.add_argument(
-        "--nonfinite_patience",
-        type=int,
-        help="Max number of batches per epoch to skip if loss is nonfinite.",
-    )
-    parser.add_argument(
-        "--noprogressbar",
-        default=None,
-        action="store_true",
-        help="This flag disables the data loop progressbars.",
-    )
-    parser.add_argument(
-        "--ckpt_interval_minutes",
-        type=float,
-        help="Amount of time between saving intra-epoch checkpoints "
-        "in minutes. If non-positive, intra-epoch checkpoints are not saved.",
-    )
-    parser.add_argument(
-        "--ckpt_interval_steps",
-        type=int,
-        help="Save an intra-epoch checkpoint after this many steps."
-        "If non-positive, intra-epoch checkpoints are not saved.",
-    )
-    parser.add_argument(
-        "--grad_accumulation_factor",
-        type=int,
-        help="Number of batches to accumulate gradients before optimizer step",
-    )
-    parser.add_argument(
-        "--optimizer_step_limit",
-        type=int,
-        help="Number of optimizer steps to run. If not passed, all epochs are run.",
-    )
-    parser.add_argument(
-        "--tqdm_colored_bar",
-        default=False,
-        action="store_true",
-        help="Enable colored progress-bar in tqdm. If this is "
-        "false, tqdm shall use default colors.",
-    )
-    parser.add_argument(
-        "--remove_vector_weight_decay",
-        default=False,
-        action="store_true",
-        help="Make vectors (e.g. norms and biases) a separate parameter group without weight_decay.",
-    )
-    parser.add_argument(
-        "--profile_training",
-        default=False,
-        action="store_true",
-        help=(
-            "If set to True, a profiler will be initiated and tensorboard logs will be generated. "
-            "Please ensure you have installed the torch.TensorBoard profiler with 'pip install torch_tb_profiler'."
-        ),
-    )
-    parser.add_argument(
-        "--profile_warmup",
-        default=5,
-        type=int,
-        help="Number of warmup steps before logging for the profiler.",
-    )
-    parser.add_argument(
-        "--profile_steps",
-        default=5,
-        type=int,
-        help="Number of steps of logging for the profiler",
-    )
-
-    # Accept extra args to override yaml
-    run_opts, overrides = parser.parse_known_args(arg_list)
-
-    # Ignore items that are "None", they were not passed
-    run_opts = {k: v for k, v in vars(run_opts).items() if v is not None}
-
-    param_file = run_opts["param_file"]
-    del run_opts["param_file"]
-
-    overrides = _convert_to_yaml(overrides)
-
-    # Checking that DataParallel use the right number of GPU
-    if run_opts["data_parallel_backend"]:
-        if torch.cuda.device_count() == 0:
-            raise ValueError("You must have at least 1 GPU.")
-
-    # force device arg to be the same as local_rank from torchrun
-    local_rank = os.environ.get("LOCAL_RANK")
-    if local_rank is not None and "cuda" in run_opts["device"]:
-        run_opts["device"] = run_opts["device"][:-1] + str(local_rank)
-
-    return param_file, run_opts, overrides
-
-
-def _convert_to_yaml(overrides):
-    """Convert args to yaml for overrides"""
-    yaml_string = ""
-
-    # Handle '--arg=val' type args
-    joined_args = "=".join(overrides)
-    split_args = joined_args.split("=")
-
-    for arg in split_args:
-        if arg.startswith("--"):
-            yaml_string += "\n" + arg[len("--") :] + ":"
-        else:
-            yaml_string += " " + arg
-
-    return yaml_string.strip()
 
 
 class Stage(Enum):
@@ -539,89 +179,27 @@ class Brain:
 
     Arguments
     ---------
-    modules : dict of str:torch.nn.Module pairs
+    modules : dict[str, torch.nn.Module]
         These modules are passed to the optimizer by default if they have
         trainable parameters, and will have ``train()``/``eval()`` called on them.
-    opt_class : torch.optim class
+    opt_class : Optional[Type[torch.optim]]
         A torch optimizer constructor that takes only the list of
         parameters (e.g. a lambda or partial function definition). By default,
         this will be passed all modules in ``modules`` at the
         beginning of the ``fit()`` method. This behavior can be changed
         by overriding the ``configure_optimizers()`` method.
-    hparams : dict
+    hparams : Optional[dict]
         Each key:value pair should consist of a string key and a hyperparameter
         that is used within the overridden methods. These will
         be accessible via an ``hparams`` attribute, using "dot" notation:
         e.g., self.hparams.model(x).
-    run_opts : dict
-        A set of options to change the runtime environment, including
-
-        debug (bool)
-            If ``True``, this will only iterate a few batches for all
-            datasets, to ensure code runs without crashing.
-        debug_batches (int)
-            Number of batches to run in debug mode, Default ``2``.
-        debug_epochs (int)
-            Number of epochs to run in debug mode, Default ``2``.
-            If a non-positive number is passed, all epochs are run.
-        debug_persistently (bool)
-            Keep data stored during debug mode (not using /tmp), Default ``False``.
-        jit (bool)
-            Enable to compile all modules using jit, Default ``False``.
-        jit_module_keys (list of str)
-            List of keys in ``modules`` that should be jit compiled.
-        compile (bool)
-            Enable to compile all modules using torch.compile, Default ``False``.
-        compile_module_keys (list of str)
-            List of keys in ``modules`` that should be compiled using
-            ``torch.compile``. If ``torch.compile`` is unavailable,
-            an error is raised.
-        compile_mode (str)
-            One of ``default``, ``reduce-overhead``, ``max-autotune``, Default ``reduce-overhead``.
-        compile_using_fullgraph (bool)
-            Whether it is ok to break model into several subgraphs, Default ``False``.
-        compile_using_dynamic_shape_tracing (bool)
-            Use dynamic shape tracing for compilation, Default ``False``.
-        distributed_backend (str)
-            One of ``nccl``, ``gloo``, ``mpi``.
-        device (str)
-            The location for performing computations.
-        precision (str)
-            One of ``fp32``, ``fp16``, ``bf16``.
-        eval_precision (str)
-            One of ``fp32``, ``fp16``, ``bf16``.
-        auto_mix_prec (bool)
-            If ``True``, automatic mixed-precision (fp16) is used.
-            Activate it only with cuda. Note: this is a
-            deprecated feature, and will be removed in the future.
-        bfloat16_mix_prec (bool)
-            If ``True``, automatic mixed-precision (bf16) is used.
-            Activate it only with cuda. Note: this is a
-            deprecated feature, and will be removed in the future.
-        max_grad_norm (float)
-            Default implementation of ``fit_batch()`` uses
-            ``clip_grad_norm_`` with this value. Default: ``5``.
-        skip_nonfinite_grads (bool)
-            If ``True``, sets gradients to zero if they are non-finite
-            (e.g., NaN, Inf). Default: ``False``.
-        nonfinite_patience (int)
-            Number of times to ignore non-finite losses before stopping.
-            Default: ``3``.
-        noprogressbar (bool)
-            Whether to turn off progressbar when training. Default: ``False``.
-        ckpt_interval_minutes (float)
-            Amount of time between saving intra-epoch checkpoints,
-            in minutes, default: ``15.0``. If non-positive, these are not saved.
-        ckpt_interval_steps (int)
-            Number of steps between saving intra-epoch checkpoints.
-            If non-positive, these are not saved. Default: ``0``.
-
-
-        Typically in a script this comes from ``speechbrain.parse_args``, which
-        has different defaults than Brain. If an option is not defined here
-        (keep in mind that parse_args will inject some options by default),
+    run_opts : Optional[Union[RunOptions, dict]]
+        A set of options to change the runtime environment, see ``RunOptions`` for a list.
+        Typically in a script this comes from ``speechbrain.parse_args``, an alias
+        for ``RunOptions.from_command_line_args``. If an option is not defined here
+        (keep in mind that `parse_args` will inject some options by default),
         then the option is also searched for in hparams (by key).
-    checkpointer : speechbrain.Checkpointer
+    checkpointer : Optional[speechbrain.utils.checkpoints.Checkpointer]
         By default, this will be used to load checkpoints, and will have the
         optimizer added to continue training if interrupted.
 
@@ -630,11 +208,17 @@ class Brain:
     >>> from torch.optim import SGD
     >>> class SimpleBrain(Brain):
     ...     def compute_forward(self, batch, stage):
-    ...         return self.modules.model(batch[0])
+    ...         return self.modules.model(batch[0] * self.hparams.scalar)
+    ...
     ...     def compute_objectives(self, predictions, batch, stage):
     ...         return torch.nn.functional.l1_loss(predictions, batch[0])
     >>> model = torch.nn.Linear(in_features=10, out_features=10)
-    >>> brain = SimpleBrain({"model": model}, opt_class=lambda x: SGD(x, 0.1))
+    >>> brain = SimpleBrain(
+    ...     modules={"model": model},
+    ...     opt_class=lambda x: SGD(x, lr=0.1),
+    ...     hparams={"scalar": 5},
+    ...     run_opts={"device": "cpu"},
+    ... )
     >>> brain.fit(range(1), ([torch.rand(10, 10), torch.rand(10, 10)],))
     """
 
@@ -649,27 +233,28 @@ class Brain:
         self.optimizers_dict = None
         self.opt_class = opt_class
         self.checkpointer = checkpointer
+        if isinstance(run_opts, dict):
+            run_opts = RunOptions.from_dictionary(run_opts)
 
-        for arg, default in run_opt_defaults.items():
-            if run_opts is not None and arg in run_opts:
+        # Check which options have been overridden. Order of priority
+        # is lowest: default < hparams < run_opts: highest
+        run_opt_defaults = RunOptions()
+        for arg, default in run_opt_defaults.as_dict().items():
+            if run_opts is not None and arg in run_opts.overridden_args:
                 if hparams is not None and arg in hparams:
                     logger.info(
-                        "Info: "
-                        + arg
-                        + " arg overridden by command line input to: "
-                        + str(run_opts[arg])
+                        f"{arg} which is specified in hparams was overridden "
+                        + f"by command line input to: {run_opts[arg]}"
                     )
                 setattr(self, arg, run_opts[arg])
+
+            # If any arg from run_opt_defaults exist in hparams and
+            # not in "run_opts" which is likely from command line
+            elif hparams is not None and arg in hparams:
+                logger.info(f"Run option {arg} from hparams is used")
+                setattr(self, arg, hparams[arg])
             else:
-                # If any arg from run_opt_defaults exist in hparams and
-                # not in command line args "run_opts"
-                if hparams is not None and arg in hparams:
-                    logger.info(
-                        "Info: " + arg + " arg from hparam file is used"
-                    )
-                    setattr(self, arg, hparams[arg])
-                else:
-                    setattr(self, arg, default)
+                setattr(self, arg, default)
 
         # Check Python version
         if not (
@@ -709,11 +294,26 @@ class Brain:
                 "Please keep only one active per experiment run."
             )
 
-        # Switch to the right context
-        if self.device == "cuda":
-            torch.cuda.set_device(0)
+        # If device was not specified, then make best guess
+        if self.device is None:
+            self.device = sb.utils.distributed.infer_device()
+
+        # Set device type based on device string
+        if self.device == "cpu":
+            self.device_type = "cpu"
         elif "cuda" in self.device:
-            torch.cuda.set_device(int(self.device[-1]))
+            self.device_type = "cuda"
+
+            # Set cuda device based on device string
+            try:
+                _, device_index = self.device.split(":")
+                torch.cuda.set_device(int(device_index))
+            except ValueError:
+                torch.cuda.set_device(0)
+
+        # Checking that DataParallel use the right number of GPU
+        if self.data_parallel_backend and torch.cuda.device_count() == 0:
+            raise ValueError("You must have at least 1 GPU to use DataParallel")
 
         # Put modules on the right device, accessible with dot notation
         self.modules = torch.nn.ModuleDict(modules).to(self.device)
@@ -765,7 +365,7 @@ class Brain:
             )
             self.precision = "bf16"
 
-        if self.device == "cpu" and (
+        if self.device_type == "cpu" and (
             self.precision == "fp16" or self.eval_precision == "fp16"
         ):
             raise ValueError(
@@ -775,7 +375,9 @@ class Brain:
                 "to enable mixed precision on CPU."
             )
 
-        gradscaler_enabled = self.precision == "fp16" and "cuda" in self.device
+        gradscaler_enabled = (
+            self.precision == "fp16" and self.device_type == "cuda"
+        )
         if self.skip_nonfinite_grads and gradscaler_enabled:
             logger.warning(
                 "The option `skip_nonfinite_grads` will be ignored "
@@ -783,18 +385,27 @@ class Brain:
                 "skip nonfinite gradients."
             )
 
+        logger.info(f"Gradscaler enabled: `{gradscaler_enabled}`")
+        logger.info(f"Using training precision: `--precision={self.precision}`")
         logger.info(
-            f"Gradscaler enabled: {gradscaler_enabled}. Using precision: {self.precision}."
+            f"Using evaluation precision: `--eval_precision={self.eval_precision}`"
         )
-        self.scaler = torch.cuda.amp.GradScaler(enabled=gradscaler_enabled)
+        if version.parse(torch.__version__) < version.parse("2.4.0"):
+            self.scaler = torch.cuda.amp.GradScaler(enabled=gradscaler_enabled)
+        else:
+            self.scaler = torch.GradScaler(
+                self.device, enabled=gradscaler_enabled
+            )
 
-        self.use_amp = False
-        if self.device == "cpu" and self.precision == "bf16":
-            self.use_amp = True
-        elif "cuda" in self.device and self.precision in ["fp16", "bf16"]:
-            self.use_amp = True
-
-        if self.use_amp and self.checkpointer is not None:
+        train_dtype = AMPConfig.from_name(self.precision).dtype
+        self.training_ctx = TorchAutocast(
+            device_type=self.device_type, dtype=train_dtype
+        )
+        eval_dtype = AMPConfig.from_name(self.eval_precision).dtype
+        self.evaluation_ctx = TorchAutocast(
+            device_type=self.device_type, dtype=eval_dtype
+        )
+        if gradscaler_enabled and self.checkpointer is not None:
             self.checkpointer.add_recoverable(
                 "scaler", self.scaler, optional_load=True
             )
@@ -804,7 +415,7 @@ class Brain:
 
         if self.distributed_launch:
             self.rank = int(os.environ["RANK"])
-            if not torch.distributed.is_initialized():
+            if not is_distributed_initialized():
                 if self.rank > 0:
                     raise ValueError(
                         " ================ WARNING ==============="
@@ -861,7 +472,7 @@ class Brain:
                 f"{class_name} Model Statistics:\n"
                 f"* Total Number of Trainable Parameters: {total_trainable_params}\n"
                 f"* Total Number of Parameters: {total_parameters}\n"
-                f"* Trainable Parameters represent {0:.4f}% of the total size."
+                f"* Trainable Parameters represent {0:.2f}% of the total size."
             )
         elif total_trainable_params == 0:
             logger.warning("The model has no trainable parameters!")
@@ -1049,7 +660,8 @@ class Brain:
                     "Cannot specify both shuffle=True"
                     "and a sampler in loader_kwargs"
                 )
-            sampler = ReproducibleRandomSampler(dataset)
+            seed = os.environ.get("SB_GLOBAL_SEED", 563375142)
+            sampler = ReproducibleRandomSampler(dataset, seed=seed)
             self.train_sampler = sampler
             loader_kwargs["sampler"] = self.train_sampler
             # Delete the shuffle flag, since you cannot specify both a sampler and
@@ -1152,6 +764,11 @@ class Brain:
 
             if self.checkpointer is not None:
                 self.checkpointer.add_recoverable("optimizer", self.optimizer)
+        else:
+            logger.info(
+                "No `opt_class` was provided to this Brain class, "
+                "skipping optimizer initialization."
+            )
 
     def zero_grad(self, set_to_none=False):
         """Sets the gradients of all optimized ``torch.Tensor``s to zero
@@ -1210,22 +827,13 @@ class Brain:
         -------
         detached loss
         """
-        amp = AMPConfig.from_name(self.precision)
         should_step = (self.step % self.grad_accumulation_factor) == 0
+        self.on_fit_batch_start(batch, should_step)
 
         with self.no_sync(not should_step):
-            if self.use_amp:
-                with torch.autocast(
-                    dtype=amp.dtype, device_type=torch.device(self.device).type
-                ):
-                    outputs = self.compute_forward(batch, sb.Stage.TRAIN)
-                    loss = self.compute_objectives(
-                        outputs, batch, sb.Stage.TRAIN
-                    )
-            else:
+            with self.training_ctx:
                 outputs = self.compute_forward(batch, sb.Stage.TRAIN)
                 loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
-
             scaled_loss = self.scaler.scale(
                 loss / self.grad_accumulation_factor
             )
@@ -1336,6 +944,9 @@ class Brain:
     def on_fit_batch_start(self, batch, should_step):
         """Called at the beginning of ``fit_batch()``.
 
+        This method is not called under the AMP context manager. Do not assume
+        automatic casting of the input batch to a lower precision (e.g. fp16).
+
         Arguments
         ---------
         batch : list of torch.Tensors
@@ -1385,14 +996,7 @@ class Brain:
         -------
         detached loss
         """
-        amp = AMPConfig.from_name(self.eval_precision)
-        if self.use_amp:
-            with torch.autocast(
-                dtype=amp.dtype, device_type=torch.device(self.device).type
-            ):
-                out = self.compute_forward(batch, stage=stage)
-                loss = self.compute_objectives(out, batch, stage=stage)
-        else:
+        with self.evaluation_ctx:
             out = self.compute_forward(batch, stage=stage)
             loss = self.compute_objectives(out, batch, stage=stage)
         return loss.detach().cpu()
@@ -1482,7 +1086,7 @@ class Brain:
         decision = decision or 0 < self.ckpt_interval_steps <= steps_since_ckpt
 
         # If the program is not distributed, just return
-        if not torch.distributed.is_initialized():
+        if not is_distributed_initialized():
             return decision
 
         # Otherwise, broadcast decision to all processes from main (rank 0)
@@ -1761,6 +1365,9 @@ class Brain:
         if progressbar is None:
             progressbar = not self.noprogressbar
 
+        # Only show progressbar if requested and main_process
+        enable = progressbar and sb.utils.distributed.if_main_process()
+
         if not (
             isinstance(test_set, DataLoader)
             or isinstance(test_set, LoopedLoader)
@@ -1777,7 +1384,7 @@ class Brain:
             for batch in tqdm(
                 test_set,
                 dynamic_ncols=True,
-                disable=not progressbar,
+                disable=not enable,
                 colour=self.tqdm_barcolor["test"],
             ):
                 self.step += 1
@@ -1855,13 +1462,13 @@ class Brain:
             "avg_train_loss": self.avg_train_loss,
             "optimizer_step": self.optimizer_step,
         }
-        with open(path, "w") as w:
+        with open(path, "w", encoding="utf-8") as w:
             w.write(yaml.dump(save_dict))
 
     @sb.utils.checkpoints.mark_as_loader
     def _recover(self, path, end_of_epoch):
         del end_of_epoch
-        with open(path) as f:
+        with open(path, encoding="utf-8") as f:
             save_dict = yaml.safe_load(f)
         self.step = save_dict["step"]
         self.avg_train_loss = save_dict["avg_train_loss"]

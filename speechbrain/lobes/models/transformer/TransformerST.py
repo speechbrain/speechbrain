@@ -4,7 +4,6 @@ Authors
 * YAO FEI, CHENG 2021
 """
 
-import logging
 from typing import Optional
 
 import torch  # noqa 42
@@ -21,8 +20,9 @@ from speechbrain.lobes.models.transformer.Transformer import (
 from speechbrain.lobes.models.transformer.TransformerASR import TransformerASR
 from speechbrain.nnet.activations import Swish
 from speechbrain.nnet.containers import ModuleList
+from speechbrain.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class TransformerST(TransformerASR):
@@ -91,8 +91,16 @@ class TransformerST(TransformerASR):
     >>> src = torch.rand([8, 120, 512])
     >>> tgt = torch.randint(0, 720, [8, 120])
     >>> net = TransformerST(
-    ...     720, 512, 512, 8, 1, 1, 1024, activation=torch.nn.GELU,
-    ...     ctc_weight=1, asr_weight=0.3,
+    ...     720,
+    ...     512,
+    ...     512,
+    ...     8,
+    ...     1,
+    ...     1,
+    ...     1024,
+    ...     activation=torch.nn.GELU,
+    ...     ctc_weight=1,
+    ...     asr_weight=0.3,
     ... )
     >>> enc_out, dec_out = net.forward(src, tgt)
     >>> enc_out.shape
@@ -193,13 +201,13 @@ class TransformerST(TransformerASR):
                     causal=self.causal,
                     attention_type=self.attention_type,
                 )
-                assert (
-                    normalize_before
-                ), "normalize_before must be True for Conformer"
+                assert normalize_before, (
+                    "normalize_before must be True for Conformer"
+                )
 
-                assert (
-                    conformer_activation is not None
-                ), "conformer_activation must not be None"
+                assert conformer_activation is not None, (
+                    "conformer_activation must not be None"
+                )
 
         # reset parameters using xavier_normal_
         self._init_params()

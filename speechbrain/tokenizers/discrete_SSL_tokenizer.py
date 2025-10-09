@@ -15,23 +15,26 @@ class DiscreteSSLTokenizer:
     It applies subwording for each layer independently if the sentence piece tokenizer is set to for the layer and padded all items with zero.
     If subwording is not applied, all token IDs are incremented by one to avoid conflict between pad_id(0) and cluster with centroid zero.
 
-
     Arguments
     ---------
     num_clusters: List[int]
         determine the number of clusters of the  kmeans models. It could be varying for each layer.
 
-
     Example
     -------
     >>> import torch
-    >>> inputs = torch.randint(0,1000,(3, 6, 2))
-    >>> ssl_layer_num = [7,23]
-    >>> deduplicate =[False, True]
-    >>> bpe_tokenizers=[None, None]
-    >>> num_clusters = [1000,2000]
+    >>> inputs = torch.randint(0, 1000, (3, 6, 2))
+    >>> ssl_layer_num = [7, 23]
+    >>> deduplicate = [False, True]
+    >>> bpe_tokenizers = [None, None]
+    >>> num_clusters = [1000, 2000]
     >>> tokenizer = DiscreteSSLTokenizer(num_clusters=num_clusters)
-    >>> tokens= tokenizer.encode(inputs,SSL_layers=ssl_layer_num, deduplicates=deduplicate, bpe_tokenizers=bpe_tokenizers)
+    >>> tokens = tokenizer.encode(
+    ...     inputs,
+    ...     SSL_layers=ssl_layer_num,
+    ...     deduplicates=deduplicate,
+    ...     bpe_tokenizers=bpe_tokenizers,
+    ... )
     >>> print(tokens.shape)
     torch.Size([3, 6, 2])
     """
@@ -41,12 +44,14 @@ class DiscreteSSLTokenizer:
 
     def textify(self, tokens):
         """Convert token ID to char to be used for training sentencepiece tokenizer.
+
         Arguments
         ---------
         tokens : torch.Tensor
             A (Batch x Seq ) tensor of audio tokens
-        Returns:
-        ---------
+
+        Returns
+        -------
         processed_tokens : list
             A (Batch x Seq) list of corresponding char for each token ID.
         """
@@ -63,22 +68,23 @@ class DiscreteSSLTokenizer:
 
         Arguments
         ---------
-        tokens : torch.Tensor
-            A (Batch x Seq x num_SSL_layers) tensor of audio tokens
+        input : torch.Tensor
+            A (Batch x Seq x num_SSL_layers) tensor of audio tokens.
         SSL_layers: List[int] (default: [7]):
             determine which layers of SSL should be used to extract information.
         deduplicates: List[boolean] (default: [False]):
             determine to apply deduplication(remove duplicate subsequent tokens) on the tokens extracted for the corresponding layer.
         bpe_tokenizers: List[int] (default: [None]):
             determine to apply subwording on the tokens extracted for the corresponding layer if the sentencePiece tokenizer is trained for that layer.
-        Returns:
-        ---------
+
+        Returns
+        -------
         processed_tokens : torch.Tensor
             A (Batch x Seq x num_SSL_layers) tensor of audio tokens after applying deduplication and subwording if necessary.
         """
-        assert input.shape[2] == len(
-            SSL_layers
-        ), f"input shape:{input.shape} has conflicts with the length of provided SSL_layers: {len(SSL_layers)}. The second dimension of input should be the same  as number of layers!!!"
+        assert input.shape[2] == len(SSL_layers), (
+            f"input shape:{input.shape} has conflicts with the length of provided SSL_layers: {len(SSL_layers)}. The second dimension of input should be the same  as number of layers!!!"
+        )
         token_ids = []
         for i, duplicate in enumerate(deduplicates):
             tokens = []

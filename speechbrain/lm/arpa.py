@@ -62,11 +62,12 @@ Authors
 """
 
 import collections
-import logging
 from pathlib import Path
 from typing import Union
 
-logger = logging.getLogger(__name__)
+from speechbrain.utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 def read_arpa(fstream):
@@ -283,7 +284,7 @@ def arpa_to_fst(
     >>> from speechbrain.lm.arpa import arpa_to_fst
 
     >>> # Create a small arpa model
-    >>> arpa_file = getfixture('tmpdir').join("bigram.arpa")
+    >>> arpa_file = getfixture("tmpdir").join("bigram.arpa")
     >>> arpa_file.write(
     ...     "Anything can be here\n"
     ...     + "\n"
@@ -295,23 +296,20 @@ def arpa_to_fst(
     ...     + "0 <s>\n"
     ...     + "-0.6931 a\n"
     ...     + "-0.6931 b 0.\n"
-    ...     + "" # Ends unigram section
+    ...     + ""  # Ends unigram section
     ...     + "\\2-grams:\n"
     ...     + "-0.6931 <s> a\n"
     ...     + "-0.6931 a a\n"
     ...     + "-0.6931 a b\n"
     ...     + "-0.6931 b a\n"
     ...     + "\n"  # Ends bigram section
-    ...     + "\\end\\\n")  # Ends whole file
+    ...     + "\\end\\\n"
+    ... )  # Ends whole file
     >>> # Create words vocab
-    >>> vocav = getfixture('tmpdir').join("words.txt")
-    >>> vocav.write(
-    ...     "a 1\n"
-    ...     + "b 2\n"
-    ...     + "<s> 3\n"
-    ...     + "#0 4")  # Ends whole file
-    >>> out = getfixture('tmpdir').join("bigram.txt.fst")
-    >>> arpa_to_fst(vocav, arpa_file, out, 2)
+    >>> vocav = getfixture("tmpdir").join("words.txt")
+    >>> vocav.write("a 1\n" + "b 2\n" + "<s> 3\n" + "#0 4")  # Ends whole file
+    >>> out = getfixture("tmpdir").join("bigram.txt.fst")
+    >>> arpa_to_fst(vocav, arpa_file, out, 2)  # doctest: +SKIP
     """
     try:
         from kaldilm.arpa2fst import arpa2fst
@@ -324,12 +322,16 @@ def arpa_to_fst(
             "Install using `pip install kaldilm`."
         )
 
+    if isinstance(out_fst, str):
+        out_fst = Path(out_fst)
+    if isinstance(in_arpa, str):
+        in_arpa = Path(in_arpa)
+
     if cache and out_fst.exists():
         return
     if not in_arpa.exists():
         raise FileNotFoundError(
-            f"{in_arpa} not found while trying to create"
-            f" the {ngram_order} FST."
+            f"{in_arpa} not found while trying to create the {ngram_order} FST."
         )
     try:
         logger.info(f"Converting arpa LM '{in_arpa}' to FST")
@@ -347,5 +349,5 @@ def arpa_to_fst(
         )
         raise e
     logger.info(f"Writing {out_fst}")
-    with open(out_fst, "w") as f:
+    with open(out_fst, "w", encoding="utf-8") as f:
         f.write(s)

@@ -5,7 +5,6 @@ Author
  * Marcely Zanon Boito, 2022
 """
 
-import logging
 import sys
 
 import torch
@@ -15,6 +14,7 @@ from sacremoses import MosesDetokenizer
 import speechbrain as sb
 from speechbrain.tokenizers.SentencePiece import SentencePiece
 from speechbrain.utils.distributed import run_on_main
+from speechbrain.utils.logger import get_logger
 
 
 # Define training procedure
@@ -358,11 +358,11 @@ def dataio_prepare(hparams):
 if __name__ == "__main__":
     # Load hyperparameters file with command-line overrides
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
-    with open(hparams_file) as fin:
+    with open(hparams_file, encoding="utf-8") as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
     # creates a logger
-    logger = logging.getLogger(__name__)
+    logger = get_logger(__name__)
 
     # create ddp_group with the right communication protocol
     sb.utils.distributed.ddp_init_group(run_opts)

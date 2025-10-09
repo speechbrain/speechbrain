@@ -7,14 +7,14 @@ Authors:
 """
 
 import json
-import logging
 import os
 import shutil
 
 from speechbrain.dataio.dataio import read_audio
 from speechbrain.utils.data_utils import download_file, get_all_files
+from speechbrain.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 MINILIBRI_TRAIN_URL = "http://www.openslr.org/resources/31/train-clean-5.tar.gz"
 MINILIBRI_VALID_URL = "http://www.openslr.org/resources/31/dev-clean-2.tar.gz"
 MINILIBRI_TEST_URL = "https://www.openslr.org/resources/12/test-clean.tar.gz"
@@ -46,8 +46,10 @@ def prepare_mini_librispeech(
 
     Example
     -------
-    >>> data_folder = '/path/to/mini_librispeech'
-    >>> prepare_mini_librispeech(data_folder, 'train.json', 'valid.json', 'test.json')
+    >>> data_folder = "/path/to/mini_librispeech"
+    >>> prepare_mini_librispeech(
+    ...     data_folder, "train.json", "valid.json", "test.json"
+    ... )
     """
     # Check if this phase is already done (if so, skip it)
     if skip(save_json_train, save_json_valid, save_json_test):
@@ -101,7 +103,7 @@ def get_transcription(trans_list):
     trans_dict = {}
     for trans_file in trans_list:
         # Reading the text file
-        with open(trans_file) as f:
+        with open(trans_file, encoding="utf-8") as f:
             for line in f:
                 uttid = line.split(" ")[0]
                 text = line.rstrip().split(" ")[1:]
@@ -128,7 +130,6 @@ def create_json(wav_list, trans_dict, json_file):
     # Processing all the wav files in the list
     json_dict = {}
     for wav_file in wav_list:
-
         # Reading the signal (to retrieve duration in seconds)
         signal = read_audio(wav_file)
         duration = signal.shape[0] / SAMPLERATE
@@ -146,7 +147,7 @@ def create_json(wav_list, trans_dict, json_file):
         }
 
     # Writing the dictionary to the json file
-    with open(json_file, mode="w") as json_f:
+    with open(json_file, mode="w", encoding="utf-8") as json_f:
         json.dump(json_dict, json_f, indent=2)
 
     logger.info(f"{json_file} successfully created!")

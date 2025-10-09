@@ -36,14 +36,14 @@ def prepare_librimix(
     if "Libri" in datapath:
         # Libri 2/3Mix datasets
         if n_spks == 2:
-            assert (
-                "Libri2Mix" in datapath
-            ), "Inconsistent number of speakers and datapath"
+            assert "Libri2Mix" in datapath, (
+                "Inconsistent number of speakers and datapath"
+            )
             create_libri2mix_csv(datapath, savepath, addnoise=librimix_addnoise)
         elif n_spks == 3:
-            assert (
-                "Libri3Mix" in datapath
-            ), "Inconsistent number of speakers and datapath"
+            assert "Libri3Mix" in datapath, (
+                "Inconsistent number of speakers and datapath"
+            )
             create_libri3mix_csv(datapath, savepath, addnoise=librimix_addnoise)
         else:
             raise ValueError("Unsupported Number of Speakers")
@@ -96,7 +96,12 @@ def create_libri2mix_csv(
             "noise_wav_opts",
         ]
 
-        with open(savepath + "/libri2mix_" + set_type + ".csv", "w") as csvfile:
+        with open(
+            savepath + "/libri2mix_" + set_type + ".csv",
+            "w",
+            newline="",
+            encoding="utf-8",
+        ) as csvfile:
             writer = csv.DictWriter(csvfile, fieldnames=csv_columns)
             writer.writeheader()
             for i, (mix_path, s1_path, s2_path, noise_path) in enumerate(
@@ -171,7 +176,12 @@ def create_libri3mix_csv(
             "noise_wav_opts",
         ]
 
-        with open(savepath + "/libri3mix_" + set_type + ".csv", "w") as csvfile:
+        with open(
+            savepath + "/libri3mix_" + set_type + ".csv",
+            "w",
+            newline="",
+            encoding="utf-8",
+        ) as csvfile:
             writer = csv.DictWriter(csvfile, fieldnames=csv_columns)
             writer.writeheader()
             for (

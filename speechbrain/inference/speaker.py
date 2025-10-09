@@ -1,4 +1,4 @@
-""" Specifies the inference interfaces for speaker recognition modules.
+"""Specifies the inference interfaces for speaker recognition modules.
 
 Authors:
  * Aku Rouhe 2021

@@ -2,7 +2,6 @@
 
 import collections
 import csv
-import logging
 import pickle
 import re
 
@@ -10,8 +9,9 @@ import torch
 import torchaudio
 
 from speechbrain.dataio.dataset import DynamicItemDataset
+from speechbrain.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 TORCHAUDIO_FORMATS = ["wav", "flac", "aac", "ogg", "flac", "mp3"]
@@ -148,7 +148,7 @@ def load_sb_extended_csv(csv_path, replacements={}):
         List of DynamicItems to add in DynamicItemDataset.
 
     """
-    with open(csv_path, newline="") as csvfile:
+    with open(csv_path, newline="", encoding="utf-8") as csvfile:
         result = {}
         reader = csv.DictReader(csvfile, skipinitialspace=True)
         variable_finder = re.compile(r"\$([\w.]+)")
@@ -279,7 +279,6 @@ def read_pkl(file, data_options={}, lab2ind=None):
     type_ok = False
 
     if isinstance(pkl_element, list):
-
         if isinstance(pkl_element[0], float):
             tensor = torch.FloatTensor(pkl_element)
             type_ok = True
@@ -289,7 +288,6 @@ def read_pkl(file, data_options={}, lab2ind=None):
             type_ok = True
 
         if isinstance(pkl_element[0], str):
-
             # convert string to integer as specified in self.label_dict
             if lab2ind is not None:
                 for index, val in enumerate(pkl_element):
@@ -310,10 +308,10 @@ def read_pkl(file, data_options={}, lab2ind=None):
     tensor_type = tensor.dtype
 
     # Conversion to 32 bit (if needed)
-    if tensor_type == "float64":
-        tensor = tensor.astype("float32")
+    if tensor_type == torch.float64:
+        tensor = tensor.to(torch.float32)
 
-    if tensor_type == "int64":
-        tensor = tensor.astype("int32")
+    if tensor_type == torch.int64:
+        tensor = tensor.to(torch.int32)
 
     return tensor

@@ -11,7 +11,6 @@ Yingzhi Wang 2023
 """
 
 import json
-import logging
 import os
 import random
 
@@ -19,7 +18,9 @@ import numpy as np
 from datasets.vad import vad_for_folder
 from pydub import AudioSegment
 
-logger = logging.getLogger(__name__)
+from speechbrain.utils.logger import get_logger
+
+logger = get_logger(__name__)
 # we choose here only english utterances
 repos = [
     "0011",
@@ -300,7 +301,7 @@ def concat_wavs(data_folder, save_json):
 
                 emotion_wavs = emotion_wavs[1:]
 
-    with open(save_json, "w") as outfile:
+    with open(save_json, "w", encoding="utf-8") as outfile:
         json.dump(data_json, outfile)
     return data_json
 

@@ -9,7 +9,6 @@ Authors
 
 import dataclasses
 import heapq
-import logging
 import math
 import warnings
 from itertools import groupby
@@ -19,8 +18,9 @@ import numpy as np
 import torch
 
 from speechbrain.dataio.dataio import length_to_mask
+from speechbrain.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class CTCPrefixScore:
@@ -315,8 +315,8 @@ def filter_ctc_output(string_pred, blank_id=-1):
 
     Example
     -------
-    >>> string_pred = ['a','a','blank','b','b','blank','c']
-    >>> string_out = filter_ctc_output(string_pred, blank_id='blank')
+    >>> string_pred = ["a", "a", "blank", "b", "b", "blank", "c"]
+    >>> string_out = filter_ctc_output(string_pred, blank_id="blank")
     >>> print(string_out)
     ['a', 'b', 'c']
     """
@@ -358,8 +358,9 @@ def ctc_greedy_decode(probabilities, seq_lens, blank_id=-1):
     Example
     -------
     >>> import torch
-    >>> probs = torch.tensor([[[0.3, 0.7], [0.0, 0.0]],
-    ...                       [[0.2, 0.8], [0.9, 0.1]]])
+    >>> probs = torch.tensor(
+    ...     [[[0.3, 0.7], [0.0, 0.0]], [[0.2, 0.8], [0.9, 0.1]]]
+    ... )
     >>> lens = torch.tensor([0.51, 1.0])
     >>> blank_id = 0
     >>> ctc_greedy_decode(probs, lens, blank_id)
@@ -452,7 +453,7 @@ class CTCBeam:
     score_ctc: float = -math.inf
 
     @classmethod
-    def from_lm_beam(self, lm_beam: "LMCTCBeam") -> "CTCBeam":
+    def from_lm_beam(cls, lm_beam: "LMCTCBeam") -> "CTCBeam":
         """Create a CTCBeam from a LMCTCBeam
 
         Arguments
@@ -533,7 +534,7 @@ class CTCHypothesis:
     last_lm_state: None
     score: float
     lm_score: float
-    text_frames: list = None
+    text_frames: Optional[list] = None
 
 
 class CTCBaseSearcher(torch.nn.Module):
@@ -588,8 +589,8 @@ class CTCBaseSearcher(torch.nn.Module):
     Example
     -------
     >>> blank_index = 0
-    >>> vocab_list = ['blank', 'a', 'b', 'c', ' ']
-    >>> space_token = ' '
+    >>> vocab_list = ["blank", "a", "b", "c", " "]
+    >>> space_token = " "
     >>> kenlm_model_path = None
     >>> unigrams = None
     >>> beam_size = 100
@@ -619,16 +620,16 @@ class CTCBaseSearcher(torch.nn.Module):
         vocab_list: List[str],
         space_token: str = " ",
         kenlm_model_path: Union[None, str] = None,
-        unigrams: Union[None, List[str]] = None,
+        unigrams: Union[None, list[str], set[str]] = None,
         alpha: float = 0.5,
         beta: float = 1.5,
         unk_score_offset: float = -10.0,
         score_boundary: bool = True,
         beam_size: int = 100,
-        beam_prune_logp: int = -10.0,
-        token_prune_min_logp: int = -5.0,
+        beam_prune_logp: float = -10.0,
+        token_prune_min_logp: float = -5.0,
         prune_history: bool = True,
-        blank_skip_threshold: Union[None, int] = 1.0,
+        blank_skip_threshold: float = 1.0,
         topk: int = 1,
         spm_token: str = "▁",
     ):
@@ -675,8 +676,8 @@ class CTCBaseSearcher(torch.nn.Module):
             try:
                 import kenlm  # type: ignore
 
-                from speechbrain.decoders.language_model import (
-                    LanguageModel,
+                from speechbrain.integrations.decoders.kenlm_scorer import (
+                    KenlmScorer,
                     load_unigram_set_from_arpa,
                 )
             except ImportError:
@@ -702,7 +703,7 @@ class CTCBaseSearcher(torch.nn.Module):
                 )
 
         if self.kenlm_model is not None:
-            self.lm = LanguageModel(
+            self.lm = KenlmScorer(
                 kenlm_model=self.kenlm_model,
                 unigrams=unigrams,
                 alpha=self.alpha,
@@ -1188,13 +1189,14 @@ class CTCBeamSearcher(CTCBaseSearcher):
     -------
     >>> import torch
     >>> from speechbrain.decoders import CTCBeamSearcher
-    >>> probs = torch.tensor([[[0.2, 0.0, 0.8],
-    ...                   [0.4, 0.0, 0.6]]])
+    >>> probs = torch.tensor([[[0.2, 0.0, 0.8], [0.4, 0.0, 0.6]]])
     >>> log_probs = torch.log(probs)
     >>> lens = torch.tensor([1.0])
     >>> blank_index = 2
-    >>> vocab_list = ['a', 'b', '-']
-    >>> searcher = CTCBeamSearcher(blank_index=blank_index, vocab_list=vocab_list)
+    >>> vocab_list = ["a", "b", "-"]
+    >>> searcher = CTCBeamSearcher(
+    ...     blank_index=blank_index, vocab_list=vocab_list
+    ... )
     >>> hyps = searcher(probs, lens)
     """
 
@@ -1521,13 +1523,14 @@ class CTCPrefixBeamSearcher(CTCBaseSearcher):
     -------
     >>> import torch
     >>> from speechbrain.decoders import CTCPrefixBeamSearcher
-    >>> probs = torch.tensor([[[0.2, 0.0, 0.8],
-    ...                   [0.4, 0.0, 0.6]]])
+    >>> probs = torch.tensor([[[0.2, 0.0, 0.8], [0.4, 0.0, 0.6]]])
     >>> log_probs = torch.log(probs)
     >>> lens = torch.tensor([1.0])
     >>> blank_index = 2
-    >>> vocab_list = ['a', 'b', '-']
-    >>> searcher = CTCPrefixBeamSearcher(blank_index=blank_index, vocab_list=vocab_list)
+    >>> vocab_list = ["a", "b", "-"]
+    >>> searcher = CTCPrefixBeamSearcher(
+    ...     blank_index=blank_index, vocab_list=vocab_list
+    ... )
     >>> hyps = searcher(probs, lens)
     """
 
@@ -1845,13 +1848,15 @@ class CTCPrefixBeamSearcher(CTCBaseSearcher):
 
                     # blank case
                     if token_index == self.blank_index:
-                        beam.n_p_b = np.logaddexp(
-                            beam.n_p_b, beam.score_ctc + p_token
+                        beam.n_p_b = float(
+                            np.logaddexp(beam.n_p_b, beam.score_ctc + p_token)
                         )
                         continue
 
                     if token == beam.last_token:
-                        beam.n_p_nb = np.logaddexp(beam.n_p_nb, p_nb + p_token)
+                        beam.n_p_nb = float(
+                            np.logaddexp(beam.n_p_nb, p_nb + p_token)
+                        )
 
                     new_text = beam.text + token
 
@@ -1871,7 +1876,7 @@ class CTCPrefixBeamSearcher(CTCBaseSearcher):
                         n_p_nb = np.logaddexp(n_p_nb, p_b + p_token)
                     elif token_index != beam.last_token_index:
                         n_p_nb = np.logaddexp(n_p_nb, beam.score_ctc + p_token)
-                    new_beam.n_p_nb = n_p_nb
+                    new_beam.n_p_nb = float(n_p_nb)
 
             # update the CTC probabilities
             for beam in beams:
@@ -1977,14 +1982,15 @@ class TorchAudioCTCPrefixBeamSearcher:
     -------
     >>> import torch
     >>> from speechbrain.decoders import TorchAudioCTCPrefixBeamSearcher
-    >>> probs = torch.tensor([[[0.2, 0.0, 0.8],
-    ...                   [0.4, 0.0, 0.6]]])
+    >>> probs = torch.tensor([[[0.2, 0.0, 0.8], [0.4, 0.0, 0.6]]])
     >>> log_probs = torch.log(probs)
     >>> lens = torch.tensor([1.0])
     >>> blank_index = 2
-    >>> vocab_list = ['a', 'b', '-']
-    >>> searcher = TorchAudioCTCPrefixBeamSearcher(tokens=vocab_list, blank_index=blank_index, sil_index=blank_index) # doctest: +SKIP
-    >>> hyps = searcher(probs, lens) # doctest: +SKIP
+    >>> vocab_list = ["a", "b", "-"]
+    >>> searcher = TorchAudioCTCPrefixBeamSearcher(
+    ...     tokens=vocab_list, blank_index=blank_index, sil_index=blank_index
+    ... )  # doctest: +SKIP
+    >>> hyps = searcher(probs, lens)  # doctest: +SKIP
     """
 
     def __init__(
@@ -2069,9 +2075,9 @@ class TorchAudioCTCPrefixBeamSearcher:
                 raise ImportError(
                     "cuda_ctc_decoder not found. Please install the latest version of torchaudio to use this decoder."
                 )
-            assert (
-                self.blank_index == 0
-            ), "Index of blank token has to be 0 when using CUDA CTC decoder."
+            assert self.blank_index == 0, (
+                "Index of blank token has to be 0 when using CUDA CTC decoder."
+            )
 
             self._ctc_decoder = cuda_ctc_decoder(
                 tokens=self.tokens,

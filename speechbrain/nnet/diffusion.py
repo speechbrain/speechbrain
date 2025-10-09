@@ -160,12 +160,9 @@ class DenoisingDiffusion(Diffuser):
     ...     norm_num_groups=4,
     ...     out_channels=1,
     ...     num_res_blocks=1,
-    ...     attention_resolutions=[]
+    ...     attention_resolutions=[],
     ... )
-    >>> diff = DenoisingDiffusion(
-    ...     model=unet,
-    ...     timesteps=5
-    ... )
+    >>> diff = DenoisingDiffusion(model=unet, timesteps=5)
     >>> x = torch.randn(4, 1, 64, 64)
     >>> pred, noise, noisy_sample = diff.train_sample(x)
     >>> pred.shape
@@ -402,7 +399,7 @@ class LatentDiffusion(nn.Module):
     ...     stride=4,
     ...     in_channels=1,
     ...     out_channels=1,
-    ...     output_padding=1
+    ...     output_padding=1,
     ... )
     >>> ae = NormalizingAutoencoder(
     ...     encoder=ae_enc,
@@ -417,17 +414,14 @@ class LatentDiffusion(nn.Module):
     ...     norm_num_groups=4,
     ...     out_channels=1,
     ...     num_res_blocks=1,
-    ...     attention_resolutions=[]
+    ...     attention_resolutions=[],
     ... )
-    >>> diff = DenoisingDiffusion(
-    ...     model=unet,
-    ...     timesteps=5
-    ... )
+    >>> diff = DenoisingDiffusion(model=unet, timesteps=5)
     >>> latent_diff = LatentDiffusion(
     ...     autoencoder=ae,
     ...     diffusion=diff,
     ...     latent_downsample_factor=4,
-    ...     latent_pad_dim=2
+    ...     latent_pad_dim=2,
     ... )
     >>> x = torch.randn(4, 1, 64, 64)
     >>> latent_sample = latent_diff.train_sample_latent(x)

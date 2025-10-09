@@ -259,9 +259,7 @@ class HifiGanBrain(sb.Brain):
                 inference_padding=self.hparams.inference_padding,
                 cond_channels=self.hparams.cond_channels,
                 conv_post_bias=self.hparams.conv_post_bias,
-            ).to(
-                self.device
-            )  # Gets a new instance
+            ).to(self.device)  # Gets a new instance
             inference_generator.load_state_dict(
                 self.hparams.generator.state_dict()
             )  # Copies weights
@@ -364,7 +362,7 @@ if __name__ == "__main__":
     # Load hyperparameters file with command-line overrides
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
 
-    with open(hparams_file) as fin:
+    with open(hparams_file, encoding="utf-8") as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
     # Create experiment directory

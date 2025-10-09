@@ -1,4 +1,4 @@
-""" Specifies the inference interfaces for speech separation modules.
+"""Specifies the inference interfaces for speech separation modules.
 
 Authors:
  * Aku Rouhe 2021
@@ -20,7 +20,7 @@ import torchaudio
 
 from speechbrain.inference.interfaces import Pretrained
 from speechbrain.utils.data_utils import split_path
-from speechbrain.utils.fetching import fetch
+from speechbrain.utils.fetching import LocalStrategy, fetch
 
 
 class SepformerSeparation(Pretrained):
@@ -32,8 +32,8 @@ class SepformerSeparation(Pretrained):
     -------
     >>> tmpdir = getfixture("tmpdir")
     >>> model = SepformerSeparation.from_hparams(
-    ...     source="speechbrain/sepformer-wsj02mix",
-    ...     savedir=tmpdir)
+    ...     source="speechbrain/sepformer-wsj02mix", savedir=tmpdir
+    ... )
     >>> mix = torch.randn(1, 400)
     >>> est_sources = model.separate_batch(mix)
     >>> print(est_sources.shape)
@@ -81,7 +81,7 @@ class SepformerSeparation(Pretrained):
             est_source = est_source[:, :T_origin, :]
         return est_source
 
-    def separate_file(self, path, savedir="audio_cache"):
+    def separate_file(self, path, savedir=None):
         """Separate sources from file.
 
         Arguments
@@ -97,7 +97,12 @@ class SepformerSeparation(Pretrained):
             Separated sources
         """
         source, fl = split_path(path)
-        path = fetch(fl, source=source, savedir=savedir)
+        path = fetch(
+            fl,
+            source=source,
+            savedir=savedir,
+            local_strategy=LocalStrategy.SYMLINK,
+        )
 
         batch, fs_file = torchaudio.load(path)
         batch = batch.to(self.device)
@@ -105,11 +110,7 @@ class SepformerSeparation(Pretrained):
 
         # resample the data if needed
         if fs_file != fs_model:
-            print(
-                "Resampling the audio from {} Hz to {} Hz".format(
-                    fs_file, fs_model
-                )
-            )
+            print(f"Resampling the audio from {fs_file} Hz to {fs_model} Hz")
             tf = torchaudio.transforms.Resample(
                 orig_freq=fs_file, new_freq=fs_model
             ).to(self.device)

@@ -29,8 +29,8 @@ Authors
  * Andreas Nautsch 2021
  * Dominik Wagner 2022
 """
+
 import functools
-import logging
 import os
 import sys
 from pathlib import Path
@@ -41,8 +41,9 @@ from hyperpyyaml import load_hyperpyyaml
 
 import speechbrain as sb
 from speechbrain.utils.distributed import if_main_process, run_on_main
+from speechbrain.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 # Define training procedure
@@ -206,7 +207,9 @@ class ASR(sb.Brain):
                 test_stats=stage_stats,
             )
             if if_main_process():
-                with open(self.hparams.test_wer_file, "w") as w:
+                with open(
+                    self.hparams.test_wer_file, "w", encoding="utf-8"
+                ) as w:
                     self.wer_metric.write_stats(w)
 
 
@@ -360,7 +363,7 @@ if __name__ == "__main__":
     # create ddp_group with the right communication protocol
     sb.utils.distributed.ddp_init_group(run_opts)
 
-    with open(hparams_file) as fin:
+    with open(hparams_file, encoding="utf-8") as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
     # Create experiment directory
@@ -400,7 +403,7 @@ if __name__ == "__main__":
 
     # Depending on the path given in the hparams YAML file,
     # we download the pretrained LM and Tokenizer
-    run_on_main(hparams["pretrainer"].collect_files)
+    hparams["pretrainer"].collect_files()
     hparams["pretrainer"].load_collected()
 
     # Helper function that removes optional/deletable parts of the transcript
@@ -449,7 +452,7 @@ if __name__ == "__main__":
     # Testing
     for k in test_datasets.keys():  # keys are test_swbd and test_callhome
         asr_brain.hparams.test_wer_file = os.path.join(
-            hparams["output_wer_folder"], "wer_{}.txt".format(k)
+            hparams["output_wer_folder"], f"wer_{k}.txt"
         )
         asr_brain.evaluate(
             test_datasets[k],

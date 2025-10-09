@@ -30,13 +30,16 @@ Following table contains whisper-finetuning results for 1 epoch using Whisper mo
 | ------------- |:-------------:| -----:|-----:|:---------------------------:|  -----:| -----:| -----:|  :-----------: |:-----------:| :-----------:|
 | 2024-03-28 | large-v3 | [e4e2e13](https://github.com/speechbrain/speechbrain/pull/2450/commits/e4e2e135e9edafc6a26fc9aa4df9a94eaf86de41) | train_hf_whisper.yaml | No | 2.00% | 1.96% | 4.30% | Not Avail. | [DropBox](https://www.dropbox.com/scl/fo/d3gmgf6q79byuhzozdwz8/AGFQwMWJ5hqB466GXTnL72M?rlkey=gmi157oa36vvo9c9o1z4oys0e&dl=0) |  2xV100S 32GB |
 | 2024-03-28 | medium.en | [e4e2e13](https://github.com/speechbrain/speechbrain/pull/2450/commits/e4e2e135e9edafc6a26fc9aa4df9a94eaf86de41) | train_hf_whisper.yaml | No | 2.35% | 2.40% | 5.59% | Not Avail. | [DropBox](https://www.dropbox.com/scl/fo/a233v5q1gjpy4nyfh2gq0/ALCbTe3UwAjfia7XI2GLx7A?rlkey=lnoxdpiyxm6lg461ptbdrifcj&dl=0160) |  2xV100S 32GB |
+| 2024-07-20 | small.en | [9864011](https://github.com/speechbrain/speechbrain/pull/2563/commits/98640110123afe8b9d10c5cac14818ed7654477a) | train_whisper_lora.yaml | No | 2.81% | 2.90% | 6.57% | Not Avail. | [DropBox]() |  1x1080Ti 12GB |
 
 
 ## Transformers
 
 | Release | hyperparams file | Dev Clean WER (No LM, small beam) | Test Clean WER (Transformer LM) | Test Other WER (Transformer LM) | HuggingFace link | Model link | GPUs |
 |:-------------:|:-------------:|:-------------:|:---------------------------:| :-----:| :-----:| :-----:| :--------:|
+| 30-09-24 | conformer_large.yaml (new RoPE version) |1.85 with LM | 1.96 | 4.50 | Not Avail. | Not Avail. | 4xA40 46GB |
 | 23-05-23 | branchformer_large.yaml | 2.72 (1.9 with LM) | 2.04 | 4.13 | Not Avail. | [DropBox](https://www.dropbox.com/scl/fo/qhtds5rrdvhhhjywa7ovw/AMiIL5YvQENw5JKVpzXlP5o?rlkey=hz8vlpy3qf9kcyfx0cox089e6&st=ufckv6tb&dl=0) | 4xA100 80GB |
+| 10-02-25 | conformer_large.yaml | 1.85 with LM | 1.97 | 4.50 | N/A | N/A | 4xA100 80GB |
 | 23-05-23 | conformer_large.yaml | 2.62 (1.9 with LM) | 2.01 | 4.52 | [HuggingFace](https://huggingface.co/speechbrain/asr-conformer-transformerlm-librispeech) | [DropBox](https://www.dropbox.com/scl/fo/9we244tgdf47ay20hrdoz/AKnoqQ13nLwSv1ITeJEQ3wY?rlkey=05o5jiszr8rhj6dlprw87t2x4&st=u2odesyk&dl=0) | 4xA100 80GB |
 | 24-03-22 | transformer.yaml | 3.32 | 2.27 | 5.53 | [HuggingFace](https://huggingface.co/speechbrain/asr-transformer-transformerlm-librispeech) | [DropBox](https://www.dropbox.com/sh/653kq8h2k87md4p/AAByAaAryXtQKpRzYtzV9ih5a?dl=0) | 4xV100 32GB |
 | 24-03-22 | conformer_small.yaml | 4.05 | 2.49 | 6.1 (**only 13.3M parameters**) | [HuggingFace](https://huggingface.co/speechbrain/asr-conformersmall-transformerlm-librispeech) | [DropBox](https://www.dropbox.com/sh/s0x6ni124858b8i/AAALaCH6sGTMRUVTjh8Tm8Jwa?dl=0) | 1xV100 32GB |
@@ -76,6 +79,15 @@ Please cite HyperConformer if you use it for your research or business.
 Please, cite SpeechBrain if you use it for your research or business.
 
 ```bibtex
+@misc{speechbrainV1,
+  title={Open-Source Conversational AI with SpeechBrain 1.0},
+  author={Mirco Ravanelli and Titouan Parcollet and Adel Moumen and Sylvain de Langen and Cem Subakan and Peter Plantinga and Yingzhi Wang and Pooneh Mousavi and Luca Della Libera and Artem Ploujnikov and Francesco Paissan and Davide Borra and Salah Zaiem and Zeyu Zhao and Shucong Zhang and Georgios Karakasidis and Sung-Lin Yeh and Pierre Champion and Aku Rouhe and Rudolf Braun and Florian Mai and Juan Zuluaga-Gomez and Seyed Mahed Mousavi and Andreas Nautsch and Xuechen Liu and Sangeet Sagar and Jarod Duret and Salima Mdhaffar and Gaelle Laperriere and Mickael Rouvier and Renato De Mori and Yannick Esteve},
+  year={2024},
+  eprint={2407.00463},
+  archivePrefix={arXiv},
+  primaryClass={cs.LG},
+  url={https://arxiv.org/abs/2407.00463},
+}
 @misc{speechbrain,
   title={{SpeechBrain}: A General-Purpose Speech Toolkit},
   author={Mirco Ravanelli and Titouan Parcollet and Peter Plantinga and Aku Rouhe and Samuele Cornell and Loren Lugosch and Cem Subakan and Nauman Dawalatabad and Abdelwahab Heba and Jianyuan Zhong and Ju-Chieh Chou and Sung-Lin Yeh and Szu-Wei Fu and Chien-Feng Liao and Elena Rastorgueva and François Grondin and William Aris and Hwidong Na and Yan Gao and Renato De Mori and Yoshua Bengio},

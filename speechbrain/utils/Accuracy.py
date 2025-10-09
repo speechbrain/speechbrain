@@ -31,7 +31,11 @@ def Accuracy(log_probabilities, targets, length=None):
     Example
     -------
     >>> probs = torch.tensor([[0.9, 0.1], [0.1, 0.9], [0.8, 0.2]]).unsqueeze(0)
-    >>> acc = Accuracy(torch.log(probs), torch.tensor([1, 1, 0]).unsqueeze(0), torch.tensor([2/3]))
+    >>> acc = Accuracy(
+    ...     torch.log(probs),
+    ...     torch.tensor([1, 1, 0]).unsqueeze(0),
+    ...     torch.tensor([2 / 3]),
+    ... )
     >>> print(acc)
     (1.0, 2.0)
     """
@@ -63,7 +67,11 @@ class AccuracyStats:
     -------
     >>> probs = torch.tensor([[0.9, 0.1], [0.1, 0.9], [0.8, 0.2]]).unsqueeze(0)
     >>> stats = AccuracyStats()
-    >>> stats.append(torch.log(probs), torch.tensor([1, 1, 0]).unsqueeze(0), torch.tensor([2/3]))
+    >>> stats.append(
+    ...     torch.log(probs),
+    ...     torch.tensor([1, 1, 0]).unsqueeze(0),
+    ...     torch.tensor([2 / 3]),
+    ... )
     >>> acc = stats.summarize()
     >>> print(acc)
     0.5

@@ -1,2 +1,1 @@
-"""Package defining the SentencePiece tokenizer
-"""
+"""Package defining the SentencePiece tokenizer"""

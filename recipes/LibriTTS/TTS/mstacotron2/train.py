@@ -1,18 +1,17 @@
-# -*- coding: utf-8 -*-
 """
- Recipe for training the Zero-Shot Multi-Speaker Tacotron Text-To-Speech model, an end-to-end
- neural text-to-speech (TTS) system
+Recipe for training the Zero-Shot Multi-Speaker Tacotron Text-To-Speech model, an end-to-end
+neural text-to-speech (TTS) system
 
- To run this recipe, do the following:
- # python train.py --device=cuda:0 --max_grad_norm=1.0 --data_folder=/path_to_data_folder hparams/train.yaml
+To run this recipe, do the following:
+# python train.py --device=cuda:0 --max_grad_norm=1.0 --data_folder=/path_to_data_folder hparams/train.yaml
 
- Authors
- * Georges Abous-Rjeili 2021
- * Artem Ploujnikov 2021
- * Yingzhi Wang 2022
- * Pradnya Kandarkar 2023
+Authors
+* Georges Abous-Rjeili 2021
+* Artem Ploujnikov 2021
+* Yingzhi Wang 2022
+* Pradnya Kandarkar 2023
 """
-import logging
+
 import os
 import sys
 
@@ -23,10 +22,11 @@ from hyperpyyaml import load_hyperpyyaml
 import speechbrain as sb
 from speechbrain.inference.vocoders import HIFIGAN
 from speechbrain.utils.data_utils import scalarize
+from speechbrain.utils.logger import get_logger
 from speechbrain.utils.text_to_sequence import text_to_sequence
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class Tacotron2Brain(sb.Brain):
@@ -306,7 +306,7 @@ class Tacotron2Brain(sb.Brain):
                 str(self.hparams.epoch_counter.current),
                 "train_input_text.txt",
             )
-            with open(train_sample_text, "w") as f:
+            with open(train_sample_text, "w", encoding="utf-8") as f:
                 f.write(labels[0])
 
             train_input_audio = os.path.join(
@@ -452,7 +452,7 @@ class Tacotron2Brain(sb.Brain):
                 str(self.hparams.epoch_counter.current),
                 "inf_input_text.txt",
             )
-            with open(inf_sample_text, "w") as f:
+            with open(inf_sample_text, "w", encoding="utf-8") as f:
                 f.write(labels[0])
 
             inf_input_audio = os.path.join(
@@ -551,7 +551,7 @@ if __name__ == "__main__":
     # Load hyperparameters file with command-line overrides
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
 
-    with open(hparams_file) as fin:
+    with open(hparams_file, encoding="utf-8") as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
     # If --distributed_launch then

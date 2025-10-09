@@ -1,4 +1,4 @@
-""" Specifies the inference interfaces for Text-To-Speech (TTS) modules.
+"""Specifies the inference interfaces for Text-To-Speech (TTS) modules.
 
 Authors:
  * Aku Rouhe 2021
@@ -14,14 +14,13 @@ Authors:
  * Pradnya Kandarkar 2023
 """
 
-import logging
-
 import torch
 
 from speechbrain.dataio.dataio import length_to_mask
 from speechbrain.inference.interfaces import Pretrained
+from speechbrain.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class HIFIGAN(Pretrained):
@@ -36,13 +35,15 @@ class HIFIGAN(Pretrained):
 
     Example
     -------
-    >>> tmpdir_vocoder = getfixture('tmpdir') / "vocoder"
-    >>> hifi_gan = HIFIGAN.from_hparams(source="speechbrain/tts-hifigan-ljspeech", savedir=tmpdir_vocoder)
-    >>> mel_specs = torch.rand(2, 80,298)
+    >>> tmpdir_vocoder = getfixture("tmpdir") / "vocoder"
+    >>> hifi_gan = HIFIGAN.from_hparams(
+    ...     source="speechbrain/tts-hifigan-ljspeech", savedir=tmpdir_vocoder
+    ... )
+    >>> mel_specs = torch.rand(2, 80, 298)
     >>> waveforms = hifi_gan.decode_batch(mel_specs)
     >>> # You can use the vocoder coupled with a TTS system
     >>>	# Initialize TTS (tacotron2)
-    >>> tmpdir_tts = getfixture('tmpdir') / "tts"
+    >>> tmpdir_tts = getfixture("tmpdir") / "tts"
     >>> from speechbrain.inference.TTS import Tacotron2
     >>>	tacotron2 = Tacotron2.from_hparams(source="speechbrain/tts-tacotron2-ljspeech", savedir=tmpdir_tts)
     >>>	# Running the TTS
@@ -133,7 +134,9 @@ class HIFIGAN(Pretrained):
         >>> import torchaudio
         >>> waveform = torch.rand(1, 666666)
         >>> sample_rate = 22050
-        >>> torchaudio.save(str(getfixture('tmpdir') / "test.wav"), waveform, sample_rate)
+        >>> torchaudio.save(
+        ...     str(getfixture("tmpdir") / "test.wav"), waveform, sample_rate
+        ... )
         """
         if self.first_call:
             self.hparams.generator.remove_weight_norm()
@@ -273,7 +276,9 @@ class DiffWaveVocoder(Pretrained):
         >>> import torchaudio
         >>> waveform = torch.rand(1, 666666)
         >>> sample_rate = 22050
-        >>> torchaudio.save(str(getfixture('tmpdir') / "test.wav"), waveform, sample_rate)
+        >>> torchaudio.save(
+        ...     str(getfixture("tmpdir") / "test.wav"), waveform, sample_rate
+        ... )
         """
         with torch.no_grad():
             waveform = self.infer(
@@ -293,14 +298,21 @@ class DiffWaveVocoder(Pretrained):
 class UnitHIFIGAN(Pretrained):
     """
     A ready-to-use wrapper for Unit HiFiGAN (discrete units -> waveform).
+
     Arguments
     ---------
-    hparams
-        Hyperparameters (from HyperPyYAML)
+    *args : tuple
+        See `Pretrained`
+    **kwargs : dict
+        See `Pretrained`
+
     Example
     -------
-    >>> tmpdir_vocoder = getfixture('tmpdir') / "vocoder"
-    >>> hifi_gan = UnitHIFIGAN.from_hparams(source="speechbrain/hifigan-hubert-l1-3-7-12-18-23-k1000-LibriTTS", savedir=tmpdir_vocoder)
+    >>> tmpdir_vocoder = getfixture("tmpdir") / "vocoder"
+    >>> hifi_gan = UnitHIFIGAN.from_hparams(
+    ...     source="speechbrain/hifigan-hubert-l1-3-7-12-18-23-k1000-LibriTTS",
+    ...     savedir=tmpdir_vocoder,
+    ... )
     >>> codes = torch.randint(0, 99, (100, 1))
     >>> waveform = hifi_gan.decode_unit(codes)
     """
@@ -316,12 +328,14 @@ class UnitHIFIGAN(Pretrained):
 
     def decode_batch(self, units, spk=None):
         """Computes waveforms from a batch of discrete units
+
         Arguments
         ---------
         units: torch.tensor
             Batch of discrete units [batch, codes]
         spk: torch.tensor
             Batch of speaker embeddings [batch, spk_dim]
+
         Returns
         -------
         waveforms: torch.tensor
@@ -334,10 +348,9 @@ class UnitHIFIGAN(Pretrained):
 
         # Ensure that the units sequence has a length of at least 3
         if units.size(1) < 3:
-            logger.error(
+            raise ValueError(
                 "The 'units' argument should have a length of at least 3 because of padding size."
             )
-            quit()
 
         # Increment units if tokenization is enabled
         if self.tokenize:
@@ -368,10 +381,9 @@ class UnitHIFIGAN(Pretrained):
 
         # Ensure that the units sequence has a length of at least 4
         if units.size(0) < 4:
-            logger.error(
+            raise ValueError(
                 "The 'units' argument should have a length of at least 4 because of padding size."
             )
-            quit()
 
         # Increment units if tokenization is enabled
         if self.tokenize:

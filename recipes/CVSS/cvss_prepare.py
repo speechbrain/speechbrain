@@ -17,6 +17,7 @@ import torchaudio
 import tqdm
 
 from speechbrain.dataio.dataio import load_pkl, save_pkl
+from speechbrain.utils.logger import get_logger
 
 OPT_FILE = "opt_cvss_prepare.pkl"
 
@@ -40,7 +41,7 @@ SMALL_EVAL_SIZE = 1000
 
 log_format = "[%(asctime)s] [%(levelname)s]: %(message)s"
 logging.basicConfig(format=log_format, level=logging.INFO)
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def prepare_cvss(
@@ -215,7 +216,11 @@ def prepare_json(
 
     json_dict = {}
     tgt_meta = list(
-        csv.reader(open(tgt_split), delimiter="\t", quoting=csv.QUOTE_NONE)
+        csv.reader(
+            open(tgt_split, newline="", encoding="utf-8"),
+            delimiter="\t",
+            quoting=csv.QUOTE_NONE,
+        )
     )
 
     limit_to_n_sample = (
@@ -246,7 +251,7 @@ def prepare_json(
         }
 
     # Writing the dictionary to the json file
-    with open(json_file, mode="w") as json_f:
+    with open(json_file, mode="w", encoding="utf-8") as json_f:
         json.dump(json_dict, json_f, indent=2)
 
     logger.info(f"{json_file} successfully created!")

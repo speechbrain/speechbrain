@@ -6,7 +6,7 @@
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 78
-__set_seed: !apply:torch.manual_seed [!ref <seed>]
+__set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
 output_folder: !ref results/zed_wavlm_large/<seed>
 eder_file: !ref <output_folder>/eder.txt
 save_folder: !ref <output_folder>/save
@@ -80,7 +80,7 @@ input_norm: !new:speechbrain.processing.features.InputNormalization
     norm_type: sentence
     std_norm: False
 
-wav2vec2: !new:speechbrain.lobes.models.huggingface_transformers.wavlm.WavLM
+wav2vec2: !new:speechbrain.integrations.huggingface.wavlm.WavLM
     source: !ref <wav2vec2_hub>
     output_norm: True
     freeze: !ref <freeze_wav2vec2>

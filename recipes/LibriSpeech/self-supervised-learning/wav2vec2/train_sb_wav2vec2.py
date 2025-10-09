@@ -12,7 +12,6 @@ Authors
     * Titouan Parcollet 2022
 """
 
-import logging
 import sys
 import time
 from functools import partial
@@ -24,7 +23,6 @@ from torch.nn.parallel import DistributedDataParallel
 
 import speechbrain as sb
 from speechbrain import Stage
-from speechbrain.core import AMPConfig
 from speechbrain.dataio.dataloader import SaveableDataLoader
 from speechbrain.dataio.sampler import DynamicBatchSampler
 from speechbrain.lobes.models.wav2vec import (
@@ -32,8 +30,9 @@ from speechbrain.lobes.models.wav2vec import (
     w2v_mask_collate_fn,
 )
 from speechbrain.utils.distributed import run_on_main
+from speechbrain.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class W2V2Brain(sb.core.Brain):
@@ -124,21 +123,11 @@ class W2V2Brain(sb.core.Brain):
         return objectives
 
     def fit_batch(self, batch):
-        amp = AMPConfig.from_name(self.precision)
         should_step = (self.step % self.grad_accumulation_factor) == 0
 
         # Managing automatic mixed precision
         with self.no_sync(not should_step):
-            if self.use_amp:
-                with torch.autocast(
-                    dtype=amp.dtype,
-                    device_type=torch.device(self.device).type,
-                ):
-                    outputs = self.compute_forward(batch, Stage.TRAIN)
-                    objectives = self.compute_objectives(
-                        outputs, batch, Stage.TRAIN
-                    )
-            else:
+            with self.training_ctx:
                 outputs = self.compute_forward(batch, Stage.TRAIN)
                 objectives = self.compute_objectives(
                     outputs, batch, Stage.TRAIN
@@ -211,7 +200,6 @@ class W2V2Brain(sb.core.Brain):
             self.train_stats = stage_stats
 
         if stage == sb.Stage.VALID:
-            print(self.acc_metric)
             stage_stats["accuracy"] = sum(self.acc_metric) / len(
                 self.acc_metric
             )
@@ -321,12 +309,11 @@ def dataio_prepare(hparams):
 
 
 def main():
-    logger.setLevel(logging.INFO)
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
 
     sb.utils.distributed.ddp_init_group(run_opts)
 
-    with open(hparams_file) as fin:
+    with open(hparams_file, encoding="utf-8") as fin:
         hparams = load_hyperpyyaml(fin, overrides)
     hparams.update(run_opts)
 
@@ -372,7 +359,6 @@ def main():
         train_dataset,
         valid_loader,
         train_loader_kwargs=train_loader_kwargs,
-        progressbar=False,
     )
 
 

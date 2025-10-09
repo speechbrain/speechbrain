@@ -1,0 +1,6 @@
+,Show,EpId,ClipId,Start,Stop,is_probably_host,speaker,clip_silhouette_score,SEP12k,SEP28k-E,SEP28k-T,SEP28k-D,Unsure,PoorAudioQuality,Prolongation,Block,SoundRep,WordRep,DifficultToUnderstand,Interjection,NoStutteredWords,NaturalPause,Music,NoSpeech,ID
+0,HeStutters,0,0,31900320,31948320,True,Pamela Mertz,0.5658465623855591,,train,test,test,0,0,0,0,0,0,0,0,3,1,0,0,0
+1,HeStutters,0,1,31977120,32025120,True,Pamela Mertz,0.440298318862915,,train,test,test,0,0,0,0,0,0,0,0,3,1,0,0,1
+6,HeStutters,0,6,37251200,37299200,True,Pamela Mertz,0.587060809135437,,train,test,test,0,0,0,0,0,0,0,0,3,0,0,0,6
+47,HeStutters,1,7,28506080,28554080,True,Pamela Mertz,0.4428032636642456,,train,test,test,0,0,0,0,0,3,1,0,0,1,0,0,47
+48,HeStutters,1,8,28539840,28587840,True,Pamela Mertz,0.2785152792930603,,train,test,test,0,0,0,0,0,2,0,0,1,0,0,0,48

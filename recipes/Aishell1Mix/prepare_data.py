@@ -74,7 +74,7 @@ def prepare_aishell1mix(
     if not os.path.exists(wham_dir):
         print("Download Wham noise dataset into %s" % datapath)
         urlretrieve(
-            "https://storage.googleapis.com/whisper-public/wham_noise.zip",
+            "https://my-bucket-a8b4b49c25c811ee9a7e8bba05fa24c7.s3.amazonaws.com/wham_noise.zip",
             os.path.join(datapath, "wham_noise.zip"),
             reporthook=reporthook,
         )
@@ -162,16 +162,16 @@ def prepare_aishell1mix(
     if "Aishell1" in aishell1mix_outdir:
         # Aishell1 Mix2/3 datasets
         if n_spks == 2:
-            assert (
-                "Aishell1Mix2" in aishell1mix_outdir
-            ), "Inconsistent number of speakers and datapath"
+            assert "Aishell1Mix2" in aishell1mix_outdir, (
+                "Inconsistent number of speakers and datapath"
+            )
             create_aishell1mix2_csv(
                 aishell1mix_outdir, savepath, addnoise=aishell1mix_addnoise
             )
         elif n_spks == 3:
-            assert (
-                "Aishell1Mix3" in aishell1mix_outdir
-            ), "Inconsistent number of speakers and datapath"
+            assert "Aishell1Mix3" in aishell1mix_outdir, (
+                "Inconsistent number of speakers and datapath"
+            )
             create_aishell1mix3_csv(
                 aishell1mix_outdir, savepath, addnoise=aishell1mix_addnoise
             )
@@ -227,7 +227,10 @@ def create_aishell1mix2_csv(
         ]
 
         with open(
-            savepath + "/aishell1mix2_" + set_type + ".csv", "w"
+            savepath + "/aishell1mix2_" + set_type + ".csv",
+            "w",
+            newline="",
+            encoding="utf-8",
         ) as csvfile:
             writer = csv.DictWriter(csvfile, fieldnames=csv_columns)
             writer.writeheader()
@@ -304,7 +307,10 @@ def create_aishell1mix3_csv(
         ]
 
         with open(
-            savepath + "/aishell1mix3_" + set_type + ".csv", "w"
+            savepath + "/aishell1mix3_" + set_type + ".csv",
+            "w",
+            newline="",
+            encoding="utf-8",
         ) as csvfile:
             writer = csv.DictWriter(csvfile, fieldnames=csv_columns)
             writer.writeheader()
@@ -366,7 +372,7 @@ def apply_fx(sound_path, speed):
     s = fx(s)
     # Write the file
     sf.write(
-        f"""{sound_path.replace('.wav', f"sp{str(speed).replace('.', '')}" + '.wav')}""",
+        f"""{sound_path.replace(".wav", f"sp{str(speed).replace('.', '')}" + ".wav")}""",
         s,
         rate,
     )

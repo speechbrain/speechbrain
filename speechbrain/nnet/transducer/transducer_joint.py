@@ -4,12 +4,12 @@ Author
     Abdelwahab HEBA 2020
 """
 
-import logging
-
 import torch
 import torch.nn as nn
 
-logger = logging.getLogger(__name__)
+from speechbrain.utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class Transducer_joint(nn.Module):
@@ -28,7 +28,9 @@ class Transducer_joint(nn.Module):
 
     Example
     -------
-    >>> from speechbrain.nnet.transducer.transducer_joint import Transducer_joint
+    >>> from speechbrain.nnet.transducer.transducer_joint import (
+    ...     Transducer_joint,
+    ... )
     >>> from speechbrain.nnet.linear import Linear
     >>> input_TN = torch.rand(8, 200, 1, 40)
     >>> input_PN = torch.rand(8, 1, 12, 40)

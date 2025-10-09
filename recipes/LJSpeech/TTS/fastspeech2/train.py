@@ -11,7 +11,6 @@ synthesis' paper
  * Pradnya Kandarkar 2023
 """
 
-import logging
 import os
 import sys
 from pathlib import Path
@@ -25,9 +24,10 @@ import speechbrain as sb
 from speechbrain.inference.text import GraphemeToPhoneme
 from speechbrain.inference.vocoders import HIFIGAN
 from speechbrain.utils.data_utils import scalarize
+from speechbrain.utils.logger import get_logger
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class FastSpeech2Brain(sb.Brain):
@@ -514,9 +514,9 @@ def dataio_prepare(hparams):
         label_phoneme = label_phoneme.split()
         text_seq = input_encoder.encode_sequence_torch(label_phoneme).int()
 
-        assert len(text_seq) == len(
-            durs
-        ), f"{len(text_seq)}, {len(durs), len(label_phoneme)}, ({label_phoneme})"  # ensure every token has a duration
+        assert len(text_seq) == len(durs), (
+            f"{len(text_seq)}, {len(durs), len(label_phoneme)}, ({label_phoneme})"
+        )  # ensure every token has a duration
 
         no_spn_label, last_phonemes = list(), list()
         for i in range(len(label_phoneme)):
@@ -570,7 +570,7 @@ def dataio_prepare(hparams):
 
 def main():
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
-    with open(hparams_file) as fin:
+    with open(hparams_file, encoding="utf-8") as fin:
         hparams = load_hyperpyyaml(fin, overrides)
     sb.utils.distributed.ddp_init_group(run_opts)
 

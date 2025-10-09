@@ -4,8 +4,6 @@ Authors
  * Titouan Parcollet 2020
 """
 
-import logging
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -17,8 +15,9 @@ from speechbrain.nnet.complex_networks.c_ops import (
     complex_init,
     unitary_init,
 )
+from speechbrain.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class CConv1d(torch.nn.Module):

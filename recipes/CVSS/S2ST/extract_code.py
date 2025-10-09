@@ -18,7 +18,8 @@ from tqdm import tqdm
 
 import speechbrain as sb
 from speechbrain.dataio.dataio import load_pkl, save_pkl
-from speechbrain.lobes.models.huggingface_transformers.wav2vec2 import Wav2Vec2
+from speechbrain.integrations.huggingface.wav2vec2 import Wav2Vec2
+from speechbrain.utils.logger import get_logger
 
 OPT_FILE = "opt_cvss_extract.pkl"
 TRAIN_JSON = "train.json"
@@ -31,7 +32,7 @@ def setup_logger():
     """Set up a logger with a log format and logging level."""
     log_format = "[%(asctime)s] [%(levelname)s]: %(message)s"
     logging.basicConfig(format=log_format, level=logging.INFO)
-    logger = logging.getLogger(__name__)
+    logger = get_logger(__name__)
     return logger
 
 
@@ -39,8 +40,8 @@ def get_device(use_cuda):
     """Determine and return the appropriate device for computation."""
     use_cuda = use_cuda and torch.cuda.is_available()
     print("\n" + "=" * 30)
-    print("USE_CUDA SET TO: {}".format(use_cuda))
-    print("CUDA AVAILABLE?: {}".format(torch.cuda.is_available()))
+    print(f"USE_CUDA SET TO: {use_cuda}")
+    print(f"CUDA AVAILABLE?: {torch.cuda.is_available()}")
     print("=" * 30 + "\n")
     return torch.device("cuda" if use_cuda else "cpu")
 
@@ -143,13 +144,15 @@ def extract_cvss(
     Example
     -------
     >>> from recipes.CVSS.S2ST.extract_code import extract_cvss
-    >>> data_folder = 'data/CVSS/'
-    >>> splits = ['train', 'valid']
+    >>> data_folder = "data/CVSS/"
+    >>> splits = ["train", "valid"]
     >>> kmeans_folder = ./Quantization/results/kmeans/4321/save
-    >>> encoder = facebook/hubert-base-ls960
+    >>> encoder = facebook / hubert - base - ls960
     >>> layer = 6
-    >>> save_folder = 'save/'
-    >>> extract_cvss(data_folder, splits, kmeans_folder, encoder, layer, save_folder)
+    >>> save_folder = "save/"
+    >>> extract_cvss(
+    ...     data_folder, splits, kmeans_folder, encoder, layer, save_folder
+    ... )
     """
     logger = setup_logger()
 
@@ -213,7 +216,7 @@ def extract_cvss(
     for split in splits:
         dataset_path = data_folder / f"{split}.json"
         logger.info(f"Reading dataset from {dataset_path} ...")
-        meta_json = json.load(open(dataset_path))
+        meta_json = json.load(open(dataset_path, encoding="utf-8"))
         for key in tqdm(meta_json.keys()):
             item = meta_json[key]
             wav = item["tgt_audio"]

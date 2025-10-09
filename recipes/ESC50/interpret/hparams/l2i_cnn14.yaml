@@ -9,7 +9,7 @@
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 1234
-__set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
+__set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
 
 overlap_type: "mixtures"
 
@@ -17,6 +17,8 @@ int_method: "l2i"
 
 # this is needed for ood evaluation with ljspeech, when using eval.py
 ljspeech_path: null
+
+single_sample: null
 
 # this is needed when using eval.py to specify the path for the psi_model.ckpt
 # the typical path would be similar to results/LMAC_cnn14/1234/save/CKPT+2024-06-20+16-05-44+00/psi_model.ckpt

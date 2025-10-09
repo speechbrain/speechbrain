@@ -7,7 +7,6 @@ Dongwon Kim, Dongwoo Kim 2021
 """
 
 import csv
-import logging
 import os
 import re
 
@@ -15,8 +14,9 @@ import torchaudio
 
 from speechbrain.dataio.dataio import load_pkl, merge_csvs, save_pkl
 from speechbrain.utils.data_utils import get_all_files
+from speechbrain.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 OPT_FILE = "opt_ksponspeech_prepare.pkl"
 SAMPLERATE = 16000
 
@@ -185,7 +185,7 @@ def create_csv(save_folder, wav_lst, text_dict, split, select_n_sentences):
             break
 
     # Writing the csv_lines
-    with open(csv_file, mode="w") as csv_f:
+    with open(csv_file, mode="w", newline="", encoding="utf-8") as csv_f:
         csv_writer = csv.writer(
             csv_f, delimiter=",", quotechar='"', quoting=csv.QUOTE_MINIMAL
         )
@@ -258,7 +258,7 @@ def text_to_dict(trnpath):
     # Initialization of the text dictionary
     text_dict = {}
     # Reading all the transcription files is text_lst
-    with open(trnpath, "r") as f:
+    with open(trnpath, encoding="utf-8") as f:
         # Reading all line of the transcription file
         for line in f:
             filename, raw_script = line.split(" :: ")
@@ -326,30 +326,30 @@ def split2dirs(split):
 
     elif split == "dev":
         dirs = [
-            "train/KsponSpeech_05/KsponSpeech_{0:>04d}".format(num)
+            f"train/KsponSpeech_05/KsponSpeech_{num:>04d}"
             for num in range(621, 624)
         ]
 
     elif split == "train":
         dirs = (
             [
-                "train/KsponSpeech_01/KsponSpeech_{0:>04d}".format(num)
+                f"train/KsponSpeech_01/KsponSpeech_{num:>04d}"
                 for num in range(1, 125)
             ]
             + [
-                "train/KsponSpeech_02/KsponSpeech_{0:>04d}".format(num)
+                f"train/KsponSpeech_02/KsponSpeech_{num:>04d}"
                 for num in range(125, 249)
             ]
             + [
-                "train/KsponSpeech_03/KsponSpeech_{0:>04d}".format(num)
+                f"train/KsponSpeech_03/KsponSpeech_{num:>04d}"
                 for num in range(249, 373)
             ]
             + [
-                "train/KsponSpeech_04/KsponSpeech_{0:>04d}".format(num)
+                f"train/KsponSpeech_04/KsponSpeech_{num:>04d}"
                 for num in range(373, 497)
             ]
             + [
-                "train/KsponSpeech_05/KsponSpeech_{0:>04d}".format(num)
+                f"train/KsponSpeech_05/KsponSpeech_{num:>04d}"
                 for num in range(497, 621)
             ]
         )

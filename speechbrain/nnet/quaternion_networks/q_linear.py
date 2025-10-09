@@ -5,8 +5,6 @@ Authors
  * Drew Wagner 2024
 """
 
-import logging
-
 import torch
 
 from speechbrain.nnet.quaternion_networks.q_ops import (
@@ -19,8 +17,9 @@ from speechbrain.nnet.quaternion_networks.q_ops import (
     renorm_quaternion_weights_inplace,
     unitary_init,
 )
+from speechbrain.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class QLinear(torch.nn.Module):
@@ -81,7 +80,9 @@ class QLinear(torch.nn.Module):
     Example
     -------
     >>> inputs = torch.rand(10, 50, 40)
-    >>> lin = QLinear(n_neurons=100, input_shape=inputs.shape, weight_init='unitary')
+    >>> lin = QLinear(
+    ...     n_neurons=100, input_shape=inputs.shape, weight_init="unitary"
+    ... )
     >>> output = lin(inputs)
     >>> output.shape
     torch.Size([10, 50, 400])

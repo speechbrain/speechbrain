@@ -9,11 +9,14 @@ Authors
     * Francesco Paissan 2024
     * Cem Subakan 2024
 """
+
 import os
 import random
 import sys
 
+import matplotlib.pyplot as plt
 import torch
+import torchaudio
 import torchaudio.datasets as dts
 import torchaudio.transforms as T
 from esc50_prepare import dataio_prep, prepare_esc50
@@ -56,12 +59,23 @@ class LJSPEECH_split(dts.LJSPEECH):
 
 
 class ESCContaminated(torch.utils.data.Dataset):
+    """ESC50 Contaminated dataset
+
+    Arguments
+    ---------
+    esc50_ds : dataset
+        the ESC50 dataset as per training.
+    cont_d : dataset
+        the contamination dataset.
+    overlap_multiplier : int
+        number of overlaps
+    overlap_type : str
+        one of "mixtures" or "LJSpeech" or "white_noise"
+    """
+
     def __init__(
         self, esc50_ds, cont_d, overlap_multiplier=2, overlap_type="mixtures"
     ):
-        """esc50_ds is the ESC50 dataset as per training.
-        cont_d is the contamination dataset.
-        overlap_multiplier works as before"""
         super().__init__()
 
         self.esc50_ds = esc50_ds
@@ -130,7 +144,7 @@ class ESCContaminated(torch.utils.data.Dataset):
 if __name__ == "__main__":
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
 
-    with open(hparams_file) as fin:
+    with open(hparams_file, encoding="utf-8") as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
     if hparams["add_wham_noise"]:
@@ -149,9 +163,9 @@ if __name__ == "__main__":
         )
 
     if hparams["overlap_type"] == "LJSpeech":
-        assert (
-            ljspeech_tr is not None
-        ), "Specify a path if you want to generate OOD with LJSpeech."
+        assert ljspeech_tr is not None, (
+            "Specify a path if you want to generate OOD with LJSpeech."
+        )
 
     run_on_main(
         prepare_esc50,
@@ -213,9 +227,9 @@ if __name__ == "__main__":
     if hparams["add_wham_noise"]:
         ood_dataset = datasets["valid"]
 
-    assert (
-        hparams["pretrained_interpreter"] is not None
-    ), "You need to specify a path for the pretrained_interpreter!"
+    assert hparams["pretrained_interpreter"] is not None, (
+        "You need to specify a path for the pretrained_interpreter!"
+    )
     hparams["psi_model"].load_state_dict(
         torch.load(hparams["pretrained_interpreter"], map_location="cpu")
     )
@@ -241,13 +255,57 @@ if __name__ == "__main__":
             run_opts=run_opts,
         )
 
-    Interpreter.evaluate(
-        test_set=ood_dataset,
-        min_key="loss",
-        progressbar=True,
-        test_loader_kwargs=(
-            {"collate_fn": lambda x: x[0], "batch_size": 1}
-            if not hparams["add_wham_noise"]
-            else {"batch_size": 2}
-        ),
-    )
+    if hparams["single_sample"] is None:
+        Interpreter.evaluate(
+            test_set=ood_dataset,
+            min_key="loss",
+            progressbar=True,
+            test_loader_kwargs=(
+                {"collate_fn": lambda x: x[0], "batch_size": 1}
+                if not hparams["add_wham_noise"]
+                else {"batch_size": 2}
+            ),
+        )
+
+    else:
+        wav, sr = torchaudio.load(hparams["single_sample"])
+        wav = T.Resample(sr, hparams["sample_rate"])(wav).to(run_opts["device"])
+
+        with torch.no_grad():
+            X_int, _, X_stft_phase, X_orig = (
+                Interpreter.interpret_computation_steps(wav)
+            )
+
+        # make sure shapes are ok
+        X_int = X_int.transpose(1, 2)
+        X_orig = X_orig[:, : X_int.shape[1]]
+        X_stft_phase = X_stft_phase[:, : X_int.shape[1]]
+
+        def plot_spec(X, suffix=""):
+            X = X.expm1()
+            X = X ** (1 / 3)
+
+            plt.figure(figsize=(5, 5))
+            plt.matshow(
+                X.cpu().numpy()[0].T,
+                aspect="auto",
+                origin="lower",
+                cmap="inferno",
+            )
+            plt.axis("off")
+            plt.savefig(
+                ".".join(hparams["single_sample"].split(".")[:-1])
+                + f"_{suffix}.pdf"
+            )
+
+        plot_spec(X_int, "int")
+        plot_spec(X_orig, "orig")
+
+        X_int = X_int[..., None]
+        xhat_tm = Interpreter.invert_stft_with_phase(X_int, X_stft_phase).cpu()
+
+        torchaudio.save(
+            ".".join(hparams["single_sample"].split(".")[:-1]) + "_int.wav",
+            xhat_tm,
+            hparams["sample_rate"],
+        )

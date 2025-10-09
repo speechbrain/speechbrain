@@ -1,0 +1,8 @@
+datasets
+# Numba is used if use_torchaudio=False
+# Numba might be faster, but it is harder to install
+# You might need to install numba with conda
+# You might also need to install other packages such as cudatoolkit
+numba
+soundfile
+speechcolab

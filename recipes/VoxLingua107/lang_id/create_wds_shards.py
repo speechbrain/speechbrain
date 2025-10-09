@@ -100,7 +100,7 @@ def write_shards(
         "num_data_samples": len(data_tuples),
     }
 
-    with (shards_path / "meta.json").open("w") as f:
+    with (shards_path / "meta.json").open("w", encoding="utf-8") as f:
         json.dump(meta_dict, f)
 
     # shuffle the tuples so that each shard has a large variety in languages

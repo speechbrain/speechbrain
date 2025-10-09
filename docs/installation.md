@@ -5,7 +5,7 @@ SpeechBrain is constantly evolving. New features, tutorials, and documentation w
 
 SpeechBrain supports both CPU and GPU computation. For most recipes, however, a GPU is necessary during training. Please note that CUDA must be properly installed to use GPUs.
 
-We support [PyTorch](https://pytorch.org/get-started/locally/) 1.9+ and Python 3.8-3.12 (newer Python versions than advertised may work if supported by PyTorch).
+We support [PyTorch](https://pytorch.org/get-started/locally/) 1.9+ and Python 3.8.1-3.12 (newer Python versions than advertised may work if supported by PyTorch).
 We recommend you upgrade to at least 3.9+ as support for 3.8 will be removed eventually.
 
 ## Install via PyPI
@@ -56,6 +56,18 @@ You can run doctests with:
 ```
 tests/.run-doctests.sh
 ```
+
+## Recipe installation
+If you're trying to run a specific recipe, first follow the "Install locally" instructions above.
+
+Next, install any recipe-specific dependencies (if any) by executing:
+
+```bash
+cd recipes/<dataset>/<task>/
+pip install -r extra_requirements.txt
+```
+
+Any recipe-specific instructions should be clearly spelled out in the associated `README.md`.
 
 ## Operating Systems
 

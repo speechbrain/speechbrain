@@ -23,7 +23,7 @@ def create_cm_fig(cm, display_labels):
         Class labels to display.
 
     Returns
-    ---------
+    -------
     Confusion matrix figure : matplotlib.figure.Figure
     """
 

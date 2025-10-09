@@ -59,9 +59,9 @@ class BaseSemDistStats(MetricStats):
         ---------
         ids: list
             the string IDs for the samples
-        predictions: list
+        predict: list
             the model's predictions in tokenizable format
-        targets: list
+        target: list
             the ground truths in tokenizable format
         """
         self.ids.extend(ids)
@@ -139,7 +139,7 @@ class SemDistStats(BaseSemDistStats):
 
     Arguments
     ---------
-    lm : speechbrain.lobes.models.huggingface_transformers.TextEncoder
+    lm : speechbrain.integrations.huggingface.TextEncoder
         HF Transformers tokenizer and text encoder wrapper to use as a LM.
     method : "meanpool" or "cls"
         - `"meanpool"` (default): Computes the mean of all contextualized

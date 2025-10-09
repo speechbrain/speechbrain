@@ -22,7 +22,6 @@ Authors
 """
 
 import csv
-import logging
 import os
 import sys
 
@@ -35,8 +34,8 @@ from tqdm import tqdm
 
 import speechbrain as sb
 import speechbrain.nnet.schedulers as schedulers
-from speechbrain.core import AMPConfig
 from speechbrain.utils.distributed import run_on_main
+from speechbrain.utils.logger import get_logger
 
 
 # from: recipes/LibriMix/separation/train.py
@@ -112,8 +111,6 @@ class Separation(sb.Brain):
 
     def fit_batch(self, batch):
         """Trains one batch"""
-        amp = AMPConfig.from_name(self.precision)
-        should_step = (self.step % self.grad_accumulation_factor) == 0
 
         # Unpacking batch list
         mixture = batch.mix_sig
@@ -126,78 +123,37 @@ class Separation(sb.Brain):
         if self.hparams.num_spks == 3:
             targets.append(batch.s3_sig)
 
-        with self.no_sync(not should_step):
-            if self.use_amp:
-                with torch.autocast(
-                    dtype=amp.dtype,
-                    device_type=torch.device(self.device).type,
-                ):
-                    predictions, targets = self.compute_forward(
-                        mixture, targets, sb.Stage.TRAIN, noise
-                    )
-                    loss = self.compute_objectives(predictions, targets)
+        with self.training_ctx:
+            predictions, targets = self.compute_forward(
+                mixture, targets, sb.Stage.TRAIN, noise
+            )
+            loss = self.compute_objectives(predictions, targets)
 
-                    # hard threshold the easy dataitems
-                    if self.hparams.threshold_byloss:
-                        th = self.hparams.threshold
-                        loss_to_keep = loss[loss > th]
-                        if loss_to_keep.nelement() > 0:
-                            loss = loss_to_keep.mean()
-                    else:
-                        loss = loss.mean()
-
-                if (
-                    loss < self.hparams.loss_upper_lim and loss.nelement() > 0
-                ):  # the fix for computational problems
-                    self.scaler.scale(loss).backward()
-                    if self.hparams.clip_grad_norm >= 0:
-                        self.scaler.unscale_(self.optimizer)
-                        torch.nn.utils.clip_grad_norm_(
-                            self.modules.parameters(),
-                            self.hparams.clip_grad_norm,
-                        )
-                    self.scaler.step(self.optimizer)
-                    self.scaler.update()
-                else:
-                    self.nonfinite_count += 1
-                    logger.info(
-                        "infinite loss or empty loss! it happened {} times so far - skipping this batch".format(
-                            self.nonfinite_count
-                        )
-                    )
-                    loss.data = torch.tensor(0.0).to(self.device)
+            # hard threshold the easy dataitems
+            if self.hparams.threshold_byloss:
+                th = self.hparams.threshold
+                loss_to_keep = loss[loss > th]
+                if loss_to_keep.nelement() > 0:
+                    loss = loss_to_keep.mean()
             else:
-                predictions, targets = self.compute_forward(
-                    mixture, targets, sb.Stage.TRAIN, noise
+                loss = loss.mean()
+
+        if loss < self.hparams.loss_upper_lim and loss.nelement() > 0:
+            self.scaler.scale(loss).backward()
+            if self.hparams.clip_grad_norm >= 0:
+                self.scaler.unscale_(self.optimizer)
+                torch.nn.utils.clip_grad_norm_(
+                    self.modules.parameters(),
+                    self.hparams.clip_grad_norm,
                 )
-                loss = self.compute_objectives(predictions, targets)
-
-                if self.hparams.threshold_byloss:
-                    th = self.hparams.threshold
-                    loss_to_keep = loss[loss > th]
-                    if loss_to_keep.nelement() > 0:
-                        loss = loss_to_keep.mean()
-                else:
-                    loss = loss.mean()
-
-                if (
-                    loss < self.hparams.loss_upper_lim and loss.nelement() > 0
-                ):  # the fix for computational problems
-                    loss.backward()
-                    if self.hparams.clip_grad_norm >= 0:
-                        torch.nn.utils.clip_grad_norm_(
-                            self.modules.parameters(),
-                            self.hparams.clip_grad_norm,
-                        )
-                    self.optimizer.step()
-                else:
-                    self.nonfinite_count += 1
-                    logger.info(
-                        "infinite loss or empty loss! it happened {} times so far - skipping this batch".format(
-                            self.nonfinite_count
-                        )
-                    )
-                    loss.data = torch.tensor(0.0).to(self.device)
+            self.scaler.step(self.optimizer)
+            self.scaler.update()
+        else:
+            self.nonfinite_count += 1
+            logger.info(
+                f"infinite loss or empty loss! it happened {self.nonfinite_count} times so far - skipping this batch"
+            )
+            loss.data = torch.tensor(0.0).to(self.device)
         self.optimizer.zero_grad()
 
         return loss.detach().cpu()
@@ -356,7 +312,7 @@ class Separation(sb.Brain):
             test_data, **self.hparams.dataloader_opts
         )
 
-        with open(save_file, "w") as results_csv:
+        with open(save_file, "w", newline="", encoding="utf-8") as results_csv:
             writer = csv.DictWriter(results_csv, fieldnames=csv_columns)
             writer.writeheader()
 
@@ -426,10 +382,10 @@ class Separation(sb.Brain):
                 }
                 writer.writerow(row)
 
-        logger.info("Mean SISNR is {}".format(np.array(all_sisnrs).mean()))
-        logger.info("Mean SISNRi is {}".format(np.array(all_sisnrs_i).mean()))
-        logger.info("Mean SDR is {}".format(np.array(all_sdrs).mean()))
-        logger.info("Mean SDRi is {}".format(np.array(all_sdrs_i).mean()))
+        logger.info(f"Mean SISNR is {np.array(all_sisnrs).mean()}")
+        logger.info(f"Mean SISNRi is {np.array(all_sisnrs_i).mean()}")
+        logger.info(f"Mean SDR is {np.array(all_sdrs).mean()}")
+        logger.info(f"Mean SDRi is {np.array(all_sdrs_i).mean()}")
 
     def save_audio(self, snt_id, mixture, targets, predictions):
         "saves the test audio (mixture, targets, and estimated sources) on disk"
@@ -444,7 +400,7 @@ class Separation(sb.Brain):
             signal = predictions[0, :, ns]
             signal = signal / signal.abs().max()
             save_file = os.path.join(
-                save_path, "item{}_source{}hat.wav".format(snt_id, ns + 1)
+                save_path, f"item{snt_id}_source{ns + 1}hat.wav"
             )
             torchaudio.save(
                 save_file, signal.unsqueeze(0).cpu(), self.hparams.sample_rate
@@ -454,7 +410,7 @@ class Separation(sb.Brain):
             signal = targets[0, :, ns]
             signal = signal / signal.abs().max()
             save_file = os.path.join(
-                save_path, "item{}_source{}.wav".format(snt_id, ns + 1)
+                save_path, f"item{snt_id}_source{ns + 1}.wav"
             )
             torchaudio.save(
                 save_file, signal.unsqueeze(0).cpu(), self.hparams.sample_rate
@@ -463,7 +419,7 @@ class Separation(sb.Brain):
         # Mixture
         signal = mixture[0][0, :]
         signal = signal / signal.abs().max()
-        save_file = os.path.join(save_path, "item{}_mix.wav".format(snt_id))
+        save_file = os.path.join(save_path, f"item{snt_id}_mix.wav")
         torchaudio.save(
             save_file, signal.unsqueeze(0).cpu(), self.hparams.sample_rate
         )
@@ -561,14 +517,14 @@ def dataio_prep(hparams):
 if __name__ == "__main__":
     # Load hyperparameters file with command-line overrides
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
-    with open(hparams_file) as fin:
+    with open(hparams_file, encoding="utf-8") as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
     # Initialize ddp (useful only for multi-GPU DDP training)
     sb.utils.distributed.ddp_init_group(run_opts)
 
     # Logger info
-    logger = logging.getLogger(__name__)
+    logger = get_logger(__name__)
 
     # If device is cpu use precision='bf16'
 

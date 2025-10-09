@@ -7,7 +7,6 @@ Authors
 * Titouan Parcollet 2022
 """
 
-import logging
 import random
 
 import numpy as np
@@ -22,8 +21,6 @@ from speechbrain.nnet.CNN import Conv1d
 from speechbrain.nnet.normalization import LayerNorm
 from speechbrain.nnet.quantisers import GumbelVectorQuantizer
 from speechbrain.utils.data_utils import batch_pad_right
-
-logger = logging.getLogger()
 
 
 class W2VLatentExtractor(nn.Module):
@@ -186,8 +183,12 @@ class EncoderWrapper(nn.Module):
 
     Example
     -------
-    >>> from speechbrain.lobes.models.transformer.Transformer import TransformerEncoder
-    >>> encoder = TransformerEncoder(d_model=768, num_layers=4, nhead=4, d_ffn=1024)
+    >>> from speechbrain.lobes.models.transformer.Transformer import (
+    ...     TransformerEncoder,
+    ... )
+    >>> encoder = TransformerEncoder(
+    ...     d_model=768, num_layers=4, nhead=4, d_ffn=1024
+    ... )
     >>> wrapper = EncoderWrapper(1024, 768, encoder)
     >>> inputs = torch.rand(10, 12, 1024)
     >>> outputs = wrapper(inputs)

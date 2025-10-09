@@ -10,7 +10,7 @@
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 5988
-__set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
+__set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
 debug: False
 output_folder: !ref results/w2v2_st/<seed>
 save_folder: !ref <output_folder>/save
@@ -95,7 +95,7 @@ test_beam_size: 5
 
 ############################## models ################################
 #wav2vec model
-wav2vec2: !new:speechbrain.lobes.models.huggingface_transformers.wav2vec2.Wav2Vec2
+wav2vec2: !new:speechbrain.integrations.huggingface.wav2vec2.Wav2Vec2
     source: !ref <wav2vec2_hub>
     output_norm: True
     freeze: !ref <wav2vec2_frozen>
@@ -193,8 +193,6 @@ test_search: !new:speechbrain.decoders.S2STransformerBeamSearcher
     using_eos_threshold: True
     length_normalization: True
 
-bleu_computer: !name:speechbrain.utils.bleu.BLEUStats
-    merge_words: False
-    lang: !ref <lang>
+bleu_computer: !name:speechbrain.integrations.nlp.bleu.BLEUStats
 
 acc_computer: !name:speechbrain.utils.Accuracy.AccuracyStats

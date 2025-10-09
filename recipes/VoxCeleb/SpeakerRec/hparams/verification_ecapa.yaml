@@ -5,7 +5,7 @@
 # ################################
 
 seed: 1234
-__set_seed: !apply:torch.manual_seed [!ref <seed>]
+__set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
 
 # Folders and train_log file
 data_folder: !PLACEHOLDER #e.g., /localscratch/voxceleb1
