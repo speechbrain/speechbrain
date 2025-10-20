@@ -1,4 +1,5 @@
 -r lint-requirements.txt
+h5py
 huggingface_hub>=0.8.0
 hyperpyyaml>=0.0.1
 joblib>=0.14.1
