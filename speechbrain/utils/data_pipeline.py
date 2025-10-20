@@ -24,7 +24,10 @@ Author:
 """
 
 import inspect
+import pathlib
 from dataclasses import dataclass
+
+import torch
 
 from speechbrain.utils.depgraph import DependencyGraph
 
@@ -206,6 +209,108 @@ class GeneratorDynamicItem(DynamicItem):
             self.current_generator.close()
         self.current_generator = None
         self.num_provided_items = 0
+
+
+class CachedDynamicItem(DynamicItem):
+    """Caches the result of a data transform to the filesystem, so that
+    expensive data transforms can be done only once.
+
+    NOTE: Uses each item's unique "id" to determine location on disk. This
+    means that the id must be a valid filename on your system, and that
+    only one item can be stored per id -- so each cached item must have
+    its own storage location.
+
+    Arguments
+    ---------
+    cache_location : os.PathLike
+        Storage folder for containing each item's cached output.
+    *args
+    **kwargs
+        Forwarded to DynamicItem constructor
+    """
+
+    def __init__(self, cache_location, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        if not self.takes:
+            raise ValueError(
+                "Expected 'takes' list to have at least one item, but 'takes' is empty"
+            )
+        if not self.takes[0] == "id":
+            raise ValueError("First item in 'takes' list must be 'id'")
+
+        self.cache_location = pathlib.Path(cache_location)
+        self.cache_location.mkdir(parents=True, exist_ok=True)
+
+    def __call__(self, *args):
+        """If cached, return cached result. Otherwise, compute, cache, and return."""
+
+        # If its already in the cache, load and return
+        if self._is_cached(args[0]):
+            return self._load(args[0])
+
+        # Not cached, compute and save to cache
+        result = self.func(*args)
+        self._cache(result, args[0])
+
+        return result
+
+    def _is_cached(self, uid):
+        """Test whether uid is cached."""
+        return self._uid2path(uid).exists()
+
+    def _load(self, uid):
+        """Load result from cache"""
+        return torch.load(self._uid2path(uid))
+
+    def _cache(self, result, uid):
+        """Save the result to the cache"""
+        torch.save(result, self._uid2path(uid))
+
+    def _uid2path(self, uid):
+        """Convert a uid to a cache location"""
+        return self.cache_location / (uid + ".pt")
+
+
+def cache(save_dir):
+    """Decorator which takes a DynamicItem and creates a CachedDynamicItem
+
+    Arguments
+    ---------
+    save_dir : os.PathLike
+        Path to the directory where the cache should be stored.
+
+    Example
+    -------
+    >>> import os
+    >>> tempdir = getfixture("tmpdir")
+    >>> @cache(tempdir)
+    ... @takes("id", "text")
+    ... @provides("tokenized")
+    ... def tokenize(id, text):
+    ...     return text.strip().lower().split()
+    >>> os.listdir(tempdir)
+    []
+    >>> tokenize("utt_id", "\tThis Example gets tokenized")
+    ['this', 'example', 'gets', 'tokenized']
+    >>> os.listdir(tempdir)
+    ['utt_id.pt']
+    >>> torch.load(tempdir / "utt_id.pt")
+    ['this', 'example', 'gets', 'tokenized']
+    >>> # The output shouldn't change on the second call
+    >>> tokenize("utt_id", "\tThis Example gets tokenized")
+    ['this', 'example', 'gets', 'tokenized']
+    """
+
+    def decorator(obj):
+        """Decorator definition."""
+        if not isinstance(obj, DynamicItem):
+            raise ValueError("Can only cache a DynamicItem")
+        return CachedDynamicItem(
+            save_dir, takes=obj.takes, func=obj.func, provides=obj.provides
+        )
+
+    return decorator
 
 
 def takes(*argkeys):

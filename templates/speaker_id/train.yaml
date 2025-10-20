@@ -22,6 +22,7 @@ data_folder: ./data
 output_folder: !ref ./results/speaker_id/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
+feats_cache_dir: feature_cache
 
 # Path where data manifest files will be stored
 # The data manifest files are created by the data preparation script.
@@ -57,7 +58,9 @@ lr_start: 0.001
 lr_final: 0.0001
 n_classes: 28 # In this case, we have 28 speakers
 emb_dim: 512 # dimensionality of the embeddings
-num_workers: 4
+
+# Num workers must be 0 if cache is not created
+num_workers: 0
 dataloader_options:
     batch_size: !ref <batch_size>
     num_workers: !ref <num_workers>
