@@ -302,6 +302,18 @@ def dataio_prep(hparams):
             dynamic_items=dynamic_items,
             output_keys=output_keys,
         )
+        # Iterate data to create the cache
+        # Cache can also be created lazily, but that requires num_workers = 0
+        # as the features are created on the GPU. For HDF5, this also avoids
+        # opening the same file with "write" permissions on multiple processes.
+        if "feats_cache_dir" in hparams:
+            with datasets[dataset].output_keys_as(["feats"]):
+                for item in datasets[dataset]:
+                    pass
+
+    # Convert to read-only for multiprocess loading
+    if "feats_cache_dir" in hparams:
+        cached_feature_pipeline.change_file_mode("r")
 
     # Load or compute the label encoder (with multi-GPU DDP support)
     # Please, take a look into the lab_enc_file to see the label to index

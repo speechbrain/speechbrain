@@ -302,6 +302,9 @@ class CachedDynamicItem(DynamicItem):
         >>> # The output shouldn't change on the second call
         >>> tokenize("utt_id", "\tThis Example gets tokenized")
         ['this', 'example', 'gets', 'tokenized']
+        >>> # NOTE: NO INVALID CACHE DETECTION
+        >>> tokenize("utt_id", "Different sentence but same result")
+        ['this', 'example', 'gets', 'tokenized']
         """
 
         def decorator(obj):
@@ -338,11 +341,12 @@ class CachedHDF5DynamicItem(CachedDynamicItem):
 
         # Open connection to HDF5 file
         self.file_mode = file_mode
-        self.hdf5file = h5py.File(self.cache_location / "cache.hdf5", file_mode)
+        self.cache_location /= "cache.hdf5"
+        self.hdf5file = h5py.File(self.cache_location, file_mode)
 
     def _is_cached(self, uid):
         """Test whether uid is cached."""
-        return uid in self.hdf5file.keys()
+        return uid in self.hdf5file
 
     def _load(self, uid):
         """Load result from cache"""
@@ -351,6 +355,13 @@ class CachedHDF5DynamicItem(CachedDynamicItem):
     def _cache(self, result, uid):
         """Save the result to the cache"""
         self.hdf5file.create_dataset(uid, data=result)
+
+    def change_file_mode(self, new_file_mode):
+        """Change mode that the hdf5 file is opened with. Usually used to convert from
+        writing format (building cache) to read-only format (multi-process loading)."""
+        self.hdf5file.close()
+        self.file_mode = new_file_mode
+        self.hdf5file = h5py.File(self.cache_location, new_file_mode)
 
     @classmethod
     def cache(cls, cache_location, file_mode="a"):
@@ -372,17 +383,20 @@ class CachedHDF5DynamicItem(CachedDynamicItem):
         >>> @CachedHDF5DynamicItem.cache(tempdir)
         ... @takes("id", "text")
         ... @provides("tokenized")
-        ... def tokenize(id, text):
-        ...     return text.strip().lower().split()
-        >>> os.listdir(tempdir)
-        []
-        >>> tokenize("utt_id", "\tThis Example gets tokenized")
-        ['this', 'example', 'gets', 'tokenized']
-        >>> os.listdir(tempdir)
-        ['cache.hdf5']
+        ... def count_to(id, limit):
+        ...     return numpy.arange(limit)
+        >>> "utt_id" in count_to.hdf5file
+        False
+        >>> count_to("utt_id", 5)
+        array([0, 1, 2, 3, 4])
+        >>> "utt_id" in count_to.hdf5file
+        True
         >>> # The output shouldn't change on the second call
-        >>> tokenize("utt_id", "\tThis Example gets tokenized")
-        ['this', 'example', 'gets', 'tokenized']
+        >>> count_to("utt_id", 5)
+        array([0, 1, 2, 3, 4])
+        >>> # NOTE: NO INVALID CACHE DETECTION
+        >>> count_to("utt_id", 10)
+        array([0, 1, 2, 3, 4])
         """
 
         def decorator(obj):

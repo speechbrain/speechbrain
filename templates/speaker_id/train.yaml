@@ -58,9 +58,7 @@ lr_start: 0.001
 lr_final: 0.0001
 n_classes: 28 # In this case, we have 28 speakers
 emb_dim: 512 # dimensionality of the embeddings
-
-# Num workers must be 0 if cache is not created
-num_workers: 0
+num_workers: 4
 dataloader_options:
     batch_size: !ref <batch_size>
     num_workers: !ref <num_workers>
