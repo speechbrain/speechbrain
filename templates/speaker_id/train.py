@@ -194,7 +194,19 @@ class SpkIdBrain(sb.Brain):
 
 
 def compute_features(signal, length, embedding_model, mean_var_norm):
-    """Shared compute_features function between compute_forward and cached_feature_pipeline"""
+    """Shared compute_features function between compute_forward and cached_feature_pipeline
+
+    Arguments
+    ---------
+    signal : torch.Tensor
+        The input waveform to use for feature computation, shape [batch, time]
+    length : torch.Tensor
+        The relative length of the waveforms in the batch, shape [batch]
+    embedding_model : torch.nn.Module
+        The model to use for feature computation.
+    mean_var_norm : torch.nn.Module
+        The normalization module to use to ensure features are normally distributed.
+    """
     feats = embedding_model(signal)
     return mean_var_norm(feats, length)
 
@@ -255,14 +267,19 @@ def dataio_prep(hparams):
         @sb.utils.data_pipeline.takes("id", "sig")
         @sb.utils.data_pipeline.provides("feats")
         def cached_feature_pipeline(uid, sig):
+            """Defines data to be cached -- features will be computed on the
+            first pass through the data and stored to the filesystem for reuse."""
             # Fake batch dimension
             sig = sig.to("cuda").unsqueeze(0)
             length = torch.ones(1, device="cuda")
+            # Same function as used by compute_forward
             feats = compute_features(
                 sig, length, embedding_model, mean_var_norm
             )
+            # Remove fake batch dimension for future batching
             return feats.squeeze(0)
 
+        # Add item and key to the list for constructing the dynamic dataset
         dynamic_items.append(cached_feature_pipeline)
         output_keys.append("feats")
 
