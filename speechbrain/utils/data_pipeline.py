@@ -378,7 +378,7 @@ class CachedHDF5DynamicItem(CachedDynamicItem):
 
         Example
         -------
-        >>> import os
+        >>> import os, numpy
         >>> tempdir = getfixture("tmpdir")
         >>> @CachedHDF5DynamicItem.cache(tempdir)
         ... @takes("id", "text")
