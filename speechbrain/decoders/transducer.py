@@ -223,7 +223,7 @@ class TransducerBeamSearcher(torch.nn.Module):
         # For each time step
         for t_step in range(tn_output.size(1)):
             count = 0
-            while count <= max_iterations: #avoid infinite loop
+            while count <= max_iterations:  # avoid infinite loop
                 # do unsqueeze over since tjoint must be have a 4 dim [B,T,U,Hidden]
                 log_probs = self._joint_forward_step(
                     tn_output[:, t_step, :].unsqueeze(1).unsqueeze(1),
@@ -253,7 +253,9 @@ class TransducerBeamSearcher(torch.nn.Module):
                         have_update_hyp, input_PN, hidden
                     )
                     selected_out_PN, selected_hidden = self._forward_PN(
-                        selected_input_PN, self.decode_network_lst, selected_hidden
+                        selected_input_PN,
+                        self.decode_network_lst,
+                        selected_hidden,
                     )
                     # update hiddens and out_PN
                     out_PN[have_update_hyp] = selected_out_PN
