@@ -263,7 +263,9 @@ def dataio_prep(hparams):
         embedding_model = hparams["modules"]["compute_features"].to("cuda")
         mean_var_norm = hparams["modules"]["mean_var_norm"].to("cuda")
 
-        @sb.utils.data_pipeline.cache(hparams["feats_cache_dir"])
+        @sb.utils.data_pipeline.CachedHDF5DynamicItem.cache(
+            hparams["feats_cache_dir"]
+        )
         @sb.utils.data_pipeline.takes("id", "sig")
         @sb.utils.data_pipeline.provides("feats")
         def cached_feature_pipeline(uid, sig):
@@ -277,7 +279,8 @@ def dataio_prep(hparams):
                 sig, length, embedding_model, mean_var_norm
             )
             # Remove fake batch dimension for future batching
-            return feats.squeeze(0)
+            # Also move to CPU for storage
+            return feats.squeeze(0).cpu()
 
         # Add item and key to the list for constructing the dynamic dataset
         dynamic_items.append(cached_feature_pipeline)

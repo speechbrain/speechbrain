@@ -20,13 +20,15 @@ Example
 {'foo': 3, 'bar': 1}
 
 Author:
-    * Aku Rouhe
+ * Aku Rouhe
+ * Peter Plantinga
 """
 
 import inspect
 import pathlib
 from dataclasses import dataclass
 
+import h5py
 import torch
 
 from speechbrain.utils.depgraph import DependencyGraph
@@ -271,46 +273,131 @@ class CachedDynamicItem(DynamicItem):
         """Convert a uid to a cache location"""
         return self.cache_location / (uid + ".pt")
 
+    @classmethod
+    def cache(cls, save_dir):
+        """Decorator which takes a DynamicItem and creates a CachedDynamicItem
 
-def cache(save_dir):
-    """Decorator which takes a DynamicItem and creates a CachedDynamicItem
+        Arguments
+        ---------
+        save_dir : os.PathLike
+            Path to the directory where the cache should be stored.
+
+        Example
+        -------
+        >>> import os
+        >>> tempdir = getfixture("tmpdir")
+        >>> @CachedDynamicItem.cache(tempdir)
+        ... @takes("id", "text")
+        ... @provides("tokenized")
+        ... def tokenize(id, text):
+        ...     return text.strip().lower().split()
+        >>> os.listdir(tempdir)
+        []
+        >>> tokenize("utt_id", "\tThis Example gets tokenized")
+        ['this', 'example', 'gets', 'tokenized']
+        >>> os.listdir(tempdir)
+        ['utt_id.pt']
+        >>> torch.load(tempdir / "utt_id.pt")
+        ['this', 'example', 'gets', 'tokenized']
+        >>> # The output shouldn't change on the second call
+        >>> tokenize("utt_id", "\tThis Example gets tokenized")
+        ['this', 'example', 'gets', 'tokenized']
+        """
+
+        def decorator(obj):
+            """Decorator definition."""
+            if not isinstance(obj, DynamicItem):
+                raise ValueError("Can only cache a DynamicItem")
+            return cls(
+                save_dir, takes=obj.takes, func=obj.func, provides=obj.provides
+            )
+
+        return decorator
+
+
+class CachedHDF5DynamicItem(CachedDynamicItem):
+    """CachedDynamicItem that uses HDF5 to store the cache. This performant
+    data storage format only creates a single file, which may be faster or
+    more efficient than the default storage (one torch file per id).
 
     Arguments
     ---------
-    save_dir : os.PathLike
-        Path to the directory where the cache should be stored.
-
-    Example
-    -------
-    >>> import os
-    >>> tempdir = getfixture("tmpdir")
-    >>> @cache(tempdir)
-    ... @takes("id", "text")
-    ... @provides("tokenized")
-    ... def tokenize(id, text):
-    ...     return text.strip().lower().split()
-    >>> os.listdir(tempdir)
-    []
-    >>> tokenize("utt_id", "\tThis Example gets tokenized")
-    ['this', 'example', 'gets', 'tokenized']
-    >>> os.listdir(tempdir)
-    ['utt_id.pt']
-    >>> torch.load(tempdir / "utt_id.pt")
-    ['this', 'example', 'gets', 'tokenized']
-    >>> # The output shouldn't change on the second call
-    >>> tokenize("utt_id", "\tThis Example gets tokenized")
-    ['this', 'example', 'gets', 'tokenized']
+    cache_location : os.PathLike
+        Storage folder for containing HDF5 cached output file.
+    file_mode : str
+        The mode to use when opening the HDF5 file. When creating the
+        cache, writing must be allowed, but when reading from multiple
+        processes, writing should not be allowed.
+    *args
+    **kwargs
+        Forwarded to DynamicItem constructor
     """
 
-    def decorator(obj):
-        """Decorator definition."""
-        if not isinstance(obj, DynamicItem):
-            raise ValueError("Can only cache a DynamicItem")
-        return CachedDynamicItem(
-            save_dir, takes=obj.takes, func=obj.func, provides=obj.provides
-        )
+    def __init__(self, cache_location, file_mode="a", *args, **kwargs):
+        super().__init__(cache_location, *args, **kwargs)
 
-    return decorator
+        # Open connection to HDF5 file
+        self.file_mode = file_mode
+        self.hdf5file = h5py.File(self.cache_location / "cache.hdf5", file_mode)
+
+    def _is_cached(self, uid):
+        """Test whether uid is cached."""
+        return uid in self.hdf5file.keys()
+
+    def _load(self, uid):
+        """Load result from cache"""
+        return self.hdf5file[uid][:]
+
+    def _cache(self, result, uid):
+        """Save the result to the cache"""
+        self.hdf5file.create_dataset(uid, data=result)
+
+    @classmethod
+    def cache(cls, cache_location, file_mode="a"):
+        """Decorator which takes a DynamicItem and creates a CachedHDF5DynamicItem
+
+        Arguments
+        ---------
+        cache_location : os.PathLike
+            Storage folder for containing HDF5 cached output file.
+        file_mode : str
+            The mode to use when opening the HDF5 file. When creating the
+            cache, writing must be allowed, but when reading from multiple
+            processes, writing should not be allowed.
+
+        Example
+        -------
+        >>> import os
+        >>> tempdir = getfixture("tmpdir")
+        >>> @CachedHDF5DynamicItem.cache(tempdir)
+        ... @takes("id", "text")
+        ... @provides("tokenized")
+        ... def tokenize(id, text):
+        ...     return text.strip().lower().split()
+        >>> os.listdir(tempdir)
+        []
+        >>> tokenize("utt_id", "\tThis Example gets tokenized")
+        ['this', 'example', 'gets', 'tokenized']
+        >>> os.listdir(tempdir)
+        ['cache.hdf5']
+        >>> # The output shouldn't change on the second call
+        >>> tokenize("utt_id", "\tThis Example gets tokenized")
+        ['this', 'example', 'gets', 'tokenized']
+        """
+
+        def decorator(obj):
+            """Decorator definition."""
+            if not isinstance(obj, DynamicItem):
+                raise ValueError("Can only cache a DynamicItem")
+            return cls(
+                cache_location,
+                file_mode,
+                takes=obj.takes,
+                func=obj.func,
+                provides=obj.provides,
+            )
+
+        return decorator
 
 
 def takes(*argkeys):
