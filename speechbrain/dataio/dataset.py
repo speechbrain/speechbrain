@@ -199,7 +199,7 @@ class DynamicItemDataset(Dataset):
 
         # Iterate data but do nothing (e.g. to warm cache)
         with self.output_keys_as(output_keys):
-            for item in tqdm.tqdm(self):
+            for item in tqdm.tqdm(self, disable=not progressbar):
                 pass
 
     def add_dynamic_item(self, func, takes=None, provides=None):
