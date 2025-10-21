@@ -1656,14 +1656,14 @@ class S2SBeamSearcher(S2SBaseSearcher):
             if self._check_full_beams(eos_hyps_and_log_probs_scores):
                 break
 
-            if attention_mask is not None:
-                attention_mask = torch.cat(
-                    [
-                        attention_mask, 
-                        torch.ones(self.batch_size, 1, device=self.device, dtype=torch.bool)
-                    ], 
-                    dim=1
-                )
+            # if attention_mask is not None:
+            #     attention_mask = torch.cat(
+            #         [
+            #             attention_mask, 
+            #             torch.ones(self.batch_size, 1, device=self.device, dtype=torch.bool)
+            #         ], 
+            #         dim=1
+            #     )
 
             (
                 alived_hyps,
@@ -2258,7 +2258,7 @@ class S2SHuggingFaceLLMBeamSearcher(S2SBeamSearcher):
 
     def forward_step(self, inp_tokens, memory, enc_states, enc_lens, attention_mask=None):
         """Performs a step in the implemented beamsearcher."""
-        memory = self._update_mem_embeddings(inp_tokens.unsqueeze(-1), memory)
+        memory = self._update_mem_embeddings(inp_tokens.unsqueeze(-1), memory, attention_mask)
         multimodal_embds = torch.cat([
             enc_states,
             memory,
@@ -2275,10 +2275,12 @@ class S2SHuggingFaceLLMBeamSearcher(S2SBeamSearcher):
         # if lora vs not lora
         return self.llm_model.model.lm_head.pretrained_module.weight.shape[0]
     
-    def _update_mem_embeddings(self, inp_tokens, memory):
+    def _update_mem_embeddings(self, inp_tokens, memory, attention_mask):
         """This method updates the memory during greedy search."""
         inp_embds = self.txt_embedding(inp_tokens.long())
         if memory is None: 
-            return inp_embds
-        return torch.cat([memory, inp_embds], dim=1)
+            return inp_embds, attention_mask
+        if attention_mask is not None:
+            attention_mask = torch.cat([attention_mask, torch.ones(inp_embds.shape[0], 1, device=inp_embds.device, dtype=torch.bool)], dim=1)
+        return torch.cat([memory, inp_embds], dim=1), attention_mask
 
