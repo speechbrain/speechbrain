@@ -154,7 +154,11 @@ class TransducerBeamSearcher(torch.nn.Module):
         return hyps
 
     def transducer_greedy_decode(
-        self, tn_output, hidden_state=None, return_hidden=False, max_symbols_per_step=5
+        self,
+        tn_output,
+        hidden_state=None,
+        return_hidden=False,
+        max_symbols_per_step=5,
     ):
         """Transducer greedy decoder is a greedy decoder over batch which apply Transducer rules:
             1- for each time step in the Transcription Network (TN) output:
