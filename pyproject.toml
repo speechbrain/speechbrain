@@ -27,7 +27,6 @@ dependencies = [
     "torchaudio>=2.1.0,<2.9",
     "tqdm>=4.42.0",
     "huggingface_hub>=0.8.0",
-    "h5py",
 ]
 keywords = ["speech", "audio", "pytorch", "deep-learning"]
 

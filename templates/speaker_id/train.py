@@ -33,6 +33,7 @@ from hyperpyyaml import load_hyperpyyaml
 from mini_librispeech_prepare import prepare_mini_librispeech
 
 import speechbrain as sb
+from speechbrain.integrations.hdf5.cached_item import CachedHDF5DynamicItem
 
 
 # Brain class for speech enhancement training
@@ -263,9 +264,7 @@ def dataio_prep(hparams):
         embedding_model = hparams["modules"]["compute_features"].to("cuda")
         mean_var_norm = hparams["modules"]["mean_var_norm"].to("cuda")
 
-        @sb.utils.data_pipeline.CachedHDF5DynamicItem.cache(
-            hparams["feats_cache_dir"]
-        )
+        @CachedHDF5DynamicItem.cache(hparams["feats_cache_dir"])
         @sb.utils.data_pipeline.takes("id", "sig")
         @sb.utils.data_pipeline.provides("feats")
         def cached_feature_pipeline(uid, sig):
