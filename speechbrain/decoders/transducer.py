@@ -154,7 +154,7 @@ class TransducerBeamSearcher(torch.nn.Module):
         return hyps
 
     def transducer_greedy_decode(
-        self, tn_output, hidden_state=None, return_hidden=False, max_steps=5
+        self, tn_output, hidden_state=None, return_hidden=False, max_symbols_per_step=5
     ):
         """Transducer greedy decoder is a greedy decoder over batch which apply Transducer rules:
             1- for each time step in the Transcription Network (TN) output:
@@ -176,7 +176,7 @@ class TransducerBeamSearcher(torch.nn.Module):
         return_hidden : bool
             Whether the return tuple should contain an extra 5th element with
             the hidden state at of the last step. See `hidden_state`.
-        max_steps : int
+        max_symbols_per_step : int
             Maximum number of non-blank symbols to decode per time step. This is
             useful to avoid infinite loops.
 
@@ -225,7 +225,7 @@ class TransducerBeamSearcher(torch.nn.Module):
         # For each time step
         for t_step in range(tn_output.size(1)):
             count = 0
-            while count <= max_steps:  # avoid infinite loop
+            while count <= max_symbols_per_step:  # avoid infinite loop
                 # do unsqueeze over since tjoint must be have a 4 dim [B,T,U,Hidden]
                 log_probs = self._joint_forward_step(
                     tn_output[:, t_step, :].unsqueeze(1).unsqueeze(1),
