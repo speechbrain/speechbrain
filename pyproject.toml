@@ -23,8 +23,8 @@ dependencies = [
     "packaging",
     "scipy>=1.4.1",
     "sentencepiece>=0.1.91",
-    "torch>=2.1.0,<2.9",
-    "torchaudio>=2.1.0,<2.9",
+    "torch>=2.1.0",
+    "torchaudio>=2.1.0",
     "tqdm>=4.42.0",
     "huggingface_hub>=0.8.0",
 ]
