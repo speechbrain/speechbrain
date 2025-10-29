@@ -97,7 +97,7 @@ def validate_backend(backend):
     allowed_backends = [None, "ffmpeg", "sox", "soundfile"]
     if backend not in allowed_backends:
         # Check if list_audio_backends() exists (removed in torchaudio 2.9+)
-        if hasattr(torchaudio, 'list_audio_backends'):
+        if hasattr(torchaudio, "list_audio_backends"):
             available_backends_msg = f"Available backends on your system: {torchaudio.list_audio_backends()}"
         else:
             available_backends_msg = "Using torchaudio 2.9+ with torchcodec"
