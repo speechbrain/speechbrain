@@ -56,7 +56,7 @@ def check_torchaudio_backend():
     elif torchaudio_major >= 2 and torchaudio_minor >= 1:
         # list_audio_backends() was removed in torchaudio 2.9+
         # In 2.9+, audio loading is handled by torchcodec
-        if hasattr(torchaudio, 'list_audio_backends'):
+        if hasattr(torchaudio, "list_audio_backends"):
             available_backends = torchaudio.list_audio_backends()
 
             if len(available_backends) == 0:
