@@ -221,6 +221,14 @@ class CachedDynamicItem(DynamicItem):
     only one item can be stored per id -- so each cached item must have
     its own storage location.
 
+    PyTorch save() and load() are used for caching. File storage tree
+    after caching:
+
+        cache_location/
+            <id_1>.pt
+            <id_2>.pt
+            ...
+
     Arguments
     ---------
     cache_location : os.PathLike
