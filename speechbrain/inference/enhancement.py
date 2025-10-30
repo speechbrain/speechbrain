@@ -12,15 +12,31 @@ Authors:
  * Sylvain de Langen 2023
  * Adel Moumen 2023
  * Pradnya Kandarkar 2023
+ * Jonas Rochdi 2025
 """
 
 import torch
 import torchaudio
 
-from sgmse.util.other import pad_spec
-
 from speechbrain.inference.interfaces import Pretrained
 from speechbrain.utils.callchains import lengths_arg_exists
+
+
+def pad_spec(Y, mode="zero_pad"):
+    T = Y.size(3)
+    if T % 64 != 0:
+        num_pad = 64 - T % 64
+    else:
+        num_pad = 0
+    if mode == "zero_pad":
+        pad2d = torch.nn.ZeroPad2d((0, num_pad, 0, 0))
+    elif mode == "reflection":
+        pad2d = torch.nn.ReflectionPad2d((0, num_pad, 0, 0))
+    elif mode == "replication":
+        pad2d = torch.nn.ReplicationPad2d((0, num_pad, 0, 0))
+    else:
+        raise NotImplementedError("This function hasn't been implemented yet.")
+    return pad2d(Y)
 
 
 class SpectralMaskEnhancement(Pretrained):
@@ -207,7 +223,7 @@ class WaveformEnhancement(Pretrained):
     def forward(self, noisy, lengths=None):
         """Runs enhancement on the noisy input"""
         return self.enhance_batch(noisy, lengths)
-    
+
 
 class SGMSEEnhancement(Pretrained):
     """Ready-to-use SGMSE speech enhancement.
@@ -241,15 +257,20 @@ class SGMSEEnhancement(Pretrained):
         if getattr(self, "_stft_ready", False):
             return
         n_fft = self.hparams.n_fft
-        self._window = self._get_window(self.hparams.window_type, n_fft).to(self.device)
-        self._stft_kwargs = dict(n_fft=n_fft, hop_length=self.hparams.hop_length,
-                                 center=True, return_complex=True)
+        self._window = self._get_window(self.hparams.window_type, n_fft).to(
+            self.device
+        )
+        self._stft_kwargs = dict(
+            n_fft=n_fft,
+            hop_length=self.hparams.hop_length,
+            center=True,
+            return_complex=True,
+        )
         self._stft_ready = True
 
     def enhance_batch(self, noisy, lengths=None):
         """Enhance a batch of noisy waveforms (B, T) → (B, T)."""
         self._ensure_stft_setup()
-        sr = self.hparams.sample_rate
 
         noisy = noisy.to(self.device)
         # scale to [-1,1] by max abs per item (like the Brain inference)
@@ -257,7 +278,7 @@ class SGMSEEnhancement(Pretrained):
         y = noisy / norms
 
         # STFT + forward spec transform + channel dim
-        Y = self._spec_fwd(self._stft(y)).unsqueeze(1) # (B,1,F,T)
+        Y = self._spec_fwd(self._stft(y)).unsqueeze(1)  # (B,1,F,T)
         F_orig, T_orig_spec = Y.shape[-2:]
 
         # pad for U-Net constraints
@@ -276,9 +297,9 @@ class SGMSEEnhancement(Pretrained):
         )  # (B,1,F,T)
 
         # Trim padding, drop channel, inverse spec transform, iSTFT
-        Xh = x_hat[:, :, :F_orig, :T_orig_spec].squeeze(1) # (B,F,T)
+        Xh = x_hat[:, :, :F_orig, :T_orig_spec].squeeze(1)  # (B,F,T)
         Xh = self._spec_back(Xh)
-        enh = self._istft(Xh, length=y.size(1)) * norms # (B,T)
+        enh = self._istft(Xh, length=y.size(1)) * norms  # (B,T)
         return enh
 
     def enhance_file(self, filename, output_filename=None, **kwargs):
