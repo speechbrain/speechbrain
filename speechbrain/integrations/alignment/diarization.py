@@ -25,8 +25,10 @@ import warnings
 import numpy as np
 import scipy
 from scipy import sparse
-from scipy.sparse.csgraph import connected_components
-from scipy.sparse.csgraph import laplacian as csgraph_laplacian
+from scipy.sparse.csgraph import (
+    connected_components,
+    laplacian as csgraph_laplacian,
+)
 from scipy.sparse.linalg import eigsh
 
 np.random.seed(1234)
@@ -63,7 +65,7 @@ def read_rttm(rttm_file_path):
         List containing rows of RTTM file.
     """
     rttm = []
-    with open(rttm_file_path, "r", encoding="utf-8") as f:
+    with open(rttm_file_path, encoding="utf-8") as f:
         for line in f:
             entry = line[:-1]
             rttm.append(entry)
@@ -188,12 +190,14 @@ def merge_ssegs_same_speaker(lol):
 
     Example
     -------
-    >>> lol=[['r1', 5.5, 7.0, 's1'],
-    ... ['r1', 6.5, 9.0, 's1'],
-    ... ['r1', 8.0, 11.0, 's1'],
-    ... ['r1', 11.5, 13.0, 's2'],
-    ... ['r1', 14.0, 15.0, 's2'],
-    ... ['r1', 14.5, 15.0, 's1']]
+    >>> lol = [
+    ...     ["r1", 5.5, 7.0, "s1"],
+    ...     ["r1", 6.5, 9.0, "s1"],
+    ...     ["r1", 8.0, 11.0, "s1"],
+    ...     ["r1", 11.5, 13.0, "s2"],
+    ...     ["r1", 14.0, 15.0, "s2"],
+    ...     ["r1", 14.5, 15.0, "s1"],
+    ... ]
     >>> merge_ssegs_same_speaker(lol)
     [['r1', 5.5, 11.0, 's1'], ['r1', 11.5, 13.0, 's2'], ['r1', 14.0, 15.0, 's2'], ['r1', 14.5, 15.0, 's1']]
     """
@@ -241,10 +245,12 @@ def distribute_overlap(lol):
 
     Example
     -------
-    >>> lol = [['r1', 5.5, 9.0, 's1'],
-    ... ['r1', 8.0, 11.0, 's2'],
-    ... ['r1', 11.5, 13.0, 's2'],
-    ... ['r1', 12.0, 15.0, 's1']]
+    >>> lol = [
+    ...     ["r1", 5.5, 9.0, "s1"],
+    ...     ["r1", 8.0, 11.0, "s2"],
+    ...     ["r1", 11.5, 13.0, "s2"],
+    ...     ["r1", 12.0, 15.0, "s1"],
+    ... ]
     >>> distribute_overlap(lol)
     [['r1', 5.5, 8.5, 's1'], ['r1', 8.5, 11.0, 's2'], ['r1', 11.5, 12.5, 's2'], ['r1', 12.5, 15.0, 's1']]
     """
@@ -261,7 +267,6 @@ def distribute_overlap(lol):
         # This is because similar speaker's adjacent sub-segments are already merged by "merge_ssegs_same_speaker()"
 
         if is_overlapped(sseg[2], next_sseg[1]):
-
             # Get overlap duration.
             # Now this overlap will be divided equally between adjacent segments.
             overlap = sseg[2] - next_sseg[1]
@@ -490,7 +495,7 @@ def _check_random_state(seed):
     if isinstance(seed, np.random.RandomState):
         return seed
     raise ValueError(
-        "%r cannot be used to seed a np.random.RandomState" " instance" % seed
+        "%r cannot be used to seed a np.random.RandomState instance" % seed
     )
 
 
@@ -515,16 +520,18 @@ def get_oracle_num_spkrs(rec_id, spkr_info):
 
     Example
     -------
-    >>> spkr_info = ['SPKR-INFO ES2011a 0 <NA> <NA> <NA> unknown ES2011a.A <NA> <NA>',
-    ... 'SPKR-INFO ES2011a 0 <NA> <NA> <NA> unknown ES2011a.B <NA> <NA>',
-    ... 'SPKR-INFO ES2011a 0 <NA> <NA> <NA> unknown ES2011a.C <NA> <NA>',
-    ... 'SPKR-INFO ES2011a 0 <NA> <NA> <NA> unknown ES2011a.D <NA> <NA>',
-    ... 'SPKR-INFO ES2011b 0 <NA> <NA> <NA> unknown ES2011b.A <NA> <NA>',
-    ... 'SPKR-INFO ES2011b 0 <NA> <NA> <NA> unknown ES2011b.B <NA> <NA>',
-    ... 'SPKR-INFO ES2011b 0 <NA> <NA> <NA> unknown ES2011b.C <NA> <NA>']
-    >>> get_oracle_num_spkrs('ES2011a', spkr_info)
+    >>> spkr_info = [
+    ...     "SPKR-INFO ES2011a 0 <NA> <NA> <NA> unknown ES2011a.A <NA> <NA>",
+    ...     "SPKR-INFO ES2011a 0 <NA> <NA> <NA> unknown ES2011a.B <NA> <NA>",
+    ...     "SPKR-INFO ES2011a 0 <NA> <NA> <NA> unknown ES2011a.C <NA> <NA>",
+    ...     "SPKR-INFO ES2011a 0 <NA> <NA> <NA> unknown ES2011a.D <NA> <NA>",
+    ...     "SPKR-INFO ES2011b 0 <NA> <NA> <NA> unknown ES2011b.A <NA> <NA>",
+    ...     "SPKR-INFO ES2011b 0 <NA> <NA> <NA> unknown ES2011b.B <NA> <NA>",
+    ...     "SPKR-INFO ES2011b 0 <NA> <NA> <NA> unknown ES2011b.C <NA> <NA>",
+    ... ]
+    >>> get_oracle_num_spkrs("ES2011a", spkr_info)
     4
-    >>> get_oracle_num_spkrs('ES2011b', spkr_info)
+    >>> get_oracle_num_spkrs("ES2011b", spkr_info)
     3
     """
     num_spkrs = 0
@@ -563,16 +570,20 @@ def spectral_embedding_sb(
 
     Example
     -------
-    >>> affinity = np.array([[1, 1, 1, 0.5, 0, 0, 0, 0, 0, 0.5],
-    ... [1, 1, 1, 0, 0, 0, 0, 0, 0, 0],
-    ... [1, 1, 1, 0, 0, 0, 0, 0, 0, 0],
-    ... [0.5, 0, 0, 1, 1, 1, 0, 0, 0, 0],
-    ... [0, 0, 0, 1, 1, 1, 0, 0, 0, 0],
-    ... [0, 0, 0, 1, 1, 1, 0, 0, 0, 0],
-    ... [0, 0, 0, 0, 0, 0, 1, 1, 1, 1],
-    ... [0, 0, 0, 0, 0, 0, 1, 1, 1, 1],
-    ... [0, 0, 0, 0, 0, 0, 1, 1, 1, 1],
-    ... [0.5, 0, 0, 0, 0, 0, 1, 1, 1, 1]])
+    >>> affinity = np.array(
+    ...     [
+    ...         [1, 1, 1, 0.5, 0, 0, 0, 0, 0, 0.5],
+    ...         [1, 1, 1, 0, 0, 0, 0, 0, 0, 0],
+    ...         [1, 1, 1, 0, 0, 0, 0, 0, 0, 0],
+    ...         [0.5, 0, 0, 1, 1, 1, 0, 0, 0, 0],
+    ...         [0, 0, 0, 1, 1, 1, 0, 0, 0, 0],
+    ...         [0, 0, 0, 1, 1, 1, 0, 0, 0, 0],
+    ...         [0, 0, 0, 0, 0, 0, 1, 1, 1, 1],
+    ...         [0, 0, 0, 0, 0, 0, 1, 1, 1, 1],
+    ...         [0, 0, 0, 0, 0, 0, 1, 1, 1, 1],
+    ...         [0.5, 0, 0, 0, 0, 0, 1, 1, 1, 1],
+    ...     ]
+    ... )
     >>> embs = spectral_embedding_sb(affinity, 3)
     >>> # Notice similar embeddings
     >>> print(np.around(embs, decimals=3))
@@ -653,16 +664,20 @@ def spectral_clustering_sb(
 
     Example
     -------
-    >>> affinity = np.array([[1, 1, 1, 0.5, 0, 0, 0, 0, 0, 0.5],
-    ... [1, 1, 1, 0, 0, 0, 0, 0, 0, 0],
-    ... [1, 1, 1, 0, 0, 0, 0, 0, 0, 0],
-    ... [0.5, 0, 0, 1, 1, 1, 0, 0, 0, 0],
-    ... [0, 0, 0, 1, 1, 1, 0, 0, 0, 0],
-    ... [0, 0, 0, 1, 1, 1, 0, 0, 0, 0],
-    ... [0, 0, 0, 0, 0, 0, 1, 1, 1, 1],
-    ... [0, 0, 0, 0, 0, 0, 1, 1, 1, 1],
-    ... [0, 0, 0, 0, 0, 0, 1, 1, 1, 1],
-    ... [0.5, 0, 0, 0, 0, 0, 1, 1, 1, 1]])
+    >>> affinity = np.array(
+    ...     [
+    ...         [1, 1, 1, 0.5, 0, 0, 0, 0, 0, 0.5],
+    ...         [1, 1, 1, 0, 0, 0, 0, 0, 0, 0],
+    ...         [1, 1, 1, 0, 0, 0, 0, 0, 0, 0],
+    ...         [0.5, 0, 0, 1, 1, 1, 0, 0, 0, 0],
+    ...         [0, 0, 0, 1, 1, 1, 0, 0, 0, 0],
+    ...         [0, 0, 0, 1, 1, 1, 0, 0, 0, 0],
+    ...         [0, 0, 0, 0, 0, 0, 1, 1, 1, 1],
+    ...         [0, 0, 0, 0, 0, 0, 1, 1, 1, 1],
+    ...         [0, 0, 0, 0, 0, 0, 1, 1, 1, 1],
+    ...         [0.5, 0, 0, 0, 0, 0, 1, 1, 1, 1],
+    ...     ]
+    ... )
     >>> labs = spectral_clustering_sb(affinity, 3)
     >>> print(labs)
     [1 1 1 0 0 0 2 2 2 2]
@@ -744,19 +759,21 @@ class Spec_Clust_unorm:
     Example
     -------
     >>> clust = Spec_Clust_unorm(min_num_spkrs=2, max_num_spkrs=10)
-    >>> emb = [[ 2.1, 3.1, 4.1, 4.2, 3.1],
-    ... [ 2.2, 3.1, 4.2, 4.2, 3.2],
-    ... [ 2.0, 3.0, 4.0, 4.1, 3.0],
-    ... [ 8.0, 7.0, 7.0, 8.1, 9.0],
-    ... [ 8.1, 7.1, 7.2, 8.1, 9.2],
-    ... [ 8.3, 7.4, 7.0, 8.4, 9.0],
-    ... [ 0.3, 0.4, 0.4, 0.5, 0.8],
-    ... [ 0.4, 0.3, 0.6, 0.7, 0.8],
-    ... [ 0.2, 0.3, 0.2, 0.3, 0.7],
-    ... [ 0.3, 0.4, 0.4, 0.4, 0.7],]
+    >>> emb = [
+    ...     [2.1, 3.1, 4.1, 4.2, 3.1],
+    ...     [2.2, 3.1, 4.2, 4.2, 3.2],
+    ...     [2.0, 3.0, 4.0, 4.1, 3.0],
+    ...     [8.0, 7.0, 7.0, 8.1, 9.0],
+    ...     [8.1, 7.1, 7.2, 8.1, 9.2],
+    ...     [8.3, 7.4, 7.0, 8.4, 9.0],
+    ...     [0.3, 0.4, 0.4, 0.5, 0.8],
+    ...     [0.4, 0.3, 0.6, 0.7, 0.8],
+    ...     [0.2, 0.3, 0.2, 0.3, 0.7],
+    ...     [0.3, 0.4, 0.4, 0.4, 0.7],
+    ... ]
     >>> # Estimating similarity matrix
     >>> sim_mat = clust.get_sim_mat(emb)
-    >>> print (np.around(sim_mat[5:,5:], decimals=3))
+    >>> print(np.around(sim_mat[5:, 5:], decimals=3))
     [[1.    0.957 0.961 0.904 0.966]
      [0.957 1.    0.977 0.982 0.997]
      [0.961 0.977 1.    0.928 0.972]
@@ -764,7 +781,7 @@ class Spec_Clust_unorm:
      [0.966 0.997 0.972 0.976 1.   ]]
     >>> # Pruning
     >>> pruned_sim_mat = clust.p_pruning(sim_mat, 0.3)
-    >>> print (np.around(pruned_sim_mat[5:,5:], decimals=3))
+    >>> print(np.around(pruned_sim_mat[5:, 5:], decimals=3))
     [[1.    0.    0.    0.    0.   ]
      [0.    1.    0.    0.982 0.997]
      [0.    0.977 1.    0.    0.972]
@@ -772,7 +789,7 @@ class Spec_Clust_unorm:
      [0.    0.997 0.    0.976 1.   ]]
     >>> # Symmetrization
     >>> sym_pruned_sim_mat = 0.5 * (pruned_sim_mat + pruned_sim_mat.T)
-    >>> print (np.around(sym_pruned_sim_mat[5:,5:], decimals=3))
+    >>> print(np.around(sym_pruned_sim_mat[5:, 5:], decimals=3))
     [[1.    0.    0.    0.    0.   ]
      [0.    1.    0.489 0.982 0.997]
      [0.    0.489 1.    0.    0.486]
@@ -780,7 +797,7 @@ class Spec_Clust_unorm:
      [0.    0.997 0.486 0.976 1.   ]]
     >>> # Laplacian
     >>> laplacian = clust.get_laplacian(sym_pruned_sim_mat)
-    >>> print (np.around(laplacian[5:,5:], decimals=3))
+    >>> print(np.around(laplacian[5:, 5:], decimals=3))
     [[ 1.999  0.     0.     0.     0.   ]
      [ 0.     2.468 -0.489 -0.982 -0.997]
      [ 0.    -0.489  0.975  0.    -0.486]
@@ -801,7 +818,6 @@ class Spec_Clust_unorm:
     """
 
     def __init__(self, min_num_spkrs=2, max_num_spkrs=10):
-
         self.min_num_spkrs = min_num_spkrs
         self.max_num_spkrs = max_num_spkrs
 

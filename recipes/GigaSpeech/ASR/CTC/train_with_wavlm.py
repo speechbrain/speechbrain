@@ -1,4 +1,4 @@
-""" This recipe finetunes a pretrained wavlm model large
+"""This recipe finetunes a pretrained wavlm model large
 on GigaSpeech for speech recognition with CTC and at the character level.
 The WavLM model can be swapped with any HuggingFace model if wanted.
 
@@ -327,7 +327,6 @@ def dataio_prepare(hparams, tokenizer):
 
 
 if __name__ == "__main__":
-
     # CLI:
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
 

@@ -219,7 +219,7 @@ def prepare_test(ZED_folder, save_json_test, win_len, stride):
 
     try:
         zed_json_path = os.path.join(ZED_folder, "ZED.json")
-        with open(zed_json_path, "r", encoding="utf-8") as f:
+        with open(zed_json_path, encoding="utf-8") as f:
             all_dict = json.load(f)
     except OSError:
         logger.info(f"ZED.json can't be found under {ZED_folder}")
@@ -325,7 +325,7 @@ def check_and_prepare_dataset(
             logger.info(
                 f"{json_path} exists, skipping f{data_name} preparation."
             )
-            with open(json_path, "r", encoding="utf-8") as f:
+            with open(json_path, encoding="utf-8") as f:
                 data = json.load(f)
         dictionary.update(data.items())
     else:

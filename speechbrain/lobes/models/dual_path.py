@@ -272,9 +272,7 @@ class Decoder(nn.ConvTranspose1d):
         """
 
         if x.dim() not in [2, 3]:
-            raise RuntimeError(
-                "{} accept 3/4D tensor as input".format(self.__name__)
-            )
+            raise RuntimeError(f"{self.__name__} accept 3/4D tensor as input")
         x = super().forward(x if x.dim() == 3 else torch.unsqueeze(x, 1))
 
         if torch.squeeze(x).dim() == 1:
@@ -967,7 +965,9 @@ class Dual_Path_Model(nn.Module):
     -------
     >>> intra_block = SBTransformerBlock(1, 64, 8)
     >>> inter_block = SBTransformerBlock(1, 64, 8)
-    >>> dual_path_model = Dual_Path_Model(64, 64, intra_block, inter_block, num_spks=2)
+    >>> dual_path_model = Dual_Path_Model(
+    ...     64, 64, intra_block, inter_block, num_spks=2
+    ... )
     >>> x = torch.randn(10, 64, 2000)
     >>> x = dual_path_model(x)
     >>> x.shape
@@ -1400,7 +1400,9 @@ class SBConformerEncoderBlock(nn.Module):
     -------
     >>> x = torch.randn(10, 100, 64)
     >>> block = SBConformerEncoderBlock(1, 64, 8)
-    >>> from speechbrain.lobes.models.transformer.Transformer import PositionalEncoding
+    >>> from speechbrain.lobes.models.transformer.Transformer import (
+    ...     PositionalEncoding,
+    ... )
     >>> pos_enc = PositionalEncoding(64)
     >>> pos_embs = pos_enc(torch.ones(1, 199, 64))
     >>> x = block(x)

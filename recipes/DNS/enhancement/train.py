@@ -169,9 +169,7 @@ class Enhancement(sb.Brain):
         else:
             self.nonfinite_count += 1
             logger.info(
-                "infinite loss or empty loss! it happened {} times so far - skipping this batch".format(
-                    self.nonfinite_count
-                )
+                f"infinite loss or empty loss! it happened {self.nonfinite_count} times so far - skipping this batch"
             )
             loss.data = torch.tensor(0.0).to(self.device)
         self.optimizer.zero_grad()
@@ -511,15 +509,15 @@ class Enhancement(sb.Brain):
                 }
                 writer.writerow(row)
 
-        logger.info("Mean SISNR is {}".format(np.array(all_sisnrs).mean()))
-        logger.info("Mean SISNRi is {}".format(np.array(all_sisnrs_i).mean()))
-        logger.info("Mean SDR is {}".format(np.array(all_sdrs).mean()))
-        logger.info("Mean SDRi is {}".format(np.array(all_sdrs_i).mean()))
-        logger.info("Mean PESQ {}".format(np.array(all_pesqs).mean()))
-        logger.info("Mean STOI {}".format(np.array(all_stois).mean()))
-        logger.info("Mean CSIG {}".format(np.array(all_csigs).mean()))
-        logger.info("Mean CBAK {}".format(np.array(all_cbaks).mean()))
-        logger.info("Mean COVL {}".format(np.array(all_covls).mean()))
+        logger.info(f"Mean SISNR is {np.array(all_sisnrs).mean()}")
+        logger.info(f"Mean SISNRi is {np.array(all_sisnrs_i).mean()}")
+        logger.info(f"Mean SDR is {np.array(all_sdrs).mean()}")
+        logger.info(f"Mean SDRi is {np.array(all_sdrs_i).mean()}")
+        logger.info(f"Mean PESQ {np.array(all_pesqs).mean()}")
+        logger.info(f"Mean STOI {np.array(all_stois).mean()}")
+        logger.info(f"Mean CSIG {np.array(all_csigs).mean()}")
+        logger.info(f"Mean CBAK {np.array(all_cbaks).mean()}")
+        logger.info(f"Mean COVL {np.array(all_covls).mean()}")
 
     def save_audio(self, snt_id, noisy, clean, predictions):
         "saves the test audio (noisy, clean, and estimated sources) on disk"
@@ -541,7 +539,7 @@ class Enhancement(sb.Brain):
         signal = predictions[0, :]
         signal = signal / signal.abs().max()
         save_file = os.path.join(
-            save_path_enhanced, "item{}_sourcehat.wav".format(snt_id)
+            save_path_enhanced, f"item{snt_id}_sourcehat.wav"
         )
         torchaudio.save(
             save_file, signal.unsqueeze(0).cpu(), self.hparams.sample_rate
@@ -550,9 +548,7 @@ class Enhancement(sb.Brain):
         # Original source
         signal = clean[0, :]
         signal = signal / signal.abs().max()
-        save_file = os.path.join(
-            save_path_clean, "item{}_source.wav".format(snt_id)
-        )
+        save_file = os.path.join(save_path_clean, f"item{snt_id}_source.wav")
         torchaudio.save(
             save_file, signal.unsqueeze(0).cpu(), self.hparams.sample_rate
         )
@@ -560,9 +556,7 @@ class Enhancement(sb.Brain):
         # Noisy source
         signal = noisy[0][0, :]
         signal = signal / signal.abs().max()
-        save_file = os.path.join(
-            save_path_noisy, "item{}_noisy.wav".format(snt_id)
-        )
+        save_file = os.path.join(save_path_noisy, f"item{snt_id}_noisy.wav")
         torchaudio.save(
             save_file, signal.unsqueeze(0).cpu(), self.hparams.sample_rate
         )

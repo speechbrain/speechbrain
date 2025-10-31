@@ -1,4 +1,4 @@
-""" Specifies the inference interfaces for Text-To-Speech (TTS) modules.
+"""Specifies the inference interfaces for Text-To-Speech (TTS) modules.
 
 Authors:
  * Aku Rouhe 2021
@@ -44,23 +44,31 @@ class Tacotron2(Pretrained):
 
     Example
     -------
-    >>> tmpdir_tts = getfixture('tmpdir') / "tts"
-    >>> tacotron2 = Tacotron2.from_hparams(source="speechbrain/tts-tacotron2-ljspeech", savedir=tmpdir_tts)
-    >>> mel_output, mel_length, alignment = tacotron2.encode_text("Mary had a little lamb")
+    >>> tmpdir_tts = getfixture("tmpdir") / "tts"
+    >>> tacotron2 = Tacotron2.from_hparams(
+    ...     source="speechbrain/tts-tacotron2-ljspeech", savedir=tmpdir_tts
+    ... )
+    >>> mel_output, mel_length, alignment = tacotron2.encode_text(
+    ...     "Mary had a little lamb"
+    ... )
     >>> items = [
-    ...   "A quick brown fox jumped over the lazy dog",
-    ...   "How much wood would a woodchuck chuck?",
-    ...   "Never odd or even"
+    ...     "A quick brown fox jumped over the lazy dog",
+    ...     "How much wood would a woodchuck chuck?",
+    ...     "Never odd or even",
     ... ]
     >>> mel_outputs, mel_lengths, alignments = tacotron2.encode_batch(items)
 
     >>> # One can combine the TTS model with a vocoder (that generates the final waveform)
     >>> # Initialize the Vocoder (HiFIGAN)
-    >>> tmpdir_vocoder = getfixture('tmpdir') / "vocoder"
+    >>> tmpdir_vocoder = getfixture("tmpdir") / "vocoder"
     >>> from speechbrain.inference.vocoders import HIFIGAN
-    >>> hifi_gan = HIFIGAN.from_hparams(source="speechbrain/tts-hifigan-ljspeech", savedir=tmpdir_vocoder)
+    >>> hifi_gan = HIFIGAN.from_hparams(
+    ...     source="speechbrain/tts-hifigan-ljspeech", savedir=tmpdir_vocoder
+    ... )
     >>> # Running the TTS
-    >>> mel_output, mel_length, alignment = tacotron2.encode_text("Mary had a little lamb")
+    >>> mel_output, mel_length, alignment = tacotron2.encode_text(
+    ...     "Mary had a little lamb"
+    ... )
     >>> # Running Vocoder (spectrogram-to-waveform)
     >>> waveforms = hifi_gan.decode_batch(mel_output)
     """
@@ -105,9 +113,9 @@ class Tacotron2(Pretrained):
             inputs = speechbrain.dataio.batch.PaddedBatch(inputs)
 
             lens = [self.text_to_seq(item)[1] for item in texts]
-            assert lens == sorted(
-                lens, reverse=True
-            ), "input lengths must be sorted in decreasing order"
+            assert lens == sorted(lens, reverse=True), (
+                "input lengths must be sorted in decreasing order"
+            )
             input_lengths = torch.tensor(lens, device=self.device)
 
             mel_outputs_postnet, mel_lengths, alignments = self.infer(
@@ -138,23 +146,34 @@ class MSTacotron2(Pretrained):
 
     Example
     -------
-    >>> tmpdir_tts = getfixture('tmpdir') / "tts"
-    >>> mstacotron2 = MSTacotron2.from_hparams(source="speechbrain/tts-mstacotron2-libritts", savedir=tmpdir_tts) # doctest: +SKIP
+    >>> tmpdir_tts = getfixture("tmpdir") / "tts"
+    >>> mstacotron2 = MSTacotron2.from_hparams(
+    ...     source="speechbrain/tts-mstacotron2-libritts", savedir=tmpdir_tts
+    ... )  # doctest: +SKIP
     >>> # Sample rate of the reference audio must be greater or equal to the sample rate of the speaker embedding model
     >>> reference_audio_path = "tests/samples/single-mic/example1.wav"
     >>> input_text = "Mary had a little lamb."
-    >>> mel_output, mel_length, alignment = mstacotron2.clone_voice(input_text, reference_audio_path) # doctest: +SKIP
+    >>> mel_output, mel_length, alignment = mstacotron2.clone_voice(
+    ...     input_text, reference_audio_path
+    ... )  # doctest: +SKIP
     >>> # One can combine the TTS model with a vocoder (that generates the final waveform)
     >>> # Initialize the Vocoder (HiFIGAN)
-    >>> tmpdir_vocoder = getfixture('tmpdir') / "vocoder"
+    >>> tmpdir_vocoder = getfixture("tmpdir") / "vocoder"
     >>> from speechbrain.inference.vocoders import HIFIGAN
-    >>> hifi_gan = HIFIGAN.from_hparams(source="speechbrain/tts-hifigan-libritts-22050Hz", savedir=tmpdir_vocoder) # doctest: +SKIP
+    >>> hifi_gan = HIFIGAN.from_hparams(
+    ...     source="speechbrain/tts-hifigan-libritts-22050Hz",
+    ...     savedir=tmpdir_vocoder,
+    ... )  # doctest: +SKIP
     >>> # Running the TTS
-    >>> mel_output, mel_length, alignment = mstacotron2.clone_voice(input_text, reference_audio_path) # doctest: +SKIP
+    >>> mel_output, mel_length, alignment = mstacotron2.clone_voice(
+    ...     input_text, reference_audio_path
+    ... )  # doctest: +SKIP
     >>> # Running Vocoder (spectrogram-to-waveform)
-    >>> waveforms = hifi_gan.decode_batch(mel_output) # doctest: +SKIP
+    >>> waveforms = hifi_gan.decode_batch(mel_output)  # doctest: +SKIP
     >>> # For generating a random speaker voice, use the following
-    >>> mel_output, mel_length, alignment = mstacotron2.generate_random_voice(input_text) # doctest: +SKIP
+    >>> mel_output, mel_length, alignment = mstacotron2.generate_random_voice(
+    ...     input_text
+    ... )  # doctest: +SKIP
     """
 
     HPARAMS_NEEDED = ["model"]
@@ -301,9 +320,9 @@ class MSTacotron2(Pretrained):
 
             inputs = speechbrain.dataio.batch.PaddedBatch(inputs)
 
-            assert lens == sorted(
-                lens, reverse=True
-            ), "input lengths must be sorted in decreasing order"
+            assert lens == sorted(lens, reverse=True), (
+                "input lengths must be sorted in decreasing order"
+            )
             input_lengths = torch.tensor(lens, device=self.device)
 
             mel_outputs_postnet, mel_lengths, alignments = self.infer(
@@ -361,25 +380,35 @@ class FastSpeech2(Pretrained):
 
     Example
     -------
-    >>> tmpdir_tts = getfixture('tmpdir') / "tts"
-    >>> fastspeech2 = FastSpeech2.from_hparams(source="speechbrain/tts-fastspeech2-ljspeech", savedir=tmpdir_tts) # doctest: +SKIP
-    >>> mel_outputs, durations, pitch, energy = fastspeech2.encode_text(["Mary had a little lamb."]) # doctest: +SKIP
+    >>> tmpdir_tts = getfixture("tmpdir") / "tts"
+    >>> fastspeech2 = FastSpeech2.from_hparams(
+    ...     source="speechbrain/tts-fastspeech2-ljspeech", savedir=tmpdir_tts
+    ... )  # doctest: +SKIP
+    >>> mel_outputs, durations, pitch, energy = fastspeech2.encode_text(
+    ...     ["Mary had a little lamb."]
+    ... )  # doctest: +SKIP
     >>> items = [
-    ...   "A quick brown fox jumped over the lazy dog",
-    ...   "How much wood would a woodchuck chuck?",
-    ...   "Never odd or even"
+    ...     "A quick brown fox jumped over the lazy dog",
+    ...     "How much wood would a woodchuck chuck?",
+    ...     "Never odd or even",
     ... ]
-    >>> mel_outputs, durations, pitch, energy = fastspeech2.encode_text(items) # doctest: +SKIP
+    >>> mel_outputs, durations, pitch, energy = fastspeech2.encode_text(
+    ...     items
+    ... )  # doctest: +SKIP
     >>>
     >>> # One can combine the TTS model with a vocoder (that generates the final waveform)
     >>> # Initialize the Vocoder (HiFIGAN)
-    >>> tmpdir_vocoder = getfixture('tmpdir') / "vocoder"
+    >>> tmpdir_vocoder = getfixture("tmpdir") / "vocoder"
     >>> from speechbrain.inference.vocoders import HIFIGAN
-    >>> hifi_gan = HIFIGAN.from_hparams(source="speechbrain/tts-hifigan-ljspeech", savedir=tmpdir_vocoder) # doctest: +SKIP
+    >>> hifi_gan = HIFIGAN.from_hparams(
+    ...     source="speechbrain/tts-hifigan-ljspeech", savedir=tmpdir_vocoder
+    ... )  # doctest: +SKIP
     >>> # Running the TTS
-    >>> mel_outputs, durations, pitch, energy = fastspeech2.encode_text(["Mary had a little lamb."]) # doctest: +SKIP
+    >>> mel_outputs, durations, pitch, energy = fastspeech2.encode_text(
+    ...     ["Mary had a little lamb."]
+    ... )  # doctest: +SKIP
     >>> # Running Vocoder (spectrogram-to-waveform)
-    >>> waveforms = hifi_gan.decode_batch(mel_outputs) # doctest: +SKIP
+    >>> waveforms = hifi_gan.decode_batch(mel_outputs)  # doctest: +SKIP
     """
 
     HPARAMS_NEEDED = ["spn_predictor", "model", "input_encoder"]
@@ -633,24 +662,35 @@ class FastSpeech2InternalAlignment(Pretrained):
 
     Example
     -------
-    >>> tmpdir_tts = getfixture('tmpdir') / "tts"
-    >>> fastspeech2 = FastSpeech2InternalAlignment.from_hparams(source="speechbrain/tts-fastspeech2-internal-alignment-ljspeech", savedir=tmpdir_tts) # doctest: +SKIP
-    >>> mel_outputs, durations, pitch, energy = fastspeech2.encode_text(["Mary had a little lamb."]) # doctest: +SKIP
+    >>> tmpdir_tts = getfixture("tmpdir") / "tts"
+    >>> fastspeech2 = FastSpeech2InternalAlignment.from_hparams(
+    ...     source="speechbrain/tts-fastspeech2-internal-alignment-ljspeech",
+    ...     savedir=tmpdir_tts,
+    ... )  # doctest: +SKIP
+    >>> mel_outputs, durations, pitch, energy = fastspeech2.encode_text(
+    ...     ["Mary had a little lamb."]
+    ... )  # doctest: +SKIP
     >>> items = [
-    ...   "A quick brown fox jumped over the lazy dog",
-    ...   "How much wood would a woodchuck chuck?",
-    ...   "Never odd or even"
+    ...     "A quick brown fox jumped over the lazy dog",
+    ...     "How much wood would a woodchuck chuck?",
+    ...     "Never odd or even",
     ... ]
-    >>> mel_outputs, durations, pitch, energy = fastspeech2.encode_text(items) # doctest: +SKIP
+    >>> mel_outputs, durations, pitch, energy = fastspeech2.encode_text(
+    ...     items
+    ... )  # doctest: +SKIP
     >>> # One can combine the TTS model with a vocoder (that generates the final waveform)
     >>> # Initialize the Vocoder (HiFIGAN)
-    >>> tmpdir_vocoder = getfixture('tmpdir') / "vocoder"
+    >>> tmpdir_vocoder = getfixture("tmpdir") / "vocoder"
     >>> from speechbrain.inference.vocoders import HIFIGAN
-    >>> hifi_gan = HIFIGAN.from_hparams(source="speechbrain/tts-hifigan-ljspeech", savedir=tmpdir_vocoder) # doctest: +SKIP
+    >>> hifi_gan = HIFIGAN.from_hparams(
+    ...     source="speechbrain/tts-hifigan-ljspeech", savedir=tmpdir_vocoder
+    ... )  # doctest: +SKIP
     >>> # Running the TTS
-    >>> mel_outputs, durations, pitch, energy = fastspeech2.encode_text(["Mary had a little lamb."]) # doctest: +SKIP
+    >>> mel_outputs, durations, pitch, energy = fastspeech2.encode_text(
+    ...     ["Mary had a little lamb."]
+    ... )  # doctest: +SKIP
     >>> # Running Vocoder (spectrogram-to-waveform)
-    >>> waveforms = hifi_gan.decode_batch(mel_outputs) # doctest: +SKIP
+    >>> waveforms = hifi_gan.decode_batch(mel_outputs)  # doctest: +SKIP
     """
 
     HPARAMS_NEEDED = ["model", "input_encoder"]

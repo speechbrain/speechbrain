@@ -1,4 +1,4 @@
-""" Specifies the inference interfaces for Voice Activity Detection (VAD) modules.
+"""Specifies the inference interfaces for Voice Activity Detection (VAD) modules.
 
 Authors:
  * Aku Rouhe 2021
@@ -44,7 +44,9 @@ class VAD(Pretrained):
     ... )
 
     >>> # Perform VAD
-    >>> boundaries = VAD.get_speech_segments("tests/samples/single-mic/example1.wav")
+    >>> boundaries = VAD.get_speech_segments(
+    ...     "tests/samples/single-mic/example1.wav"
+    ... )
     """
 
     HPARAMS_NEEDED = ["sample_rate", "time_resolution", "device"]

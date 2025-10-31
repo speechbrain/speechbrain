@@ -90,12 +90,14 @@ def prepare_librispeech(
 
     Example
     -------
-    >>> data_folder = 'datasets/LibriSpeech'
-    >>> tr_splits = ['train-clean-100']
-    >>> dev_splits = ['dev-clean']
-    >>> te_splits = ['test-clean']
-    >>> save_folder = 'librispeech_prepared'
-    >>> prepare_librispeech(data_folder, save_folder, tr_splits, dev_splits, te_splits)
+    >>> data_folder = "datasets/LibriSpeech"
+    >>> tr_splits = ["train-clean-100"]
+    >>> dev_splits = ["dev-clean"]
+    >>> te_splits = ["test-clean"]
+    >>> save_folder = "librispeech_prepared"
+    >>> prepare_librispeech(
+    ...     data_folder, save_folder, tr_splits, dev_splits, te_splits
+    ... )
     """
 
     if skip_prep:
@@ -193,7 +195,7 @@ def create_lexicon_and_oov_csv(all_texts, save_folder):
     # Get list of all words in the lexicon
     lexicon_words = []
     lexicon_pronunciations = []
-    with open(lexicon_path, "r", encoding="utf-8") as f:
+    with open(lexicon_path, encoding="utf-8") as f:
         lines = f.readlines()
         for line in lines:
             word = line.split()[0]
@@ -239,7 +241,7 @@ def split_lexicon(data_folder, split_ratio):
     """
     # Reading lexicon.csv
     lexicon_csv_path = os.path.join(data_folder, "lexicon.csv")
-    with open(lexicon_csv_path, "r", newline="", encoding="utf-8") as f:
+    with open(lexicon_csv_path, newline="", encoding="utf-8") as f:
         lexicon_lines = f.readlines()
     # Remove header
     lexicon_lines = lexicon_lines[1:]
@@ -438,7 +440,7 @@ def text_to_dict(text_lst):
     text_dict = {}
     # Reading all the transcription files is text_lst
     for file in text_lst:
-        with open(file, "r", encoding="utf-8") as f:
+        with open(file, encoding="utf-8") as f:
             # Reading all line of the transcription file
             for line in f:
                 line_lst = line.strip().split(" ")

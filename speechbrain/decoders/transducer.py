@@ -70,19 +70,23 @@ class TransducerBeamSearcher(torch.nn.Module):
         state_beam=2.3,
         expand_beam=2.3,
     )
-    >>> from speechbrain.nnet.transducer.transducer_joint import Transducer_joint
+    >>> from speechbrain.nnet.transducer.transducer_joint import (
+    ...     Transducer_joint,
+    ... )
     >>> import speechbrain as sb
     >>> emb = sb.nnet.embedding.Embedding(
     ...     num_embeddings=35,
     ...     embedding_dim=3,
     ...     consider_as_one_hot=True,
-    ...     blank_id=0
+    ...     blank_id=0,
     ... )
     >>> dec = sb.nnet.RNN.GRU(
     ...     hidden_size=10, input_shape=(1, 40, 34), bidirectional=False
     ... )
     >>> lin = sb.nnet.linear.Linear(input_shape=(1, 40, 10), n_neurons=35)
-    >>> joint_network= sb.nnet.linear.Linear(input_shape=(1, 1, 40, 35), n_neurons=35)
+    >>> joint_network = sb.nnet.linear.Linear(
+    ...     input_shape=(1, 1, 40, 35), n_neurons=35
+    ... )
     >>> tjoint = Transducer_joint(joint_network, joint="sum")
     >>> searcher = TransducerBeamSearcher(
     ...     decode_network_lst=[emb, dec],
@@ -409,7 +413,6 @@ class TransducerBeamSearcher(torch.nn.Module):
 
                     # Extend hyp by  selection
                     for j in range(logp_targets.size(0)):
-
                         # hyp
                         topk_hyp = {
                             "prediction": a_best_hyp["prediction"][:],

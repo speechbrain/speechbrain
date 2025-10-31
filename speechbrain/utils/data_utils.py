@@ -43,9 +43,9 @@ def undo_padding(batch, lengths):
 
     Example
     -------
-    >>> batch=torch.rand([4,100])
-    >>> lengths=torch.tensor([0.5,0.6,0.7,1.0])
-    >>> snt_list=undo_padding(batch, lengths)
+    >>> batch = torch.rand([4, 100])
+    >>> lengths = torch.tensor([0.5, 0.6, 0.7, 1.0])
+    >>> snt_list = undo_padding(batch, lengths)
     >>> len(snt_list)
     4
     """
@@ -90,7 +90,7 @@ def get_all_files(
 
     Example
     -------
-    >>> get_all_files('tests/samples/RIRs', match_and=['3.wav'])
+    >>> get_all_files("tests/samples/RIRs", match_and=["3.wav"])
     ['tests/samples/RIRs/rir3.wav']
     """
     # Match/exclude variable initialization
@@ -105,7 +105,6 @@ def get_all_files(
 
     # Iterate over all the entries
     for entry in listOfFile:
-
         # Create full path
         fullPath = os.path.join(dirName, entry)
 
@@ -119,7 +118,6 @@ def get_all_files(
                 exclude_or=exclude_or,
             )
         else:
-
             # Check match_and case
             if match_and is not None:
                 match_and_entry = False
@@ -243,7 +241,7 @@ def recursive_items(dictionary):
 
     Example
     -------
-    >>> rec_dict={'lev1': {'lev2': {'lev3': 'current_val'}}}
+    >>> rec_dict = {"lev1": {"lev2": {"lev3": "current_val"}}}
     >>> [item for item in recursive_items(rec_dict)]
     [('lev3', 'current_val')]
     """
@@ -286,8 +284,8 @@ def recursive_update(d, u, must_match=False):
 
     Example
     -------
-    >>> d = {'a': 1, 'b': {'c': 2}}
-    >>> recursive_update(d, {'b': {'d': 3}})
+    >>> d = {"a": 1, "b": {"c": 2}}
+    >>> recursive_update(d, {"b": {"d": 3}})
     >>> d
     {'a': 1, 'b': {'c': 2, 'd': 3}}
     """
@@ -445,9 +443,9 @@ def pad_right_to(tensor, target_shape, mode="constant", value=0):
     i = len(target_shape) - 1  # iterating over target_shape ndims
     j = 0
     while i >= 0:
-        assert (
-            target_shape[i] >= tensor.shape[i]
-        ), "Target shape must be >= original shape for every dim"
+        assert target_shape[i] >= tensor.shape[i], (
+            "Target shape must be >= original shape for every dim"
+        )
         pads.extend([0, target_shape[i] - tensor.shape[i]])
         valid_vals.append(tensor.shape[j] / target_shape[j])
         i -= 1
@@ -501,7 +499,7 @@ def batch_pad_right(tensors: list, mode="constant", value=0):
             if not all(
                 [x.shape[dim] == tensors[0].shape[dim] for x in tensors[1:]]
             ):
-                raise EnvironmentError(
+                raise OSError(
                     "Tensors should have same dimensions except for the first one"
                 )
         max_shape.append(max([x.shape[dim] for x in tensors]))
@@ -714,9 +712,8 @@ def pad_divisible(tensor, length=None, factor=2, len_dim=1, pad_value=0):
 
     Example
     -------
-    >>> x = torch.tensor([[1, 2, 3, 4],
-    ...                   [5, 6, 0, 0]])
-    >>> lens = torch.tensor([1., .5])
+    >>> x = torch.tensor([[1, 2, 3, 4], [5, 6, 0, 0]])
+    >>> lens = torch.tensor([1.0, 0.5])
     >>> x_pad, lens_pad = pad_divisible(x, length=lens, factor=5)
     >>> x_pad
     tensor([[1, 2, 3, 4, 0],

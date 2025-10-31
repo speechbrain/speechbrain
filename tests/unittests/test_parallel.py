@@ -26,9 +26,9 @@ def test_parallel_map():
             )
         )
 
-        assert (
-            small_test_output == small_test_expected
-        ), f"chunk_size={test_chunk_size}"
+        assert small_test_output == small_test_expected, (
+            f"chunk_size={test_chunk_size}"
+        )
 
     # test whether pbar off works properly
     small_test_output = list(

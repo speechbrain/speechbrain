@@ -108,7 +108,7 @@ def get_model(repo, values, updates_dir=None, run_opts=None):
     if (
         "foreign" in values.keys()
     ):  # it's a custom model which has its own Python filename
-        custom = f'pretrained_models/{repo}/{values["foreign"]}'
+        custom = f"pretrained_models/{repo}/{values['foreign']}"
     # prepare model loading: is it the old -or- the new yaml/interface?
     if updates_dir is not None:
         # testing the refactoring; assuming all model data has been loaded already
@@ -118,7 +118,7 @@ def get_model(repo, values, updates_dir=None, run_opts=None):
         if "foreign" in values.keys():
             os.unlink(custom)
             os.symlink(
-                f'{updates_dir}/{repo}/{values["foreign"]}',
+                f"{updates_dir}/{repo}/{values['foreign']}",
                 custom,
             )
     else:
@@ -135,9 +135,9 @@ def get_model(repo, values, updates_dir=None, run_opts=None):
     print(f"\trepo: {repo}")
     # load pretrained model either via specified pretrained class or custom interface
     if "foreign" not in values.keys():
-        print(f'\tspeechbrain.inference.{values["cls"]}')
+        print(f"\tspeechbrain.inference.{values['cls']}")
         print(f"\tobj.from_hparams({kwargs})")
-        obj = eval(f'speechbrain.inference.{values["cls"]}')
+        obj = eval(f"speechbrain.inference.{values['cls']}")
         model = obj.from_hparams(**kwargs)
     else:
         kwargs["pymodule_file"] = values["foreign"]
@@ -185,7 +185,7 @@ def get_prediction(repo, values, updates_dir=None):
 
     except Exception:
         # use an example audio if no audio can be loaded
-        print(f'\tWARNING - no audio found on HF: {repo}/{values["sample"]}')
+        print(f"\tWARNING - no audio found on HF: {repo}/{values['sample']}")
         prediction = eval(
             f'model.{values["fnx"]}(model.load_audio("tests/samples/single-mic/example1.wav", savedir="pretrained_models/{repo}").unsqueeze(0), torch.tensor([1.0]))'
         )
@@ -335,10 +335,10 @@ def test_performance(
     Dict for export to yaml with performance statistics, as specified in the test.yaml files.
     """
     # Dataset depending file structure
-    tmp_dir = f'tests/tmp/{values["dataset"]}'
+    tmp_dir = f"tests/tmp/{values['dataset']}"
     speechbrain.create_experiment_directory(experiment_directory=tmp_dir)
     stats_meta = {
-        f'[{values["dataset"]}] - {"BEFORE" if updates_dir is None else "AFTER"}': repo
+        f"[{values['dataset']}] - {'BEFORE' if updates_dir is None else 'AFTER'}": repo
     }
 
     # Load pretrained
@@ -395,7 +395,7 @@ def test_performance(
                     wav_lens.to(model.device),
                 )
                 predictions = eval(  # noqa
-                    f'model.{values["fnx"]}(wavs, wav_lens)'
+                    f"model.{values['fnx']}(wavs, wav_lens)"
                 )
                 predicted = eval(values["predicted"])  # noqa
                 targeted = eval(values["targeted"])  # noqa
@@ -433,7 +433,7 @@ if __name__ == "__main__":
     )
 
     # load results, if existing -or- new from scratch
-    yaml_path = f'{dataset_overrides["new_interfaces_local_dir"]}.yaml'
+    yaml_path = f"{dataset_overrides['new_interfaces_local_dir']}.yaml"
     if os.path.exists(yaml_path):
         with open(yaml_path, encoding="utf-8") as yaml_in:
             results = yaml.safe_load(yaml_in)
@@ -442,7 +442,7 @@ if __name__ == "__main__":
 
     repos = map(
         os.path.basename,
-        glob(f'{updates_dir}/{dataset_overrides["glob_filter"]}'),
+        glob(f"{updates_dir}/{dataset_overrides['glob_filter']}"),
     )
     for repo in repos:
         # get values
@@ -469,7 +469,7 @@ if __name__ == "__main__":
             continue
 
         # skip if datasets is not given
-        if not dataset_overrides[f'{values["dataset"]}_data']:
+        if not dataset_overrides[f"{values['dataset']}_data"]:
             continue
 
         print(f"Run tests on: {repo}")
@@ -506,9 +506,9 @@ if __name__ == "__main__":
             results[repo]["same"] = (
                 results[repo]["before"] == results[repo]["after"]
             )
-            print(f'\tbefore: {results[repo]["before"]}')
-            print(f'\t after: {results[repo]["after"]}')
-            print(f'\t  same: {results[repo]["same"]}')
+            print(f"\tbefore: {results[repo]['before']}")
+            print(f"\t after: {results[repo]['after']}")
+            print(f"\t  same: {results[repo]['same']}")
 
             # update
             with open(yaml_path, "w", encoding="utf-8") as yaml_out:

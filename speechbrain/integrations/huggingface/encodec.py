@@ -60,7 +60,7 @@ class Encodec(HFTransformersInterface):
     >>> save_path = "savedir"
     >>> model = Encodec(model_hub, save_path)
     >>> audio = torch.randn(4, 1000)
-    >>> length = torch.tensor([1.0, .5, .75, 1.0])
+    >>> length = torch.tensor([1.0, 0.5, 0.75, 1.0])
     >>> tokens, emb = model.encode(audio, length)
     >>> tokens.shape
     torch.Size([4, 4, 2])

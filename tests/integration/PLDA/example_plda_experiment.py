@@ -5,8 +5,12 @@ import pickle
 import numpy
 from numpy import linalg as LA
 
-from speechbrain.processing.PLDA_LDA import StatObject_SB  # noqa F401
-from speechbrain.processing.PLDA_LDA import PLDA, Ndx, fast_PLDA_scoring
+from speechbrain.processing.PLDA_LDA import (
+    PLDA,
+    Ndx,
+    StatObject_SB,  # noqa F401
+    fast_PLDA_scoring,
+)
 
 # Load params file
 experiment_dir = os.path.dirname(os.path.abspath(__file__))

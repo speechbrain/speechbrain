@@ -26,10 +26,11 @@ Example
 ...     def __init__(self, param):
 ...         super().__init__()
 ...         self.param = torch.nn.Parameter(torch.tensor([param]))
+...
 ...     def forward(self, x):
 ...         return x * self.param
->>> model = Recoverable(1.)
->>> tempdir = getfixture('tmpdir')
+>>> model = Recoverable(1.0)
+>>> tempdir = getfixture("tmpdir")
 >>> # In simple cases, the module aims to have a terse syntax,
 >>> # consisting of three steps.
 >>> # 1. Specifying where to save checkpoints and what is included in a
@@ -40,7 +41,7 @@ Example
 >>> # Run your experiment:
 >>> data = [(0.1, 0.9), (0.3, 0.8)]
 >>> for example, target in data:
-...     loss = (model(example) - target)**2
+...     loss = (model(example) - target) ** 2
 ...     # 3. Save checkpoints, and keep by default just one, the newest:
 ...     ckpt = checkpointer.save_and_keep_only()
 
@@ -129,7 +130,7 @@ def map_old_state_dict_weights(
 
 
 def hook_on_loading_state_dict_checkpoint(
-    state_dict: Dict[str, torch.Tensor]
+    state_dict: Dict[str, torch.Tensor],
 ) -> Dict[str, torch.Tensor]:
     """Hook to be called when loading a state_dict checkpoint.
 
@@ -552,23 +553,24 @@ class Checkpointer:
     Example
     -------
     >>> import torch
-    >>> #SETUP:
-    >>> tempdir = getfixture('tmpdir')
+    >>> # SETUP:
+    >>> tempdir = getfixture("tmpdir")
     >>> class Recoverable(torch.nn.Module):
     ...     def __init__(self, param):
     ...         super().__init__()
     ...         self.param = torch.nn.Parameter(torch.tensor([param]))
+    ...
     ...     def forward(self, x):
     ...         return x * self.param
-    >>> recoverable = Recoverable(1.)
-    >>> recoverables = {'recoverable': recoverable}
+    >>> recoverable = Recoverable(1.0)
+    >>> recoverables = {"recoverable": recoverable}
     >>> # SETUP DONE.
     >>> checkpointer = Checkpointer(tempdir, recoverables)
     >>> first_ckpt = checkpointer.save_checkpoint()
-    >>> recoverable.param.data = torch.tensor([2.])
+    >>> recoverable.param.data = torch.tensor([2.0])
     >>> loaded_ckpt = checkpointer.recover_if_possible()
     >>> # Parameter has been loaded:
-    >>> assert recoverable.param.data == torch.tensor([1.])
+    >>> assert recoverable.param.data == torch.tensor([1.0])
     >>> # With this call, by default, oldest checkpoints are deleted:
     >>> checkpointer.save_and_keep_only()
     >>> assert first_ckpt not in checkpointer.list_checkpoints()
@@ -1161,9 +1163,11 @@ class Checkpointer:
                     continue
                 else:
                     if self.optional_recoverables[name]:
-                        MSG = f"Trying to load checkpoint from {checkpoint.path}, \
+                        MSG = (
+                            f"Trying to load checkpoint from {checkpoint.path}, \
                                 but missing a load path for {name}. Skipping as this \
                                 recoverable is marked as optional."
+                        )
                         warnings.warn(MSG, UserWarning)
                         continue
                     MSG = f"Loading checkpoint from {checkpoint.path}, \
@@ -1330,18 +1334,21 @@ def average_checkpoints(
     ...     def __init__(self, param):
     ...         super().__init__()
     ...         self.param = torch.nn.Parameter(torch.tensor([param]))
+    ...
     ...     def forward(self, x):
     ...         return x * self.param
     >>> # Now let's make some checkpoints:
-    >>> model = Recoverable(1.)
-    >>> tempdir = getfixture('tmpdir')
+    >>> model = Recoverable(1.0)
+    >>> tempdir = getfixture("tmpdir")
     >>> checkpointer = Checkpointer(tempdir, {"model": model})
     >>> for new_param in range(10):
     ...     model.param.data = torch.tensor([float(new_param)])
-    ...     _ = checkpointer.save_checkpoint()  # Suppress output with assignment
+    ...     _ = (
+    ...         checkpointer.save_checkpoint()
+    ...     )  # Suppress output with assignment
     >>> # Let's average the 3 latest checkpoints
     >>> # (parameter values 7, 8, 9 -> avg=8)
-    >>> ckpt_list = checkpointer.find_checkpoints(max_num_checkpoints = 3)
+    >>> ckpt_list = checkpointer.find_checkpoints(max_num_checkpoints=3)
     >>> averaged_state = average_checkpoints(ckpt_list, "model")
     >>> # Now load that state in the normal way:
     >>> _ = model.load_state_dict(averaged_state)  # Suppress output

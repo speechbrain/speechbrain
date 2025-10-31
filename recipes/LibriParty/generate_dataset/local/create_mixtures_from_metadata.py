@@ -94,7 +94,7 @@ def create_mixture(session_n, output_dir, params, metadata):
                 os.path.join(
                     output_dir,
                     session_n,
-                    "session_{}_spk_{}_dry.wav".format(session_n, spk),
+                    f"session_{session_n}_spk_{spk}_dry.wav",
                 ),
                 torch.clamp(dry, min=-1, max=1),
                 params["samplerate"],
@@ -105,14 +105,14 @@ def create_mixture(session_n, output_dir, params, metadata):
                 os.path.join(
                     output_dir,
                     session_n,
-                    "session_{}_spk_{}_wet.wav".format(session_n, spk),
+                    f"session_{session_n}_spk_{spk}_wet.wav",
                 ),
                 torch.clamp(wet, min=-1, max=1),
                 params["samplerate"],
             )
 
     with open(
-        os.path.join(output_dir, session_n, "{}.json".format(session_n)),
+        os.path.join(output_dir, session_n, f"{session_n}.json"),
         "w",
         encoding="utf-8",
     ) as f:
@@ -186,7 +186,7 @@ def create_mixture(session_n, output_dir, params, metadata):
     # save total mixture
     mixture = torch.clamp(mixture, min=-1, max=1)
     torchaudio.save(
-        os.path.join(output_dir, session_n, "{}_mixture.wav".format(session_n)),
+        os.path.join(output_dir, session_n, f"{session_n}_mixture.wav"),
         mixture.unsqueeze(0),
         params["samplerate"],
     )

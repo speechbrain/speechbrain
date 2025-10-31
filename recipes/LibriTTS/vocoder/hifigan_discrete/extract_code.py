@@ -44,8 +44,8 @@ def get_device(use_cuda):
     """Determine and return the appropriate device for computation."""
     use_cuda = use_cuda and torch.cuda.is_available()
     print("\n" + "=" * 30)
-    print("USE_CUDA SET TO: {}".format(use_cuda))
-    print("CUDA AVAILABLE?: {}".format(torch.cuda.is_available()))
+    print(f"USE_CUDA SET TO: {use_cuda}")
+    print(f"CUDA AVAILABLE?: {torch.cuda.is_available()}")
     print("=" * 30 + "\n")
     return torch.device("cuda" if use_cuda else "cpu")
 
@@ -151,16 +151,27 @@ def extract_libritts(
 
     Example
     -------
-    >>> from recipes.LibriTTS.TTS.vocoder.hifigan_unit.extract_code import extract_libritts
-    >>> data_folder = 'data/LibriTTS/'
-    >>> splits = ['train', 'valid']
-    >>> kmeans_folder = 'speechbrain/SSL_Quantization'
-    >>> kmeans_dataset = LibriSpeech-100-360-500
-    >>> encoder_type = 'HuBERT'
-    >>> encoder_source = facebook/hubert-large-ll60k
+    >>> from recipes.LibriTTS.TTS.vocoder.hifigan_unit.extract_code import (
+    ...     extract_libritts,
+    ... )
+    >>> data_folder = "data/LibriTTS/"
+    >>> splits = ["train", "valid"]
+    >>> kmeans_folder = "speechbrain/SSL_Quantization"
+    >>> kmeans_dataset = LibriSpeech - 100 - 360 - 500
+    >>> encoder_type = "HuBERT"
+    >>> encoder_source = facebook / hubert - large - ll60k
     >>> layer = [7]
-    >>> save_folder = 'save/'
-    >>> extract_libritts(data_folder, splits, kmeans_folder, kmeans_filename, encoder_type, encoder_source, layer, save_folder)
+    >>> save_folder = "save/"
+    >>> extract_libritts(
+    ...     data_folder,
+    ...     splits,
+    ...     kmeans_folder,
+    ...     kmeans_filename,
+    ...     encoder_type,
+    ...     encoder_source,
+    ...     layer,
+    ...     save_folder,
+    ... )
     """
     logger = setup_logger()
 

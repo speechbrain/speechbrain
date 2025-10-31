@@ -1,5 +1,4 @@
-"""Test input normalization in processing/features.py.
-"""
+"""Test input normalization in processing/features.py."""
 
 import functools
 from typing import List, Optional, Tuple, Union

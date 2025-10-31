@@ -1,4 +1,4 @@
-""" This script prepares the data-manifest files (in JSON format)
+"""This script prepares the data-manifest files (in JSON format)
 for training and testing a Voice Activity Detection system with the
 LibriParty dataset.
 
@@ -255,8 +255,8 @@ def prepare_libriparty(
     Example
     -------
     >>> from recipes.LibriParty.libriparty_prepare import prepare_libriparty
-    >>> data_folder = 'datasets/LibriParty'
-    >>> prepare_libriparty(data_folder, 'train.json', 'valid.json', 'test.json')
+    >>> data_folder = "datasets/LibriParty"
+    >>> prepare_libriparty(data_folder, "train.json", "valid.json", "test.json")
     """
 
     # Skip if needed

@@ -279,7 +279,6 @@ def read_pkl(file, data_options={}, lab2ind=None):
     type_ok = False
 
     if isinstance(pkl_element, list):
-
         if isinstance(pkl_element[0], float):
             tensor = torch.FloatTensor(pkl_element)
             type_ok = True
@@ -289,7 +288,6 @@ def read_pkl(file, data_options={}, lab2ind=None):
             type_ok = True
 
         if isinstance(pkl_element[0], str):
-
             # convert string to integer as specified in self.label_dict
             if lab2ind is not None:
                 for index, val in enumerate(pkl_element):

@@ -13,22 +13,14 @@ repos:
       - id: check-added-large-files
         args: [--maxkb=1024]
 
-  - repo: https://github.com/psf/black
-    rev: 24.3.0
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.12.4
     hooks:
-      - id: black
+      - id: ruff
         types: [python]
-        additional_dependencies: ['click==8.1.7']
-
-  - repo: https://github.com/PyCQA/flake8
-    rev: 7.0.0
-    hooks:
-      - id: flake8
+        args: [--fix]
+      - id: ruff-format
         types: [python]
-        additional_dependencies:
-          - pydoclint==0.4.1
-          - pycodestyle==2.11.0
-          - flake8-encodings==0.5.1
 
   - repo: https://github.com/adrienverge/yamllint
     rev: v1.35.1
@@ -50,8 +42,3 @@ repos:
           - "--ignore-regex='base64,.*?=='"
         additional_dependencies:
           - tomli
-
-  - repo: https://github.com/pycqa/isort
-    rev: 5.13.2
-    hooks:
-      - id: isort

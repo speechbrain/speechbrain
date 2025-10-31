@@ -18,6 +18,7 @@ Authors
  * Chien-Feng Liao 2020
  * Peter Plantinga 2021
 """
+
 import sys
 
 import torch
@@ -130,7 +131,6 @@ class SEBrain(sb.Brain):
         # Some evaluations are slower, and we only want to perform them
         # on the validation set.
         if stage != sb.Stage.TRAIN:
-
             # Evaluate speech intelligibility as an additional metric
             self.stoi_metric.append(
                 batch.id,
@@ -260,7 +260,6 @@ def dataio_prep(hparams):
 
 # Recipe begins!
 if __name__ == "__main__":
-
     # Reading command line arguments
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
 

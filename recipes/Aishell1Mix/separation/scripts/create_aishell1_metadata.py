@@ -37,7 +37,6 @@ def create_aishell1_metadata(aishell1_dir, md_dir):
     filename2transcript = {}
     with open(
         os.path.join(aishell1_dir, "transcript/aishell_transcript_v0.8.txt"),
-        "r",
         encoding="utf-8",
     ) as f:
         lines = f.readlines()

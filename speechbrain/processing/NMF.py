@@ -25,7 +25,7 @@ def spectral_phase(stft):
     Example
     -------
     >>> BS, nfft, T = 10, 20, 300
-    >>> X_stft = torch.randn(BS, nfft//2 + 1, T, 2)
+    >>> X_stft = torch.randn(BS, nfft // 2 + 1, T, 2)
     >>> phase_mix = spectral_phase(X_stft)
     """
     phase = torch.atan2(stft[:, :, :, 1], stft[:, :, :, 0])
@@ -60,10 +60,10 @@ def NMF_separate_spectra(Whats, Xmix):
     -------
     >>> BS, nfft, T = 4, 20, 400
     >>> K1, K2 = 10, 10
-    >>> W1hat = torch.randn(nfft//2 + 1, K1)
-    >>> W2hat = torch.randn(nfft//2 + 1, K2)
+    >>> W1hat = torch.randn(nfft // 2 + 1, K1)
+    >>> W2hat = torch.randn(nfft // 2 + 1, K2)
     >>> Whats = [W1hat, W2hat]
-    >>> Xmix = torch.randn(BS, T, nfft//2 + 1)
+    >>> Xmix = torch.randn(BS, T, nfft // 2 + 1)
     >>> X1hat, X2hat = NMF_separate_spectra(Whats, Xmix)
     """
     W1, W2 = Whats
@@ -144,10 +144,12 @@ def reconstruct_results(
     -------
     >>> BS, nfft, T = 10, 512, 16000
     >>> sample_rate, win_length, hop_length = 16000, 25, 10
-    >>> X1hat = torch.randn(BS, nfft//2 + 1, T)
-    >>> X2hat = torch.randn(BS, nfft//2 + 1, T)
-    >>> X_stft = torch.randn(BS, nfft//2 + 1, T, 2)
-    >>> x1hats, x2hats = reconstruct_results(X1hat, X2hat, X_stft, sample_rate, win_length, hop_length)
+    >>> X1hat = torch.randn(BS, nfft // 2 + 1, T)
+    >>> X2hat = torch.randn(BS, nfft // 2 + 1, T)
+    >>> X_stft = torch.randn(BS, nfft // 2 + 1, T, 2)
+    >>> x1hats, x2hats = reconstruct_results(
+    ...     X1hat, X2hat, X_stft, sample_rate, win_length, hop_length
+    ... )
     """
     ISTFT = spf.ISTFT(
         sample_rate=sample_rate, win_length=win_length, hop_length=hop_length

@@ -168,7 +168,7 @@ class EmoDiaBrain(sb.Brain):
             #     self.error_metrics.write_stats(w)
 
     def load_ZED(self):
-        with open(self.hparams.test_annotation, "r", encoding="utf-8") as f:
+        with open(self.hparams.test_annotation, encoding="utf-8") as f:
             ZED_data = json.load(f)
         self.ZED = ZED_data
 

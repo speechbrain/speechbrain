@@ -64,19 +64,30 @@ class DiscreteSSL(nn.Module):
     Example
     -------
     >>> import torch
-    >>> from speechbrain.integrations.huggingface.wavlm import (WavLM)
+    >>> from speechbrain.integrations.huggingface.wavlm import WavLM
     >>> inputs = torch.rand([3, 2000])
     >>> model_hub = "microsoft/wavlm-large"
     >>> save_path = "savedir"
-    >>> ssl_layer_num = [7,23]
-    >>> deduplicate =[False, True]
-    >>> bpe_tokenizers=[None, None]
+    >>> ssl_layer_num = [7, 23]
+    >>> deduplicate = [False, True]
+    >>> bpe_tokenizers = [None, None]
     >>> vocoder_repo_id = "speechbrain/hifigan-wavlm-k1000-LibriTTS"
     >>> kmeans_dataset = "LibriSpeech"
     >>> num_clusters = 1000
-    >>> ssl_model = WavLM(model_hub, save_path,output_all_hiddens=True)
-    >>> model = DiscreteSSL(save_path, ssl_model, vocoder_repo_id=vocoder_repo_id, kmeans_dataset=kmeans_dataset,num_clusters=num_clusters)
-    >>> tokens, _, _ = model.encode(inputs,SSL_layers=ssl_layer_num, deduplicates=deduplicate, bpe_tokenizers=bpe_tokenizers)
+    >>> ssl_model = WavLM(model_hub, save_path, output_all_hiddens=True)
+    >>> model = DiscreteSSL(
+    ...     save_path,
+    ...     ssl_model,
+    ...     vocoder_repo_id=vocoder_repo_id,
+    ...     kmeans_dataset=kmeans_dataset,
+    ...     num_clusters=num_clusters,
+    ... )
+    >>> tokens, _, _ = model.encode(
+    ...     inputs,
+    ...     SSL_layers=ssl_layer_num,
+    ...     deduplicates=deduplicate,
+    ...     bpe_tokenizers=bpe_tokenizers,
+    ... )
     >>> print(tokens.shape)
     torch.Size([3, 6, 2])
     >>> sig = model.decode(tokens, ssl_layer_num)
@@ -95,7 +106,6 @@ class DiscreteSSL(nn.Module):
         device="cpu",
         sample_rate=16000,
     ):
-
         super().__init__()
         self.device = device
         self.ssl_model = ssl_model
@@ -139,13 +149,13 @@ class DiscreteSSL(nn.Module):
         if layers_num:
             if isinstance(num_clusters, int):
                 num_clusters = [num_clusters for i in layers_num]
-            assert len(num_clusters) == len(
-                layers_num
-            ), "length of num_clusters and layers_num should be the same!!!"
+            assert len(num_clusters) == len(layers_num), (
+                "length of num_clusters and layers_num should be the same!!!"
+            )
         if layers_num is None:
-            assert isinstance(
-                num_clusters, int
-            ), "num_clusters is expected to be int since the layers_num is not provided."
+            assert isinstance(num_clusters, int), (
+                "num_clusters is expected to be int since the layers_num is not provided."
+            )
         self.num_clusters = num_clusters
 
     def load_kmeans(
@@ -209,9 +219,9 @@ class DiscreteSSL(nn.Module):
                     )
                     kmeans_models.append(joblib.load(file))
 
-        assert (
-            len(layer_ids) > 0
-        ), f"There is no trained k-means model available for {repo_id}"
+        assert len(layer_ids) > 0, (
+            f"There is no trained k-means model available for {repo_id}"
+        )
 
         if isinstance(num_clusters, int):
             num_clusters = [num_clusters for i in layer_ids]
@@ -298,9 +308,9 @@ class DiscreteSSL(nn.Module):
         if bpe_tokenizers is None:
             bpe_tokenizers = [None] * len(SSL_layers)
 
-        assert (
-            len(deduplicates) == len(SSL_layers) == len(bpe_tokenizers)
-        ), "length of SSL_layers,deduplicates,bpe_tokenizers should be the same!!!"
+        assert len(deduplicates) == len(SSL_layers) == len(bpe_tokenizers), (
+            "length of SSL_layers,deduplicates,bpe_tokenizers should be the same!!!"
+        )
 
         embeddings = []
         token_ids = []

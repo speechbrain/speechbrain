@@ -50,11 +50,11 @@ class mBART(HFTransformersInterface):
     Example
     -------
     >>> src = torch.rand([10, 1, 1024])
-    >>> tgt = torch.LongTensor([[250008,    313,     25,    525,    773,  21525,   4004,      2]])
+    >>> tgt = torch.LongTensor([[250008, 313, 25, 525, 773, 21525, 4004, 2]])
     >>> model_hub = "facebook/mbart-large-50-many-to-many-mmt"
     >>> save_path = "savedir"
-    >>> model = mBART(model_hub, save_path) # doctest: +SKIP
-    >>> outputs = model(src, tgt) # doctest: +SKIP
+    >>> model = mBART(model_hub, save_path)  # doctest: +SKIP
+    >>> outputs = model(src, tgt)  # doctest: +SKIP
     """
 
     def __init__(

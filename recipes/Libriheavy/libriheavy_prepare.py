@@ -161,7 +161,6 @@ def extract_transcripts(jsonl_gz_file_path):
 
     # Open the gzipped JSONL file and the CSV file
     with gzip.open(jsonl_gz_file_path, "rt") as jsonl_file:
-
         # Write the header to the CSV file
         header = "ID,wav,start,duration,text,spk_id"
         csv_corpus.append(header)
@@ -372,11 +371,11 @@ def english_specific_preprocess(sentence):
         # Suggests the sentence is not English but German.
         "öÖßüÜ"
         # All sorts of languages: Greek, Arabic...
-        "\u0370-\u1AAF"
+        "\u0370-\u1aaf"
         # Chinese/Japanese/Korean.
-        "\u4E00-\u9FFF"
+        "\u4e00-\u9fff"
         # Technical symbols.
-        "\u2190-\u23FF"
+        "\u2190-\u23ff"
         # Symbols that could be pronounced in various ways.
         "\\[\\]€→=~%§_#"
         "]"
@@ -393,7 +392,7 @@ def english_specific_preprocess(sentence):
 
     final_characters = set(" ABCDEFGHIJKLMNOPQRSTUVWXYZ'")
 
-    if not re.search(stop_characters, sentence) is None:
+    if re.search(stop_characters, sentence) is not None:
         return None
 
     sentence_mapped = sentence

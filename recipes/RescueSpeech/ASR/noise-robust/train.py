@@ -629,13 +629,13 @@ class ASR(sb.core.Brain):
                 }
                 writer.writerow(row)
 
-        logger.info("Mean SISNR is {}".format(np.array(all_sisnrs).mean()))
-        logger.info("Mean SISNRi is {}".format(np.array(all_sisnrs_i).mean()))
-        logger.info("Mean PESQ {}".format(np.array(all_pesqs).mean()))
-        logger.info("Mean STOI {}".format(np.array(all_stois).mean()))
-        logger.info("Mean SDR is {}".format(np.array(all_sdrs).mean()))
-        logger.info("Mean SDRi is {}".format(np.array(all_sdrs_i).mean()))
-        logger.info("Total discarded files {}".format(count))
+        logger.info(f"Mean SISNR is {np.array(all_sisnrs).mean()}")
+        logger.info(f"Mean SISNRi is {np.array(all_sisnrs_i).mean()}")
+        logger.info(f"Mean PESQ {np.array(all_pesqs).mean()}")
+        logger.info(f"Mean STOI {np.array(all_stois).mean()}")
+        logger.info(f"Mean SDR is {np.array(all_sdrs).mean()}")
+        logger.info(f"Mean SDRi is {np.array(all_sdrs_i).mean()}")
+        logger.info(f"Total discarded files {count}")
 
 
 # Define custom data procedure

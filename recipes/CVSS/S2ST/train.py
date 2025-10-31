@@ -1,12 +1,12 @@
 """
- Recipe for training the speech-to-unit translation (S2UT) model, the implementation is based on the following papers:
- - Direct speech-to-speech translation with discrete units: (https://arxiv.org/abs/2006.04558)
- - Enhanced Direct Speech-to-Speech Translation Using Self-supervised Pre-training and Data Augmentation: (https://arxiv.org/abs/2204.02967)
- To run this recipe, do the following:
- # python train.py hparams/train_fr-en.yaml --src_data_folder=/corpus/CommonVoice/fr --tgt_data_folder=/corpus/CVSS/fr
+Recipe for training the speech-to-unit translation (S2UT) model, the implementation is based on the following papers:
+- Direct speech-to-speech translation with discrete units: (https://arxiv.org/abs/2006.04558)
+- Enhanced Direct Speech-to-Speech Translation Using Self-supervised Pre-training and Data Augmentation: (https://arxiv.org/abs/2204.02967)
+To run this recipe, do the following:
+# python train.py hparams/train_fr-en.yaml --src_data_folder=/corpus/CommonVoice/fr --tgt_data_folder=/corpus/CVSS/fr
 
- Authors
- * Jarod Duret 2023
+Authors
+* Jarod Duret 2023
 """
 
 import pathlib as pl

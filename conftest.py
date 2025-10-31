@@ -11,7 +11,6 @@ def pytest_generate_tests(metafunc):
 
 
 collect_ignore = [
-    "setup.py",
     "speechbrain/integrations/",
     # These can be removed once the modules are fully deprecated
     "speechbrain/utils/bleu.py",

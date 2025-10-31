@@ -13,7 +13,6 @@ TONE_HZ = 220
 
 @pytest.fixture
 def pure_tone():
-
     # Create 3-second pure tone wave with known f0
     duration = 3
     values = [

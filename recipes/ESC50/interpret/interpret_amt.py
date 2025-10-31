@@ -161,7 +161,7 @@ class InterpreterESC50Brain(sb.core.Brain):
             wavs
         )
         X_stft_phase = X_stft_phase[:, : X_int.shape[1], :]
-        if not (batch is None):
+        if batch is not None:
             x_int_sb = self.invert_stft_with_phase(X_int, X_stft_phase)
 
             # Save reconstructed and original spectrograms
@@ -588,7 +588,7 @@ def dataio_prep(hparams):
         """Load the signal, and pass it and its length to the corruption class.
         This is done on the CPU in the `collate_fn`."""
 
-        wave_file = data_audio_folder + "/{:}".format(wav)
+        wave_file = data_audio_folder + f"/{wav}"
 
         sig, read_sr = torchaudio.load(wave_file)
 

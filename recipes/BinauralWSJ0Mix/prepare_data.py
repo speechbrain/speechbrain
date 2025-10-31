@@ -5,7 +5,7 @@ Author
  * Cem Subakan 2020
  * Zijian 2022
 
- """
+"""
 
 import csv
 import os
@@ -70,13 +70,13 @@ def create_binaural_wsj0mix2_csv(
 
     for set_type in set_types:
         mix_path = os.path.join(
-            datapath, "wav{}".format(sample_rate), version, set_type, "mix/"
+            datapath, f"wav{sample_rate}", version, set_type, "mix/"
         )
         s1_path = os.path.join(
-            datapath, "wav{}".format(sample_rate), version, set_type, "s1/"
+            datapath, f"wav{sample_rate}", version, set_type, "s1/"
         )
         s2_path = os.path.join(
-            datapath, "wav{}".format(sample_rate), version, set_type, "s2/"
+            datapath, f"wav{sample_rate}", version, set_type, "s2/"
         )
 
         files = os.listdir(mix_path)
@@ -150,16 +150,16 @@ def create_binaural_wsj0mix3_csv(
 
     for set_type in set_types:
         mix_path = os.path.join(
-            datapath, "wav{}".format(sample_rate), version, set_type, "mix/"
+            datapath, f"wav{sample_rate}", version, set_type, "mix/"
         )
         s1_path = os.path.join(
-            datapath, "wav{}".format(sample_rate), version, set_type, "s1/"
+            datapath, f"wav{sample_rate}", version, set_type, "s1/"
         )
         s2_path = os.path.join(
-            datapath, "wav{}".format(sample_rate), version, set_type, "s2/"
+            datapath, f"wav{sample_rate}", version, set_type, "s2/"
         )
         s3_path = os.path.join(
-            datapath, "wav{}".format(sample_rate), version, set_type, "s3/"
+            datapath, f"wav{sample_rate}", version, set_type, "s3/"
         )
 
         files = os.listdir(mix_path)
@@ -245,19 +245,19 @@ def create_binaural_wsj0mix2_noise_csv(
     for set_type in set_types:
         mix_path = os.path.join(
             datapath,
-            "wav{}".format(sample_rate),
+            f"wav{sample_rate}",
             version,
             set_type,
             "mix_both/",
         )
         s1_path = os.path.join(
-            datapath, "wav{}".format(sample_rate), version, set_type, "s1/"
+            datapath, f"wav{sample_rate}", version, set_type, "s1/"
         )
         s2_path = os.path.join(
-            datapath, "wav{}".format(sample_rate), version, set_type, "s2/"
+            datapath, f"wav{sample_rate}", version, set_type, "s2/"
         )
         noise_path = os.path.join(
-            datapath, "wav{}".format(sample_rate), version, set_type, "noise/"
+            datapath, f"wav{sample_rate}", version, set_type, "noise/"
         )
 
         files = os.listdir(mix_path)
@@ -338,13 +338,13 @@ def create_binaural_wsj0mix2_reverb_csv(
 
     for set_type in set_types:
         mix_path = os.path.join(
-            datapath, "wav{}".format(sample_rate), version, set_type, "mix/"
+            datapath, f"wav{sample_rate}", version, set_type, "mix/"
         )
         s1_path = os.path.join(
-            datapath, "wav{}".format(sample_rate), version, set_type, "s1/"
+            datapath, f"wav{sample_rate}", version, set_type, "s1/"
         )
         s2_path = os.path.join(
-            datapath, "wav{}".format(sample_rate), version, set_type, "s2/"
+            datapath, f"wav{sample_rate}", version, set_type, "s2/"
         )
 
         files = os.listdir(mix_path)
