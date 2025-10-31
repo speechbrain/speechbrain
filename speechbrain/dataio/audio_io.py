@@ -41,6 +41,11 @@ class AudioMetadata:
     def duration(self) -> float:
         """Return the duration of the audio in seconds."""
         return self.frames / self.sample_rate if self.sample_rate > 0 else 0.0
+    
+    @property
+    def num_frames(self) -> int:
+        """Return the number of frames (alias for frames, for torchaudio compatibility)."""
+        return self.frames
 
 
 def load(path, *, channels_first=True, dtype=torch.float32, always_2d=False):
@@ -170,8 +175,26 @@ def save(path, src, sample_rate, subtype="PCM_16"):
     # Ensure parent directory exists
     Path(path).parent.mkdir(parents=True, exist_ok=True)
     
+    # Auto-detect format from file extension and adjust subtype if needed
+    path_str = str(path)
+    ext = Path(path).suffix.lower()
+    
+    # For certain formats, we need to use appropriate subtypes or let soundfile choose
+    if ext in ['.ogg', '.oga']:
+        # OGG Vorbis doesn't use PCM
+        subtype = None  # Let soundfile choose the default
+    elif ext == '.mp3':
+        # MP3 doesn't use PCM either
+        subtype = None
+    elif ext in ['.flac', '.wav']:
+        # These support PCM subtypes
+        pass
+    else:
+        # For unknown formats, let soundfile handle it
+        subtype = None
+    
     # Write the file
-    soundfile.write(str(path), data, sample_rate, subtype=subtype)
+    soundfile.write(path_str, data, sample_rate, subtype=subtype)
 
 
 def info(path):
