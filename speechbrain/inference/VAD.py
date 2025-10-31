@@ -17,6 +17,7 @@ Authors:
 import torch
 import torchaudio
 
+from speechbrain.dataio import audio_io
 from speechbrain.inference.interfaces import Pretrained
 from speechbrain.utils.data_utils import split_path
 from speechbrain.utils.fetching import fetch
@@ -648,9 +649,9 @@ class VAD(Pretrained):
         """Returns the sample rate and the length of the input audio file"""
 
         # Getting the total size of the input file
-        metadata = torchaudio.info(str(audio_file))
+        metadata = audio_io.info(str(audio_file))
         sample_rate = metadata.sample_rate
-        audio_len = metadata.num_frames
+        audio_len = metadata.frames
         return sample_rate, audio_len
 
     def upsample_VAD(self, vad_out, audio_file, time_resolution=0.01):
