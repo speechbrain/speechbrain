@@ -31,7 +31,7 @@ class SpeakerRecognition(EncoderClassifier):
 
     Example
     -------
-    >>> import torchaudio
+    >>> from speechbrain.dataio import audio_io
     >>> from speechbrain.inference.speaker import SpeakerRecognition
     >>> # Model is downloaded from the speechbrain HuggingFace repo
     >>> tmpdir = getfixture("tmpdir")
@@ -41,8 +41,8 @@ class SpeakerRecognition(EncoderClassifier):
     ... )
 
     >>> # Perform verification
-    >>> signal, fs = torchaudio.load("tests/samples/single-mic/example1.wav")
-    >>> signal2, fs = torchaudio.load("tests/samples/single-mic/example2.flac")
+    >>> signal, fs = audio_io.load("tests/samples/single-mic/example1.wav")
+    >>> signal2, fs = audio_io.load("tests/samples/single-mic/example2.flac")
     >>> score, prediction = verification.verify_batch(signal, signal2)
     """
 

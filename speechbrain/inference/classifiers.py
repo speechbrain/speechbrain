@@ -42,7 +42,7 @@ class EncoderClassifier(Pretrained):
 
     Example
     -------
-    >>> import torchaudio
+    >>> from speechbrain.dataio import audio_io
     >>> from speechbrain.inference.classifiers import EncoderClassifier
     >>> # Model is downloaded from the speechbrain HuggingFace repo
     >>> tmpdir = getfixture("tmpdir")
@@ -53,7 +53,7 @@ class EncoderClassifier(Pretrained):
     >>> classifier.hparams.label_encoder.ignore_len()
 
     >>> # Compute embeddings
-    >>> signal, fs = torchaudio.load("tests/samples/single-mic/example1.wav")
+    >>> signal, fs = audio_io.load("tests/samples/single-mic/example1.wav")
     >>> embeddings = classifier.encode_batch(signal)
 
     >>> # Classification

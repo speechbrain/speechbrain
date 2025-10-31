@@ -8,18 +8,23 @@ provides troubleshooting steps for your audio loading troubles.
 Introduction
 ============
 
-SpeechBrain relies on
-`torchaudio <https://pytorch.org/audio/stable/index.html>`_
-for loading audio files in most cases. Please first try to **update torchaudio**
-if you are encountering issues. Please also ensure that you are using the
-correct PyTorch version for your installed torchaudio version.
+SpeechBrain provides audio I/O functionality through its own
+``speechbrain.dataio.audio_io`` module, which uses
+`soundfile <https://pypi.org/project/soundfile/>`_ as the backend.
+This provides a consistent, cross-platform audio loading experience.
+
+For backwards compatibility, SpeechBrain also continues to support
+`torchaudio <https://pytorch.org/audio/stable/index.html>`_ for loading
+audio files. Please first try to **update torchaudio** if you are encountering
+issues. Please also ensure that you are using the correct PyTorch version for
+your installed torchaudio version.
 
 As of torchaudio `2.2.0`, three backends are supported: ``ffmpeg``, ``sox`` and
 ``soundfile``. torchaudio documents how their backends are found in their
 `optional dependency docs <https://pytorch.org/audio/stable/installation.html#optional-dependencies>`_.
 
 You can determine which backends are available in your environment by running
-:func:`torchaudio.list_audio_backends`.
+:func:`torchaudio.list_audio_backends` or :func:`speechbrain.dataio.audio_io.list_audio_backends`.
 
 .. warning::
     **A backend can *silently* fail to load** if initialization failed and will be
