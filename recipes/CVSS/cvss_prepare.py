@@ -14,6 +14,7 @@ import pathlib as pl
 import random
 
 import torchaudio
+from speechbrain.dataio import audio_io
 import tqdm
 
 from speechbrain.dataio.dataio import load_pkl, save_pkl
@@ -233,7 +234,7 @@ def prepare_json(
         tgt_audio = f"{tgt_audio_folder}/{session_id}.mp3.wav"
         src_audio = f"{src_audio_folder}/{session_id}.mp3"
 
-        src_sig, sr = torchaudio.load(src_audio)
+        src_sig, sr = audio_io.load(src_audio)
         duration = src_sig.shape[1] / sr
 
         # src_text = meta_dict[session_id]["sentence"]

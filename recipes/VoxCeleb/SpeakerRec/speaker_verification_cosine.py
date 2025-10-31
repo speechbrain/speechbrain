@@ -22,6 +22,7 @@ from hyperpyyaml import load_hyperpyyaml
 from tqdm import tqdm
 
 import speechbrain as sb
+from speechbrain.dataio import audio_io
 from speechbrain.utils.data_utils import download_file
 from speechbrain.utils.distributed import run_on_main
 from speechbrain.utils.logger import get_logger
@@ -193,7 +194,7 @@ def dataio_prep(params):
         start = int(start)
         stop = int(stop)
         num_frames = stop - start
-        sig, fs = torchaudio.load(
+        sig, fs = audio_io.load(
             wav, num_frames=num_frames, frame_offset=start
         )
         sig = sig.transpose(0, 1).squeeze(1)

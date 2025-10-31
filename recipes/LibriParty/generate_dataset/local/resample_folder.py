@@ -15,6 +15,7 @@ from pathlib import Path
 
 import torch
 import torchaudio
+from speechbrain.dataio import audio_io
 import tqdm
 
 from speechbrain.utils.data_utils import get_all_files
@@ -49,7 +50,7 @@ def resample_folder(input_folder, output_folder, fs, regex):
             ).parent,
             exist_ok=True,
         )
-        torchaudio.save(
+        audio_io.save(
             os.path.join(
                 output_folder, Path(f).relative_to(Path(input_folder))
             ),

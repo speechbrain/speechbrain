@@ -523,13 +523,13 @@ class WhisperASR(Pretrained):
         Example
         -------
         >>> from speechbrain.inference.ASR import WhisperASR
-        >>> import torchaudio
+        >>> from speechbrain.dataio import audio_io
         >>> tmpdir = getfixture("tmpdir")
         >>> asr_model = WhisperASR.from_hparams(
         ...     source="speechbrain/asr-whisper-medium-commonvoice-it",
         ...     savedir=tmpdir,
         ... )  # doctest: +SKIP
-        >>> wav, _ = torchaudio.load("your_audio")  # doctest: +SKIP
+        >>> wav, _ = audio_io.load("your_audio")  # doctest: +SKIP
         >>> language_tokens, language_probs = asr_model.detect_language(
         ...     wav
         ... )  # doctest: +SKIP

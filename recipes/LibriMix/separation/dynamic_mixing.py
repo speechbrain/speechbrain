@@ -10,6 +10,7 @@ import torchaudio
 from tqdm import tqdm
 
 import speechbrain as sb
+from speechbrain.dataio import audio_io
 from speechbrain.dataio.batch import PaddedBatch
 
 """
@@ -33,7 +34,7 @@ def build_spk_hashtable_librimix(hparams):
 
     # just for one file check if the sample rate is correct
     assert (
-        torchaudio.info(libri_utterances[0]).sample_rate
+        audio_io.info(libri_utterances[0]).sample_rate
         == hparams["sample_rate"]
     )
     for utt in tqdm(libri_utterances):
@@ -121,7 +122,7 @@ def dynamic_mix_data_prep_librimix(hparams):
         if hparams["use_wham_noise"]:
             noise_file = np.random.choice(noise_files, 1, replace=False)
 
-            noise, fs_read = torchaudio.load(noise_file[0])
+            noise, fs_read = audio_io.load(noise_file[0])
             noise = noise.squeeze()
 
         # select two speakers randomly
@@ -132,7 +133,7 @@ def dynamic_mix_data_prep_librimix(hparams):
         ]
 
         minlen = min(
-            *[torchaudio.info(x).num_frames for x in spk_files],
+            *[audio_io.info(x).num_frames for x in spk_files],
             hparams["training_signal_len"],
         )
 
@@ -167,14 +168,14 @@ def dynamic_mix_data_prep_librimix(hparams):
 
         for i, spk_file in enumerate(spk_files):
             # select random offset
-            length = torchaudio.info(spk_file).num_frames
+            length = audio_io.info(spk_file).num_frames
             start = 0
             stop = length
             if length > minlen:  # take a random window
                 start = np.random.randint(0, length - minlen)
                 stop = start + minlen
 
-            tmp, fs_read = torchaudio.load(
+            tmp, fs_read = audio_io.load(
                 spk_file,
                 frame_offset=start,
                 num_frames=stop - start,

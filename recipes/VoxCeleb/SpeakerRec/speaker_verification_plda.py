@@ -22,6 +22,7 @@ from hyperpyyaml import load_hyperpyyaml
 from tqdm import tqdm
 
 import speechbrain as sb
+from speechbrain.dataio import audio_io
 from speechbrain.processing.PLDA_LDA import (
     Ndx,
     StatObject_SB,
@@ -194,7 +195,7 @@ def dataio_prep(params):
         start = int(start)
         stop = int(stop)
         num_frames = stop - start
-        sig, fs = torchaudio.load(
+        sig, fs = audio_io.load(
             wav, num_frames=num_frames, frame_offset=start
         )
         sig = sig.transpose(0, 1).squeeze(1)

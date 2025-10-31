@@ -17,6 +17,7 @@ from collections import defaultdict
 import librosa
 import torch
 import torchaudio
+from speechbrain.dataio import audio_io
 import webdataset as wds
 from tqdm import tqdm
 
@@ -27,7 +28,7 @@ ID_SEPARATOR = "&"
 
 
 def load_audio(audio_file_path: pathlib.Path) -> torch.Tensor:
-    t, sr = torchaudio.load(audio_file_path)
+    t, sr = audio_io.load(audio_file_path)
 
     return t
 

@@ -12,6 +12,7 @@ import csv
 import os
 
 import torchaudio
+from speechbrain.dataio import audio_io
 from tqdm.contrib import tzip
 
 from speechbrain.utils.data_utils import get_all_files
@@ -247,7 +248,7 @@ def create_csv(wav_list, csv_file):
 
         # Peeking at the signal (to retrieve duration in seconds)
         if os.path.isfile(wav_file):
-            info = torchaudio.info(wav_file)
+            info = audio_io.info(wav_file)
         else:
             msg = "\tError loading: %s" % (str(len(file_name)))
             logger.info(msg)

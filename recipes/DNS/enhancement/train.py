@@ -40,6 +40,7 @@ from pystoi import stoi
 from tqdm import tqdm
 
 import speechbrain as sb
+from speechbrain.dataio import audio_io
 import speechbrain.nnet.schedulers as schedulers
 from speechbrain.dataio.batch import PaddedBatch
 from speechbrain.processing.features import spectral_magnitude
@@ -541,7 +542,7 @@ class Enhancement(sb.Brain):
         save_file = os.path.join(
             save_path_enhanced, f"item{snt_id}_sourcehat.wav"
         )
-        torchaudio.save(
+        audio_io.save(
             save_file, signal.unsqueeze(0).cpu(), self.hparams.sample_rate
         )
 
@@ -549,7 +550,7 @@ class Enhancement(sb.Brain):
         signal = clean[0, :]
         signal = signal / signal.abs().max()
         save_file = os.path.join(save_path_clean, f"item{snt_id}_source.wav")
-        torchaudio.save(
+        audio_io.save(
             save_file, signal.unsqueeze(0).cpu(), self.hparams.sample_rate
         )
 
@@ -557,7 +558,7 @@ class Enhancement(sb.Brain):
         signal = noisy[0][0, :]
         signal = signal / signal.abs().max()
         save_file = os.path.join(save_path_noisy, f"item{snt_id}_noisy.wav")
-        torchaudio.save(
+        audio_io.save(
             save_file, signal.unsqueeze(0).cpu(), self.hparams.sample_rate
         )
 
@@ -802,7 +803,7 @@ if __name__ == "__main__":
         signal = signal / signal.abs().max()
         save_file = os.path.join(save_path_enhanced, snt_id) + ".wav"
 
-        torchaudio.save(
+        audio_io.save(
             save_file, signal.unsqueeze(0).cpu(), hparams["sample_rate"]
         )
 

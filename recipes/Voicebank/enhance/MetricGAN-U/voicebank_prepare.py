@@ -17,6 +17,7 @@ import tempfile
 import urllib
 
 import torchaudio
+from speechbrain.dataio import audio_io
 from torchaudio.transforms import Resample
 
 from speechbrain.dataio.dataio import read_audio
@@ -469,11 +470,11 @@ def download_vctk(destination, tmp_dir=None, device="cpu"):
 
         # Load files and downsample
         for filename in get_all_files(dirname, match_and=[".wav"]):
-            signal, rate = torchaudio.load(filename)
+            signal, rate = audio_io.load(filename)
             downsampled_signal = downsampler(signal.view(1, -1).to(device))
 
             # Save downsampled file
-            torchaudio.save(
+            audio_io.save(
                 os.path.join(dirname_16k, filename[-12:]),
                 downsampled_signal[0].cpu(),
                 sample_rate=16000,

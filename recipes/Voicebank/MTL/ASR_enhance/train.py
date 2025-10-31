@@ -28,6 +28,7 @@ from pesq import pesq
 from pystoi import stoi
 
 import speechbrain as sb
+from speechbrain.dataio import audio_io
 from speechbrain.utils.data_utils import undo_padding
 from speechbrain.utils.distributed import if_main_process, run_on_main
 from speechbrain.utils.logger import get_logger
@@ -212,7 +213,7 @@ class MTLbrain(sb.Brain):
                         length = int(abs_lens[i])
                         wav = predictions["wavs"][i, :length].unsqueeze(0)
                         path = os.path.join(self.hparams.enh_dir, uid + ".wav")
-                        torchaudio.save(path, wav.cpu(), sample_rate=16000)
+                        audio_io.save(path, wav.cpu(), sample_rate=16000)
 
         # Compute mimic loss
         if self.hparams.mimic_weight > 0:

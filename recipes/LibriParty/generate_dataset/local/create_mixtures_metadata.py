@@ -12,11 +12,12 @@ from pathlib import Path
 
 import numpy as np
 import torchaudio
+from speechbrain.dataio import audio_io
 from tqdm import tqdm
 
 
 def _read_metadata(file_path, configs):
-    meta = torchaudio.info(file_path)
+    meta = audio_io.info(file_path)
     if meta.num_channels > 1:
         channel = np.random.randint(0, meta.num_channels - 1)
     else:

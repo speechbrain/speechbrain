@@ -16,6 +16,7 @@ from typing import List
 
 import torch
 import torchaudio
+from speechbrain.dataio import audio_io
 from tqdm import tqdm
 
 from speechbrain.augment.time_domain import Resample
@@ -393,7 +394,7 @@ def segment_audio(
     end = int(end / 100 * 8000)
     num_frames = end - start
 
-    data, _ = torchaudio.load(
+    data, _ = audio_io.load(
         audio_path, frame_offset=start, num_frames=num_frames
     )
 
@@ -402,7 +403,7 @@ def segment_audio(
     data = resampler(data)
     data = torch.unsqueeze(data[channel], 0)
 
-    torchaudio.save(save_path, src=data, sample_rate=sample_rate)
+    audio_io.save(save_path, src=data, sample_rate=sample_rate)
 
 
 def get_transcription_files_by_dataset(

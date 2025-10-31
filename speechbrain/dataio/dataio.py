@@ -286,7 +286,7 @@ def read_audio(waveforms_obj, backend=None):
         if isinstance(waveforms_obj, bytes):
             waveforms_obj = BytesIO(waveforms_obj)
             waveforms_obj.seek(0)
-        audio, _ = torchaudio.load(waveforms_obj, backend=backend)
+        audio, _ = audio_io.load(waveforms_obj)
     # Case 2: A dict with more options. Only works with file paths.
     else:
         path = waveforms_obj["file"]
