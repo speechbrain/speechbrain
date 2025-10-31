@@ -27,6 +27,7 @@ import numpy as np
 import torch
 import torchaudio
 
+from speechbrain.dataio import audio_io
 from speechbrain.utils.logger import get_logger
 from speechbrain.utils.torch_audio_backend import (
     check_torchaudio_backend,
@@ -231,8 +232,8 @@ def read_audio_info(
     # double-checking anyway. If I am wrong and you are reading this comment
     # because of it: sorry
     if info.num_frames == 0:
-        channels_data, sample_rate = torchaudio.load(
-            path, normalize=False, backend=backend
+        channels_data, sample_rate = audio_io.load(
+            path, channels_first=True, always_2d=True
         )
 
         info.num_frames = channels_data.size(1)
@@ -478,12 +479,9 @@ def write_audio(filepath, audio, samplerate):
     ... )  # replace with eq with sox_io backend
     True
     """
-    if len(audio.shape) == 2:
-        audio = audio.transpose(0, 1)
-    elif len(audio.shape) == 1:
-        audio = audio.unsqueeze(0)
-
-    torchaudio.save(filepath, audio, samplerate)
+    # audio_io.save expects (frames,) or (channels, frames) for channels_first
+    # SpeechBrain format is (frames, channels)
+    audio_io.save(filepath, audio, samplerate)
 
 
 def load_pickle(pickle_path):
