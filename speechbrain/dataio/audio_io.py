@@ -13,6 +13,9 @@ import numpy as np
 from dataclasses import dataclass
 from pathlib import Path
 
+# Maximum expected number of channels for automatic shape detection
+MAX_EXPECTED_CHANNELS = 8
+
 
 @dataclass
 class AudioMetadata:
@@ -167,8 +170,8 @@ def save(path, src, sample_rate, subtype="PCM_16"):
     # soundfile expects (frames, channels) or (frames,)
     if data.ndim == 2:
         # Check if it looks like (channels, frames) - typically channels < frames
-        # Common heuristic: if first dim is small (<=8) and second is large, it's (channels, frames)
-        if data.shape[0] <= 8 and data.shape[1] > data.shape[0]:
+        # Common heuristic: if first dim is small (<=MAX_EXPECTED_CHANNELS) and second is large, it's (channels, frames)
+        if data.shape[0] <= MAX_EXPECTED_CHANNELS and data.shape[1] > data.shape[0]:
             # Likely (channels, frames), transpose to (frames, channels)
             data = data.T
     

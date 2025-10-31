@@ -14,6 +14,12 @@ from pathlib import Path
 from speechbrain.dataio.audio_io import load, save, info, list_audio_backends, AudioMetadata
 
 
+def _create_test_audio(sample_rate=16000, duration=1.0):
+    """Helper to create clipped test audio to avoid PCM_16 overflow."""
+    samples = torch.randn(int(sample_rate * duration)) * 0.5
+    return torch.clamp(samples, -1.0, 1.0)
+
+
 def test_list_audio_backends():
     """Test that list_audio_backends returns expected backends."""
     backends = list_audio_backends()
@@ -150,9 +156,7 @@ def test_load_always_2d():
 def test_save_with_torch_tensor():
     """Test saving with PyTorch tensors."""
     sample_rate = 16000
-    # Use smaller values and clip to avoid clipping in PCM_16 format
-    samples = torch.randn(sample_rate) * 0.5
-    samples = torch.clamp(samples, -1.0, 1.0)
+    samples = _create_test_audio(sample_rate, 1.0)
     
     with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as f:
         temp_file = f.name

@@ -433,8 +433,8 @@ def write_audio(filepath, audio, samplerate):
     ... )  # replace with eq with sox_io backend
     True
     """
-    # audio_io.save expects (frames,) or (channels, frames) for channels_first
     # SpeechBrain format is (frames, channels)
+    # audio_io.save handles this automatically by detecting the shape
     audio_io.save(filepath, audio, samplerate)
 
 
