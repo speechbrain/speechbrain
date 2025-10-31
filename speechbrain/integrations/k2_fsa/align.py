@@ -51,6 +51,7 @@ from torch.nn.utils.rnn import pad_sequence
 from tqdm import tqdm
 
 import speechbrain as sb
+from speechbrain.dataio import audio_io
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -648,7 +649,7 @@ class CTCAligner(Aligner):
         sigs = []
         lens = []
         for audio_file in audio_files:
-            snt, fs = torchaudio.load(audio_file)
+            snt, fs = audio_io.load(audio_file)
             sigs.append(snt.squeeze())
             lens.append(snt.shape[1])
 
