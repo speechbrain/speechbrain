@@ -5,15 +5,31 @@ This module provides a minimal compatibility wrapper for audio I/O operations
 using soundfile (pysoundfile) library, replacing torchaudio's load, save, and
 info functions.
 
+Example
+-------
+>>> from speechbrain.dataio import audio_io
+>>> import torch
+>>> # Load audio file
+>>> audio, sr = audio_io.load("example.wav")  # doctest: +SKIP
+>>> # Get audio metadata
+>>> info = audio_io.info("example.wav")  # doctest: +SKIP
+>>> print(info.sample_rate, info.duration)  # doctest: +SKIP
+>>> # Save audio file
+>>> waveform = torch.randn(1, 16000)
+>>> tmpdir = getfixture("tmpdir")  # doctest: +SKIP
+>>> audio_io.save(tmpdir / "output.wav", waveform, 16000)  # doctest: +SKIP
+
 Authors
  * SpeechBrain Contributors 2025
 """
 
+import dataclasses
 import numpy as np
 import soundfile as sf
 import torch
 
 
+@dataclasses.dataclass
 class AudioInfo:
     """Container for audio file metadata, compatible with torchaudio.info output.
     
@@ -29,33 +45,30 @@ class AudioInfo:
         Audio subtype/encoding (e.g., 'PCM_16', 'PCM_24').
     format : str
         Container format (e.g., 'WAV', 'FLAC').
-    duration : float
-        Duration in seconds.
     """
+    sample_rate: int
+    frames: int
+    channels: int
+    subtype: str
+    format: str
     
-    def __init__(self, sample_rate, frames, channels, subtype, format):
-        self.sample_rate = sample_rate
-        self.frames = frames
-        self.num_frames = frames  # Alias for compatibility
-        self.channels = channels
-        self.num_channels = channels  # Alias for compatibility
-        self.subtype = subtype
-        self.format = format
+    @property
+    def num_frames(self):
+        """Alias for frames for compatibility."""
+        return self.frames
+    
+    @property
+    def num_channels(self):
+        """Alias for channels for compatibility."""
+        return self.channels
     
     @property
     def duration(self):
         """Calculate duration in seconds."""
         return self.frames / self.sample_rate if self.sample_rate > 0 else 0.0
-    
-    def __repr__(self):
-        return (
-            f"AudioInfo(sample_rate={self.sample_rate}, frames={self.frames}, "
-            f"channels={self.channels}, subtype='{self.subtype}', "
-            f"format='{self.format}', duration={self.duration:.2f}s)"
-        )
 
 
-def load(path, *, channels_first=True, dtype=torch.float32, always_2d=False, 
+def load(path, *, channels_first=True, dtype=torch.float32, always_2d=True, 
          frame_offset=0, num_frames=-1):
     """Load audio file using soundfile.
     
@@ -72,7 +85,7 @@ def load(path, *, channels_first=True, dtype=torch.float32, always_2d=False,
     always_2d : bool, optional
         If True, always return 2D tensor even for mono audio.
         If False, mono audio returns 1D tensor (frames,) when channels_first=False.
-        Default: False.
+        Default: True.
     frame_offset : int, optional
         Number of frames to skip at the start of the file. Default: 0.
     num_frames : int, optional
@@ -109,10 +122,13 @@ def load(path, *, channels_first=True, dtype=torch.float32, always_2d=False,
         
         # Handle shape conversion
         if audio.ndim == 1:
-            # Mono audio as 1D
-            if channels_first:
-                # Need to add channel dimension: (frames,) -> (1, frames)
-                audio = audio.unsqueeze(0)
+            # Mono audio as 1D - only add channel dimension if always_2d is True
+            if always_2d:
+                # Need to add channel dimension: (frames,) -> (1, frames) or (frames, 1)
+                if channels_first:
+                    audio = audio.unsqueeze(0)
+                else:
+                    audio = audio.unsqueeze(1)
         elif audio.ndim == 2:
             # Multi-channel or explicitly 2D mono
             if channels_first:
@@ -125,7 +141,7 @@ def load(path, *, channels_first=True, dtype=torch.float32, always_2d=False,
         raise RuntimeError(f"Failed to load audio from {path}: {e}") from e
 
 
-def save(path, src, sample_rate, subtype="PCM_16"):
+def save(path, src, sample_rate, channels_first=True, subtype=None):
     """Save audio to file using soundfile.
     
     Arguments
@@ -135,13 +151,18 @@ def save(path, src, sample_rate, subtype="PCM_16"):
     src : torch.Tensor or numpy.ndarray
         Audio waveform. Can be:
         - 1D tensor/array: (frames,) - mono
-        - 2D tensor/array: (channels, frames) or (frames, channels)
-        - 3D tensor/array: (batch, channels, frames) - uses first batch element
+        - 2D tensor/array: (channels, frames) if channels_first=True, or (frames, channels) if channels_first=False
+        - 3D tensor/array: (batch, channels, frames) if channels_first=True - uses first batch element
     sample_rate : int
         Sample rate for the audio file.
+    channels_first : bool, optional
+        If True, input is assumed to be (channels, frames) for 2D or (batch, channels, frames) for 3D.
+        If False, input is assumed to be (frames, channels).
+        Default: True.
     subtype : str, optional
         Audio encoding subtype (e.g., 'PCM_16', 'PCM_24', 'PCM_32', 'FLOAT').
-        Default: 'PCM_16'.
+        If None, soundfile will choose an appropriate subtype based on the file format.
+        Default: None.
     
     Returns
     -------
@@ -162,15 +183,15 @@ def save(path, src, sample_rate, subtype="PCM_16"):
         
         # Handle different input shapes
         if audio_np.ndim == 3:
-            # Batched input: (batch, channels, frames) - take first batch
+            # Batched input: (batch, channels, frames) if channels_first - take first batch
             audio_np = audio_np[0]
         
         if audio_np.ndim == 2:
-            # Determine if it's (channels, frames) or (frames, channels)
-            # Heuristic: if first dimension is smaller and <= 16, likely channels-first
-            if audio_np.shape[0] <= 16 and audio_np.shape[0] < audio_np.shape[1]:
+            # Convert to (frames, channels) if channels_first is True
+            if channels_first:
                 # Convert (channels, frames) to (frames, channels)
                 audio_np = audio_np.T
+            # Otherwise, assume already in (frames, channels) format
         elif audio_np.ndim == 1:
             # Mono: (frames,) - soundfile handles this
             pass
@@ -182,7 +203,10 @@ def save(path, src, sample_rate, subtype="PCM_16"):
             )
         
         # Write audio file
-        sf.write(path, audio_np, sample_rate, subtype=subtype)
+        if subtype is not None:
+            sf.write(path, audio_np, sample_rate, subtype=subtype)
+        else:
+            sf.write(path, audio_np, sample_rate)
         
     except Exception as e:
         raise RuntimeError(f"Failed to save audio to {path}: {e}") from e
