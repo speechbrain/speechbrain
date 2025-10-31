@@ -15,8 +15,8 @@ Authors:
 """
 
 import torch
-import torchaudio
 
+from speechbrain.dataio import audio_io
 from speechbrain.inference.interfaces import Pretrained
 from speechbrain.utils.callchains import lengths_arg_exists
 
@@ -119,8 +119,8 @@ class SpectralMaskEnhancement(Pretrained):
             enhanced = self.enhance_batch(batch)
 
         if output_filename is not None:
-            torchaudio.save(
-                uri=output_filename,
+            audio_io.save(
+                path=output_filename,
                 src=enhanced,
                 sample_rate=self.hparams.compute_stft.sample_rate,
             )
@@ -194,8 +194,8 @@ class WaveformEnhancement(Pretrained):
         enhanced = self.enhance_batch(batch)
 
         if output_filename is not None:
-            torchaudio.save(
-                uri=output_filename,
+            audio_io.save(
+                path=output_filename,
                 src=enhanced,
                 sample_rate=self.audio_normalizer.sample_rate,
             )

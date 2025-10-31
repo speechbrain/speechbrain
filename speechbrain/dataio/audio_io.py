@@ -55,7 +55,8 @@ class AudioInfo:
         )
 
 
-def load(path, *, channels_first=True, dtype=torch.float32, always_2d=False):
+def load(path, *, channels_first=True, dtype=torch.float32, always_2d=False, 
+         frame_offset=0, num_frames=-1):
     """Load audio file using soundfile.
     
     Arguments
@@ -72,6 +73,10 @@ def load(path, *, channels_first=True, dtype=torch.float32, always_2d=False):
         If True, always return 2D tensor even for mono audio.
         If False, mono audio returns 1D tensor (frames,) when channels_first=False.
         Default: False.
+    frame_offset : int, optional
+        Number of frames to skip at the start of the file. Default: 0.
+    num_frames : int, optional
+        Number of frames to read. If -1, reads to the end of the file. Default: -1.
     
     Returns
     -------
@@ -87,7 +92,13 @@ def load(path, *, channels_first=True, dtype=torch.float32, always_2d=False):
     """
     try:
         # Read audio file - soundfile returns (frames, channels) or (frames,) for mono
-        audio_np, sample_rate = sf.read(path, dtype='float32', always_2d=always_2d)
+        audio_np, sample_rate = sf.read(
+            path, 
+            start=frame_offset, 
+            frames=num_frames, 
+            dtype='float32', 
+            always_2d=always_2d
+        )
         
         # Convert to torch tensor
         audio = torch.from_numpy(audio_np)

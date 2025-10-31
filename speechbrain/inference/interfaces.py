@@ -21,6 +21,8 @@ from types import SimpleNamespace
 import torch
 import torchaudio
 from hyperpyyaml import load_hyperpyyaml
+
+from speechbrain.dataio import audio_io
 from torch.nn import (
     DataParallel as DP,
     SyncBatchNorm,
@@ -332,7 +334,7 @@ class Pretrained(torch.nn.Module):
         """
         source, fl = split_path(path)
         path = fetch(fl, source=source, savedir=savedir)
-        signal, sr = torchaudio.load(str(path), channels_first=False)
+        signal, sr = audio_io.load(str(path), channels_first=False)
         signal = signal.to(self.device)
         return self.audio_normalizer(signal, sr)
 
