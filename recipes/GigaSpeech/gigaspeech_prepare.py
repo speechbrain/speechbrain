@@ -18,8 +18,6 @@ import logging
 import os
 from dataclasses import dataclass
 
-import torchaudio
-
 from speechbrain.dataio import audio_io
 from speechbrain.utils.parallel import parallel_map
 

@@ -6,7 +6,6 @@ import warnings
 import numpy as np
 import pyloudnorm
 import torch
-import torchaudio
 from tqdm import tqdm
 
 import speechbrain as sb
@@ -34,8 +33,7 @@ def build_spk_hashtable_librimix(hparams):
 
     # just for one file check if the sample rate is correct
     assert (
-        audio_io.info(libri_utterances[0]).sample_rate
-        == hparams["sample_rate"]
+        audio_io.info(libri_utterances[0]).sample_rate == hparams["sample_rate"]
     )
     for utt in tqdm(libri_utterances):
         path = os.path.normpath(utt)

@@ -15,9 +15,9 @@ from pathlib import Path
 
 import torch
 import torchaudio
-from speechbrain.dataio import audio_io
 import tqdm
 
+from speechbrain.dataio import audio_io
 from speechbrain.utils.data_utils import get_all_files
 
 parser = argparse.ArgumentParser(

@@ -2,7 +2,6 @@
 import os
 import sys
 
-import torchaudio
 from common_language_prepare import prepare_common_language
 from hyperpyyaml import load_hyperpyyaml
 

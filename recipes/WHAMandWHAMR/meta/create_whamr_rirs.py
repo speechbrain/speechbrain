@@ -10,12 +10,11 @@ import os
 
 import pandas as pd
 import torch
-import torchaudio
-from speechbrain.dataio import audio_io
 from scipy.signal import resample_poly
 from tqdm import tqdm
 from wham_room import WhamRoom
 
+from speechbrain.dataio import audio_io
 from speechbrain.utils.fetching import fetch
 
 

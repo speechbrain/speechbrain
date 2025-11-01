@@ -1,7 +1,5 @@
 import os
 
-import torchaudio
-
 import speechbrain as sb
 from speechbrain.dataio import audio_io
 from speechbrain.utils.data_utils import get_all_files

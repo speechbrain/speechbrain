@@ -15,12 +15,12 @@ from pathlib import Path
 
 import numpy as np
 import torch
-import torchaudio
-from speechbrain.dataio import audio_io
 import tqdm
 
 # from oct2py import octave
 from scipy import signal
+
+from speechbrain.dataio import audio_io
 
 parser = argparse.ArgumentParser(
     "utility for resampling all audio files in a folder recursively"

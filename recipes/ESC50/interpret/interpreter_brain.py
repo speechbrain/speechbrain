@@ -11,7 +11,6 @@ import os
 import matplotlib.pyplot as plt
 import quantus
 import torch
-import torchaudio
 import torchvision
 from torch.nn import functional as F
 

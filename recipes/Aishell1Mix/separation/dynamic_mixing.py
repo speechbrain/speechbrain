@@ -14,7 +14,6 @@ import warnings
 import numpy as np
 import pyloudnorm
 import torch
-import torchaudio
 from tqdm import tqdm
 
 import speechbrain as sb

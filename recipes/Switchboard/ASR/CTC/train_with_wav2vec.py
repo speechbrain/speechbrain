@@ -290,9 +290,7 @@ def dataio_prepare(hparams, tokenizer):
         start = int(start)
         stop = int(stop)
         num_frames = stop - start
-        sig, fs = audio_io.load(
-            wav, num_frames=num_frames, frame_offset=start
-        )
+        sig, fs = audio_io.load(wav, num_frames=num_frames, frame_offset=start)
         info = audio_io.info(wav)
 
         resampled = sig

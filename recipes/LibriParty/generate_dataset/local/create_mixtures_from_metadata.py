@@ -12,7 +12,6 @@ import os
 
 import numpy as np
 import torch
-import torchaudio
 
 from speechbrain.dataio import audio_io
 from speechbrain.processing.signal_processing import rescale, reverberate

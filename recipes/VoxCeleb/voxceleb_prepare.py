@@ -13,10 +13,9 @@ import sys  # noqa F401
 
 import numpy as np
 import torch
-import torchaudio
-from speechbrain.dataio import audio_io
 from tqdm import tqdm
 
+from speechbrain.dataio import audio_io
 from speechbrain.dataio.dataio import load_pkl, save_pkl
 from speechbrain.utils.logger import get_logger
 

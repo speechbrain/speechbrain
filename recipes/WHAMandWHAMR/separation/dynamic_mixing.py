@@ -5,7 +5,6 @@ from pathlib import Path
 
 import numpy as np
 import torch
-import torchaudio
 
 import speechbrain as sb
 from speechbrain.dataio import audio_io

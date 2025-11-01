@@ -10,8 +10,6 @@ import csv
 import functools
 import os
 
-import torchaudio
-
 from speechbrain.dataio import audio_io
 from speechbrain.utils.logger import get_logger
 from speechbrain.utils.parallel import parallel_map

@@ -16,10 +16,9 @@ import string
 import tempfile
 import urllib
 
-import torchaudio
-from speechbrain.dataio import audio_io
 from torchaudio.transforms import Resample
 
+from speechbrain.dataio import audio_io
 from speechbrain.dataio.dataio import read_audio
 from speechbrain.utils.data_utils import download_file, get_all_files
 from speechbrain.utils.logger import get_logger

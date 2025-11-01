@@ -14,9 +14,9 @@ import re
 from collections import defaultdict
 
 import torch
-import torchaudio
-from speechbrain.dataio import audio_io
 import webdataset as wds
+
+from speechbrain.dataio import audio_io
 
 ################################################################################
 # methods for writing the shards

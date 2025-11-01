@@ -31,7 +31,6 @@ import braceexpand
 import numpy as np
 import torch
 import torch.nn.functional as F
-import torchaudio
 import webdataset as wds
 from composite_eval import eval_composite
 from hyperpyyaml import load_hyperpyyaml
@@ -40,8 +39,8 @@ from pystoi import stoi
 from tqdm import tqdm
 
 import speechbrain as sb
-from speechbrain.dataio import audio_io
 import speechbrain.nnet.schedulers as schedulers
+from speechbrain.dataio import audio_io
 from speechbrain.dataio.batch import PaddedBatch
 from speechbrain.processing.features import spectral_magnitude
 from speechbrain.utils.distributed import run_on_main

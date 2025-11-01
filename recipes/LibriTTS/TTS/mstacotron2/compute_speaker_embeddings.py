@@ -3,9 +3,9 @@ import os
 import pickle
 
 import torchaudio
-from speechbrain.dataio import audio_io
 from tqdm import tqdm
 
+from speechbrain.dataio import audio_io
 from speechbrain.inference.classifiers import EncoderClassifier
 from speechbrain.inference.encoders import MelSpectrogramEncoder
 from speechbrain.utils.logger import get_logger

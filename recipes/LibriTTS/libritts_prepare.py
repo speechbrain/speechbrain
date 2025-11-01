@@ -11,9 +11,9 @@ import random
 
 import torch
 import torchaudio
-from speechbrain.dataio import audio_io
 from tqdm import tqdm
 
+from speechbrain.dataio import audio_io
 from speechbrain.inference.text import GraphemeToPhoneme
 from speechbrain.utils.data_utils import get_all_files
 from speechbrain.utils.logger import get_logger

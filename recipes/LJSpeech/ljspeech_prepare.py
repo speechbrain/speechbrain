@@ -18,10 +18,10 @@ import numpy as np
 import tgt
 import torch
 import torchaudio
-from speechbrain.dataio import audio_io
 from tqdm import tqdm
 from unidecode import unidecode
 
+from speechbrain.dataio import audio_io
 from speechbrain.dataio.dataio import load_pkl, save_pkl
 from speechbrain.inference.text import GraphemeToPhoneme
 from speechbrain.utils.data_utils import download_file

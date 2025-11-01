@@ -23,11 +23,10 @@ import os
 import re
 import unicodedata
 
-import torchaudio
-from speechbrain.dataio import audio_io
 from tqdm import tqdm
 from tqdm.contrib import tzip
 
+from speechbrain.dataio import audio_io
 from speechbrain.dataio.dataio import read_audio
 from speechbrain.utils.logger import get_logger
 

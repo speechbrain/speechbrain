@@ -16,7 +16,6 @@ import sys
 
 import matplotlib.pyplot as plt
 import torch
-import torchaudio
 import torchaudio.datasets as dts
 import torchaudio.transforms as T
 from esc50_prepare import dataio_prep, prepare_esc50

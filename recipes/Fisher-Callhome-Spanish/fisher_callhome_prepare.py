@@ -15,11 +15,10 @@ from dataclasses import dataclass, field
 from typing import List
 
 import torch
-import torchaudio
-from speechbrain.dataio import audio_io
 from tqdm import tqdm
 
 from speechbrain.augment.time_domain import Resample
+from speechbrain.dataio import audio_io
 from speechbrain.utils.data_utils import get_all_files
 from speechbrain.utils.logger import get_logger
 from speechbrain.utils.torch_audio_backend import check_torchaudio_backend

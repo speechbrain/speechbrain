@@ -16,7 +16,6 @@ from pathlib import Path
 
 import numpy as np
 import torch
-import torchaudio
 from hyperpyyaml import load_hyperpyyaml
 
 import speechbrain as sb

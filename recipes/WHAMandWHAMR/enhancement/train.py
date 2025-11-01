@@ -25,14 +25,13 @@ import sys
 import numpy as np
 import torch
 import torch.nn.functional as F
-import torchaudio
 from hyperpyyaml import load_hyperpyyaml
 from pesq import pesq
 from tqdm import tqdm
 
 import speechbrain as sb
-from speechbrain.dataio import audio_io
 import speechbrain.nnet.schedulers as schedulers
+from speechbrain.dataio import audio_io
 from speechbrain.processing.features import spectral_magnitude
 from speechbrain.utils.distributed import run_on_main
 from speechbrain.utils.logger import get_logger

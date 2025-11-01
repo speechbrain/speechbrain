@@ -13,10 +13,9 @@ import os
 import pathlib as pl
 import random
 
-import torchaudio
-from speechbrain.dataio import audio_io
 import tqdm
 
+from speechbrain.dataio import audio_io
 from speechbrain.dataio.dataio import load_pkl, save_pkl
 from speechbrain.utils.logger import get_logger
 

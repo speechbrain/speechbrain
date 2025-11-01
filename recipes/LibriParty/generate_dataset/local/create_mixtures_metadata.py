@@ -11,9 +11,9 @@ import json
 from pathlib import Path
 
 import numpy as np
-import torchaudio
-from speechbrain.dataio import audio_io
 from tqdm import tqdm
+
+from speechbrain.dataio import audio_io
 
 
 def _read_metadata(file_path, configs):

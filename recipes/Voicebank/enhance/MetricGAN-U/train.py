@@ -21,7 +21,6 @@ from urllib.parse import urljoin, urlparse
 import numpy as np
 import requests
 import torch
-import torchaudio
 from hyperpyyaml import load_hyperpyyaml
 from pesq import pesq
 from srmrpy import srmr

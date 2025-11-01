@@ -3,7 +3,6 @@ from functools import partial
 
 import numpy as np
 import torch
-import torchaudio
 from hyperpyyaml import load_hyperpyyaml
 from sep28k_prepare import prepare_sep28k
 from sklearn.metrics import confusion_matrix

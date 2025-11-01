@@ -11,10 +11,9 @@ Pavlo Ruban 2021
 import csv
 import os
 
-import torchaudio
-from speechbrain.dataio import audio_io
 from tqdm.contrib import tzip
 
+from speechbrain.dataio import audio_io
 from speechbrain.utils.data_utils import get_all_files
 from speechbrain.utils.logger import get_logger
 

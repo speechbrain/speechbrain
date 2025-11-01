@@ -17,7 +17,6 @@ import sys
 from enum import Enum, auto
 
 import torch
-import torchaudio
 from hyperpyyaml import load_hyperpyyaml
 from pesq import pesq
 

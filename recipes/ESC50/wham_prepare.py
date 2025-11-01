@@ -5,9 +5,9 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 import torchaudio
-from speechbrain.dataio import audio_io
 from torch.utils.data import IterableDataset
 
+from speechbrain.dataio import audio_io
 from speechbrain.utils.fetching import fetch
 
 np.random.seed(1234)

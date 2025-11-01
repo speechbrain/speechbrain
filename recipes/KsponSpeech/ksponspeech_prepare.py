@@ -10,8 +10,6 @@ import csv
 import os
 import re
 
-import torchaudio
-
 from speechbrain.dataio import audio_io
 from speechbrain.dataio.dataio import load_pkl, merge_csvs, save_pkl
 from speechbrain.utils.data_utils import get_all_files

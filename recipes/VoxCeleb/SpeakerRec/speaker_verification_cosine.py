@@ -17,7 +17,6 @@ import os
 import sys
 
 import torch
-import torchaudio
 from hyperpyyaml import load_hyperpyyaml
 from tqdm import tqdm
 
@@ -194,9 +193,7 @@ def dataio_prep(params):
         start = int(start)
         stop = int(stop)
         num_frames = stop - start
-        sig, fs = audio_io.load(
-            wav, num_frames=num_frames, frame_offset=start
-        )
+        sig, fs = audio_io.load(wav, num_frames=num_frames, frame_offset=start)
         sig = sig.transpose(0, 1).squeeze(1)
         return sig
 

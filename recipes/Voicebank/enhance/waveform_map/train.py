@@ -13,7 +13,6 @@ import os
 import sys
 
 import torch
-import torchaudio
 from hyperpyyaml import load_hyperpyyaml
 from pesq import pesq
 
