@@ -25,7 +25,6 @@ from typing import Union
 
 import numpy as np
 import torch
-import torchaudio
 
 from speechbrain.dataio import audio_io
 from speechbrain.utils.logger import get_logger
@@ -170,9 +169,7 @@ def load_data_csv(csv_path, replacements={}):
     return result
 
 
-def read_audio_info(
-    path, backend=None
-) -> "audio_io.AudioInfo":
+def read_audio_info(path, backend=None) -> "audio_io.AudioInfo":
     """Retrieves audio metadata from a file path. Uses audio_io.info which is
     based on soundfile.
 
@@ -317,9 +314,7 @@ def read_audio(waveforms_obj, backend=None):
             )
         else:
             # Load to the end.
-            audio, fs = audio_io.load(
-                path, frame_offset=start
-            )
+            audio, fs = audio_io.load(path, frame_offset=start)
 
     audio = audio.transpose(0, 1)
     return audio.squeeze(1)
@@ -416,9 +411,7 @@ def read_audio_multichannel(waveforms_obj, backend=None):
     stop = waveforms_obj.get("stop", start - 1)
     num_frames = stop - start
     for f in files:
-        audio, fs = audio_io.load(
-            f, num_frames=num_frames, frame_offset=start
-        )
+        audio, fs = audio_io.load(f, num_frames=num_frames, frame_offset=start)
         waveforms.append(audio)
 
     out = torch.cat(waveforms, 0)

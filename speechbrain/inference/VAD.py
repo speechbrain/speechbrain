@@ -15,7 +15,6 @@ Authors:
 """
 
 import torch
-import torchaudio
 
 from speechbrain.dataio import audio_io
 from speechbrain.inference.interfaces import Pretrained

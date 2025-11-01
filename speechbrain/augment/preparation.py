@@ -10,8 +10,6 @@ Authors:
 import os
 import pathlib
 
-import torchaudio
-
 from speechbrain.dataio import audio_io
 from speechbrain.utils.data_utils import download_file, get_all_files
 from speechbrain.utils.distributed import main_process_only

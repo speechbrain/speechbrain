@@ -19,16 +19,14 @@ import warnings
 from types import SimpleNamespace
 
 import torch
-import torchaudio
 from hyperpyyaml import load_hyperpyyaml
-
-from speechbrain.dataio import audio_io
 from torch.nn import (
     DataParallel as DP,
     SyncBatchNorm,
 )
 from torch.nn.parallel import DistributedDataParallel as DDP
 
+from speechbrain.dataio import audio_io
 from speechbrain.dataio.batch import PaddedBatch, PaddedData
 from speechbrain.dataio.preprocess import AudioNormalizer
 from speechbrain.utils.data_pipeline import DataPipeline

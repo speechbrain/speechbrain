@@ -6,7 +6,6 @@ import pickle
 import re
 
 import torch
-import torchaudio
 
 from speechbrain.dataio import audio_io
 from speechbrain.dataio.dataset import DynamicItemDataset
