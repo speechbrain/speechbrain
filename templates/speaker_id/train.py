@@ -28,10 +28,12 @@ Authors
 import os
 import sys
 
+import torch
 from hyperpyyaml import load_hyperpyyaml
 from mini_librispeech_prepare import prepare_mini_librispeech
 
 import speechbrain as sb
+from speechbrain.integrations.hdf5.cached_item import CachedHDF5DynamicItem
 
 
 # Brain class for speech enhancement training
@@ -58,40 +60,33 @@ class SpkIdBrain(sb.Brain):
         batch = batch.to(self.device)
 
         # Compute features, embeddings, and predictions
-        feats, lens = self.prepare_features(batch.sig, stage)
+        self.should_augment = (
+            stage == sb.Stage.TRAIN
+            and hasattr(self.hparams, "wav_augment")
+            and not hasattr(batch, "feats")
+        )
+        if hasattr(batch, "feats"):
+            # If features are cached, pull from there directly
+            feats, lens = batch.feats
+        else:
+            # Add waveform augmentation if specified.
+            wavs, lens = batch.sig
+            if self.should_augment:
+                wavs, lens = self.hparams.wav_augment(wavs, lens)
+
+            # Call the same function that the feature caching function calls
+            feats = compute_features(
+                wavs,
+                lens,
+                self.modules.compute_features,
+                self.modules.mean_var_norm,
+            )
+
+        # Model computation
         embeddings = self.modules.embedding_model(feats, lens)
         predictions = self.modules.classifier(embeddings)
 
         return predictions
-
-    def prepare_features(self, wavs, stage):
-        """Prepare the features for computation, including augmentation.
-
-        Arguments
-        ---------
-        wavs : tuple
-            Input signals (tensor) and their relative lengths (tensor).
-        stage : sb.Stage
-            The current stage of training.
-
-        Returns
-        -------
-        feats : torch.Tensor
-            The prepared features.
-        lens : torch.Tensor
-            The lengths of the corresponding prepared features.
-        """
-        wavs, lens = wavs
-
-        # Add waveform augmentation if specified.
-        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "wav_augment"):
-            wavs, lens = self.hparams.wav_augment(wavs, lens)
-
-        # Feature extraction and normalization
-        feats = self.modules.compute_features(wavs)
-        feats = self.modules.mean_var_norm(feats, lens)
-
-        return feats, lens
 
     def compute_objectives(self, predictions, batch, stage):
         """Computes the loss given the predicted and targeted outputs.
@@ -114,7 +109,7 @@ class SpkIdBrain(sb.Brain):
         spkid, _ = batch.spk_id_encoded
 
         # Concatenate labels (due to data augmentation)
-        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "wav_augment"):
+        if self.should_augment:
             spkid = self.hparams.wav_augment.replicate_labels(spkid)
             lens = self.hparams.wav_augment.replicate_labels(lens)
 
@@ -199,6 +194,24 @@ class SpkIdBrain(sb.Brain):
             )
 
 
+def compute_features(signal, length, embedding_model, mean_var_norm):
+    """Shared compute_features function between compute_forward and cached_feature_pipeline
+
+    Arguments
+    ---------
+    signal : torch.Tensor
+        The input waveform to use for feature computation, shape [batch, time]
+    length : torch.Tensor
+        The relative length of the waveforms in the batch, shape [batch]
+    embedding_model : torch.nn.Module
+        The model to use for feature computation.
+    mean_var_norm : torch.nn.Module
+        The normalization module to use to ensure features are normally distributed.
+    """
+    feats = embedding_model(signal)
+    return mean_var_norm(feats, length)
+
+
 def dataio_prep(hparams):
     """This function prepares the datasets to be used in the brain class.
     It also defines the data processing pipeline through user-defined functions.
@@ -221,6 +234,7 @@ def dataio_prep(hparams):
     # Initialization of the label encoder. The label encoder assigns to each
     # of the observed label a unique index (e.g, 'spk01': 0, 'spk02': 1, ..)
     label_encoder = sb.dataio.encoder.CategoricalEncoder()
+    label_encoder.expect_len(28)
 
     # Define audio pipeline
     @sb.utils.data_pipeline.takes("wav")
@@ -241,6 +255,36 @@ def dataio_prep(hparams):
         spk_id_encoded = label_encoder.encode_label_torch(spk_id)
         yield spk_id_encoded
 
+    dynamic_items = [audio_pipeline, label_pipeline]
+    output_keys = ["id", "sig", "spk_id_encoded"]
+
+    # If requested, create a cached dynamic item that provides features
+    if "feats_cache_dir" in hparams:
+        # Move modules to device early
+        embedding_model = hparams["modules"]["compute_features"].to("cuda")
+        mean_var_norm = hparams["modules"]["mean_var_norm"].to("cuda")
+
+        @CachedHDF5DynamicItem.cache(hparams["feats_cache_dir"])
+        @sb.utils.data_pipeline.takes("id", "sig")
+        @sb.utils.data_pipeline.provides("feats")
+        def cached_feature_pipeline(uid, sig):
+            """Defines data to be cached -- features will be computed on the
+            first pass through the data and stored to the filesystem for reuse."""
+            # Fake batch dimension
+            sig = sig.to("cuda").unsqueeze(0)
+            length = torch.ones(1, device="cuda")
+            # Same function as used by compute_forward
+            feats = compute_features(
+                sig, length, embedding_model, mean_var_norm
+            )
+            # Remove fake batch dimension for future batching
+            # Also move to CPU for storage
+            return feats.squeeze(0).cpu()
+
+        # Add item and key to the list for constructing the dynamic dataset
+        dynamic_items.append(cached_feature_pipeline)
+        output_keys.append("feats")
+
     # Define datasets. We also connect the dataset with the data processing
     # functions defined above.
     datasets = {}
@@ -254,9 +298,20 @@ def dataio_prep(hparams):
         datasets[dataset] = sb.dataio.dataset.DynamicItemDataset.from_json(
             json_path=data_info[dataset],
             replacements={"data_root": hparams["data_folder"]},
-            dynamic_items=[audio_pipeline, label_pipeline],
-            output_keys=["id", "sig", "spk_id_encoded"],
+            dynamic_items=dynamic_items,
+            output_keys=output_keys,
         )
+
+    # Iterate data to create the cache
+    # Cache can also be created lazily, but that requires num_workers = 0
+    # as the features are created on the GPU. For HDF5, this also avoids
+    # opening the same file with "write" permissions on multiple processes.
+    if "feats_cache_dir" in hparams:
+        for stage, dataset in datasets.items():
+            print(f"Iterating {stage} dataset to warm the cache.")
+            dataset.iterate_once(output_keys=["feats"])
+        # Convert to read-only for multiprocess loading
+        cached_feature_pipeline.change_file_mode("r")
 
     # Load or compute the label encoder (with multi-GPU DDP support)
     # Please, take a look into the lab_enc_file to see the label to index
