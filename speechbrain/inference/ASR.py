@@ -612,6 +612,7 @@ class WhisperASR(Pretrained):
             sample_rate=self.audio_normalizer.sample_rate,
             format="fltp",  # torch.float32
             num_channels=1,
+            buffer_chunk_size=-1,  # avoiding the problem of dropping first chunks
         )
 
         for (chunk,) in streamer.stream():
