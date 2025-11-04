@@ -17,7 +17,7 @@ from speechbrain.lobes.models.transformer.Transformer import (
     get_key_padding_mask,
     get_lookahead_mask,
 )
-from speechbrain.lobes.models.transformer.TransformerASR import TransformerASR
+from speechbrain.lobes.models.transformer.TransformerASR import TransformerASR, make_transformer_src_tgt_masks
 from speechbrain.nnet.activations import Swish
 from speechbrain.nnet.containers import ModuleList
 from speechbrain.utils.logger import get_logger
@@ -243,7 +243,7 @@ class TransformerST(TransformerASR):
             tgt_key_padding_mask,
             src_mask,
             tgt_mask,
-        ) = self.make_masks_for_asr(src, tgt, wav_len, pad_idx=pad_idx)
+        ) = make_transformer_src_tgt_masks(src, tgt, wav_len, pad_idx=pad_idx)
 
         transcription = self.custom_asr_tgt_module(tgt)
 
@@ -429,43 +429,6 @@ class TransformerST(TransformerASR):
         src_key_padding_mask = None
         if self.training:
             src_key_padding_mask = get_key_padding_mask(src, pad_idx=pad_idx)
-        tgt_key_padding_mask = get_key_padding_mask(tgt, pad_idx=pad_idx)
-
-        src_mask = None
-        tgt_mask = get_lookahead_mask(tgt)
-
-        return src_key_padding_mask, tgt_key_padding_mask, src_mask, tgt_mask
-    
-    def make_masks_for_asr(self, src, tgt, wav_len, pad_idx=0):
-        """This method generates the masks for training the transformer model.
-
-        Arguments
-        ---------
-        src : torch.Tensor
-            The sequence to the encoder (required).
-        tgt : torch.Tensor
-            The sequence to the decoder (required).
-        wav_len : torch.Tensor
-            Length of input tensors (required).
-        pad_idx : int
-            The index for <pad> token (default=0).
-
-        Returns
-        -------
-        src_key_padding_mask : torch.Tensor
-            Timesteps to mask due to padding
-        tgt_key_padding_mask : torch.Tensor
-            Timesteps to mask due to padding
-        src_mask : torch.Tensor
-            Timesteps to mask for causality
-        tgt_mask : torch.Tensor
-            Timesteps to mask for causality
-        """
-        src_key_padding_mask = None
-        if self.training:
-            src_key_padding_mask = get_key_padding_mask(
-                src, wav_len=wav_len, pad_idx=pad_idx
-            )
         tgt_key_padding_mask = get_key_padding_mask(tgt, pad_idx=pad_idx)
 
         src_mask = None
