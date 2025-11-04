@@ -54,11 +54,19 @@ def check_torchaudio_backend():
             "Failed to detect torchaudio major version; unsure how to check your setup. We recommend that you keep torchaudio up-to-date."
         )
     elif torchaudio_major >= 2 and torchaudio_minor >= 1:
-        available_backends = torchaudio.list_audio_backends()
+        # list_audio_backends() was removed in torchaudio 2.9+
+        # In 2.9+, audio loading is handled by torchcodec
+        if hasattr(torchaudio, "list_audio_backends"):
+            available_backends = torchaudio.list_audio_backends()
 
-        if len(available_backends) == 0:
-            logger.warning(
-                "SpeechBrain could not find any working torchaudio backend. Audio files may fail to load. Follow this link for instructions and troubleshooting: https://speechbrain.readthedocs.io/en/latest/audioloading.html"
+            if len(available_backends) == 0:
+                logger.warning(
+                    "SpeechBrain could not find any working torchaudio backend. Audio files may fail to load. Follow this link for instructions and troubleshooting: https://speechbrain.readthedocs.io/en/latest/audioloading.html"
+                )
+        else:
+            # torchaudio 2.9+ - list_audio_backends() removed, audio loading handled by torchcodec
+            logger.debug(
+                "torchaudio 2.9+ detected - audio backend checking skipped (handled by torchcodec)"
             )
     else:
         logger.warning(
@@ -88,8 +96,12 @@ def validate_backend(backend):
     """
     allowed_backends = [None, "ffmpeg", "sox", "soundfile"]
     if backend not in allowed_backends:
+        # Check if list_audio_backends() exists (removed in torchaudio 2.9+)
+        if hasattr(torchaudio, "list_audio_backends"):
+            available_backends_msg = f"Available backends on your system: {torchaudio.list_audio_backends()}"
+        else:
+            available_backends_msg = "Using torchaudio 2.9+ with torchcodec"
+
         raise ValueError(
-            f"backend must be one of {allowed_backends}",
-            "Available backends on your system: ",
-            torchaudio.list_audio_backends(),
+            f"backend must be one of {allowed_backends}. {available_backends_msg}"
         )
