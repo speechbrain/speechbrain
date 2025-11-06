@@ -120,6 +120,17 @@ MASTER=`echo $LISTNODES | cut -d" " -f1`
 torchrun --nproc_per_node=4 --nnodes=${SLURM_JOB_NUM_NODES} --node_rank=${SLURM_NODEID} --master_addr=${MASTER} --master_port=5555 train.py hparams/myrecipe.yaml
 ```
 
+#### Multi-node with separate filesystems
+
+In addition to our `run_on_main` function, we have a parallel function `run_once_per_node` that runs on `LOCAL_RANK=0`, for setups where different nodes do not have access to the same filesystem so that checkpointing can be saved on all of the separate filesystems.
+
+To apply this to checkpointing, we provide the convenience function:
+
+`speechbrain.utils.checkpoints.convert_torch_save_hooks_to_once_per_node()`
+
+If you call this, the saves should happen once on every node rather than only on a single process.
+
+
 ## (DEPRECATED) Single-node multi-GPU training using Data Parallel
 
 [**We strongly recommend AGAINST using `DataParallel`, even for single-node setups**](https://pytorch.org/docs/stable/generated/torch.nn.DataParallel.html)! Use `DistributedDataParallel` instead. We no longer provide support for `DataParallel`. Future PyTorch versions may even remove `DataParallel` altogether.
