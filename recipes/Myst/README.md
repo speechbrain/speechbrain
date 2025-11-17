@@ -59,7 +59,7 @@ Following table contains whisper-finetuning results for 1 epoch using Whisper mo
 
 | Release | Model |  hyperparams file | LM | WER | Model link |
 | -------------| :-------------| :-------------| :-------------| :-------------| :-------------
-2025-11-15 | Transformer | transformer.yaml | No | 8.36% | [Save](https://cloud.inesc-id.pt/s/ooG53HSjsTJTZPY) |
+2025-11-15 | Transformer | transformer.yaml | No | 12.95% | [Save](https://cloud.inesc-id.pt/s/ooG53HSjsTJTZPY) |
 
 
 
