@@ -1,0 +1,6 @@
+jiwer
+#faster-whisper # You will have to choose between faster-whisper or openai-whisper
+openai-whisper
+whisper-normalizer
+pydub
+librosa
