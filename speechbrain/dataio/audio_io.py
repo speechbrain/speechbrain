@@ -75,7 +75,7 @@ def load(
     path,
     *,
     channels_first=True,
-    dtype=torch.float32,
+    dtype=None,
     always_2d=True,
     frame_offset=0,
     num_frames=-1,
@@ -86,20 +86,22 @@ def load(
     ---------
     path : str
         Path to the audio file.
-    channels_first : bool, optional
+    channels_first : bool
         If True, returns tensor with shape (channels, frames).
         If False, returns tensor with shape (frames, channels).
         Ignored if `always_2d` is False and input is mono.
         Default: True.
     dtype : torch.dtype, optional
-        Data type for the output tensor. Default: torch.float32.
-    always_2d : bool, optional
+        Data type for the output tensor. Respects default torch type.
+        If the dtype is not one of the available dtypes in soundfile, loads
+        with float32 first and then converts to the requested dtype.
+    always_2d : bool
         If True, always return a 2D tensor even for mono audio.
         If False, mono audio returns a 1D tensor (frames,).
         Default: True.
-    frame_offset : int, optional
+    frame_offset : int
         Number of frames to skip at the start of the file. Default: 0.
-    num_frames : int, optional
+    num_frames : int
         Number of frames to read. If -1, reads to the end of the file. Default: -1.
 
     Returns
@@ -110,21 +112,25 @@ def load(
         Sample rate of the audio file.
     """
     try:
+        # Compute type for loading
+        dtype = dtype or torch.get_default_dtype()
+        _, dtype_string = str(dtype).split(".")
+
+        # If the selected dtype is not a valid soundfile type, just use float32
+        if dtype_string not in sf._ffi_types:
+            dtype_string = "float32"
+
         # Read audio file - soundfile returns (frames, channels) or (frames,) for mono
         audio_np, sample_rate = sf.read(
             path,
             start=frame_offset,
             frames=num_frames,
-            dtype="float32",
+            dtype=dtype_string,
             always_2d=always_2d,
         )
 
         # Convert to torch tensor
-        audio = torch.from_numpy(audio_np)
-
-        # Convert to requested dtype
-        if dtype != torch.float32:
-            audio = audio.to(dtype)
+        audio = torch.from_numpy(audio_np).to(dtype)
 
         # Convert from (frames, channels) to (channels, frames)
         if audio.ndim == 2 and channels_first:
@@ -151,9 +157,10 @@ def save(path, src, sample_rate, channels_first=True, subtype=None):
             - (frames, channels) if channels_first=False
     sample_rate : int
         Sample rate for the audio file.
-    channels_first : bool, optional
-        If True, input is assumed to be ([batch,] channels, frames)
-        If False, input is assumed to be ([batch,] frames, channels).
+    channels_first : bool
+        If True, input is assumed to be (channels, frames)
+        If False, input is assumed to be (frames, channels).
+        Ignored if input is 1D tensor/array.
         Default: True.
     subtype : str, optional
         Audio encoding subtype (e.g., 'PCM_16', 'PCM_24', 'PCM_32', 'FLOAT').
