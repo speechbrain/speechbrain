@@ -59,12 +59,29 @@ def get_rank() -> Optional[int]:
     return None
 
 
+def get_local_rank() -> Optional[int]:
+    r"""Get the local rank of the current process on the current node.
+
+    Returns
+    -------
+    int or None
+        The local rank of the current process, or None if the local rank could not be determined.
+    """
+    rank_keys = ("LOCAL_RANK", "SLURM_LOCALID")
+    for key in rank_keys:
+        rank = os.environ.get(key)
+        if rank is not None:
+            return int(rank)
+    # None to differentiate whether an environment variable was set at all
+    return None
+
+
 def infer_device() -> str:
     """Make a basic guess about intended running device based on
     availability and distributed environment variable 'LOCAL_RANK'"""
     if torch.cuda.is_available():
         device = "cuda"
-        local_rank = os.environ.get("LOCAL_RANK")
+        local_rank = get_local_rank()
         if local_rank is not None:
             device += f":{local_rank}"
     else:
@@ -237,18 +254,12 @@ def is_distributed_initialized() -> bool:
 
 def if_main_process() -> bool:
     r"Returns whether the current process is the main process."
-    if is_distributed_initialized():
-        return torch.distributed.get_rank() == 0
-    else:
-        return True
+    return not is_distributed_initialized() or get_rank() == 0
 
 
 def is_local_rank_zero() -> bool:
     r"Returns whether the current process has local rank of 0."
-    if is_distributed_initialized():
-        return int(os.environ["LOCAL_RANK"]) == 0
-    else:
-        return True
+    return not is_distributed_initialized() or get_local_rank() == 0
 
 
 class MainProcessContext:
@@ -444,12 +455,11 @@ def ddp_init_group(run_opts):
     -------
     None
     """
-    rank = os.environ.get("RANK")
-    local_rank = os.environ.get("LOCAL_RANK")
+    rank = get_rank()
+    local_rank = get_local_rank()
     if local_rank is None or rank is None:
         return
 
-    local_rank = int(local_rank)
     if not run_opts["distributed_backend"] == "gloo":
         if local_rank + 1 > torch.cuda.device_count():
             raise ValueError(
