@@ -14,6 +14,7 @@ pip install flash-attn
 pip install wandb 
 pip install accelerate
 pip install -e . 
+pip install h5py
 
 cd $SLURM_TMPDIR
 scp -r $SCRATCH/models/wavlm-large/ .
@@ -25,6 +26,26 @@ cd /home/adelmou/proj/speechbrain/speechllm_librispeech/speechbrain/recipes/Libr
 
 
 TOKENIZERS_PARALLELISM=false python train_speechllm.py hparams/llama.yaml         --data_folder $SLURM_TMPDIR/LibriSpeech/         --output_folder $SLURM_TMPDIR/wavlm_large-smollm2_360M_linear_proj_lora         --ssl_hub $SLURM_TMPDIR/wavlm-large/         --llm_path $SLURM_TMPDIR/SmolLM2-360M/         --llm_emb_size 960 --pad_token 128004        --feats_cache_dir $SCRATCH/cached_feats_ls960h --max_batch_length_train 400 --grad_accumulation_factor 8
+
+
+TOKENIZERS_PARALLELISM=false python train_speechllm.py hparams/llama.yaml     \
+    --data_folder $SLURM_TMPDIR/LibriSpeech/     \
+    --output_folder $SLURM_TMPDIR/wavlm_large+smol3B_gateddnn_lora/     \
+    --ssl_hub $SLURM_TMPDIR/wavlm-large/     \
+    --llm_path $SLURM_TMPDIR/SmolLM3-3B/     \
+    --llm_emb_size 2048 --pad_token 128004 \
+    --grad_accumulation_factor 16 --max_batch_length_train 200 --test_only
+
+
+TOKENIZERS_PARALLELISM=false python train_speechllm.py hparams/llama.yaml \
+    --data_folder $SLURM_TMPDIR/LibriSpeech/     \
+    --output_folder $SLURM_TMPDIR/wavlm_large-smollm2_360M_linear_proj_lora     \
+    --ssl_hub $SLURM_TMPDIR/wavlm-large/     \
+    --llm_path $SLURM_TMPDIR/SmolLM2-360M/     \
+    --llm_emb_size 960 --pad_token 128004        \
+    --feats_cache_dir $SCRATCH/cached_feats_ls960h \
+    --max_batch_length_train 400 \
+    --grad_accumulation_factor 8
 
 Authors
  * Adel Moumen 2025
@@ -70,13 +91,14 @@ class ASR(sb.core.Brain):
         tokens_bos, tokens_bos_lens = batch.tokens_bos
         prompt_len = batch.prompt_len
         
-        if self.hparams.use_ssl_feats:
+        if getattr(batch, 'feats', None) is not None:
             audio_feats, audio_feats_lens = batch.feats
         else:
             wavs, wav_lens = batch.sig
             wavs = self.hparams.normalize(wavs, wav_lens)
             audio_feats = self.modules.ssl(wavs, wav_lens)
             audio_feats_lens = wav_lens
+
         # R^L*D -> R^(L/R)*(D*R)
         audio_down_feats = self.modules.feat_downsampler(audio_feats)
         # R^D' -> R^llm_emb_size
@@ -107,11 +129,11 @@ class ASR(sb.core.Brain):
                 audio_feats_lens,
                 attention_mask[:, :audio_and_prompt_len],
             )
-        return logits, hyps, projected_audio_feats.shape[1]
+        return logits, hyps
 
     def compute_objectives(self, predictions, batch, stage):
         """Computes the loss (CTC+NLL) given predictions and targets."""
-        logits, hyps, _ = predictions
+        logits, hyps = predictions
         tokens_eos, _ = batch.tokens_eos
         ids = batch.id
 
@@ -196,15 +218,17 @@ class ASR(sb.core.Brain):
         self.optimizer = self.hparams.opt(self.hparams.model.parameters())
         self.optimizers_dict = {"model_optimizer": self.optimizer}
 
-        if not self.hparams.ssl_frozen:
-            self.wav2vec_optimizer = self.hparams.opt_wav2vec2(
-                self.modules.wav2vec2.parameters()
+        ssl_frozen = getattr(self.hparams, 'ssl_frozen', True)
+        if not ssl_frozen:
+            self.ssl_optimizer = self.hparams.opt_ssl(
+                self.modules.ssl.parameters()
             )
-            self.optimizers_dict["wav2vec_optimizer"] = self.wav2vec_optimizer
+            self.optimizers_dict["ssl_optimizer"] = self.ssl_optimizer
 
         if self.checkpointer is not None:
             self.checkpointer.add_recoverable("model_optimizer", self.optimizer)
-            self.checkpointer.add_recoverable("wav2vec_optimizer", self.wav2vec_optimizer)
+            if not ssl_frozen:
+                self.checkpointer.add_recoverable("ssl_optimizer", self.ssl_optimizer)
 
 def dataio_prepare(hparams, tokenizer):
     """This function prepares the datasets to be used in the brain class.
@@ -377,15 +401,13 @@ def offline_feats_dataio_prepare(hparams, tokenizer):
         prompt_len = len([start_of_audio_index] + [end_of_audio_index] + prompt_ids)
         yield prompt_len
 
+    feats_pipeline = CachedHDF5DynamicItem(
+        hparams["feats_cache_dir"], 
+        file_mode="r", 
+        takes=["id"], 
+        provides=["feats"]
+    )
 
-    @CachedHDF5DynamicItem.cache(hparams["feats_cache_dir"])
-    @sb.utils.data_pipeline.takes("id")
-    @sb.utils.data_pipeline.provides("feats")
-    def feats_pipeline(uid):
-        # this function is not used. 
-        return uid
-
-    feats_pipeline.change_file_mode("r")
     dynamic_items = [text_pipeline, feats_pipeline]
     output_keys = ["id", "wrd", "tokens_bos", "tokens_eos", "tokens", "prompt_len", "feats"]
 
@@ -395,7 +417,6 @@ def offline_feats_dataio_prepare(hparams, tokenizer):
         dynamic_items=dynamic_items,
         output_keys=output_keys,
     )
-
     
     # Build valid dataset with its own cached wrapper
     valid_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
@@ -484,7 +505,7 @@ if __name__ == "__main__":
     # here we create the datasets objects as well as tokenization and encoding
     tokenizer = hparams["llm"].tokenizer
     
-    if hparams["use_ssl_feats"]:
+    if not hparams.get("ssl", False):
         (
             train_data,
             valid_data,
@@ -506,14 +527,12 @@ if __name__ == "__main__":
     # Trainer initialization
     asr_brain = ASR(
         modules=hparams["modules"],
-        opt_class=hparams["Adam"],
         hparams=hparams,
         run_opts=run_opts,
         checkpointer=hparams["checkpointer"],
     )
-    # asr_brain.modules.llm = torch.compile(asr_brain.modules.llm)
     asr_brain.tokenizer = tokenizer
-    # gen_func = self.modules.llm.module.model.generate
+    # todo: delete this call.
     asr_brain.gen_func = asr_brain.raw_modules.llm.model.generate
     asr_brain.txt_embedding = asr_brain.raw_modules.llm.model.get_input_embeddings()
     # adding objects to trainer:
