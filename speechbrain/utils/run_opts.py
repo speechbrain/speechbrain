@@ -259,11 +259,11 @@ class RunOptions:
             if action.dest != "help":
                 for opt in action.option_strings:
                     arg_mapping[opt] = action.dest
-        
+
         # Parse and accept extra args to override yaml
         parsed_args, overrides = parser.parse_known_args(arg_list)
         overrides = cls._convert_to_yaml(overrides)
-        
+
         # Go through arg list to see which were set
         # NOTE: Slight risk of collisions if an arg value matches an arg name
         overridden_args = set()
