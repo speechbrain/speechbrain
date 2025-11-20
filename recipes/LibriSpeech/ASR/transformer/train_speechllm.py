@@ -1,8 +1,30 @@
 #!/usr/bin/env python3
 """
-# TODO:
-1) add max length (i.e. context length of the fine tune model)
-2) torch.compile the LLM with the fixed length
+module load gcc arrow/17.0.0
+module load python/3.12.4
+virtualenv --no-download $SLURM_TMPDIR/env
+source $SLURM_TMPDIR/env/bin/activate
+pip install --no-index --upgrade pip
+
+pip install torch==2.7.1
+pip install torchaudio==2.7.1
+pip install transformers
+pip install triton==3.0.0
+pip install flash-attn
+pip install wandb 
+pip install accelerate
+pip install -e . 
+
+cd $SLURM_TMPDIR
+scp -r $SCRATCH/models/wavlm-large/ .
+scp -r $SCRATCH/models/HuggingFaceTB/SmolLM2-360M/ .
+scp $HOME/projects/def-ravanelm/datasets/librispeech/*.tar.gz .
+for f in *.tar.gz; do tar -xf "$f"; done
+
+cd /home/adelmou/proj/speechbrain/speechllm_librispeech/speechbrain/recipes/LibriSpeech/ASR/transformer/
+
+
+TOKENIZERS_PARALLELISM=false python train_speechllm.py hparams/llama.yaml         --data_folder $SLURM_TMPDIR/LibriSpeech/         --output_folder $SLURM_TMPDIR/wavlm_large-smollm2_360M_linear_proj_lora         --ssl_hub $SLURM_TMPDIR/wavlm-large/         --llm_path $SLURM_TMPDIR/SmolLM2-360M/         --llm_emb_size 960 --pad_token 128004        --feats_cache_dir $SCRATCH/cached_feats_ls960h --max_batch_length_train 400 --grad_accumulation_factor 8
 
 Authors
  * Adel Moumen 2025
@@ -18,6 +40,7 @@ from hyperpyyaml import load_hyperpyyaml
 import speechbrain as sb
 from speechbrain.utils.distributed import if_main_process, run_on_main
 from speechbrain.utils.logger import get_logger
+from speechbrain.integrations.hdf5.cached_item import CachedHDF5DynamicItem
 
 logger = get_logger(__name__)
 
@@ -44,16 +67,20 @@ class ASR(sb.core.Brain):
     def compute_forward(self, batch, stage):
         """Forward computations from the waveform batches to the output probabilities."""
         batch = batch.to(self.device)
-        wavs, wav_lens = batch.sig
         tokens_bos, tokens_bos_lens = batch.tokens_bos
         prompt_len = batch.prompt_len
-        wavs = self.hparams.normalize(wavs, wav_lens)
-        audio_feats = self.modules.ssl(wavs, wav_lens)
+        
+        if self.hparams.use_ssl_feats:
+            audio_feats, audio_feats_lens = batch.feats
+        else:
+            wavs, wav_lens = batch.sig
+            wavs = self.hparams.normalize(wavs, wav_lens)
+            audio_feats = self.modules.ssl(wavs, wav_lens)
+            audio_feats_lens = wav_lens
+        # R^L*D -> R^(L/R)*(D*R)
         audio_down_feats = self.modules.feat_downsampler(audio_feats)
-        # R^D -> R^llm_emb_size
-        projected_audio_feats = self.modules.linear_projection(audio_down_feats)
-        # series of gated nn blocks preserving the shape of the input
-        projected_audio_feats = self.modules.gated_nn(projected_audio_feats)
+        # R^D' -> R^llm_emb_size
+        projected_audio_feats = self.modules.proj(audio_down_feats)
         txt_embds = self.txt_embedding(tokens_bos)
         multimodal_embds = torch.cat([
             txt_embds[:, 0].unsqueeze(1), # B, D -> B, 1, D
@@ -62,7 +89,7 @@ class ASR(sb.core.Brain):
         ], dim=1)
         # attention_mask should be all the true audio features + all the true text features
         attention_mask = get_multimodal_attention_mask(
-            projected_audio_feats, wav_lens, txt_embds, tokens_bos_lens, self.device
+            projected_audio_feats, audio_feats_lens, txt_embds, tokens_bos_lens, self.device
         )
         logits = self.modules.llm(
             inputs_embeds=multimodal_embds, 
@@ -77,9 +104,8 @@ class ASR(sb.core.Brain):
             ]
             hyps = self.modules.valid_search(
                 inputs_embeds,
-                wav_lens,
+                audio_feats_lens,
                 attention_mask[:, :audio_and_prompt_len],
-                # generation_config=self.val_decoding_config,
             )
         return logits, hyps, projected_audio_feats.shape[1]
 
@@ -119,21 +145,6 @@ class ASR(sb.core.Brain):
         if stage != sb.Stage.TRAIN:
             self.cer_metric = self.hparams.cer_computer()
             self.wer_metric = self.hparams.error_rate_computer()
-
-    # def on_evaluate_start(self, max_key=None, min_key=None):
-    #     """perform checkpoint average if needed"""
-    #     super().on_evaluate_start()
-
-    #     ckpts = self.checkpointer.find_checkpoints(
-    #         max_key=max_key,
-    #         min_key=min_key,
-    #     )
-    #     ckpt = sb.utils.checkpoints.average_checkpoints(
-    #         ckpts, recoverable_name="model"
-    #     )
-
-    #     self.hparams.model.load_state_dict(ckpt, strict=True)
-    #     self.hparams.model.eval()
 
     def on_stage_end(self, stage, stage_loss, epoch):
         """Gets called at the end of a epoch."""
@@ -180,15 +191,20 @@ class ASR(sb.core.Brain):
                     self.hparams.test_wer_file, "w", encoding="utf-8"
                 ) as w:
                     self.wer_metric.write_stats(w)
-            
-            # save the averaged checkpoint at the end of the evaluation stage
-            # delete the rest of the intermediate checkpoints
-            # WER is set to -0.1 so checkpointer only keeps the averaged checkpoint
-            # self.checkpointer.save_and_keep_only(
-            #     meta={"WER": -0.1, "epoch": epoch},
-            #     min_keys=["WER"],
-            #     num_to_keep=1,
-            # ) # TODO: uncomment this
+
+    def init_optimizers(self):
+        self.optimizer = self.hparams.opt(self.hparams.model.parameters())
+        self.optimizers_dict = {"model_optimizer": self.optimizer}
+
+        if not self.hparams.ssl_frozen:
+            self.wav2vec_optimizer = self.hparams.opt_wav2vec2(
+                self.modules.wav2vec2.parameters()
+            )
+            self.optimizers_dict["wav2vec_optimizer"] = self.wav2vec_optimizer
+
+        if self.checkpointer is not None:
+            self.checkpointer.add_recoverable("model_optimizer", self.optimizer)
+            self.checkpointer.add_recoverable("wav2vec_optimizer", self.wav2vec_optimizer)
 
 def dataio_prepare(hparams, tokenizer):
     """This function prepares the datasets to be used in the brain class.
@@ -321,6 +337,115 @@ def dataio_prepare(hparams, tokenizer):
         valid_batch_sampler,
     )
 
+def offline_feats_dataio_prepare(hparams, tokenizer):
+    """This function prepares the datasets to be used in the brain class.
+    It also defines the data processing pipeline through user-defined functions.
+    """
+    data_folder = hparams["data_folder"]
+    
+    # todo: bos, eos, pad should be set by the user! they are hard to retrieve automatically
+    bos_index = tokenizer.bos_token_id
+    if bos_index is None:
+        bos_index = 128000
+    eos_index = tokenizer.eos_token_id
+    pad_index = tokenizer.pad_token_id
+    start_of_audio_index = tokenizer.convert_tokens_to_ids("<|start_of_audio|>")
+    end_of_audio_index = tokenizer.convert_tokens_to_ids("<|end_of_audio|>")
+    prompt = "Transcribe speech to text."
+    print(bos_index, eos_index, pad_index, start_of_audio_index, end_of_audio_index, prompt)
+    # exit()
+    # print(tokenizer.additional_special_tokens)
+    prompt_ids = tokenizer(
+        prompt, return_tensors="pt", add_special_tokens=False
+    ).input_ids.view(-1).tolist()
+
+    # 3. Define text pipeline:
+    @sb.utils.data_pipeline.takes("wrd")
+    @sb.utils.data_pipeline.provides(
+        "wrd", "tokens_list", "tokens_bos", "tokens_eos", "tokens", "prompt_len"
+    )
+    def text_pipeline(wrd):
+        yield wrd
+        tokens_list = tokenizer(wrd, add_special_tokens=False).input_ids
+        yield tokens_list
+        tokens_bos = torch.LongTensor([start_of_audio_index] + [end_of_audio_index] + prompt_ids  + [bos_index] + tokens_list )
+        yield tokens_bos
+        tokens_eos = torch.LongTensor(tokens_list + [eos_index])
+        yield tokens_eos
+        tokens = torch.LongTensor(tokens_list)
+        yield tokens
+        prompt_len = len([start_of_audio_index] + [end_of_audio_index] + prompt_ids)
+        yield prompt_len
+
+
+    @CachedHDF5DynamicItem.cache(hparams["feats_cache_dir"])
+    @sb.utils.data_pipeline.takes("id")
+    @sb.utils.data_pipeline.provides("feats")
+    def feats_pipeline(uid):
+        # this function is not used. 
+        return uid
+
+    feats_pipeline.change_file_mode("r")
+    dynamic_items = [text_pipeline, feats_pipeline]
+    output_keys = ["id", "wrd", "tokens_bos", "tokens_eos", "tokens", "prompt_len", "feats"]
+
+    train_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
+        csv_path=hparams["train_csv"],
+        replacements={"data_root": data_folder},
+        dynamic_items=dynamic_items,
+        output_keys=output_keys,
+    )
+
+    
+    # Build valid dataset with its own cached wrapper
+    valid_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
+        csv_path=hparams["valid_csv"],
+        replacements={"data_root": data_folder},
+        dynamic_items=dynamic_items,
+        output_keys=output_keys,
+    )
+
+
+    # test is separate
+    test_datasets = {}
+    for csv_file in hparams["test_csv"]:
+        name = Path(csv_file).stem
+        test_datasets[name] = sb.dataio.dataset.DynamicItemDataset.from_csv(
+            csv_path=csv_file, 
+            replacements={"data_root": data_folder},
+            dynamic_items=dynamic_items,
+            output_keys=output_keys,
+        )
+
+    # 5. If Dynamic Batching is used, we instantiate the needed samplers.
+    train_batch_sampler = None
+    valid_batch_sampler = None
+    if hparams["dynamic_batching"]:
+        from speechbrain.dataio.sampler import DynamicBatchSampler  # noqa
+
+        dynamic_hparams_train = hparams["dynamic_batch_sampler_train"]
+        dynamic_hparams_valid = hparams["dynamic_batch_sampler_valid"]
+
+        train_batch_sampler = DynamicBatchSampler(
+            train_data,
+            length_func=lambda x: x["duration"],
+            **dynamic_hparams_train,
+        )
+        valid_batch_sampler = DynamicBatchSampler(
+            valid_data,
+            length_func=lambda x: x["duration"],
+            **dynamic_hparams_valid,
+        )
+
+    return (
+        train_data,
+        valid_data,
+        test_datasets,
+        tokenizer,
+        train_batch_sampler,
+        valid_batch_sampler,
+    )
+
 
 if __name__ == "__main__":
     # CLI:
@@ -359,14 +484,24 @@ if __name__ == "__main__":
     # here we create the datasets objects as well as tokenization and encoding
     tokenizer = hparams["llm"].tokenizer
     
-    (
-        train_data,
-        valid_data,
-        test_datasets,
-        tokenizer,
-        train_bsampler,
-        valid_bsampler,
-    ) = dataio_prepare(hparams, tokenizer)
+    if hparams["use_ssl_feats"]:
+        (
+            train_data,
+            valid_data,
+            test_datasets,
+            tokenizer,
+            train_bsampler,
+            valid_bsampler,
+        ) = offline_feats_dataio_prepare(hparams, tokenizer)
+    else:
+        (
+            train_data,
+            valid_data,
+            test_datasets,
+            tokenizer,
+            train_bsampler,
+            valid_bsampler,
+        ) = dataio_prepare(hparams, tokenizer)
 
     # Trainer initialization
     asr_brain = ASR(
