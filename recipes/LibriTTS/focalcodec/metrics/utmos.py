@@ -16,6 +16,27 @@ SAMPLE_RATE = 16000
 
 
 class UTMOS(MetricStats):
+    """UTMOS metric.
+
+    Arguments
+    ---------
+    sample_rate : int
+        Sampling rate.
+    model : Any, optional
+        Pre-initialized model.
+
+    Example
+    -------
+    > import torch
+    > sample_rate = 24000
+    > ids = ["A", "B"]
+    > hyp_sig = torch.randn(2, 2 * sample_rate)
+    > utmos = UTMOS(sample_rate)
+    > utmos.append(ids, hyp_sig)
+    > print(utmos.summarize("average"))
+
+    """
+
     def __init__(self, sample_rate, model=None):
         self.sample_rate = sample_rate
         self.model = model
@@ -42,13 +63,3 @@ class UTMOS(MetricStats):
 
         self.ids += ids
         self.scores += scores.cpu().tolist()
-
-
-if __name__ == "__main__":
-    sample_rate = 24000
-    ids = ["A", "B"]
-    hyp_sig = torch.randn(2, 2 * sample_rate)
-
-    utmos = UTMOS(sample_rate)
-    utmos.append(ids, hyp_sig)
-    print(utmos.summarize("average"))

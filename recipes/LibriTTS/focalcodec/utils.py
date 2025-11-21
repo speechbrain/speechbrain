@@ -14,8 +14,8 @@ __all__ = ["download_wavlm6"]
 def download_wavlm6(cache_dir: "str") -> "str":
     """Download WavLM6 checkpoint to cache and return the path.
 
-    Parameters
-    ----------
+    Arguments
+    ---------
     cache_dir:
         Cache directory where the checkpoint will be saved.
 

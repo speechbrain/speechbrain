@@ -25,6 +25,7 @@ from speechbrain.utils.distributed import if_main_process, run_on_main
 
 class Resynthesis(sb.Brain):
     def fit_batch(self, batch):
+        """Fit one batch."""
         amp = sb.core.AMPConfig.from_name(self.precision)
 
         # Train discriminator
@@ -72,6 +73,7 @@ class Resynthesis(sb.Brain):
         return loss_generator.detach().cpu()
 
     def extract_feats(self, batch, stage):
+        """Extract continuous audio features from waveform."""
         batch = batch.to(self.device)
         sig, lens = batch.sig
 
@@ -124,6 +126,7 @@ class Resynthesis(sb.Brain):
         batch.feats = feats, lens
 
     def compute_forward_generator(self, batch, stage):
+        """Generator forward pass."""
         sig, lens = batch.sig
 
         # Forward generator
@@ -145,6 +148,7 @@ class Resynthesis(sb.Brain):
     def compute_forward_discriminator(
         self, batch, stage, return_discriminator=True
     ):
+        """Discriminator forward pass."""
         sig, lens = batch.sig
         hyp_sig, _ = batch.hyp_sig  # With gradient
 
@@ -163,6 +167,7 @@ class Resynthesis(sb.Brain):
         return hyp_sig, sig, scores_fake, feats_fake, feats_real
 
     def compute_objectives_generator(self, predictions, batch, stage):
+        """Compute generator loss."""
         loss = self.hparams.generator_loss(
             stage,
             y_hat=predictions[0],
@@ -174,6 +179,7 @@ class Resynthesis(sb.Brain):
         return loss["G_loss"]
 
     def compute_objectives_discriminator(self, predictions, batch, stage):
+        """Compute discriminator loss."""
         loss = self.hparams.discriminator_loss(
             scores_fake=predictions[0],
             scores_real=predictions[1],
@@ -181,11 +187,13 @@ class Resynthesis(sb.Brain):
         return loss["D_loss"]
 
     def _fit_valid(self, valid_set, epoch, enable):
+        """Validation stage."""
         if epoch % self.hparams.valid_freq == 0:
             return super()._fit_valid(valid_set, epoch, enable)
 
     @torch.no_grad()
     def evaluate_batch(self, batch, stage):
+        """Evaluate one batch."""
         assert stage in (sb.Stage.VALID, sb.Stage.TEST)
         self.extract_feats(batch, stage)
         self.compute_forward_generator(batch, stage)
@@ -356,6 +364,43 @@ def dataio_prepare(
     """This function prepares the datasets to be used in the brain class.
     It also defines the data processing pipeline through user-defined functions.
 
+    Arguments
+    ---------
+    data_folder : str
+        Root directory containing audio files referenced by the JSON manifests.
+    train_json : str
+        Path to the training manifest JSON.
+    valid_json : str
+        Path to the validation manifest JSON.
+    test_json : str
+        Path to the test manifest JSON.
+    sample_rate : int, optional
+        Target sampling rate for loaded audio. Audio is automatically resampled
+        if it does not match this rate. Default: 16000.
+    train_remove_if_longer : float, optional
+        Remove training examples longer than this duration (in seconds).
+    valid_remove_if_longer : float, optional
+        Remove validation examples longer than this duration (in seconds).
+    test_remove_if_longer : float, optional
+        Remove test examples longer than this duration (in seconds).
+    sorting : str, optional
+        Sorting strategy for dataset iteration, "ascending", "descending", or `"random"`.
+        Default: "ascending".
+    debug : bool, optional
+        If True, load only a small subset of each dataset for faster debugging.
+    segment_size : float, optional
+        If provided, randomly crop each audio sample to this duration (in seconds)
+        during training. Useful for training models on fixed-length segments.
+    segment_pad : bool, optional
+        If True, pad segments shorter than `segment_size` instead of skipping them.
+    audio_backend : str, optional
+        Backend to use for audio loading (e.g., "soundfile").
+
+    Returns
+    -------
+    tuple
+        Train data, valid data, test data.
+
     """
     train_data = sb.dataio.dataset.DynamicItemDataset.from_json(
         json_path=train_json,
@@ -397,6 +442,7 @@ def dataio_prepare(
     provides = ["sig"]
 
     def audio_pipeline_train(wav):
+        """Load waveform, resample, and optionally extract a random segment."""
         original_sample_rate = sb.dataio.dataio.read_audio_info(wav).sample_rate
         sig = sb.dataio.dataio.read_audio(wav, backend=audio_backend)
         sig = torchaudio.functional.resample(
@@ -414,6 +460,7 @@ def dataio_prepare(
         yield sig
 
     def audio_pipeline_eval(wav):
+        """Load waveform and resample."""
         original_sample_rate = sb.dataio.dataio.read_audio_info(wav).sample_rate
         sig = sb.dataio.dataio.read_audio(wav, backend=audio_backend)
         sig = torchaudio.functional.resample(
@@ -435,6 +482,21 @@ def dataio_prepare(
 
 
 def prepare_recipe(hparams, run_opts):
+    """Prepare SpeechBrain recipe.
+
+    Arguments
+    ---------
+    hparams : dict
+        SpeechBrain hparams dictionary loaded from the YAML recipe file.
+    run_opts : dict
+        SpeechBrain runtime options.
+
+    Returns
+    -------
+    tuple
+        Update hparams, train data, valid data, test data.
+
+    """
     # Dataset preparation
     import libritts_prepare
 

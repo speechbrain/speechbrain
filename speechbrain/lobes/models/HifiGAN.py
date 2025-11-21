@@ -1431,9 +1431,18 @@ class MSEGLoss(nn.Module):
 
 
 class HingeGLoss(nn.Module):
-    """Hinge Generator Loss
+    """Hinge Generator Loss.
+
     The generator is trained to fake the discriminator by updating the sample quality
     to be classified to a value almost equal to 1.
+
+    Example
+    -------
+    > import torch
+    > score_fake = torch.randn(4, 88)
+    > loss = HingeGLoss()(score_fake)
+    > print(loss)
+
     """
 
     def forward(self, score_fake):
@@ -1441,8 +1450,8 @@ class HingeGLoss(nn.Module):
 
         Arguments
         ---------
-        score_fake : list
-            discriminator scores of generated waveforms D(G(s))
+        score_fake : torch.Tensor
+            Discriminator scores of generated waveforms D(G(s))
 
         Returns
         -------
@@ -1533,9 +1542,19 @@ class MSEDLoss(nn.Module):
 
 
 class HingeDLoss(nn.Module):
-    """Hinge Discriminator Loss
+    """Hinge Discriminator Loss.
+
     The discriminator is trained to classify ground truth samples to 1,
     and the samples synthesized from the generator to 0.
+
+    Example
+    -------
+    > import torch
+    > score_fake = torch.randn(4, 88)
+    > score_real = torch.randn(4, 88)
+    > loss = HingeDLoss()(score_fake, score_real)
+    > print(loss)
+
     """
 
     def forward(self, score_fake, score_real):
@@ -1543,9 +1562,9 @@ class HingeDLoss(nn.Module):
 
         Arguments
         ---------
-        score_fake : list
+        score_fake : torch.Tensor
             discriminator scores of generated waveforms
-        score_real : list
+        score_real : torch.Tensor
             discriminator scores of groundtruth waveforms
 
         Returns

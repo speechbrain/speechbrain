@@ -19,6 +19,36 @@ SAMPLE_RATE = 16000
 
 
 class DWER(MetricStats):
+    """Differentiable Word Error Rate (dWER) metric.
+
+    Arguments
+    ---------
+    model_hub : str
+        Name of the HuggingFace Whisper checkpoint to load.
+    sample_rate : int
+        Sampling rate.
+    save_path : str, optional
+        Model cache directory.
+    model : Any, optional
+        Pre-initialized model.
+
+    Example
+    -------
+    > import torch
+    > device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    > sample_rate = 24000
+    > ids = ["A", "B"]
+    > hyp_sig = torch.randn(2, 2 * sample_rate, device=device)
+    > ref_sig = torch.randn(2, 2 * sample_rate, device=device)
+    > dwer = DWER("openai/whisper-small", sample_rate)
+    > dwer.append(ids, hyp_sig, ref_sig)
+    > print(dwer.summarize("error_rate"))
+    > print(dwer.summarize("WER"))
+    > print(dwer.summarize("error_rate_char"))
+    > print(dwer.summarize("CER"))
+
+    """
+
     def __init__(
         self,
         model_hub,
@@ -93,18 +123,3 @@ class DWER(MetricStats):
 
     def write_stats(self, filestream, verbose=False):
         self.wer_computer.write_stats(filestream)
-
-
-if __name__ == "__main__":
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    sample_rate = 24000
-    ids = ["A", "B"]
-    hyp_sig = torch.randn(2, 2 * sample_rate, device=device)
-    ref_sig = torch.randn(2, 2 * sample_rate, device=device)
-
-    dwer = DWER("openai/whisper-small", sample_rate)
-    dwer.append(ids, hyp_sig, ref_sig)
-    print(dwer.summarize("error_rate"))
-    print(dwer.summarize("WER"))
-    print(dwer.summarize("error_rate_char"))
-    print(dwer.summarize("CER"))

@@ -19,6 +19,32 @@ SAMPLE_RATE = 16000
 
 
 class SpkSimWavLM(MetricStats):
+    """WavLM speaker similarity metric.
+
+    Arguments
+    ---------
+    model_hub : str
+        Name of the HuggingFace WavLM checkpoint to load.
+    sample_rate : int
+        Sampling rate.
+    save_path : str, optional
+        Model cache directory.
+    model : Any, optional
+        Pre-initialized model.
+
+    Example
+    -------
+    > import torch
+    > sample_rate = 24000
+    > ids = ["A", "B"]
+    > hyp_sig = torch.randn(2, 2 * sample_rate)
+    > ref_sig = torch.randn(2, 2 * sample_rate)
+    > spk_sim = SpkSimWavLM("microsoft/wavlm-base-sv", sample_rate)
+    > spk_sim.append(ids, hyp_sig, ref_sig)
+    > print(spk_sim.summarize("average"))
+
+    """
+
     def __init__(
         self,
         model_hub,
@@ -76,14 +102,3 @@ class SpkSimWavLM(MetricStats):
 
         self.ids += ids
         self.scores += scores.cpu().tolist()
-
-
-if __name__ == "__main__":
-    sample_rate = 24000
-    ids = ["A", "B"]
-    hyp_sig = torch.randn(2, 2 * sample_rate)
-    ref_sig = torch.randn(2, 2 * sample_rate)
-
-    spk_sim = SpkSimWavLM("microsoft/wavlm-base-sv", sample_rate)
-    spk_sim.append(ids, hyp_sig, ref_sig)
-    print(spk_sim.summarize("average"))
