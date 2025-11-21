@@ -108,7 +108,6 @@ mel_fmin: 0
 mel_fmax: 8000
 mel_normalized: False
 power: 1.0
-norm: slaney
 dynamic_range_compression: True
 hingeg_loss_weight: 1.0
 feat_match_loss_weight: 54.0
@@ -159,7 +158,7 @@ encoder: !new:focalcodec.wavlm.WavLM
     use_flex_attention: !ref <encoder_use_flex_attention>
 
 generator: !new:focalcodec.vocos.Vocos
-    input_dim: !ref <encoder_dim>
+    input_dim: !ref <generator_input_dim>
     num_layers: !ref <generator_num_layers>
     dim: !ref <generator_dim>
     ffn_dim: !ref <generator_ffn_dim>

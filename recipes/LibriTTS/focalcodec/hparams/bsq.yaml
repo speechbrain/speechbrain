@@ -189,8 +189,8 @@ encoder: !new:focalcodec.wavlm.WavLM
     use_flex_attention: !ref <encoder_use_flex_attention>
 
 compressor: !new:focalcodec.focalnet.FocalEncoder
-    input_dim: !ref <encoder_dim>
-    output_dim: !ref <quantizer_code_dim>
+    input_dim: !ref <compressor_input_dim>
+    output_dim: !ref <compressor_output_dim>
     hidden_dims: !ref <compressor_hidden_dims>
     downscale_factors: !ref <compressor_downscale_factors>
     focal_window: !ref <compressor_focal_window>
@@ -211,8 +211,8 @@ quantizer: !new:speechbrain.lobes.models.bsq.BinarySphericalQuantizer
     diversity_gamma: !ref <quantizer_diversity_gamma>
 
 decompressor: !new:focalcodec.focalnet.FocalDecoder
-    input_dim: !ref <quantizer_code_dim>
-    output_dim: !ref <encoder_dim>
+    input_dim: !ref <decompressor_input_dim>
+    output_dim: !ref <decompressor_output_dim>
     hidden_dims: !ref <decompressor_hidden_dims>
     upscale_factors: !ref <decompressor_upscale_factors>
     focal_window: !ref <decompressor_focal_window>
@@ -230,7 +230,7 @@ decompressor: !new:focalcodec.focalnet.FocalDecoder
     lookahead_size: !ref <decompressor_lookahead_size>
 
 decoder: !new:focalcodec.vocos.Vocos
-    input_dim: !ref <encoder_dim>
+    input_dim: !ref <decoder_input_dim>
     num_layers: !ref <decoder_num_layers>
     dim: !ref <decoder_dim>
     ffn_dim: !ref <decoder_ffn_dim>
