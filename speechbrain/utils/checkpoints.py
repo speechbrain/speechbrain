@@ -71,6 +71,7 @@ from speechbrain.utils.distributed import (
     ddp_broadcast,
     if_main_process,
     main_process_only,
+    once_per_node,
 )
 from speechbrain.utils.logger import get_logger
 
@@ -223,6 +224,15 @@ def torch_save(obj, path):
     torch.save(state_dict, path)
 
 
+@once_per_node
+def torch_save_once_per_node(obj, path):
+    """Copy of `torch_save` that is run once per node."""
+    state_dict = obj.state_dict()
+    if not state_dict:
+        logger.warning(f"Saving an empty state_dict for {obj} in {path}.")
+    torch.save(state_dict, path)
+
+
 def torch_parameter_transfer(obj, path):
     """Non-strict Torch Module state_dict load.
 
@@ -300,6 +310,15 @@ except ImportError:
 # Add workarounds:
 DEFAULT_SAVE_HOOKS[torch.optim.lr_scheduler.CyclicLR] = __wa._cycliclrsaver
 DEFAULT_LOAD_HOOKS[torch.optim.lr_scheduler.CyclicLR] = __wa._cycliclrloader
+
+
+def convert_torch_save_hooks_to_once_per_node():
+    """Update the save hooks to be run once per node. This should be called
+    if you are running on more than one node with separate filesystems."""
+    global DEFAULT_SAVE_HOOKS
+    for obj, hook in DEFAULT_SAVE_HOOKS.items():
+        if hook == torch_save:
+            DEFAULT_SAVE_HOOKS[obj] = torch_save_once_per_node
 
 
 def mark_as_saver(method):

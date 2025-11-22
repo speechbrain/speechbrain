@@ -11,11 +11,11 @@ import os
 import matplotlib.pyplot as plt
 import quantus
 import torch
-import torchaudio
 import torchvision
 from torch.nn import functional as F
 
 import speechbrain as sb
+from speechbrain.dataio import audio_io
 from speechbrain.utils.metric_stats import MetricStats
 
 eps = 1e-10
@@ -150,13 +150,13 @@ class InterpreterBrain(sb.core.Brain):
         )
         plt.close()
 
-        torchaudio.save(
+        audio_io.save(
             os.path.join(out_folder, "interpretation.wav"),
             xhat_tm.data.cpu(),
             self.hparams.sample_rate,
         )
 
-        torchaudio.save(
+        audio_io.save(
             os.path.join(out_folder, "original.wav"),
             wavs.data.cpu(),
             self.hparams.sample_rate,

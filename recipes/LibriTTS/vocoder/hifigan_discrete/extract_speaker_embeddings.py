@@ -15,6 +15,7 @@ import torchaudio
 from tqdm import tqdm
 
 import speechbrain as sb
+from speechbrain.dataio import audio_io
 from speechbrain.dataio.dataio import load_pkl, save_pkl
 from speechbrain.inference.encoders import MelSpectrogramEncoder
 from speechbrain.utils.logger import get_logger
@@ -187,7 +188,7 @@ def extract_libritts_embeddings(
             item = meta_json[key]
             wav = item["wav"]
             with torch.no_grad():
-                info = torchaudio.info(wav)
+                info = audio_io.info(wav)
                 audio = sb.dataio.dataio.read_audio(wav)
                 audio = torchaudio.transforms.Resample(
                     info.sample_rate,

@@ -15,6 +15,7 @@ from typing import Optional
 import torch
 
 MAIN_PROC_ONLY: int = 0
+NODE_ONCE_ONLY: int = 0
 
 
 def rank_prefixed_message(message: str) -> str:
@@ -58,12 +59,29 @@ def get_rank() -> Optional[int]:
     return None
 
 
+def get_local_rank() -> Optional[int]:
+    r"""Get the local rank of the current process on the current node.
+
+    Returns
+    -------
+    int or None
+        The local rank of the current process, or None if the local rank could not be determined.
+    """
+    rank_keys = ("LOCAL_RANK", "SLURM_LOCALID")
+    for key in rank_keys:
+        rank = os.environ.get(key)
+        if rank is not None:
+            return int(rank)
+    # None to differentiate whether an environment variable was set at all
+    return None
+
+
 def infer_device() -> str:
     """Make a basic guess about intended running device based on
     availability and distributed environment variable 'LOCAL_RANK'"""
     if torch.cuda.is_available():
         device = "cuda"
-        local_rank = os.environ.get("LOCAL_RANK")
+        local_rank = get_local_rank()
         if local_rank is not None:
             device += f":{local_rank}"
     else:
@@ -136,6 +154,94 @@ def run_on_main(
     return result
 
 
+def run_once_per_node(
+    func,
+    args=None,
+    kwargs=None,
+    post_func=None,
+    post_args=None,
+    post_kwargs=None,
+    run_post_on_all=False,
+):
+    r"""Runs a function with DPP (multi-gpu) support.
+
+    The provided function `func` is only run once on each node, while other processes
+    block to wait for the function execution to finish. This is useful for things such
+    as saving a file to the disk on each separate node (i.e. the filesystems are separate).
+    In addition, a second function can be specified to be run on other processes after the
+    first function completes, for example, loading a file that was created on each node.
+
+    Arguments
+    ---------
+    func : callable
+        Function to be run once on each node.
+    args : list, None
+        Positional args to pass to func.
+    kwargs : dict, None
+        Keyword args to pass to func.
+    post_func : callable, None
+        Function to run after `func` has finished. By default, `post_func` is not run
+        on the process that ran `func`.
+    post_args : list, None
+        Positional args to pass to post_func.
+    post_kwargs : dict, None
+        Keyword args to pass to post_func.
+    run_post_on_all : bool
+        Whether to run post_func on all processes, including the process that ran `func`.
+
+    Returns
+    -------
+    If `post_func` is provided, returns the result on all processes where `post_func` is run.
+    If `run_post_on_all` is `False` or `post_func` is not provided, returns the result of `func` on the processes where it is run.
+    If `post_func` is not provided, returns `None` on processes where `func` was not called.
+
+    Example
+    -------
+    >>> tmpfile = getfixture("tmpdir") / "example.pt"
+    >>> # Return tensor so we don't have to load it on the saving process
+    >>> def save_and_return(file, tensor):
+    ...     torch.save(tensor, file)
+    ...     return tensor
+    >>> # Load tensor on non-saving processes
+    >>> def load_tensor(file):
+    ...     return torch.load(file)
+    >>> # Save on node-primary processes, load on others
+    >>> example_tensor = torch.ones(5)
+    >>> loaded_tensor = run_once_per_node(
+    ...     func=save_and_return,
+    ...     args=[tmpfile, example_tensor],
+    ...     post_func=load_tensor,
+    ...     post_args=[tmpfile],
+    ...     run_post_on_all=False,
+    ... )
+    >>> # We should get the same result on all processes
+    >>> loaded_tensor
+    tensor([1., 1., 1., 1., 1.])
+    """
+    # Handle the mutable data types' default args:
+    args = args or []
+    kwargs = kwargs or {}
+    post_args = post_args or []
+    post_kwargs = post_kwargs or {}
+
+    # Call the function exactly once per node, wait on other processes
+    result = once_per_node(func)(*args, **kwargs)
+    ddp_barrier()
+
+    # Call the post function if provided
+    if post_func is not None:
+        if run_post_on_all:
+            # Just run on every process without any barrier.
+            result = post_func(*post_args, **post_kwargs)
+        else:
+            # Do the opposite of `once_per_node` and await result
+            if not is_local_rank_zero():
+                result = post_func(*post_args, **post_kwargs)
+            ddp_barrier()
+
+    return result
+
+
 def is_distributed_initialized() -> bool:
     r"Returns whether the current system is distributed."
     # `is_initialized` is only defined conditionally
@@ -148,10 +254,12 @@ def is_distributed_initialized() -> bool:
 
 def if_main_process() -> bool:
     r"Returns whether the current process is the main process."
-    if is_distributed_initialized():
-        return torch.distributed.get_rank() == 0
-    else:
-        return True
+    return not is_distributed_initialized() or get_rank() == 0
+
+
+def is_local_rank_zero() -> bool:
+    r"Returns whether the current process has local rank of 0."
+    return not is_distributed_initialized() or get_local_rank() == 0
 
 
 class MainProcessContext:
@@ -172,6 +280,26 @@ class MainProcessContext:
         r"""Exit the context. Decrease the counter."""
         global MAIN_PROC_ONLY
         MAIN_PROC_ONLY -= 1
+
+
+class OncePerNodeContext:
+    r"""
+    Context manager to ensure code runs only once per node.
+    This is useful to make sure that `NODE_ONCE_ONLY` global variable
+    is decreased even if there's an exception raised inside of the
+    `once_per_node_wrapped_fn` function.
+    """
+
+    def __enter__(self):
+        r"""Enter the context. Increase the counter."""
+        global NODE_ONCE_ONLY
+        NODE_ONCE_ONLY += 1
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        r"""Exit the context. Decrease the counter."""
+        global NODE_ONCE_ONLY
+        NODE_ONCE_ONLY -= 1
 
 
 def main_process_only(function):
@@ -195,6 +323,37 @@ def main_process_only(function):
     return main_proc_wrapped_func
 
 
+def once_per_node(function):
+    r"""Function decorator to ensure the function runs only once per node.
+    This is useful for things like saving to the filesystem
+    where you only want it to happen on a single process on each node.
+
+    Unlike `main_process_only`, no broadcasting is done. Instead, processes
+    with local_rank == 0 keep their own result, all other processes
+    return None.
+    """
+
+    @wraps(function)
+    def once_per_node_wrapped_fn(*args, **kwargs):
+        """This decorated function runs only if this is the main process."""
+        with OncePerNodeContext():
+            if is_local_rank_zero():
+                return function(*args, **kwargs)
+            else:
+                return None
+
+    return once_per_node_wrapped_fn
+
+
+def ddp_prevent_block():
+    r"Prevent blocking because only one or partial threads running."
+    return (
+        MAIN_PROC_ONLY >= 1
+        or NODE_ONCE_ONLY >= 1
+        or not is_distributed_initialized()
+    )
+
+
 def ddp_barrier():
     r"""
     Synchronize all processes in distributed data parallel (DDP) mode.
@@ -216,7 +375,7 @@ def ddp_barrier():
     >>> print("hello world")
     hello world
     """
-    if MAIN_PROC_ONLY >= 1 or not is_distributed_initialized():
+    if ddp_prevent_block():
         return
 
     if torch.distributed.get_backend() == torch.distributed.Backend.NCCL:
@@ -241,7 +400,7 @@ def ddp_broadcast(communication_object, src=0):
     -------
     The communication_object passed on rank src.
     """
-    if MAIN_PROC_ONLY >= 1 or not is_distributed_initialized():
+    if ddp_prevent_block():
         return communication_object
 
     # Wrapping object in a list is required for preventing
@@ -271,7 +430,7 @@ def ddp_all_reduce(communication_object, reduce_op):
     """
 
     # If DDP not initialised or executed with a main process barrier
-    if MAIN_PROC_ONLY >= 1 or not is_distributed_initialized():
+    if ddp_prevent_block():
         return communication_object
 
     torch.distributed.all_reduce(communication_object, op=reduce_op)
@@ -296,12 +455,11 @@ def ddp_init_group(run_opts):
     -------
     None
     """
-    rank = os.environ.get("RANK")
-    local_rank = os.environ.get("LOCAL_RANK")
+    rank = get_rank()
+    local_rank = get_local_rank()
     if local_rank is None or rank is None:
         return
 
-    local_rank = int(local_rank)
     if not run_opts["distributed_backend"] == "gloo":
         if local_rank + 1 > torch.cuda.device_count():
             raise ValueError(

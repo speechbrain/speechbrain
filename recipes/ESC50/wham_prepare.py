@@ -7,6 +7,7 @@ import torch.nn.functional as F
 import torchaudio
 from torch.utils.data import IterableDataset
 
+from speechbrain.dataio import audio_io
 from speechbrain.utils.fetching import fetch
 
 np.random.seed(1234)
@@ -39,7 +40,7 @@ class WHAMDataset(IterableDataset):
             idx = np.random.choice([i for i in range(len(self.file_list))])
             file_path = os.path.join(self.data_dir, self.file_list[idx])
 
-            waveform, sr = torchaudio.load(file_path)
+            waveform, sr = audio_io.load(file_path)
             waveform = waveform.mean(0, keepdim=True)
 
             # Resample if needed

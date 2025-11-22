@@ -33,6 +33,7 @@ from pystoi import stoi
 from tqdm import tqdm
 
 import speechbrain as sb
+from speechbrain.dataio import audio_io
 from speechbrain.utils.data_utils import undo_padding
 from speechbrain.utils.distributed import run_on_main
 from speechbrain.utils.logger import get_logger
@@ -452,7 +453,7 @@ class ASR(sb.core.Brain):
         signal = predictions[0, :]
         signal = signal / signal.abs().max()
         save_file = os.path.join(save_path, "enhanced.wav")
-        torchaudio.save(
+        audio_io.save(
             save_file,
             signal.unsqueeze(0).cpu(),
             self.hparams.enhance_sample_rate,
@@ -462,7 +463,7 @@ class ASR(sb.core.Brain):
         signal = clean[0, :]
         signal = signal / signal.abs().max()
         save_file = os.path.join(save_path, "clean.wav")
-        torchaudio.save(
+        audio_io.save(
             save_file,
             signal.unsqueeze(0).cpu(),
             self.hparams.enhance_sample_rate,
@@ -472,7 +473,7 @@ class ASR(sb.core.Brain):
         signal = noisy[0][0, :]
         signal = signal / signal.abs().max()
         save_file = os.path.join(save_path, "noisy.wav")
-        torchaudio.save(
+        audio_io.save(
             save_file,
             signal.unsqueeze(0).cpu(),
             self.hparams.enhance_sample_rate,
@@ -699,7 +700,7 @@ def dataio_prepare(hparams, tokenizer):
     @sb.utils.data_pipeline.takes("clean_wav")
     @sb.utils.data_pipeline.provides("clean_sig")
     def audio_pipeline_clean(wav):
-        info = torchaudio.info(wav)
+        info = audio_io.info(wav)
         clean_sig = sb.dataio.dataio.read_audio(wav)
         clean_sig = torchaudio.transforms.Resample(
             info.sample_rate,
@@ -710,7 +711,7 @@ def dataio_prepare(hparams, tokenizer):
     @sb.utils.data_pipeline.takes("noise_wav")
     @sb.utils.data_pipeline.provides("noise_sig")
     def audio_pipeline_noise(wav):
-        info = torchaudio.info(wav)
+        info = audio_io.info(wav)
         noise_sig = sb.dataio.dataio.read_audio(wav)
         noise_sig = torchaudio.transforms.Resample(
             info.sample_rate,
@@ -721,7 +722,7 @@ def dataio_prepare(hparams, tokenizer):
     @sb.utils.data_pipeline.takes("noisy_wav")
     @sb.utils.data_pipeline.provides("noisy_wav", "noisy_sig")
     def audio_pipeline_noisy(wav):
-        info = torchaudio.info(wav)
+        info = audio_io.info(wav)
         noisy_sig = sb.dataio.dataio.read_audio(wav)
         noisy_sig = torchaudio.transforms.Resample(
             info.sample_rate,

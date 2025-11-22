@@ -18,6 +18,7 @@ import torch
 import torch.nn.functional as F
 import torchaudio
 
+from speechbrain.dataio import audio_io
 from speechbrain.inference.interfaces import Pretrained
 from speechbrain.utils.data_utils import split_path
 from speechbrain.utils.fetching import LocalStrategy, fetch
@@ -104,7 +105,7 @@ class SepformerSeparation(Pretrained):
             local_strategy=LocalStrategy.SYMLINK,
         )
 
-        batch, fs_file = torchaudio.load(path)
+        batch, fs_file = audio_io.load(path)
         batch = batch.to(self.device)
         fs_model = self.hparams.sample_rate
 

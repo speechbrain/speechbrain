@@ -17,6 +17,7 @@ from huggingface_hub import hf_hub_download
 from tqdm import tqdm
 
 import speechbrain as sb
+from speechbrain.dataio import audio_io
 from speechbrain.dataio.dataio import load_pkl, save_pkl
 from speechbrain.integrations.huggingface.wav2vec2 import Wav2Vec2
 from speechbrain.utils.logger import get_logger
@@ -221,7 +222,7 @@ def extract_cvss(
             item = meta_json[key]
             wav = item["tgt_audio"]
             with torch.no_grad():
-                info = torchaudio.info(wav)
+                info = audio_io.info(wav)
                 audio = sb.dataio.dataio.read_audio(wav)
                 audio = torchaudio.transforms.Resample(
                     info.sample_rate,
