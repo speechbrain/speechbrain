@@ -238,9 +238,9 @@ class SGMSEEnhancement(Pretrained):
     >>> from speechbrain.inference.enhancement import SGMSEEnhancement
     >>> tmpdir = getfixture("tmpdir")
     >>> enh = SGMSEEnhancement.from_hparams(
-    ...     source="your-org/sgmse-voicebank", savedir=tmpdir
+    ...     source="speechbrain/sgmse-voicebank", savedir=tmpdir
     ... )
-    >>> out = enh.enhance_file("your-org/sgmse-voicebank/example.wav")
+    >>> out = enh.enhance_file("speechbrain/sgmse-voicebank/example.wav")
     """
 
     MODULES_NEEDED = ["score_model"]
