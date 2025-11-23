@@ -70,15 +70,17 @@ Some implementation details may differ, which can lead to slightly different res
 
 For reference, we include the resynthesis results from the paper, obtained on **LibriSpeech test-clean**:
 
-|                                                Checkpoint                                                 | Sample Rate (kHz) | Token Rate (Hz) | Codebooks | Bitrate (kbps) | UTMOS | dWER (%) | Sim  |   Dataset    |
-|:---------------------------------------------------------------------------------------------------------:|:-----------------:|:---------------:|:---------:|:--------------:|:-----:|:--------:|:----:|:------------:|
-|            [lucadellalib/focalcodec_50hz](https://huggingface.co/lucadellalib/focalcodec_50hz)            |        16         |      50.0       |  1x8192   |      0.65      | 4.05  |   2.18   | 97.4 | LibriTTS-960 |
-|            [lucadellalib/focalcodec_25hz](https://huggingface.co/lucadellalib/focalcodec_25hz)            |        16         |      25.0       |  1x8192   |      0.33      | 4.14  |   3.30   | 96.3 | LibriTTS-960 |
-|          [lucadellalib/focalcodec_12_5hz](https://huggingface.co/lucadellalib/focalcodec_12_5hz)          |        16         |      12.5       |  1x8192   |      0.16      | 4.22  |   7.94   | 93.9 | LibriTTS-960 |
+|                                        Checkpoint                                       |  Train Data  | Sample<br/>Rate (kHz) | Token<br/>Rate (Hz) | Codebooks | Bitrate<br/>(kbps) | UTMOS | dWER (%) | Sim  |
+| :-------------------------------------------------------------------------------------: | :----------: |:---------------------:|:-------------------:| :-------: |:------------------:| :---: | :------: |:----:|
+|   [lucadellalib/focalcodec_50hz](https://huggingface.co/lucadellalib/focalcodec_50hz)   | LibriTTS-960 |          16           |        50.0         |   1x8192  |        0.65        |  4.05 |   2.18   | 97.4 |
+|   [lucadellalib/focalcodec_25hz](https://huggingface.co/lucadellalib/focalcodec_25hz)   | LibriTTS-960 |          16           |        25.0         |   1x8192  |        0.33        |  4.14 |   3.30   | 96.3 |
+| [lucadellalib/focalcodec_12_5hz](https://huggingface.co/lucadellalib/focalcodec_12_5hz) | LibriTTS-960 |          16           |        12.5         |   1x8192  |        0.16        |  4.22 |   7.94   | 93.9 |
 
-The original checkpoints can be found at [https://huggingface.co/collections/lucadellalib/focalcodec](https://huggingface.co/collections/lucadellalib/focalcodec)
+The original training logs can be found at: [TODO]().
 
-The inference code can be found at [https://github.com/lucadellalib/focalcodec](https://github.com/lucadellalib/focalcodec)
+The original checkpoints can be found at: [https://huggingface.co/collections/lucadellalib/focalcodec](https://huggingface.co/collections/lucadellalib/focalcodec).
+
+The inference code can be found at: [https://github.com/lucadellalib/focalcodec](https://github.com/lucadellalib/focalcodec).
 
 ---------------------------------------------------------------------------------------------------------
 
@@ -95,11 +97,11 @@ The inference code can be found at [https://github.com/lucadellalib/focalcodec](
 Please, cite FocalCodec if you use it for your research or business.
 
 ```bibtex
-@article{dellalibera2025focalcodec,
-    title   = {{FocalCodec}: Low-Bitrate Speech Coding via Focal Modulation Networks},
-    author  = {Luca {Della Libera} and Francesco Paissan and Cem Subakan and Mirco Ravanelli},
-    journal = {arXiv preprint arXiv:2502.04465},
-    year    = {2025},
+@inproceedings{dellalibera2025focalcodec,
+    title     = {{FocalCodec}: Low-Bitrate Speech Coding via Focal Modulation Networks},
+    author    = {Luca {Della Libera} and Francesco Paissan and Cem Subakan and Mirco Ravanelli},
+    booktitle = {Advances in Neural Information Processing Systems},
+    year      = {2025},
 }
 ```
 
