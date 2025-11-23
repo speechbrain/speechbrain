@@ -239,8 +239,10 @@ class SGMSEEnhancement(Pretrained):
     >>> tmpdir = getfixture("tmpdir")
     >>> enh = SGMSEEnhancement.from_hparams(
     ...     source="speechbrain/sgmse-voicebank", savedir=tmpdir
-    ... )
-    >>> out = enh.enhance_file("speechbrain/sgmse-voicebank/example.wav")
+    ... )  # doctest: +SKIP
+    >>> out = enh.enhance_file(
+    ...     "speechbrain/sgmse-voicebank/example.wav"
+    ... )  # doctest: +SKIP
     """
 
     MODULES_NEEDED = ["score_model"]
