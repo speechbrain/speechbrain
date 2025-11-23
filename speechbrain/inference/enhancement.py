@@ -23,6 +23,7 @@ from speechbrain.utils.callchains import lengths_arg_exists
 
 
 def pad_spec(Y, mode="zero_pad"):
+    """Pad tensor `Y` along axis 3 to 64 with the given algorithm."""
     T = Y.size(3)
     if T % 64 != 0:
         num_pad = 64 - T % 64
