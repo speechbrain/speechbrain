@@ -35,9 +35,9 @@ class Embedding(nn.Module):
     ...     num_embeddings=40,
     ...     embedding_dim=39,
     ...     consider_as_one_hot=True,
-    ...     blank_id=39
+    ...     blank_id=39,
     ... )
-    >>> inputs = torch.Tensor([10,5,2,0,39]).long()
+    >>> inputs = torch.Tensor([10, 5, 2, 0, 39]).long()
     >>> output = emb(inputs)
     >>> output.shape
     torch.Size([5, 39])
@@ -57,7 +57,9 @@ class Embedding(nn.Module):
             [0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.,
              0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.,
              0., 0., 0.]])
-    >>> emb = Embedding(num_embeddings=5, embedding_dim=3, consider_as_one_hot=False)
+    >>> emb = Embedding(
+    ...     num_embeddings=5, embedding_dim=3, consider_as_one_hot=False
+    ... )
     >>> e = emb(torch.LongTensor([[0, 1, 2], [3, 4, 2]]))
     >>> e.shape
     torch.Size([2, 3, 3])

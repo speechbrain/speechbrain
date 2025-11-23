@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-""" This module contains functions to prepare the lexicon and the language model
+"""This module contains functions to prepare the lexicon and the language model
 for k2 training. It is based on the script `prepare_lang.sh` from k2/icefall (work
 of Fangjun Kuang). The original script is under Apache 2.0 license.
 This script is modified to work with SpeechBrain.
@@ -9,7 +9,6 @@ Modified by:
   * Zeyu Zhao 2023
   * Georgios Karakasidis 2023
 """
-
 
 import math
 import os
@@ -74,9 +73,9 @@ def get_tokens(
     if manually_add_sil_to_tokens:
         ans.add(sil_token)
     for _, tokens in lexicon:
-        assert (
-            sil_token not in tokens
-        ), f"{sil_token} should not appear in the lexicon but it is found in {_}"
+        assert sil_token not in tokens, (
+            f"{sil_token} should not appear in the lexicon but it is found in {_}"
+        )
         ans.update(tokens)
     sorted_ans = sorted(list(ans))
     return sorted_ans
@@ -453,13 +452,19 @@ def prepare_lang(lang_dir, sil_token="SIL", sil_prob=0.5, cache=True):
     >>> from speechbrain.integrations.k2_fsa.prepare_lang import prepare_lang
 
     >>> # Create a small lexicon containing only two words and write it to a file.
-    >>> lang_tmpdir = getfixture('tmpdir')
+    >>> lang_tmpdir = getfixture("tmpdir")
     >>> lexicon_sample = '''hello h e l l o\\nworld w o r l d'''
     >>> lexicon_file = lang_tmpdir.join("lexicon.txt")
     >>> lexicon_file.write(lexicon_sample)
 
     >>> prepare_lang(lang_tmpdir)
-    >>> for expected_file in ["tokens.txt", "words.txt", "L.pt", "L_disambig.pt", "Linv.pt" ]:
+    >>> for expected_file in [
+    ...     "tokens.txt",
+    ...     "words.txt",
+    ...     "L.pt",
+    ...     "L_disambig.pt",
+    ...     "Linv.pt",
+    ... ]:
     ...     assert os.path.exists(os.path.join(lang_tmpdir, expected_file))
     """
 

@@ -15,10 +15,10 @@ import os
 import sys
 
 import torch
-import torchaudio
 from hyperpyyaml import load_hyperpyyaml
 
 import speechbrain as sb
+from speechbrain.dataio import audio_io
 from speechbrain.utils.data_utils import scalarize
 
 
@@ -259,9 +259,7 @@ class HifiGanBrain(sb.Brain):
                 inference_padding=self.hparams.inference_padding,
                 cond_channels=self.hparams.cond_channels,
                 conv_post_bias=self.hparams.conv_post_bias,
-            ).to(
-                self.device
-            )  # Gets a new instance
+            ).to(self.device)  # Gets a new instance
             inference_generator.load_state_dict(
                 self.hparams.generator.state_dict()
             )  # Copies weights
@@ -311,9 +309,7 @@ class HifiGanBrain(sb.Brain):
             os.makedirs(target_path)
         file_name = f"{name}.wav"
         effective_file_name = os.path.join(target_path, file_name)
-        torchaudio.save(
-            effective_file_name, data.cpu(), self.hparams.sample_rate
-        )
+        audio_io.save(effective_file_name, data.cpu(), self.hparams.sample_rate)
 
 
 def dataio_prepare(hparams):

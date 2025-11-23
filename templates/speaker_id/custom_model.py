@@ -62,7 +62,6 @@ class Xvector(torch.nn.Module):
         lin_neurons=512,
         in_channels=40,
     ):
-
         super().__init__()
         self.blocks = nn.ModuleList()
 

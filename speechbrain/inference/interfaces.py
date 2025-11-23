@@ -19,12 +19,14 @@ import warnings
 from types import SimpleNamespace
 
 import torch
-import torchaudio
 from hyperpyyaml import load_hyperpyyaml
-from torch.nn import DataParallel as DP
-from torch.nn import SyncBatchNorm
+from torch.nn import (
+    DataParallel as DP,
+    SyncBatchNorm,
+)
 from torch.nn.parallel import DistributedDataParallel as DDP
 
+from speechbrain.dataio import audio_io
 from speechbrain.dataio.batch import PaddedBatch, PaddedData
 from speechbrain.dataio.preprocess import AudioNormalizer
 from speechbrain.utils.data_pipeline import DataPipeline
@@ -330,7 +332,7 @@ class Pretrained(torch.nn.Module):
         """
         source, fl = split_path(path)
         path = fetch(fl, source=source, savedir=savedir)
-        signal, sr = torchaudio.load(str(path), channels_first=False)
+        signal, sr = audio_io.load(str(path), channels_first=False)
         signal = signal.to(self.device)
         return self.audio_normalizer(signal, sr)
 

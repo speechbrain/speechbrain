@@ -8,6 +8,7 @@ All classes are implemented as `torch.nn.Module`, enabling end-to-end differenti
 Authors:
 - Peter Plantinga (2020)
 - Mirco Ravanelli (2023)
+- Gianfranco Dumoulin Bertucci (2025)
 """
 
 # Importing libraries
@@ -79,10 +80,12 @@ class AddNoise(torch.nn.Module):
     -------
     >>> import pytest
     >>> from speechbrain.dataio.dataio import read_audio
-    >>> signal = read_audio('tests/samples/single-mic/example1.wav')
-    >>> clean = signal.unsqueeze(0) # [batch, time, channels]
-    >>> noisifier = AddNoise('tests/samples/annotation/noise.csv',
-    ...                     replacements={'noise_folder': 'tests/samples/noise'})
+    >>> signal = read_audio("tests/samples/single-mic/example1.wav")
+    >>> clean = signal.unsqueeze(0)  # [batch, time, channels]
+    >>> noisifier = AddNoise(
+    ...     "tests/samples/annotation/noise.csv",
+    ...     replacements={"noise_folder": "tests/samples/noise"},
+    ... )
     >>> noisy = noisifier(clean, torch.ones(1))
     """
 
@@ -340,10 +343,12 @@ class AddReverb(torch.nn.Module):
     -------
     >>> import pytest
     >>> from speechbrain.dataio.dataio import read_audio
-    >>> signal = read_audio('tests/samples/single-mic/example1.wav')
-    >>> clean = signal.unsqueeze(0) # [batch, time, channels]
-    >>> reverb = AddReverb('tests/samples/annotation/RIRs.csv',
-    ...                     replacements={'rir_folder': 'tests/samples/RIRs'})
+    >>> signal = read_audio("tests/samples/single-mic/example1.wav")
+    >>> clean = signal.unsqueeze(0)  # [batch, time, channels]
+    >>> reverb = AddReverb(
+    ...     "tests/samples/annotation/RIRs.csv",
+    ...     replacements={"rir_folder": "tests/samples/RIRs"},
+    ... )
     >>> reverbed = reverb(clean)
     """
 
@@ -466,14 +471,14 @@ class SpeedPerturb(torch.nn.Module):
     Example
     -------
     >>> from speechbrain.dataio.dataio import read_audio
-    >>> signal = read_audio('tests/samples/single-mic/example1.wav')
+    >>> signal = read_audio("tests/samples/single-mic/example1.wav")
     >>> perturbator = SpeedPerturb(orig_freq=16000, speeds=[90])
     >>> clean = signal.unsqueeze(0)
     >>> perturbed = perturbator(clean)
     >>> clean.shape
     torch.Size([1, 52173])
     >>> perturbed.shape
-    torch.Size([1, 46956])
+    torch.Size([1, 57971])
     """
 
     def __init__(self, orig_freq, speeds=[90, 100, 110], device="cpu"):
@@ -489,7 +494,7 @@ class SpeedPerturb(torch.nn.Module):
         for speed in self.speeds:
             config = {
                 "orig_freq": self.orig_freq,
-                "new_freq": self.orig_freq * speed // 100,
+                "new_freq": round(self.orig_freq * 100 / speed),
             }
             self.resamplers.append(Resample(**config))
 
@@ -535,8 +540,8 @@ class Resample(torch.nn.Module):
     Example
     -------
     >>> from speechbrain.dataio.dataio import read_audio
-    >>> signal = read_audio('tests/samples/single-mic/example1.wav')
-    >>> signal = signal.unsqueeze(0) # [batch, time, channels]
+    >>> signal = read_audio("tests/samples/single-mic/example1.wav")
+    >>> signal = signal.unsqueeze(0)  # [batch, time, channels]
     >>> resampler = Resample(orig_freq=16000, new_freq=8000)
     >>> resampled = resampler(signal)
     >>> signal.shape
@@ -629,7 +634,7 @@ class DropFreq(torch.nn.Module):
     -------
     >>> from speechbrain.dataio.dataio import read_audio
     >>> dropper = DropFreq()
-    >>> signal = read_audio('tests/samples/single-mic/example1.wav')
+    >>> signal = read_audio("tests/samples/single-mic/example1.wav")
     >>> dropped_signal = dropper(signal.unsqueeze(0))
     """
 
@@ -749,9 +754,9 @@ class DropChunk(torch.nn.Module):
     Example
     -------
     >>> from speechbrain.dataio.dataio import read_audio
-    >>> dropper = DropChunk(drop_start=100, drop_end=200, noise_factor=0.)
-    >>> signal = read_audio('tests/samples/single-mic/example1.wav')
-    >>> signal = signal.unsqueeze(0) # [batch, time, channels]
+    >>> dropper = DropChunk(drop_start=100, drop_end=200, noise_factor=0.0)
+    >>> signal = read_audio("tests/samples/single-mic/example1.wav")
+    >>> signal = signal.unsqueeze(0)  # [batch, time, channels]
     >>> length = torch.ones(1)
     >>> dropped_signal = dropper(signal, length)
     >>> float(dropped_signal[:, 150])
@@ -1069,7 +1074,7 @@ class DoClip(torch.nn.Module):
     -------
     >>> from speechbrain.dataio.dataio import read_audio
     >>> clipper = DoClip(clip_low=0.01, clip_high=0.01)
-    >>> signal = read_audio('tests/samples/single-mic/example1.wav')
+    >>> signal = read_audio("tests/samples/single-mic/example1.wav")
     >>> clipped_signal = clipper(signal.unsqueeze(0))
     """
 
@@ -1126,7 +1131,7 @@ class RandAmp(torch.nn.Module):
     -------
     >>> from speechbrain.dataio.dataio import read_audio
     >>> rand_amp = RandAmp(amp_low=0.25, amp_high=1.75)
-    >>> signal = read_audio('tests/samples/single-mic/example1.wav')
+    >>> signal = read_audio("tests/samples/single-mic/example1.wav")
     >>> output_signal = rand_amp(signal.unsqueeze(0))
     """
 
@@ -1277,8 +1282,14 @@ class CutCat(torch.nn.Module):
 
     Example
     -------
-    >>> signal = torch.ones((4, 256, 22)) * torch.arange(4).reshape((4, 1, 1,))
-    >>> cutcat =  CutCat()
+    >>> signal = torch.ones((4, 256, 22)) * torch.arange(4).reshape(
+    ...     (
+    ...         4,
+    ...         1,
+    ...         1,
+    ...     )
+    ... )
+    >>> cutcat = CutCat()
     >>> output_signal = cutcat(signal)
     """
 
@@ -1322,7 +1333,7 @@ class CutCat(torch.nn.Module):
                     start = idx_cut[i]
                     stop = idx_cut[i + 1]
                     waveforms[:, start:stop, ...] = waveforms_rolled[
-                        :, start:stop, ...  # noqa: W504
+                        :, start:stop, ...
                     ]
 
         return waveforms
@@ -1355,7 +1366,7 @@ def pink_noise_like(waveforms, alpha_low=1.0, alpha_high=1.0, sample_rate=50):
 
     Example
     -------
-    >>> waveforms = torch.randn(4,257,10)
+    >>> waveforms = torch.randn(4, 257, 10)
     >>> noise = pink_noise_like(waveforms)
     >>> noise.shape
     torch.Size([4, 257, 10])
@@ -1496,8 +1507,8 @@ class SignFlip(torch.nn.Module):
     Example
     -------
     >>> import torch
-    >>> x = torch.tensor([1,2,3,4,5])
-    >>> flip = SignFlip(flip_prob=1) # 100% chance to flip sign
+    >>> x = torch.tensor([1, 2, 3, 4, 5])
+    >>> flip = SignFlip(flip_prob=1)  # 100% chance to flip sign
     >>> flip(x)
     tensor([-1, -2, -3, -4, -5])
     """

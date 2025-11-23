@@ -1,4 +1,4 @@
-""" Specifies the inference interfaces for Audio Classification modules.
+"""Specifies the inference interfaces for Audio Classification modules.
 
 Authors:
  * Aku Rouhe 2021
@@ -18,6 +18,7 @@ import torch
 import torchaudio
 
 import speechbrain
+from speechbrain.dataio import audio_io
 from speechbrain.inference.interfaces import Pretrained
 from speechbrain.utils.data_utils import split_path
 from speechbrain.utils.fetching import LocalStrategy, fetch
@@ -42,7 +43,7 @@ class EncoderClassifier(Pretrained):
 
     Example
     -------
-    >>> import torchaudio
+    >>> from speechbrain.dataio import audio_io
     >>> from speechbrain.inference.classifiers import EncoderClassifier
     >>> # Model is downloaded from the speechbrain HuggingFace repo
     >>> tmpdir = getfixture("tmpdir")
@@ -53,7 +54,7 @@ class EncoderClassifier(Pretrained):
     >>> classifier.hparams.label_encoder.ignore_len()
 
     >>> # Compute embeddings
-    >>> signal, fs = torchaudio.load("tests/samples/single-mic/example1.wav")
+    >>> signal, fs = audio_io.load("tests/samples/single-mic/example1.wav")
     >>> embeddings = classifier.encode_batch(signal)
 
     >>> # Classification
@@ -300,17 +301,13 @@ class AudioClassifier(Pretrained):
             local_strategy=LocalStrategy.SYMLINK,
         )
 
-        batch, fs_file = torchaudio.load(path)
+        batch, fs_file = audio_io.load(path)
         batch = batch.to(self.device)
         fs_model = self.hparams.sample_rate
 
         # resample the data if needed
         if fs_file != fs_model:
-            print(
-                "Resampling the audio from {} Hz to {} Hz".format(
-                    fs_file, fs_model
-                )
-            )
+            print(f"Resampling the audio from {fs_file} Hz to {fs_model} Hz")
             tf = torchaudio.transforms.Resample(
                 orig_freq=fs_file, new_freq=fs_model
             ).to(self.device)

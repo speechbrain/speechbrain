@@ -238,8 +238,10 @@ class RunOptions:
 
         Example
         -------
-        >>> argv = ['hyperparams.yaml', '--device', 'cuda:1', '--seed', '10']
-        >>> filename, run_opts, overrides = RunOptions.from_command_line_args(argv)
+        >>> argv = ["hyperparams.yaml", "--device", "cuda:1", "--seed", "10"]
+        >>> filename, run_opts, overrides = RunOptions.from_command_line_args(
+        ...     argv
+        ... )
         >>> filename
         'hyperparams.yaml'
         >>> run_opts["device"]

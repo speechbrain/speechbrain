@@ -92,16 +92,16 @@ def create_wham_whamr_csv(
             s2 = "s2/"
 
         mix_path = os.path.join(
-            datapath, "wav{}".format(sample_rate), version, set_type, mix_both
+            datapath, f"wav{sample_rate}", version, set_type, mix_both
         )
         s1_path = os.path.join(
-            datapath, "wav{}".format(sample_rate), version, set_type, s1
+            datapath, f"wav{sample_rate}", version, set_type, s1
         )
         s2_path = os.path.join(
-            datapath, "wav{}".format(sample_rate), version, set_type, s2
+            datapath, f"wav{sample_rate}", version, set_type, s2
         )
         noise_path = os.path.join(
-            datapath, "wav{}".format(sample_rate), version, set_type, "noise/"
+            datapath, f"wav{sample_rate}", version, set_type, "noise/"
         )
         # rir_path = os.path.join(
         #     datapath, "wav{}".format(sample_rate), version, set_type, "rirs/"

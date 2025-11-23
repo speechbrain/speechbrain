@@ -8,6 +8,7 @@ import torchaudio
 from scipy.signal import fftconvolve
 
 import speechbrain as sb
+from speechbrain.dataio import audio_io
 from speechbrain.dataio.batch import PaddedBatch
 from speechbrain.processing.signal_processing import rescale
 
@@ -65,7 +66,7 @@ def dynamic_mix_data_prep(hparams):
         if "noise" in hparams["experiment_name"]:
             noise_file = np.random.choice(noise_files, 1, replace=False)
 
-            noise, fs_read = torchaudio.load(noise_file[0])
+            noise, fs_read = audio_io.load(noise_file[0])
             noise = noise.squeeze()
 
         # select two speakers randomly
@@ -78,20 +79,20 @@ def dynamic_mix_data_prep(hparams):
         ]
 
         minlen = min(
-            *[torchaudio.info(x).num_frames for x in spk_files],
+            *[audio_io.info(x).num_frames for x in spk_files],
             hparams["training_signal_len"],
         )
 
         for i, spk_file in enumerate(spk_files):
             # select random offset
-            length = torchaudio.info(spk_file).num_frames
+            length = audio_io.info(spk_file).num_frames
             start = 0
             stop = length
             if length > minlen:  # take a random window
                 start = np.random.randint(0, length - minlen)
                 stop = start + minlen
 
-            tmp, fs_read = torchaudio.load(
+            tmp, fs_read = audio_io.load(
                 spk_file,
                 frame_offset=start,
                 num_frames=stop - start,
@@ -119,9 +120,9 @@ def dynamic_mix_data_prep(hparams):
                 hrtf_file = os.path.join(
                     hparams["hrtf_wav_path"],
                     reverb_time,
-                    "CATT_{}_{}.wav".format(reverb_time, azimuth),
+                    f"CATT_{reverb_time}_{azimuth}.wav",
                 )
-                hrtf, sr = torchaudio.load(hrtf_file)
+                hrtf, sr = audio_io.load(hrtf_file)
                 transform = torchaudio.transforms.Resample(sr, fs_read)
                 hrtf = transform(hrtf)
                 tmp_bi = torch.from_numpy(
@@ -145,7 +146,7 @@ def dynamic_mix_data_prep(hparams):
                             azimuth.astype("str").replace("-", "neg"), loc
                         ),
                     )
-                    hrtf, sr = torchaudio.load(hrtf_file)
+                    hrtf, sr = audio_io.load(hrtf_file)
                     transform = torchaudio.transforms.Resample(sr, fs_read)
                     hrtf = transform(hrtf[:, np.random.randint(50)])
                     tmp_bi[:, i] = torch.from_numpy(

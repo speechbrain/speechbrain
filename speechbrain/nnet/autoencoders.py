@@ -23,14 +23,16 @@ class Autoencoder(nn.Module):
     >>> from torch import nn
     >>> from speechbrain.nnet.linear import Linear
     >>> class SimpleAutoencoder(Autoencoder):
-    ...    def __init__(self):
-    ...        super().__init__()
-    ...        self.enc = Linear(n_neurons=16, input_size=128)
-    ...        self.dec = Linear(n_neurons=128, input_size=16)
-    ...    def encode(self, x, length=None):
-    ...        return self.enc(x)
-    ...    def decode(self, x, length=None):
-    ...        return self.dec(x)
+    ...     def __init__(self):
+    ...         super().__init__()
+    ...         self.enc = Linear(n_neurons=16, input_size=128)
+    ...         self.dec = Linear(n_neurons=128, input_size=16)
+    ...
+    ...     def encode(self, x, length=None):
+    ...         return self.enc(x)
+    ...
+    ...     def decode(self, x, length=None):
+    ...         return self.dec(x)
     >>> autoencoder = SimpleAutoencoder()
     >>> x = torch.randn(4, 10, 128)
     >>> x_enc = autoencoder.encode(x)

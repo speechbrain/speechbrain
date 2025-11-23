@@ -537,10 +537,11 @@ class ECAPA_TDNN(torch.nn.Module):
 
         xl = []
         for layer in self.blocks:
-            try:
-                x = layer(x, lengths=lengths)
-            except TypeError:
+            if isinstance(layer, TDNNBlock):
                 x = layer(x)
+            else:
+                x = layer(x, lengths=lengths)
+
             xl.append(x)
 
         # Multi-layer feature aggregation
@@ -577,7 +578,9 @@ class Classifier(torch.nn.Module):
     Example
     -------
     >>> classify = Classifier(input_size=2, lin_neurons=2, out_neurons=2)
-    >>> outputs = torch.tensor([ [1., -1.], [-9., 1.], [0.9, 0.1], [0.1, 0.9] ])
+    >>> outputs = torch.tensor(
+    ...     [[1.0, -1.0], [-9.0, 1.0], [0.9, 0.1], [0.1, 0.9]]
+    ... )
     >>> outputs = outputs.unsqueeze(1)
     >>> cos = classify(outputs)
     >>> (cos < -1.0).long().sum()

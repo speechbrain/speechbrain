@@ -1,4 +1,4 @@
-""" Specifies the inference interfaces for interpretability modules.
+"""Specifies the inference interfaces for interpretability modules.
 
 Authors:
  * Aku Rouhe 2021
@@ -19,6 +19,7 @@ import torch.nn.functional as F
 import torchaudio
 
 import speechbrain
+from speechbrain.dataio import audio_io
 from speechbrain.inference.interfaces import Pretrained
 from speechbrain.processing.NMF import spectral_phase
 from speechbrain.utils.data_utils import split_path
@@ -160,17 +161,13 @@ class PIQAudioInterpreter(Pretrained):
             local_strategy=LocalStrategy.SYMLINK,
         )
 
-        batch, fs_file = torchaudio.load(path)
+        batch, fs_file = audio_io.load(path)
         batch = batch.to(self.device)
         fs_model = self.hparams.sample_rate
 
         # resample the data if needed
         if fs_file != fs_model:
-            print(
-                "Resampling the audio from {} Hz to {} Hz".format(
-                    fs_file, fs_model
-                )
-            )
+            print(f"Resampling the audio from {fs_file} Hz to {fs_model} Hz")
             tf = torchaudio.transforms.Resample(
                 orig_freq=fs_file, new_freq=fs_model
             ).to(self.device)

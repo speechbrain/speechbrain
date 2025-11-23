@@ -1,4 +1,4 @@
-""" Specifies the inference interfaces for speech enhancement modules.
+"""Specifies the inference interfaces for speech enhancement modules.
 
 Authors:
  * Aku Rouhe 2021
@@ -16,8 +16,8 @@ Authors:
 """
 
 import torch
-import torchaudio
 
+from speechbrain.dataio import audio_io
 from speechbrain.inference.interfaces import Pretrained
 from speechbrain.utils.callchains import lengths_arg_exists
 
@@ -137,8 +137,8 @@ class SpectralMaskEnhancement(Pretrained):
             enhanced = self.enhance_batch(batch)
 
         if output_filename is not None:
-            torchaudio.save(
-                uri=output_filename,
+            audio_io.save(
+                path=output_filename,
                 src=enhanced,
                 sample_rate=self.hparams.compute_stft.sample_rate,
             )
@@ -212,8 +212,8 @@ class WaveformEnhancement(Pretrained):
         enhanced = self.enhance_batch(batch)
 
         if output_filename is not None:
-            torchaudio.save(
-                uri=output_filename,
+            audio_io.save(
+                path=output_filename,
                 src=enhanced,
                 sample_rate=self.audio_normalizer.sample_rate,
             )
@@ -308,8 +308,8 @@ class SGMSEEnhancement(Pretrained):
         enhanced = self.enhance_batch(noisy.unsqueeze(0)).squeeze(0)
 
         if output_filename is not None:
-            torchaudio.save(
-                uri=output_filename,
+            audio_io.save(
+                output_filename,
                 src=enhanced.unsqueeze(0).cpu(),
                 sample_rate=self.hparams.sample_rate,
             )

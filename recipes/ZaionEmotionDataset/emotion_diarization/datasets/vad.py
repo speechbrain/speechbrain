@@ -42,7 +42,7 @@ def write_wave(path, audio, sample_rate):
         wf.writeframes(audio)
 
 
-class Frame(object):
+class Frame:
     """Represents a "frame" of audio data."""
 
     def __init__(self, bytes, timestamp, duration):
@@ -139,7 +139,7 @@ def vad_for_folder(input_path, out_path):
         frames = list(frames)
         segments = vad_collector(sample_rate, 30, 30, vad, frames)
 
-        total_segment = bytes()
+        total_segment = b""
 
         for i, segment in enumerate(segments):
             total_segment += segment
@@ -160,7 +160,7 @@ def write_audio(input_path, out_path):
     frames = list(frames)
     segments = vad_collector(sample_rate, 30, 30, vad, frames)
 
-    total_segment = bytes()
+    total_segment = b""
 
     for i, segment in enumerate(segments):
         total_segment += segment

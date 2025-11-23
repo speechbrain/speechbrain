@@ -15,6 +15,7 @@ import torchaudio
 from tqdm import tqdm
 
 import speechbrain as sb
+from speechbrain.dataio import audio_io
 from speechbrain.dataio.dataio import load_pkl, save_pkl
 from speechbrain.integrations.huggingface import hubert, wav2vec2, wavlm
 from speechbrain.integrations.huggingface.discrete_ssl import DiscreteSSL
@@ -44,8 +45,8 @@ def get_device(use_cuda):
     """Determine and return the appropriate device for computation."""
     use_cuda = use_cuda and torch.cuda.is_available()
     print("\n" + "=" * 30)
-    print("USE_CUDA SET TO: {}".format(use_cuda))
-    print("CUDA AVAILABLE?: {}".format(torch.cuda.is_available()))
+    print(f"USE_CUDA SET TO: {use_cuda}")
+    print(f"CUDA AVAILABLE?: {torch.cuda.is_available()}")
     print("=" * 30 + "\n")
     return torch.device("cuda" if use_cuda else "cpu")
 
@@ -151,16 +152,27 @@ def extract_libritts(
 
     Example
     -------
-    >>> from recipes.LibriTTS.TTS.vocoder.hifigan_unit.extract_code import extract_libritts
-    >>> data_folder = 'data/LibriTTS/'
-    >>> splits = ['train', 'valid']
-    >>> kmeans_folder = 'speechbrain/SSL_Quantization'
-    >>> kmeans_dataset = LibriSpeech-100-360-500
-    >>> encoder_type = 'HuBERT'
-    >>> encoder_source = facebook/hubert-large-ll60k
+    >>> from recipes.LibriTTS.TTS.vocoder.hifigan_unit.extract_code import (
+    ...     extract_libritts,
+    ... )
+    >>> data_folder = "data/LibriTTS/"
+    >>> splits = ["train", "valid"]
+    >>> kmeans_folder = "speechbrain/SSL_Quantization"
+    >>> kmeans_dataset = LibriSpeech - 100 - 360 - 500
+    >>> encoder_type = "HuBERT"
+    >>> encoder_source = facebook / hubert - large - ll60k
     >>> layer = [7]
-    >>> save_folder = 'save/'
-    >>> extract_libritts(data_folder, splits, kmeans_folder, kmeans_filename, encoder_type, encoder_source, layer, save_folder)
+    >>> save_folder = "save/"
+    >>> extract_libritts(
+    ...     data_folder,
+    ...     splits,
+    ...     kmeans_folder,
+    ...     kmeans_filename,
+    ...     encoder_type,
+    ...     encoder_source,
+    ...     layer,
+    ...     save_folder,
+    ... )
     """
     logger = setup_logger()
 
@@ -224,7 +236,7 @@ def extract_libritts(
             item = meta_json[key]
             wav = item["wav"]
             with torch.no_grad():
-                info = torchaudio.info(wav)
+                info = audio_io.info(wav)
                 audio = sb.dataio.dataio.read_audio(wav)
                 audio = torchaudio.transforms.Resample(
                     info.sample_rate,

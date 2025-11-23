@@ -3,7 +3,6 @@ import torch.nn
 
 
 def test_pooling1d(device):
-
     from speechbrain.nnet.pooling import Pooling1d
 
     input = (
@@ -24,7 +23,6 @@ def test_pooling1d(device):
 
 
 def test_pooling2d(device):
-
     from speechbrain.nnet.pooling import Pooling2d
 
     input = (

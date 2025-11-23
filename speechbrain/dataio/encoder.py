@@ -45,11 +45,15 @@ class CategoricalEncoder:
 
     >>> from speechbrain.dataio.encoder import CategoricalEncoder
     >>> from speechbrain.dataio.dataset import DynamicItemDataset
-    >>> dataset = {"ex_{}".format(x) : {"spkid" : "spk{}".format(x)} for x in range(20)}
+    >>> dataset = {
+    ...     "ex_{}".format(x): {"spkid": "spk{}".format(x)} for x in range(20)
+    ... }
     >>> dataset = DynamicItemDataset(dataset)
     >>> encoder = CategoricalEncoder()
     >>> encoder.update_from_didataset(dataset, "spkid")
-    >>> assert len(encoder) == len(dataset) # different speaker for each utterance
+    >>> assert len(encoder) == len(
+    ...     dataset
+    ... )  # different speaker for each utterance
 
     However can also be updated from an iterable:
 
@@ -69,11 +73,11 @@ class CategoricalEncoder:
 
     >>> from speechbrain.dataio.encoder import CategoricalEncoder
     >>> from speechbrain.dataio.dataset import DynamicItemDataset
-    >>> dataset = [[x+1, x+2] for x in range(20)]
+    >>> dataset = [[x + 1, x + 2] for x in range(20)]
     >>> encoder = CategoricalEncoder()
     >>> encoder.ignore_len()
     >>> encoder.update_from_iterable(dataset, sequence_input=True)
-    >>> assert len(encoder) == 21 # there are only 21 unique elements 1-21
+    >>> assert len(encoder) == 21  # there are only 21 unique elements 1-21
 
     This class offers 4 different methods to explicitly add a label in the internal
     dicts: add_label, ensure_label, insert_label, enforce_label.
@@ -121,7 +125,7 @@ class CategoricalEncoder:
     >>> try:
     ...     encoder.encode_label("spk42")
     ... except KeyError:
-    ...        print("spk42 is not in the encoder this raises an error!")
+    ...     print("spk42 is not in the encoder this raises an error!")
     spk42 is not in the encoder this raises an error!
     >>> encoder.add_unk()
     41
@@ -270,8 +274,7 @@ class CategoricalEncoder:
                     for didataset in from_didatasets:
                         if output_key is None:
                             raise ValueError(
-                                "Provide an output_key for "
-                                "DynamicItemDataset"
+                                "Provide an output_key for DynamicItemDataset"
                             )
                         self.update_from_didataset(
                             didataset, output_key, sequence_input
@@ -466,7 +469,7 @@ class CategoricalEncoder:
                 )
             else:
                 raise KeyError(
-                    f"Couldn't and wouldn't encode unknown label " f"{label}."
+                    f"Couldn't and wouldn't encode unknown label {label}."
                 )
 
     def encode_label_torch(self, label, allow_unk=True):
@@ -644,7 +647,7 @@ class CategoricalEncoder:
 
         Example
         -------
-        >>> encoding_file = getfixture('tmpdir') / "encoding.txt"
+        >>> encoding_file = getfixture("tmpdir") / "encoding.txt"
         >>> encoder = CategoricalEncoder()
         >>> # The idea is in an experiment script to have something like this:
         >>> if not encoder.load_if_possible(encoding_file):
@@ -1074,7 +1077,7 @@ class CTCTextEncoder(TextEncoder):
     rules:
     >>> encoder.collapse_labels(["a", "a", "b", "c", "d"])
     ['a', 'b', 'c', 'd']
-    >>> encoder.collapse_indices_ndim([4, 4, 0, 1, 2, 3, 4, 4]) # 4 is <blank>
+    >>> encoder.collapse_indices_ndim([4, 4, 0, 1, 2, 3, 4, 4])  # 4 is <blank>
     [0, 1, 2, 3]
     """
 

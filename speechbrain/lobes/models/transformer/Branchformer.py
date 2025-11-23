@@ -121,7 +121,7 @@ class BranchformerEncoderLayer(nn.Module):
     -------
     >>> import torch
     >>> x = torch.rand((8, 60, 512))
-    >>> pos_embs = torch.rand((1, 2*60-1, 512))
+    >>> pos_embs = torch.rand((1, 2 * 60 - 1, 512))
     >>> net = BranchformerEncoderLayer(nhead=8, d_model=512, kernel_size=3)
     >>> output = net(x, pos_embs=pos_embs)
     >>> output[0].shape
@@ -273,7 +273,7 @@ class BranchformerEncoder(nn.Module):
     -------
     >>> import torch
     >>> x = torch.rand((8, 60, 512))
-    >>> pos_emb = torch.rand((1, 2*60-1, 512))
+    >>> pos_emb = torch.rand((1, 2 * 60 - 1, 512))
     >>> net = BranchformerEncoder(1, 512, 8)
     >>> output, _ = net(x, pos_embs=pos_emb)
     >>> output.shape
@@ -281,7 +281,7 @@ class BranchformerEncoder(nn.Module):
 
     >>> import torch
     >>> x = torch.rand((8, 60, 512))
-    >>> pos_emb = torch.rand((1, 2*60-1, 512))
+    >>> pos_emb = torch.rand((1, 2 * 60 - 1, 512))
     >>> net = BranchformerEncoder(1, 512, 8, output_hidden_states=True)
     >>> output, attn_list, hidden_list = net(x, pos_embs=pos_emb)
     >>> hidden_list[0].shape
@@ -366,9 +366,9 @@ class BranchformerEncoder(nn.Module):
             The output of the hidden layers of the encoder.
             Only works if output_hidden_states is set to true.
         """
-        assert (
-            dynchunktrain_config is None
-        ), "Dynamic Chunk Training unsupported for this encoder"
+        assert dynchunktrain_config is None, (
+            "Dynamic Chunk Training unsupported for this encoder"
+        )
 
         if self.attention_type == "RelPosMHAXL":
             if pos_embs is None:

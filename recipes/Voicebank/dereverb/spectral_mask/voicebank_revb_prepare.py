@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Data preparation.
 
@@ -176,8 +175,8 @@ def prepare_voicebank(
 
     Example
     -------
-    >>> data_folder = '/path/to/datasets/Voicebank'
-    >>> save_folder = 'exp/Voicebank_exp'
+    >>> data_folder = "/path/to/datasets/Voicebank"
+    >>> save_folder = "exp/Voicebank_exp"
     >>> prepare_voicebank(data_folder, save_folder)
     """
     if skip_prep:

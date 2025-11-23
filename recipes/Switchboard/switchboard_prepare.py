@@ -91,7 +91,13 @@ def prepare_switchboard(
     >>> save_folder = "swbd_data"
     >>> splits = ["train", "dev"]
     >>> split_ratio = [90, 10]
-    >>> prepare_switchboard(data_folder, save_folder, splits, split_ratio, add_fisher_corpus=True)
+    >>> prepare_switchboard(
+    ...     data_folder,
+    ...     save_folder,
+    ...     splits,
+    ...     split_ratio,
+    ...     add_fisher_corpus=True,
+    ... )
     """
     if merge_lst is None:
         merge_lst = []
@@ -705,7 +711,7 @@ def make_acronym_map(save_folder, lexicon_file, acronym_map_file):
     fout_map.close()
 
     # Load acronym map for further processing
-    fin_map = open(acronym_map_file, "r", encoding="utf-8")
+    fin_map = open(acronym_map_file, encoding="utf-8")
     dict_acronym = {}
     dict_acronym_noi = {}  # Mapping of acronyms without I, i
     for pair in fin_map:
@@ -1201,8 +1207,8 @@ def fisher_data_prep(data_folder, save_folder):
         joined_path = os.path.join(data_folder, fisher_dir)
         transcript_files = get_all_files(joined_path, match_and=[".txt"])
 
-        for transcript_files in transcript_files:
-            with open(transcript_files, encoding="utf-8") as file:
+        for transcript_file in transcript_files:
+            with open(transcript_file, encoding="utf-8") as file:
                 for line in file:
                     # skip header and empty lines
                     if line.startswith("#") or len(line.strip()) < 1:

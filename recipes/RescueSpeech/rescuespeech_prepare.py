@@ -23,10 +23,10 @@ import os
 import re
 import unicodedata
 
-import torchaudio
 from tqdm import tqdm
 from tqdm.contrib import tzip
 
+from speechbrain.dataio import audio_io
 from speechbrain.dataio.dataio import read_audio
 from speechbrain.utils.logger import get_logger
 
@@ -195,7 +195,7 @@ def create_asr_csv(
         raise FileNotFoundError(msg)
 
     # We load and skip the header
-    loaded_csv = open(orig_tsv_file, "r", encoding="utf-8").readlines()[1:]
+    loaded_csv = open(orig_tsv_file, encoding="utf-8").readlines()[1:]
     nb_samples = str(len(loaded_csv))
 
     msg = "Preparing CSV files for %s samples ..." % (str(nb_samples))
@@ -284,8 +284,8 @@ def create_asr_csv(
 
         # Reading the signal (to retrieve duration in seconds)
         if os.path.isfile(clean_fp):
-            info = torchaudio.info(clean_fp)
-            info_noisy = torchaudio.info(noisy_fp)
+            info = audio_io.info(clean_fp)
+            info_noisy = audio_io.info(noisy_fp)
         else:
             msg = "\tError loading: %s" % (str(len(file_name)))
             logger.info(msg)

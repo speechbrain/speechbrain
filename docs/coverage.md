@@ -45,8 +45,8 @@ our tests cover one PyTorch version only, _the latest_.
   * hook: https://github.com/psf/black
     <br/> black
     <br/> click
-  * hook: https://gitlab.com/pycqa/flake8.git
-    <br/> flake8; see: [.flake8](https://github.com/speechbrain/speechbrain/blob/develop/.flake8)
+  * hook: https://github.com/astral-sh/ruff-pre-commit
+    <br/> ruff; see: [pyproject.toml](https://github.com/speechbrain/speechbrain/blob/develop/pyproject.toml) for configuration
   * hook: https://github.com/adrienverge/yamllint
     <br/> yamllint; see: [.yamllint.yaml](https://github.com/speechbrain/speechbrain/blob/develop/.yamllint.yaml)
 
@@ -128,8 +128,7 @@ our tests cover one PyTorch version only, _the latest_.
   * [LICENSE](https://github.com/speechbrain/speechbrain/blob/develop/LICENSE)
   * [README.md](https://github.com/speechbrain/speechbrain/blob/develop/README.md)
   * [pyproject.toml](https://github.com/speechbrain/speechbrain/blob/develop/pyproject.toml) - target-version = ['py38']
-  * [setup.py](https://github.com/speechbrain/speechbrain/blob/develop/setup.py)
-    * python_requires=">=3.7",
+    * python_requires=">=3.8.1",
     * uses: [speechbrain/version.txt](https://github.com/speechbrain/speechbrain/blob/develop/speechbrain/version.txt)
     * requires:
       ```
@@ -206,22 +205,7 @@ speechbrain/lm/ngram.py                                      36      1    97%
 speechbrain/lobes/augment.py                                154     55    64% <== < 80%
 speechbrain/lobes/beamform_multimic.py                       20     14    30% <== < 80%
 speechbrain/lobes/features.py                                96      9    91%
-speechbrain/lobes/models/CRDNN.py                            52     12    77% <== < 80%
-speechbrain/lobes/models/ContextNet.py                       83      3    96%
-speechbrain/lobes/models/ECAPA_TDNN.py                      157      7    96%
-speechbrain/lobes/models/HifiGAN.py                         321    146    55% <== < 80%
-speechbrain/lobes/models/MetricGAN.py                        74     29    61% <== < 80%
-speechbrain/lobes/models/Tacotron2.py                       364     66    82%
-speechbrain/lobes/models/conv_tasnet.py                     121      6    95%
-speechbrain/lobes/models/dual_path.py                       357     55    85%
-speechbrain/lobes/models/fairseq_wav2vec.py                  93     93     0% <== < 80%
-speechbrain/lobes/models/g2p/dataio.py                      136    107    21% <== < 80%
-speechbrain/lobes/models/g2p/homograph.py                   118     20    83%
-speechbrain/lobes/models/g2p/model.py                       132    109    17% <== < 80%
-speechbrain/lobes/models/huggingface_wav2vec.py             145     47    68% <== < 80%
-speechbrain/lobes/models/resepformer.py                     180     21    88%
-speechbrain/lobes/models/segan_model.py                     102     88    14% <== < 80%
-speechbrain/lobes/models/transformer/Conformer.py           111      7    94%
+speechbrain/lobes/models/CRDNN.py                            52     12    77% <== < 80% Ruff #29
 speechbrain/lobes/models/transformer/Transformer.py         180     22    88%
 speechbrain/lobes/models/transformer/TransformerASR.py       92     28    70% <== < 80%
 speechbrain/lobes/models/transformer/TransformerLM.py        47      5    89%

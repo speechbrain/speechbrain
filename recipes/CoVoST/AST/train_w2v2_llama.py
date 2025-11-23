@@ -7,6 +7,7 @@ Author
 ------
  * Titouan Parcollet 2025
 """
+
 import sys
 
 import torch
@@ -15,6 +16,7 @@ import transformers
 from hyperpyyaml import load_hyperpyyaml
 
 import speechbrain as sb
+from speechbrain.dataio import audio_io
 from speechbrain.dataio.dataio import length_to_mask
 from speechbrain.utils.distributed import run_on_main
 from speechbrain.utils.logger import get_logger
@@ -143,7 +145,6 @@ class AST(sb.core.Brain):
         )
 
         if stage != sb.Stage.TRAIN:
-
             # Removing the eos
             predictions = self.tokenizer.batch_decode(predicted_tokens)
             targets = self.tokenizer.batch_decode(tokens_translation)
@@ -342,7 +343,7 @@ def dataio_prepare(hparams, tokenizer):
     @sb.utils.data_pipeline.takes("wav")
     @sb.utils.data_pipeline.provides("sig")
     def audio_pipeline(wav):
-        info = torchaudio.info(wav)
+        info = audio_io.info(wav)
         sig = sb.dataio.dataio.read_audio(wav)
         resampled = torchaudio.transforms.Resample(
             info.sample_rate,

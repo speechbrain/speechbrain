@@ -199,7 +199,7 @@ def setup_logging(
         https://docs.python.org/3/library/logging.html#levels
     """
     if os.path.exists(config_path):
-        with open(config_path, "rt", encoding="utf-8") as f:
+        with open(config_path, encoding="utf-8") as f:
             config = yaml.safe_load(f)
         recursive_update(config, overrides)
         logging.config.dictConfig(config)

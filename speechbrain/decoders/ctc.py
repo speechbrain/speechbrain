@@ -315,8 +315,8 @@ def filter_ctc_output(string_pred, blank_id=-1):
 
     Example
     -------
-    >>> string_pred = ['a','a','blank','b','b','blank','c']
-    >>> string_out = filter_ctc_output(string_pred, blank_id='blank')
+    >>> string_pred = ["a", "a", "blank", "b", "b", "blank", "c"]
+    >>> string_out = filter_ctc_output(string_pred, blank_id="blank")
     >>> print(string_out)
     ['a', 'b', 'c']
     """
@@ -358,8 +358,9 @@ def ctc_greedy_decode(probabilities, seq_lens, blank_id=-1):
     Example
     -------
     >>> import torch
-    >>> probs = torch.tensor([[[0.3, 0.7], [0.0, 0.0]],
-    ...                       [[0.2, 0.8], [0.9, 0.1]]])
+    >>> probs = torch.tensor(
+    ...     [[[0.3, 0.7], [0.0, 0.0]], [[0.2, 0.8], [0.9, 0.1]]]
+    ... )
     >>> lens = torch.tensor([0.51, 1.0])
     >>> blank_id = 0
     >>> ctc_greedy_decode(probs, lens, blank_id)
@@ -588,8 +589,8 @@ class CTCBaseSearcher(torch.nn.Module):
     Example
     -------
     >>> blank_index = 0
-    >>> vocab_list = ['blank', 'a', 'b', 'c', ' ']
-    >>> space_token = ' '
+    >>> vocab_list = ["blank", "a", "b", "c", " "]
+    >>> space_token = " "
     >>> kenlm_model_path = None
     >>> unigrams = None
     >>> beam_size = 100
@@ -1188,13 +1189,14 @@ class CTCBeamSearcher(CTCBaseSearcher):
     -------
     >>> import torch
     >>> from speechbrain.decoders import CTCBeamSearcher
-    >>> probs = torch.tensor([[[0.2, 0.0, 0.8],
-    ...                   [0.4, 0.0, 0.6]]])
+    >>> probs = torch.tensor([[[0.2, 0.0, 0.8], [0.4, 0.0, 0.6]]])
     >>> log_probs = torch.log(probs)
     >>> lens = torch.tensor([1.0])
     >>> blank_index = 2
-    >>> vocab_list = ['a', 'b', '-']
-    >>> searcher = CTCBeamSearcher(blank_index=blank_index, vocab_list=vocab_list)
+    >>> vocab_list = ["a", "b", "-"]
+    >>> searcher = CTCBeamSearcher(
+    ...     blank_index=blank_index, vocab_list=vocab_list
+    ... )
     >>> hyps = searcher(probs, lens)
     """
 
@@ -1521,13 +1523,14 @@ class CTCPrefixBeamSearcher(CTCBaseSearcher):
     -------
     >>> import torch
     >>> from speechbrain.decoders import CTCPrefixBeamSearcher
-    >>> probs = torch.tensor([[[0.2, 0.0, 0.8],
-    ...                   [0.4, 0.0, 0.6]]])
+    >>> probs = torch.tensor([[[0.2, 0.0, 0.8], [0.4, 0.0, 0.6]]])
     >>> log_probs = torch.log(probs)
     >>> lens = torch.tensor([1.0])
     >>> blank_index = 2
-    >>> vocab_list = ['a', 'b', '-']
-    >>> searcher = CTCPrefixBeamSearcher(blank_index=blank_index, vocab_list=vocab_list)
+    >>> vocab_list = ["a", "b", "-"]
+    >>> searcher = CTCPrefixBeamSearcher(
+    ...     blank_index=blank_index, vocab_list=vocab_list
+    ... )
     >>> hyps = searcher(probs, lens)
     """
 
@@ -1979,14 +1982,15 @@ class TorchAudioCTCPrefixBeamSearcher:
     -------
     >>> import torch
     >>> from speechbrain.decoders import TorchAudioCTCPrefixBeamSearcher
-    >>> probs = torch.tensor([[[0.2, 0.0, 0.8],
-    ...                   [0.4, 0.0, 0.6]]])
+    >>> probs = torch.tensor([[[0.2, 0.0, 0.8], [0.4, 0.0, 0.6]]])
     >>> log_probs = torch.log(probs)
     >>> lens = torch.tensor([1.0])
     >>> blank_index = 2
-    >>> vocab_list = ['a', 'b', '-']
-    >>> searcher = TorchAudioCTCPrefixBeamSearcher(tokens=vocab_list, blank_index=blank_index, sil_index=blank_index) # doctest: +SKIP
-    >>> hyps = searcher(probs, lens) # doctest: +SKIP
+    >>> vocab_list = ["a", "b", "-"]
+    >>> searcher = TorchAudioCTCPrefixBeamSearcher(
+    ...     tokens=vocab_list, blank_index=blank_index, sil_index=blank_index
+    ... )  # doctest: +SKIP
+    >>> hyps = searcher(probs, lens)  # doctest: +SKIP
     """
 
     def __init__(
@@ -2071,9 +2075,9 @@ class TorchAudioCTCPrefixBeamSearcher:
                 raise ImportError(
                     "cuda_ctc_decoder not found. Please install the latest version of torchaudio to use this decoder."
                 )
-            assert (
-                self.blank_index == 0
-            ), "Index of blank token has to be 0 when using CUDA CTC decoder."
+            assert self.blank_index == 0, (
+                "Index of blank token has to be 0 when using CUDA CTC decoder."
+            )
 
             self._ctc_decoder = cuda_ctc_decoder(
                 tokens=self.tokens,

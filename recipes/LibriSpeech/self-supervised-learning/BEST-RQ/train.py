@@ -27,7 +27,6 @@ logger = get_logger(__name__)
 
 
 class BestRQBrain(sb.core.Brain):
-
     def compute_forward(self, batch, stage):
         """Computes forward pass through BestRQ model and returns encoded and
         target embeddings as well as other metrics of interest.
@@ -119,7 +118,6 @@ class BestRQBrain(sb.core.Brain):
             hasattr(self.hparams, "log_interval")
             and self.optimizer_step % self.hparams.log_interval == 0
         ):
-
             # Create a dictionary and fill it with everything we
             # want to log such as contrastive loss, diversity loss,
             # learning rate etc.
@@ -146,14 +144,12 @@ class BestRQBrain(sb.core.Brain):
             self.acc_metric = []
 
     def on_stage_end(self, stage, stage_loss, epoch=None):
-
         stage_stats = {"loss": stage_loss}
         if stage == sb.Stage.TRAIN:
             self.train_stats = stage_stats
 
         if stage == sb.Stage.VALID:
             if self.acc_metric:
-
                 stage_stats["accuracy"] = sum(self.acc_metric) / len(
                     self.acc_metric
                 )

@@ -61,7 +61,7 @@ def test_ConcatDatasetBatchSampler(device):
     items = [[length] * length for length in item_lengths]
 
     dataset = {
-        "ex_{}".format(length): {"wav": torch.tensor(item), "duration": length}
+        f"ex_{length}": {"wav": torch.tensor(item), "duration": length}
         for item, length in zip(items, item_lengths)
     }
     dataset = DynamicItemDataset(dataset)

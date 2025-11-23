@@ -15,15 +15,16 @@ Author
     * Sarthak Yadav 2022
     Script adapted by David Raby-Pepin 2021
 """
+
 import os
 import sys
 
 import torch
-import torchaudio
 from hyperpyyaml import load_hyperpyyaml
 
 import speechbrain as sb
 import speechbrain.nnet.CNN
+from speechbrain.dataio import audio_io
 from speechbrain.utils.distributed import run_on_main
 
 
@@ -154,9 +155,7 @@ def dataio_prep(hparams):
         start = int(start)
         stop = int(stop)
         num_frames = stop - start
-        sig, fs = torchaudio.load(
-            wav, num_frames=num_frames, frame_offset=start
-        )
+        sig, fs = audio_io.load(wav, num_frames=num_frames, frame_offset=start)
         sig = sig.transpose(0, 1).squeeze(1)
         return sig
 

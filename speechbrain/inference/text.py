@@ -1,4 +1,4 @@
-""" Specifies the inference interfaces for text-processing modules.
+"""Specifies the inference interfaces for text-processing modules.
 
 Authors:
  * Aku Rouhe 2021
@@ -37,12 +37,16 @@ class GraphemeToPhoneme(Pretrained, EncodeDecodePipelineMixin):
 
     Example
     -------
-    >>> text = ("English is tough. It can be understood "
-    ...         "through thorough thought though")
+    >>> text = (
+    ...     "English is tough. It can be understood "
+    ...     "through thorough thought though"
+    ... )
     >>> from speechbrain.inference.text import GraphemeToPhoneme
-    >>> tmpdir = getfixture('tmpdir')
-    >>> g2p = GraphemeToPhoneme.from_hparams('path/to/model', savedir=tmpdir) # doctest: +SKIP
-    >>> phonemes = g2p.g2p(text) # doctest: +SKIP
+    >>> tmpdir = getfixture("tmpdir")
+    >>> g2p = GraphemeToPhoneme.from_hparams(
+    ...     "path/to/model", savedir=tmpdir
+    ... )  # doctest: +SKIP
+    >>> phonemes = g2p.g2p(text)  # doctest: +SKIP
     """
 
     INPUT_STATIC_KEYS = ["txt"]
@@ -119,7 +123,7 @@ class GraphemeToPhoneme(Pretrained, EncodeDecodePipelineMixin):
         ]
 
     def _update_graphemes(self, model_inputs):
-        grapheme_sequence_mode = getattr(self.hparams, "grapheme_sequence_mode")
+        grapheme_sequence_mode = self.hparams.grapheme_sequence_mode
         if grapheme_sequence_mode and grapheme_sequence_mode != "raw":
             grapheme_encoded_key = f"grapheme_encoded_{grapheme_sequence_mode}"
             if grapheme_encoded_key in model_inputs:
@@ -233,9 +237,13 @@ class GPTResponseGenerator(ResponseGenerator):
     >>> from speechbrain.inference.text import GPTResponseGenerator
 
     >>> tmpdir = getfixture("tmpdir")
-    >>> res_gen_model = GPTResponseGenerator.from_hparams(source="speechbrain/MultiWOZ-GPT-Response_Generation",
-    ... pymodule_file="custom.py")  # doctest: +SKIP
-    >>> response = res_gen_model.generate_response("I want to book a table for dinner")  # doctest: +SKIP
+    >>> res_gen_model = GPTResponseGenerator.from_hparams(
+    ...     source="speechbrain/MultiWOZ-GPT-Response_Generation",
+    ...     pymodule_file="custom.py",
+    ... )  # doctest: +SKIP
+    >>> response = res_gen_model.generate_response(
+    ...     "I want to book a table for dinner"
+    ... )  # doctest: +SKIP
     """
 
     def __init__(self, *args, **kwargs):
@@ -348,9 +356,13 @@ class Llama2ResponseGenerator(ResponseGenerator):
     >>> from speechbrain.inference.text import Llama2ResponseGenerator
 
     >>> tmpdir = getfixture("tmpdir")
-    >>> res_gen_model = Llama2ResponseGenerator.from_hparams(source="speechbrain/MultiWOZ-Llama2-Response_Generation",
-    ... pymodule_file="custom.py")  # doctest: +SKIP
-    >>> response = res_gen_model.generate_response("I want to book a table for dinner")  # doctest: +SKIP
+    >>> res_gen_model = Llama2ResponseGenerator.from_hparams(
+    ...     source="speechbrain/MultiWOZ-Llama2-Response_Generation",
+    ...     pymodule_file="custom.py",
+    ... )  # doctest: +SKIP
+    >>> response = res_gen_model.generate_response(
+    ...     "I want to book a table for dinner"
+    ... )  # doctest: +SKIP
     """
 
     def __init__(self, *args, **kwargs):

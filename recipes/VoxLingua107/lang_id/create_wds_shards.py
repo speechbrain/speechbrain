@@ -14,8 +14,9 @@ import re
 from collections import defaultdict
 
 import torch
-import torchaudio
 import webdataset as wds
+
+from speechbrain.dataio import audio_io
 
 ################################################################################
 # methods for writing the shards
@@ -24,7 +25,7 @@ ID_SEPARATOR = "&"
 
 
 def load_audio(audio_file_path: pathlib.Path) -> torch.Tensor:
-    t, sr = torchaudio.load(audio_file_path)
+    t, sr = audio_io.load(audio_file_path)
 
     if sr != 16000:
         raise ValueError("expected sampling rate of 16 kHz")

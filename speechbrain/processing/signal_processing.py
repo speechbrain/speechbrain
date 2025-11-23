@@ -243,7 +243,7 @@ def convolve1d(
     Example
     -------
     >>> from speechbrain.dataio.dataio import read_audio
-    >>> signal = read_audio('tests/samples/single-mic/example1.wav')
+    >>> signal = read_audio("tests/samples/single-mic/example1.wav")
     >>> signal = signal.unsqueeze(0).unsqueeze(2)
     >>> kernel = torch.rand(1, 10, 1)
     >>> signal = convolve1d(signal, kernel, padding=(9, 0))
@@ -263,7 +263,6 @@ def convolve1d(
 
     # This approach uses FFT, which is more efficient if the kernel is large
     if use_fft:
-
         # Pad kernel to same length as signal, ensuring correct alignment
         zero_length = waveform.size(-1) - kernel.size(-1)
 
@@ -437,7 +436,7 @@ def notch_filter(notch_freq, filter_width=101, notch_width=0.05):
     Example
     -------
     >>> from speechbrain.dataio.dataio import read_audio
-    >>> signal = read_audio('tests/samples/single-mic/example1.wav')
+    >>> signal = read_audio("tests/samples/single-mic/example1.wav")
     >>> signal = signal.unsqueeze(0).unsqueeze(2)
     >>> kernel = notch_filter(0.25)
     >>> notched_signal = convolve1d(signal, kernel)

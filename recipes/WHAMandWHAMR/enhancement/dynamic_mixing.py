@@ -5,9 +5,9 @@ from pathlib import Path
 
 import numpy as np
 import torch
-import torchaudio
 
 import speechbrain as sb
+from speechbrain.dataio import audio_io
 from speechbrain.dataio.batch import PaddedBatch
 from speechbrain.processing.signal_processing import rescale
 
@@ -36,7 +36,7 @@ def build_spk_hashtable(base_folder_dm, sample_rate):
     spk_hashtable = {}
     for utt in wsj0_utterances:
         spk_id = Path(utt).stem[:3]
-        assert torchaudio.info(utt).sample_rate == sample_rate
+        assert audio_io.info(utt).sample_rate == sample_rate
 
         # e.g. 2speakers/wav8k/min/tr/mix/019o031a_0.27588_01vo030q_-0.27588.wav
         # id of speaker 1 is 019 utterance id is o031a
@@ -131,7 +131,7 @@ def dynamic_mix_data_prep(
         if "wham" in Path(data_root_folder).stem:
             noise_file = np.random.choice(noise_files, 1, replace=False)
 
-            noise, fs_read = torchaudio.load(noise_file[0])
+            noise, fs_read = audio_io.load(noise_file[0])
             noise = noise.squeeze()
 
         # select two speakers randomly
@@ -144,20 +144,20 @@ def dynamic_mix_data_prep(
         ]
 
         minlen = min(
-            *[torchaudio.info(x).num_frames for x in spk_files],
+            *[audio_io.info(x).num_frames for x in spk_files],
             max_training_signal_len,
         )
 
         for i, spk_file in enumerate(spk_files):
             # select random offset
-            length = torchaudio.info(spk_file).num_frames
+            length = audio_io.info(spk_file).num_frames
             start = 0
             stop = length
             if length > minlen:  # take a random window
                 start = np.random.randint(0, length - minlen)
                 stop = start + minlen
 
-            tmp, fs_read = torchaudio.load(
+            tmp, fs_read = audio_io.load(
                 spk_file, frame_offset=start, num_frames=stop - start
             )
 

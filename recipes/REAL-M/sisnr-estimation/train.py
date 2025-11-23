@@ -197,9 +197,7 @@ class Separation(sb.Brain):
         else:
             self.nonfinite_count += 1
             logger.info(
-                "infinite loss or empty loss! it happened {} times so far - skipping this batch".format(
-                    self.nonfinite_count
-                )
+                f"infinite loss or empty loss! it happened {self.nonfinite_count} times so far - skipping this batch"
             )
             loss.data = torch.tensor(0.0).to(self.device)
 
@@ -420,20 +418,16 @@ class Separation(sb.Brain):
                 writer.writerow(row)
 
         logger.info(
-            "Mean SISNR for source 1 is {}".format(np.array(all_sisnr1s).mean())
+            f"Mean SISNR for source 1 is {np.array(all_sisnr1s).mean()}"
         )
         logger.info(
-            "Mean SISNR hat for source 1 is {}".format(
-                np.array(all_sisnr1_hats).mean()
-            )
+            f"Mean SISNR hat for source 1 is {np.array(all_sisnr1_hats).mean()}"
         )
         logger.info(
-            "Mean SISNR for source 2 is {}".format(np.array(all_sisnr2s).mean())
+            f"Mean SISNR for source 2 is {np.array(all_sisnr2s).mean()}"
         )
         logger.info(
-            "Mean SISNR hat for source 2 is {}".format(
-                np.array(all_sisnr2_hats).mean()
-            )
+            f"Mean SISNR hat for source 2 is {np.array(all_sisnr2_hats).mean()}"
         )
 
 

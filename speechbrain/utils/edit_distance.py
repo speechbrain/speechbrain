@@ -64,8 +64,10 @@ def accumulatable_wer_stats(
     Example
     -------
     >>> import collections
-    >>> batches = [[[[1,2,3],[4,5,6]], [[1,2,4],[5,6]]],
-    ...             [[[7,8], [9]],     [[7,8],  [10]]]]
+    >>> batches = [
+    ...     [[[1, 2, 3], [4, 5, 6]], [[1, 2, 4], [5, 6]]],
+    ...     [[[7, 8], [9]], [[7, 8], [10]]],
+    ... ]
     >>> stats = collections.Counter()
     >>> for batch in batches:
     ...     refs, hyps = batch
@@ -121,7 +123,7 @@ def _batch_stats(
     Example
     -------
     >>> from speechbrain.utils.edit_distance import _batch_stats
-    >>> batch = [[[1,2,3],[4,5,6]], [[1,2,4],[5,6]]]
+    >>> batch = [[[1, 2, 3], [4, 5, 6]], [[1, 2, 4], [5, 6]]]
     >>> refs, hyps = batch
     >>> print(_batch_stats(refs, hyps))
     Counter({'num_ref_tokens': 6, 'substitutions': 1, 'deletions': 1})
@@ -176,8 +178,8 @@ def op_table(
 
     Example
     -------
-    >>> ref = [1,2,3]
-    >>> hyp = [1,2,4]
+    >>> ref = [1, 2, 3]
+    >>> hyp = [1, 2, 4]
     >>> for row in op_table(ref, hyp):
     ...     print(row)
     ['=', 'I', 'I', 'I']
@@ -260,10 +262,12 @@ def alignment(table):
     Example
     -------
     >>> # table for a=[1,2,3], b=[1,2,4]:
-    >>> table = [['I', 'I', 'I', 'I'],
-    ...          ['D', '=', 'I', 'I'],
-    ...          ['D', 'D', '=', 'I'],
-    ...          ['D', 'D', 'D', 'S']]
+    >>> table = [
+    ...     ["I", "I", "I", "I"],
+    ...     ["D", "=", "I", "I"],
+    ...     ["D", "D", "=", "I"],
+    ...     ["D", "D", "D", "S"],
+    ... ]
     >>> print(alignment(table))
     [('=', 0, 0), ('=', 1, 1), ('S', 2, 2)]
     """
@@ -325,10 +329,12 @@ def count_ops(table):
 
     Example
     -------
-    >>> table = [['I', 'I', 'I', 'I'],
-    ...          ['D', '=', 'I', 'I'],
-    ...          ['D', 'D', '=', 'I'],
-    ...          ['D', 'D', 'D', 'S']]
+    >>> table = [
+    ...     ["I", "I", "I", "I"],
+    ...     ["D", "=", "I", "I"],
+    ...     ["D", "D", "=", "I"],
+    ...     ["D", "D", "D", "S"],
+    ... ]
     >>> print(count_ops(table))
     Counter({'substitutions': 1})
     """
@@ -397,15 +403,16 @@ def wer_details_for_batch(
 
     Example
     -------
-    >>> ids = [['utt1'], ['utt2']]
-    >>> refs = [[['a','b','c']], [['d','e']]]
-    >>> hyps = [[['a','b','d']], [['d','e']]]
+    >>> ids = [["utt1"], ["utt2"]]
+    >>> refs = [[["a", "b", "c"]], [["d", "e"]]]
+    >>> hyps = [[["a", "b", "d"]], [["d", "e"]]]
     >>> wer_details = []
     >>> for ids_batch, refs_batch, hyps_batch in zip(ids, refs, hyps):
     ...     details = wer_details_for_batch(ids_batch, refs_batch, hyps_batch)
     ...     wer_details.extend(details)
-    >>> print(wer_details[0]['key'], ":",
-    ...     "{:.2f}".format(wer_details[0]['WER']))
+    >>> print(
+    ...     wer_details[0]["key"], ":", "{:.2f}".format(wer_details[0]["WER"])
+    ... )
     utt1 : 33.33
     """
     refs = _batch_to_dict_format(ids, refs)

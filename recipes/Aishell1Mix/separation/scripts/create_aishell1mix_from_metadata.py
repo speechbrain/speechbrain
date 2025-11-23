@@ -47,13 +47,13 @@ parser.add_argument(
     "--freqs",
     nargs="+",
     default=["8k", "16k"],
-    help="--freqs 16k 8k will create 2 directories wav8k " "and wav16k",
+    help="--freqs 16k 8k will create 2 directories wav8k and wav16k",
 )
 parser.add_argument(
     "--modes",
     nargs="+",
     default=["min", "max"],
-    help="--modes min max will create 2 directories in " "each freq directory",
+    help="--modes min max will create 2 directories in each freq directory",
 )
 parser.add_argument(
     "--types",
@@ -162,8 +162,7 @@ def process_metadata_file(
                 continue
             shutil.rmtree(dir_path, ignore_errors=True)
             print(
-                f"Creating mixtures and sources from {csv_path} "
-                f"in {dir_path}"
+                f"Creating mixtures and sources from {csv_path} in {dir_path}"
             )
             # Create directories accordingly
             for subdir in subdirs:
