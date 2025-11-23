@@ -410,7 +410,7 @@ def fetch(
     hf_kwargs = {
         "repo_id": source,
         "filename": filename,
-        "use_auth_token": fetch_config.use_auth_token,
+        "token": fetch_config.use_auth_token,
         "revision": fetch_config.revision,
         "local_files_only": not fetch_config.allow_network,
     }
