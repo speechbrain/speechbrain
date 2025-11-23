@@ -12,8 +12,6 @@ from sgmse.util.other import pad_spec
 from torch.utils.tensorboard import SummaryWriter
 from torchmetrics.functional.audio import (
     scale_invariant_signal_distortion_ratio as si_sdr,
-)
-from torchmetrics.functional.audio import (
     short_time_objective_intelligibility as stoi_tm,
 )
 

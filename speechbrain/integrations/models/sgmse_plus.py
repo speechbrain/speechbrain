@@ -69,7 +69,7 @@ class ScoreModel(nn.Module):
     >>> # Note, this model should be trained before using in inference
     >>> from sgmse.util.other import pad_spec
     >>> sample_rate = 16000
-    >>> noisy_audio = torch.rand(1, sample_rate) # One second fake audio
+    >>> noisy_audio = torch.rand(1, sample_rate)  # One second fake audio
     >>> noisy_spec = torch.stft(noisy_audio, n_fft=510, return_complex=True)
     >>> # pad for U-Net down-/up-sampling constraints
     >>> noisy_spec = pad_spec(noisy_spec.unsqueeze(1), mode="reflection")
@@ -212,7 +212,7 @@ class ScoreModel(nn.Module):
                 :, None, None, None
             ]
         else:
-            raise ValueError("Invalid c_in type: {}".format(self.c_in))
+            raise ValueError(f"Invalid c_in type: {self.c_in}")
 
     def _c_out(self, t):
         if self.c_out == "1":
@@ -228,7 +228,7 @@ class ScoreModel(nn.Module):
                 / torch.sqrt(self.sigma_data**2 + sigma**2)
             )[:, None, None, None]
         else:
-            raise ValueError("Invalid c_out type: {}".format(self.c_out))
+            raise ValueError(f"Invalid c_out type: {self.c_out}")
 
     def _c_skip(self, t):
         if self.c_skip == "0":
@@ -239,7 +239,7 @@ class ScoreModel(nn.Module):
                 :, None, None, None
             ]
         else:
-            raise ValueError("Invalid c_skip type: {}".format(self.c_skip))
+            raise ValueError(f"Invalid c_skip type: {self.c_skip}")
 
     def get_pc_sampler(
         self,
@@ -455,9 +455,7 @@ class ScoreModel(nn.Module):
                 sampler = self.get_ode_sampler(y.cuda(), N=N, **kwargs)
             else:
                 raise ValueError(
-                    "Invalid sampler type for SGMSE sampling: {}".format(
-                        sampler_type
-                    )
+                    f"Invalid sampler type for SGMSE sampling: {sampler_type}"
                 )
         # Schrödinger bridge sampling with VE SDE
         elif self.sde.__class__.__name__ == "SBVESDE":
@@ -466,9 +464,7 @@ class ScoreModel(nn.Module):
             )
         else:
             raise ValueError(
-                "Invalid SDE type for speech enhancement: {}".format(
-                    self.sde.__class__.__name__
-                )
+                f"Invalid SDE type for speech enhancement: {self.sde.__class__.__name__}"
             )
         sample, _ = sampler()
         return sample
@@ -526,9 +522,7 @@ class ScoreModel(nn.Module):
                 losses = torch.square(torch.abs(score * sigma + z))  # Eq. (7)
             else:
                 raise ValueError(
-                    "Invalid loss weighting for loss_type=score_matching: {}".format(
-                        self.loss_weighting
-                    )
+                    f"Invalid loss weighting for loss_type=score_matching: {self.loss_weighting}"
                 )
             # Compute per-sample losses by summing over spatial dimensions
             per_sample_loss = 0.5 * torch.sum(
@@ -550,9 +544,7 @@ class ScoreModel(nn.Module):
                 )[:, None, None, None] * losses
             else:
                 raise ValueError(
-                    "Invalid loss weighting for loss_type=denoiser: {}".format(
-                        self.loss_weighting
-                    )
+                    f"Invalid loss weighting for loss_type=denoiser: {self.loss_weighting}"
                 )
             per_sample_loss = 0.5 * torch.sum(
                 losses.reshape(losses.shape[0], -1), dim=-1
@@ -595,7 +587,7 @@ class ScoreModel(nn.Module):
             else:
                 per_sample_loss = losses_tf + self.l1_weight * losses_l1
         else:
-            raise ValueError("Invalid loss type: {}".format(self.loss_type))
+            raise ValueError(f"Invalid loss type: {self.loss_type}")
 
         if reduction == "mean":
             return torch.mean(per_sample_loss)
