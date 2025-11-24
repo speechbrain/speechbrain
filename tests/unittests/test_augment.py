@@ -104,7 +104,10 @@ def test_speed_perturb(device):
 
     # Half speed
     half_speed = SpeedPerturb(16000, speeds=[50]).to(device)
-    assert half_speed(test_waveform).allclose(test_waveform[:, ::2], atol=3e-1)
+    slowed_wav = half_speed(test_waveform)
+
+    assert slowed_wav.shape[-1] > test_waveform.shape[-1]
+    assert slowed_wav.shape[-1] == test_waveform.shape[-1] * 2
 
 
 def test_drop_freq(device):

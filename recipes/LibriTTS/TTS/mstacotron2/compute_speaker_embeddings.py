@@ -5,6 +5,7 @@ import pickle
 import torchaudio
 from tqdm import tqdm
 
+from speechbrain.dataio import audio_io
 from speechbrain.inference.classifiers import EncoderClassifier
 from speechbrain.inference.encoders import MelSpectrogramEncoder
 from speechbrain.utils.logger import get_logger
@@ -78,7 +79,7 @@ def compute_speaker_embeddings(
             utt_wav_path = utt_wav_path.replace("{data_root}", data_folder)
 
             # Loads and resamples waveforms if required
-            signal, sig_sr = torchaudio.load(utt_wav_path)
+            signal, sig_sr = audio_io.load(utt_wav_path)
             if sig_sr != spk_emb_sr:
                 signal = torchaudio.functional.resample(
                     signal, sig_sr, spk_emb_sr

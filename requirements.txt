@@ -8,7 +8,7 @@ pandas>=1.0.1
 pre-commit>=2.3.0
 scipy>=1.4.1
 sentencepiece>=0.1.91
-SoundFile; sys_platform == 'win32'
+soundfile>=0.12.1
 torch>=2.1.0,<2.9
 torchaudio>=2.1.0,<2.9
 tqdm>=4.42.0

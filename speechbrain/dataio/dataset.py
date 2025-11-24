@@ -10,6 +10,7 @@ import copy
 import math
 from types import MethodType
 
+import tqdm
 from torch.utils.data import Dataset
 
 from speechbrain.dataio.dataio import load_data_csv, load_data_json
@@ -179,6 +180,27 @@ class DynamicItemDataset(Dataset):
         data_id = self.data_ids[index]
         data_point = self.data[data_id]
         return self.pipeline.compute_outputs({"id": data_id, **data_point})
+
+    def iterate_once(self, output_keys=None, progressbar=True):
+        """Iterates dataset once -- mainly used to warm up cache.
+
+        Arguments
+        ---------
+        output_keys : Optional[list[str]]
+            List of keys to use for the iteration, potentially useful for
+            speeding up iterations when warming the cache is only needed on
+            a subset of the slow keys and other slow keys should be ignored.
+        progressbar : bool
+            Whether to add a tqdm progressbar for monitoring iteration time.
+        """
+
+        # If output_keys is None, just use current output mapping
+        output_keys = output_keys or self.pipeline.output_mapping
+
+        # Iterate data but do nothing (e.g. to warm cache)
+        with self.output_keys_as(output_keys):
+            for item in tqdm.tqdm(self, disable=not progressbar):
+                pass
 
     def add_dynamic_item(self, func, takes=None, provides=None):
         """Makes a new dynamic item available on the dataset.

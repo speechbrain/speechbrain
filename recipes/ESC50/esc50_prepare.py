@@ -19,6 +19,7 @@ import torch
 import torchaudio
 
 import speechbrain as sb
+from speechbrain.dataio import audio_io
 from speechbrain.dataio.dataio import load_data_csv, read_audio
 from speechbrain.utils.fetching import LocalStrategy, fetch
 from speechbrain.utils.logger import get_logger
@@ -243,7 +244,7 @@ def create_json(metadata, audio_data_folder, folds_list, json_file):
             )
             try:
                 signal = read_audio(wav_file)
-                file_info = torchaudio.info(wav_file)
+                file_info = audio_io.info(wav_file)
 
                 # If we're using sox/soundfile backend, file_info will have the old type
                 if isinstance(file_info, torchaudio.AudioMetaData):
@@ -419,7 +420,7 @@ def dataio_prep(hparams):
 
         wave_file = data_audio_folder + f"/{wav}"
 
-        sig, read_sr = torchaudio.load(wave_file)
+        sig, read_sr = audio_io.load(wave_file)
 
         # If multi-channels, downmix it to a mono channel
         sig = torch.squeeze(sig)
