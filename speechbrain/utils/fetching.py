@@ -232,8 +232,8 @@ class FetchConfig:
     allow_network : bool, defaults to `True`
         If `True`, network accesses are allowed. If `False`, then remote URLs
         or HF won't be fetched, regardless of any other parameter.
-    use_auth_token : bool, defaults to  `False`
-        If `True`, use HuggingFace's `auth_token` to enable loading private
+    token : bool, defaults to  `False`
+        If `True`, use HuggingFace's `token` to enable loading private
         models from the Hub.
     revision : Optional[str] defaults to `None`
         HuggingFace Hub model revision (Git branch name/tag/commit hash) to pin
@@ -251,7 +251,7 @@ class FetchConfig:
     overwrite: bool = False
     allow_updates: bool = False
     allow_network: bool = True
-    use_auth_token: bool = False
+    token: bool = False
     revision: str = None
     huggingface_cache_dir: str = None
 
@@ -410,7 +410,7 @@ def fetch(
     hf_kwargs = {
         "repo_id": source,
         "filename": filename,
-        "use_auth_token": fetch_config.use_auth_token,
+        "token": fetch_config.token,
         "revision": fetch_config.revision,
         "local_files_only": not fetch_config.allow_network,
     }
