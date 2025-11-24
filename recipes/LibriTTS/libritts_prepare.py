@@ -13,6 +13,7 @@ import torch
 import torchaudio
 from tqdm import tqdm
 
+from speechbrain.dataio import audio_io
 from speechbrain.inference.text import GraphemeToPhoneme
 from speechbrain.utils.data_utils import get_all_files
 from speechbrain.utils.logger import get_logger
@@ -199,7 +200,7 @@ def create_json(wav_list, json_file, sample_rate, model_name=None):
     # Processes all the wav files in the list
     for wav_file in tqdm(wav_list):
         # Reads the signal
-        signal, sig_sr = torchaudio.load(wav_file)
+        signal, sig_sr = audio_io.load(wav_file)
         duration = signal.shape[1] / sig_sr
 
         # TODO add better way to filter short utterances
@@ -232,7 +233,7 @@ def create_json(wav_list, json_file, sample_rate, model_name=None):
                 signal, sig_sr, sample_rate
             )
             os.unlink(wav_file)
-            torchaudio.save(wav_file, resampled_signal, sample_rate=sample_rate)
+            audio_io.save(wav_file, resampled_signal, sample_rate=sample_rate)
 
         # Gets the speaker-id from the utterance-id
         spk_id = uttid.split("_")[0]

@@ -16,7 +16,6 @@ import sys
 
 import matplotlib.pyplot as plt
 import torch
-import torchaudio
 import torchaudio.datasets as dts
 import torchaudio.transforms as T
 from esc50_prepare import dataio_prep, prepare_esc50
@@ -26,6 +25,7 @@ from train_lmac import LMAC
 from wham_prepare import prepare_wham
 
 import speechbrain as sb
+from speechbrain.dataio import audio_io
 from speechbrain.utils.distributed import run_on_main
 
 eps = 1e-10
@@ -268,7 +268,7 @@ if __name__ == "__main__":
         )
 
     else:
-        wav, sr = torchaudio.load(hparams["single_sample"])
+        wav, sr = audio_io.load(hparams["single_sample"])
         wav = T.Resample(sr, hparams["sample_rate"])(wav).to(run_opts["device"])
 
         with torch.no_grad():
@@ -304,7 +304,7 @@ if __name__ == "__main__":
         X_int = X_int[..., None]
         xhat_tm = Interpreter.invert_stft_with_phase(X_int, X_stft_phase).cpu()
 
-        torchaudio.save(
+        audio_io.save(
             ".".join(hparams["single_sample"].split(".")[:-1]) + "_int.wav",
             xhat_tm,
             hparams["sample_rate"],

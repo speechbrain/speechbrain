@@ -31,6 +31,7 @@ from sklearn.metrics import confusion_matrix
 from urbansound8k_prepare import prepare_urban_sound_8k
 
 import speechbrain as sb
+from speechbrain.dataio import audio_io
 from speechbrain.utils.distributed import run_on_main
 
 
@@ -291,7 +292,7 @@ def dataio_prep(hparams):
 
         wave_file = data_audio_folder + f"/fold{fold}/{wav}"
 
-        sig, read_sr = torchaudio.load(wave_file)
+        sig, read_sr = audio_io.load(wave_file)
 
         # If multi-channels, downmix it to a mono channel
         sig = torch.squeeze(sig)

@@ -17,11 +17,11 @@ import sys
 from enum import Enum, auto
 
 import torch
-import torchaudio
 from hyperpyyaml import load_hyperpyyaml
 from pesq import pesq
 
 import speechbrain as sb
+from speechbrain.dataio import audio_io
 from speechbrain.dataio.sampler import ReproducibleWeightedRandomSampler
 from speechbrain.nnet.loss.stoi_loss import stoi_loss
 from speechbrain.processing.features import spectral_magnitude
@@ -154,7 +154,7 @@ class MetricGanBrain(sb.Brain):
             for name, pred_wav, length in zip(batch.id, predict_wav, lens):
                 name += ".wav"
                 enhance_path = os.path.join(self.hparams.enhanced_folder, name)
-                torchaudio.save(
+                audio_io.save(
                     enhance_path,
                     torch.unsqueeze(pred_wav[: int(length)].cpu(), 0),
                     16000,
@@ -280,7 +280,7 @@ class MetricGanBrain(sb.Brain):
         ):
             path = os.path.join(self.hparams.MetricGAN_folder, name + ".wav")
             data = torch.unsqueeze(pred_wav[: int(length)].cpu(), 0)
-            torchaudio.save(path, data.detach(), self.hparams.Sample_rate)
+            audio_io.save(path, data.detach(), self.hparams.Sample_rate)
 
             # Make record of path and score for historical training
             score = float(scores[i][0])

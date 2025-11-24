@@ -13,9 +13,9 @@ import sys  # noqa F401
 
 import numpy as np
 import torch
-import torchaudio
 from tqdm import tqdm
 
+from speechbrain.dataio import audio_io
 from speechbrain.dataio.dataio import load_pkl, save_pkl
 from speechbrain.utils.logger import get_logger
 
@@ -367,7 +367,7 @@ def prepare_csv(seg_dur, wav_lst, csv_file, random_segment=False, amp_th=0):
         audio_id = my_sep.join([spk_id, sess_id, utt_id.split(".")[0]])
 
         # Reading the signal (to retrieve duration in seconds)
-        signal, fs = torchaudio.load(wav_file)
+        signal, fs = audio_io.load(wav_file)
         signal = signal.squeeze(0)
 
         if random_segment:
@@ -466,7 +466,7 @@ def prepare_csv_enrol_test(data_folders, save_folder, verification_pairs_file):
             wav = data_folder + "/wav/" + id + ".wav"
 
             # Reading the signal (to retrieve duration in seconds)
-            signal, fs = torchaudio.load(wav)
+            signal, fs = audio_io.load(wav)
             signal = signal.squeeze(0)
             audio_duration = signal.shape[0] / SAMPLERATE
             start_sample = 0
@@ -502,7 +502,7 @@ def prepare_csv_enrol_test(data_folders, save_folder, verification_pairs_file):
             wav = data_folder + "/wav/" + id + ".wav"
 
             # Reading the signal (to retrieve duration in seconds)
-            signal, fs = torchaudio.load(wav)
+            signal, fs = audio_io.load(wav)
             signal = signal.squeeze(0)
             audio_duration = signal.shape[0] / SAMPLERATE
             start_sample = 0

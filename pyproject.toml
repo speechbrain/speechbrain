@@ -23,6 +23,7 @@ dependencies = [
     "packaging",
     "scipy>=1.4.1",
     "sentencepiece>=0.1.91",
+    "soundfile>=0.12.1",
     "torch>=2.1.0",
     "torchaudio>=2.1.0",
     "tqdm>=4.42.0",

@@ -15,6 +15,7 @@ import torchaudio
 from tqdm import tqdm
 
 import speechbrain as sb
+from speechbrain.dataio import audio_io
 from speechbrain.dataio.dataio import load_pkl, save_pkl
 from speechbrain.integrations.huggingface import hubert, wav2vec2, wavlm
 from speechbrain.integrations.huggingface.discrete_ssl import DiscreteSSL
@@ -235,7 +236,7 @@ def extract_libritts(
             item = meta_json[key]
             wav = item["wav"]
             with torch.no_grad():
-                info = torchaudio.info(wav)
+                info = audio_io.info(wav)
                 audio = sb.dataio.dataio.read_audio(wav)
                 audio = torchaudio.transforms.Resample(
                     info.sample_rate,

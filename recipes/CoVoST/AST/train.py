@@ -19,6 +19,7 @@ from hyperpyyaml import load_hyperpyyaml
 from sacremoses import MosesDetokenizer
 
 import speechbrain as sb
+from speechbrain.dataio import audio_io
 from speechbrain.tokenizers.SentencePiece import SentencePiece
 from speechbrain.utils.distributed import run_on_main
 from speechbrain.utils.logger import get_logger
@@ -267,7 +268,7 @@ def dataio_prepare(hparams, tokenizer_ast, tokenizer_asr):
     @sb.utils.data_pipeline.takes("wav")
     @sb.utils.data_pipeline.provides("sig")
     def audio_pipeline(wav):
-        info = torchaudio.info(wav)
+        info = audio_io.info(wav)
         sig = sb.dataio.dataio.read_audio(wav)
         resampled = torchaudio.transforms.Resample(
             info.sample_rate,

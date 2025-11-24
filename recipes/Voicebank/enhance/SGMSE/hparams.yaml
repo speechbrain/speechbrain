@@ -1,0 +1,88 @@
+output_folder: results    # Main directory to store experiment results
+run_name: "RUN_NAME" # Will be updated with a unique name at runtime
+
+save_dir: !ref <output_folder>/<run_name>/checkpoints                    # Directory to save checkpoints
+enhanced_dir: !ref <output_folder>/<run_name>/enhanced_training          # Directory to store waveforms at validation during training
+
+data_dir: !PLACEHOLDER        # Root dir for the dataset
+train_annotation: !ref <data_dir>/train.json    # JSON file listing training samples
+valid_annotation: !ref <data_dir>/valid.json    # JSON file listing validation samples
+test_annotation: !ref <data_dir>/test.json     # JSON file listing test samples
+
+skip_prep: False          # If True, skip data preparation steps
+segment_frames: 256       # Number of STFT frames fed into the model. Has to align with what the model ‘wants’ to see due to u net architecture
+random_crop: True         # Whether to crop segments randomly from longer waveforms in training
+random_crop_valid: False  # Whether to crop segments randomly from longer waveforms in validation
+random_crop_test: False   # Whether to crop segments randomly from longer waveforms in testing
+
+normalize: noisy        # Waveforms are normalized with respect to ... (noisy / clean / not)
+sample_rate: 16000      # Sampling rate (in Hz) for audio data
+batch_size: 8           # Batch size for the training set
+number_of_epochs: 160   # Total epochs to train
+num_to_keep: 2          # Numbers of checkpoints to keep
+lr: 0.0001              # Learning rate
+sorting: ascending      # Sorting strategy for data loading (e.g., ascending, descending)
+
+n_fft: 510          # FFT size for STFT
+hop_length: 128     # Hop length (stride) for STFT
+window_type: hann   # Type of window function for STFT
+
+transform_type: exponent    # Type of spectral transform (log, exponent, none)
+spec_factor: 0.15           # Factor to scale the transformed spectrogram
+spec_abs_exponent: 0.5      # Exponent to apply to spectrogram magnitude if needed
+
+train_dataloader_opts:
+  batch_size: !ref <batch_size>
+  shuffle: True           # Shuffle training data each epoch
+
+valid_dataloader_opts:
+  batch_size: 1           # Validation batch size
+
+test_dataloader_opts:
+  batch_size: 1           # Test batch size
+
+sampling:
+  sampler_type: pc
+  predictor: reverse_diffusion
+  corrector: ald
+  N: 30
+  corrector_steps: 1
+  snr: 0.5
+
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+  limit: !ref <number_of_epochs>     # Sets the upper bound on training epochs
+
+modules:
+  score_model: !new:speechbrain.integrations.models.sgmse_plus.ScoreModel
+    backbone: ncsnpp_v2                # Name of the backbone neural network architecture
+    sde: ouve                          # Which SDE to use (Ornstein-Uhlenbeck VE SDE)
+    theta: 1.5                         # Stiffness parameter for the OU SDE
+    sigma_min: 0.05                    # Minimum sigma value for OU SDE
+    sigma_max: 0.5                     # Maximum sigma value for OU SDE
+    lr: !ref <lr>                      # Learning rate for the model
+    ema_decay: 0.999                   # Decay factor for EMA of model parameters
+    t_eps: 0.03                        # Min time-step to avoid zero in continuous diffusion
+    num_eval_files: 5                  # Number of files to process for evaluation
+    loss_type: score_matching          # Which loss approach to use (score matching, etc.)
+    loss_weighting: sigma^2            # Weighting in the loss function
+    network_scaling: 1/t               # Scaling strategy (if any) for network outputs
+    c_in: "1"                          # Input scaling scheme
+    c_out: "1"                         # Output scaling scheme
+    c_skip: "0"                        # Skip connection scaling scheme
+    sigma_data: 0.1                    # Data STD for EDM-based parameterizations
+    l1_weight: 0.001                   # Weight factor for L1 (time-domain) loss
+    pesq_weight: 0.0                   # Weight factor for PESQ-based loss (0 = disabled)
+    N: !ref <sampling[N]>              # Sampler steps
+    corrector_steps: !ref <sampling[corrector_steps]> # Corrector updates per step
+    sampler_type: !ref <sampling[sampler_type]> # SDE sampler type
+    snr: !ref <sampling[snr]>           # SNR for sampler
+    sr: !ref <sample_rate>             # Sample rate for model references
+
+opt_class: !name:torch.optim.Adam
+  lr: !ref <lr>                        # LR used in the Adam optimizer
+
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+  checkpoints_dir: !ref <save_dir>         # Directory to store checkpoint files
+  recoverables:
+    score_model: !ref <modules[score_model]>  # Model parameters to be saved
+    counter: !ref <epoch_counter>             # Epoch counter to be saved
