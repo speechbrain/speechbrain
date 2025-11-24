@@ -144,23 +144,17 @@ def _infer_device_type(*args, **kwargs):
     Returns
     -------
     str
-        Device type ('cuda' or 'cpu')
+        Device type ('cuda', 'cpu', 'mps', etc.)
     """
     # Check args for tensors
     for arg in args:
         if isinstance(arg, torch.Tensor):
-            if arg.is_cuda:
-                return "cuda"
-            else:
-                return "cpu"
+            return arg.device.type
 
     # Check kwargs for tensors
     for value in kwargs.values():
         if isinstance(value, torch.Tensor):
-            if value.is_cuda:
-                return "cuda"
-            else:
-                return "cpu"
+            return value.device.type
 
     # Default to cpu if no tensors found
     return "cpu"
@@ -214,9 +208,16 @@ def fwd_default_precision(
     if fwd is None:
         return functools.partial(fwd_default_precision, cast_inputs=cast_inputs)
 
-    # Create wrapped versions for both device types
-    cuda_wrapped_fwd = torch.amp.custom_fwd(fwd, device_type="cuda", cast_inputs=cast_inputs)
-    cpu_wrapped_fwd = torch.amp.custom_fwd(fwd, device_type="cpu", cast_inputs=cast_inputs)
+    # Cache for wrapped functions by device type (lazy initialization)
+    wrapped_cache = {}
+
+    def get_wrapped_fwd(device_type):
+        """Get or create a wrapped function for the given device type."""
+        if device_type not in wrapped_cache:
+            wrapped_cache[device_type] = torch.amp.custom_fwd(
+                fwd, device_type=device_type, cast_inputs=cast_inputs
+            )
+        return wrapped_cache[device_type]
 
     @functools.wraps(fwd)
     def wrapper(*args, force_allow_autocast: bool = False, **kwargs):
@@ -241,9 +242,7 @@ def fwd_default_precision(
         else:
             # Infer device type from input tensors
             device_type = _infer_device_type(*args, **kwargs)
-            if device_type == "cuda":
-                return cuda_wrapped_fwd(*args, **kwargs)
-            else:
-                return cpu_wrapped_fwd(*args, **kwargs)
+            wrapped_fwd = get_wrapped_fwd(device_type)
+            return wrapped_fwd(*args, **kwargs)
 
     return wrapper
