@@ -76,7 +76,7 @@ For reference, we include the resynthesis results from the paper, obtained on **
 |   [lucadellalib/focalcodec_25hz](https://huggingface.co/lucadellalib/focalcodec_25hz)   | LibriTTS-960 |          16           |        25.0         |   1x8192  |        0.33        |  4.14 |   3.30   | 96.3 |
 | [lucadellalib/focalcodec_12_5hz](https://huggingface.co/lucadellalib/focalcodec_12_5hz) | LibriTTS-960 |          16           |        12.5         |   1x8192  |        0.16        |  4.22 |   7.94   | 93.9 |
 
-The original training logs can be found at: [TODO]().
+The original training logs can be found at: [https://www.dropbox.com/scl/fo/o652m0qow1hs428ppocx3/ABiZp8xIK4d6iTcl-JXbn0s?rlkey=6cka0iabo2kzjg44if2kdgsvu&st=yqwv7x0w&dl=0](https://www.dropbox.com/scl/fo/o652m0qow1hs428ppocx3/ABiZp8xIK4d6iTcl-JXbn0s?rlkey=6cka0iabo2kzjg44if2kdgsvu&st=yqwv7x0w&dl=0).
 
 The original checkpoints can be found at: [https://huggingface.co/collections/lucadellalib/focalcodec](https://huggingface.co/collections/lucadellalib/focalcodec).
 
