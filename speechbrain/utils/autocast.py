@@ -133,14 +133,14 @@ class TorchAutocast:
 
 def _infer_device_type(*args, **kwargs):
     """Infer device type from the input tensors.
-    
+
     Arguments
     ---------
     *args: tuple
         Arguments that may contain tensors
     **kwargs: dict
         Keyword arguments that may contain tensors
-        
+
     Returns
     -------
     str
@@ -153,7 +153,7 @@ def _infer_device_type(*args, **kwargs):
                 return "cuda"
             else:
                 return "cpu"
-    
+
     # Check kwargs for tensors
     for value in kwargs.values():
         if isinstance(value, torch.Tensor):
@@ -161,7 +161,7 @@ def _infer_device_type(*args, **kwargs):
                 return "cuda"
             else:
                 return "cpu"
-    
+
     # Default to cpu if no tensors found
     return "cpu"
 
