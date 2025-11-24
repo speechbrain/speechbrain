@@ -21,6 +21,7 @@ import torch
 import torchaudio
 
 import speechbrain
+from speechbrain.dataio import audio_io
 from speechbrain.inference.classifiers import EncoderClassifier
 from speechbrain.inference.encoders import MelSpectrogramEncoder
 from speechbrain.inference.interfaces import Pretrained
@@ -222,7 +223,7 @@ class MSTacotron2(Pretrained):
         """
 
         # Loads audio
-        ref_signal, signal_sr = torchaudio.load(audio_path)
+        ref_signal, signal_sr = audio_io.load(audio_path)
 
         # Resamples the audio if required
         if signal_sr != self.hparams.spk_emb_sample_rate:

@@ -41,8 +41,9 @@ class SpeakerRecognition(EncoderClassifier):
     ... )
 
     >>> # Perform verification
-    >>> signal, fs = torchaudio.load("tests/samples/single-mic/example1.wav")
-    >>> signal2, fs = torchaudio.load("tests/samples/single-mic/example2.flac")
+    >>> from speechbrain.dataio import audio_io
+    >>> signal, fs = audio_io.load("tests/samples/single-mic/example1.wav")
+    >>> signal2, fs = audio_io.load("tests/samples/single-mic/example2.flac")
     >>> score, prediction = verification.verify_batch(signal, signal2)
     """
 

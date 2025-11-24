@@ -10,8 +10,7 @@ Authors:
 import os
 import pathlib
 
-import torchaudio
-
+from speechbrain.dataio import audio_io
 from speechbrain.utils.data_utils import download_file, get_all_files
 from speechbrain.utils.distributed import main_process_only
 from speechbrain.utils.logger import get_logger
@@ -115,7 +114,7 @@ def _write_csv_row(w, filename, index, max_length):
     max_length : float (optional)
         The maximum recording length in seconds.
     """
-    signal, rate = torchaudio.load(filename)
+    signal, rate = audio_io.load(filename)
     signal = _ensure_single_channel(signal, filename, rate)
 
     ID, ext = os.path.basename(filename).split(".")
@@ -149,7 +148,7 @@ def _ensure_single_channel(signal, filename, rate):
     """
     if signal.shape[0] > 1:
         signal = signal[0].unsqueeze(0)
-        torchaudio.save(filename, signal, rate)
+        audio_io.save(filename, signal, rate)
     return signal
 
 
@@ -187,7 +186,7 @@ def _handle_long_waveform(
         stop = int(min(max_length * (j + 1), duration) * rate)
         new_filename = filename.with_stem(filename.stem + f"_{j}")
 
-        torchaudio.save(new_filename, signal[:, start:stop], rate)
+        audio_io.save(new_filename, signal[:, start:stop], rate)
         csv_row = (
             f"{ID}_{index}_{j}",
             str((stop - start) / rate),

@@ -25,8 +25,8 @@ from typing import Union
 
 import numpy as np
 import torch
-import torchaudio
 
+from speechbrain.dataio import audio_io
 from speechbrain.utils.logger import get_logger
 from speechbrain.utils.torch_audio_backend import (
     check_torchaudio_backend,
@@ -169,12 +169,9 @@ def load_data_csv(csv_path, replacements={}):
     return result
 
 
-def read_audio_info(
-    path, backend=None
-) -> "torchaudio.backend.common.AudioMetaData":
-    """Retrieves audio metadata from a file path. Behaves identically to
-    torchaudio.info, but attempts to fix metadata (such as frame count) that is
-    otherwise broken with certain torchaudio version and codec combinations.
+def read_audio_info(path, backend=None) -> "audio_io.AudioInfo":
+    """Retrieves audio metadata from a file path. Uses audio_io.info which is
+    based on soundfile.
 
     Note that this may cause full file traversal in certain cases!
 
@@ -183,20 +180,13 @@ def read_audio_info(
     path : str
         Path to the audio file to examine.
     backend : str, optional
-        Audio backend to use for loading the audio file. Must be one of
-        'ffmpeg', 'sox', 'soundfile' or None. If None, uses torchaudio's default backend.
-
-    Raises
-    ------
-    ValueError
-        If the `backend` is not one of the allowed values.
-        Must be one of [None, 'ffmpeg', 'sox', 'soundfile'].
+        Audio backend to use for loading the audio file. This parameter is
+        kept for compatibility but is currently ignored (soundfile is always used).
 
     Returns
     -------
-    torchaudio.backend.common.AudioMetaData
-        Same value as returned by `torchaudio.info`, but may eventually have
-        `num_frames` corrected if it otherwise would have been `== 0`.
+    audio_io.AudioInfo
+        Audio metadata with fields: sample_rate, num_frames, channels, etc.
 
     NOTE
     ----
@@ -205,38 +195,18 @@ def read_audio_info(
     In these cases, you may as well read the entire audio file to avoid doubling
     the processing time.
     """
-    validate_backend(backend)
+    if backend is not None:
+        validate_backend(backend)
 
-    _path_no_ext, path_ext = os.path.splitext(path)
+    # Use audio_io.info which is based on soundfile
+    info = audio_io.info(path)
 
-    if path_ext == ".mp3":
-        # Additionally, certain affected versions of torchaudio fail to
-        # autodetect mp3.
-        # HACK: here, we check for the file extension to force mp3 detection,
-        # which prevents an error from occurring in torchaudio.
-        info = torchaudio.info(path, format="mp3", backend=backend)
-    else:
-        info = torchaudio.info(path, backend=backend)
-
-    # Certain file formats, such as MP3, do not provide a reliable way to
-    # query file duration from metadata (when there is any).
-    # For MP3, certain versions of torchaudio began returning num_frames == 0.
-    #
-    # https://github.com/speechbrain/speechbrain/issues/1925
-    # https://github.com/pytorch/audio/issues/2524
-    #
-    # Accommodate for these cases here: if `num_frames == 0` then maybe something
-    # has gone wrong.
-    # If some file really had `num_frames == 0` then we are not doing harm
-    # double-checking anyway. If I am wrong and you are reading this comment
-    # because of it: sorry
+    # Soundfile generally provides reliable frame counts, but if for some
+    # reason num_frames is 0, we can fall back to loading the file
     if info.num_frames == 0:
-        channels_data, sample_rate = torchaudio.load(
-            path, normalize=False, backend=backend
-        )
-
-        info.num_frames = channels_data.size(1)
-        info.sample_rate = sample_rate  # because we might as well
+        channels_data, sample_rate = audio_io.load(path)
+        info.num_frames = channels_data.size(-1)  # frames dimension
+        info.sample_rate = sample_rate
 
     return info
 
@@ -256,8 +226,8 @@ def read_audio(waveforms_obj, backend=None):
     read_audio({"file": "/path/to/wav2.wav", "start": 8000, "stop": 16000})
     ```
 
-    Which codecs are supported depends on your torchaudio backend.
-    Refer to `torchaudio.load` documentation for further details.
+    Which codecs are supported depends on the soundfile library.
+    Refer to `audio_io.load` documentation for further details.
 
     Arguments
     ---------
@@ -313,7 +283,7 @@ def read_audio(waveforms_obj, backend=None):
         if isinstance(waveforms_obj, bytes):
             waveforms_obj = BytesIO(waveforms_obj)
             waveforms_obj.seek(0)
-        audio, _ = torchaudio.load(waveforms_obj, backend=backend)
+        audio, _ = audio_io.load(waveforms_obj)
     # Case 2: A dict with more options. Only works with file paths.
     else:
         path = waveforms_obj["file"]
@@ -339,14 +309,12 @@ def read_audio(waveforms_obj, backend=None):
         # Requested to load until a specific frame?
         if start != stop:
             num_frames = stop - start
-            audio, fs = torchaudio.load(
-                path, num_frames=num_frames, frame_offset=start, backend=backend
+            audio, fs = audio_io.load(
+                path, num_frames=num_frames, frame_offset=start
             )
         else:
             # Load to the end.
-            audio, fs = torchaudio.load(
-                path, frame_offset=start, backend=backend
-            )
+            audio, fs = audio_io.load(path, frame_offset=start)
 
     audio = audio.transpose(0, 1)
     return audio.squeeze(1)
@@ -428,7 +396,7 @@ def read_audio_multichannel(waveforms_obj, backend=None):
         if isinstance(waveforms_obj, bytes):
             waveforms_obj = BytesIO(waveforms_obj)
             waveforms_obj.seek(0)
-        audio, _ = torchaudio.load(waveforms_obj, backend=backend)
+        audio, _ = audio_io.load(waveforms_obj)
         return audio.transpose(0, 1)
 
     # Case 2: A dict with more options. Only works with file paths.
@@ -443,9 +411,7 @@ def read_audio_multichannel(waveforms_obj, backend=None):
     stop = waveforms_obj.get("stop", start - 1)
     num_frames = stop - start
     for f in files:
-        audio, fs = torchaudio.load(
-            f, num_frames=num_frames, frame_offset=start, backend=backend
-        )
+        audio, fs = audio_io.load(f, num_frames=num_frames, frame_offset=start)
         waveforms.append(audio)
 
     out = torch.cat(waveforms, 0)
@@ -483,7 +449,7 @@ def write_audio(filepath, audio, samplerate):
     elif len(audio.shape) == 1:
         audio = audio.unsqueeze(0)
 
-    torchaudio.save(filepath, audio, samplerate)
+    audio_io.save(filepath, audio, samplerate)
 
 
 def load_pickle(pickle_path):
