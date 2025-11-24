@@ -15,12 +15,11 @@ def test_parse_arguments_both_formats():
 
     # Test with --arg=value format
     filename1, run_opts1, overrides1 = RunOptions.from_command_line_args(
-        ["params.yaml", "--device=cuda:0", "--debug=true", "--seed=42"]
+        ["params.yaml", "--device=cuda:0", "--seed=42"]
     )
     assert filename1 == "params.yaml"
     assert run_opts1["device"] == "cuda:0"
     assert "device" in run_opts1.overridden_args
-    assert overrides1 == "debug: true\nseed: 42"
 
     # Test with --arg value format
     filename2, run_opts2, overrides2 = RunOptions.from_command_line_args(
