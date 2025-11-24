@@ -96,9 +96,15 @@ class Augmenter(torch.nn.Module):
     >>> from speechbrain.augment.time_domain import DropFreq, DropChunk
     >>> freq_dropper = DropFreq()
     >>> chunk_dropper = DropChunk(drop_start=100, drop_end=16000)
-    >>> augment = Augmenter(parallel_augment=False, concat_original=False, augmentations=[freq_dropper, chunk_dropper])
+    >>> augment = Augmenter(
+    ...     parallel_augment=False,
+    ...     concat_original=False,
+    ...     augmentations=[freq_dropper, chunk_dropper],
+    ... )
     >>> signal = torch.rand([4, 16000])
-    >>> output_signal, lengths = augment(signal, lengths=torch.tensor([0.2,0.5,0.7,1.0]))
+    >>> output_signal, lengths = augment(
+    ...     signal, lengths=torch.tensor([0.2, 0.5, 0.7, 1.0])
+    ... )
     """
 
     def __init__(
@@ -362,7 +368,6 @@ class Augmenter(torch.nn.Module):
         # Concatenate the original signal if required
         self.skip_concat = not (self.concat_original)
         if self.concat_original:
-
             # Check start index
             if self.concat_start_index >= x_original.shape[0]:
                 self.skip_concat = True

@@ -32,10 +32,10 @@ def EDER(prediction, id, duration, emotion, window_length, stride):
     Example
     -------
     >>> from speechbrain.utils.EDER import EDER
-    >>> prediction=['n', 'n', 'n', 'a', 'a', 'a']
-    >>> id="spk1_1"
-    >>> duration=1.22
-    >>> emotion=[{'emo': 'angry', 'start': 0.39, 'end': 1.10}]
+    >>> prediction = ["n", "n", "n", "a", "a", "a"]
+    >>> id = "spk1_1"
+    >>> duration = 1.22
+    >>> emotion = [{"emo": "angry", "start": 0.39, "end": 1.10}]
     >>> window_length = 0.2
     >>> stride = 0.2
     >>> EDER(prediction, id, duration, emotion, window_length, stride)
@@ -80,8 +80,8 @@ def getOverlap(a, b):
     Example
     -------
     >>> from speechbrain.utils.EDER import getOverlap
-    >>> interval1=[1.2, 3.4]
-    >>> interval2=[2.3, 4.5]
+    >>> interval1 = [1.2, 3.4]
+    >>> interval2 = [2.3, 4.5]
     >>> getOverlap(interval1, interval2)
     1.1
     """
@@ -128,12 +128,14 @@ def merge_ssegs_same_emotion_adjacent(lol):
     Example
     -------
     >>> from speechbrain.utils.EDER import merge_ssegs_same_emotion_adjacent
-    >>> lol=[['u1', 0.0, 7.0, 'a'],
-    ... ['u1', 7.0, 9.0, 'a'],
-    ... ['u1', 9.0, 11.0, 'n'],
-    ... ['u1', 11.0, 13.0, 'n'],
-    ... ['u1', 13.0, 15.0, 'n'],
-    ... ['u1', 15.0, 16.0, 'a']]
+    >>> lol = [
+    ...     ["u1", 0.0, 7.0, "a"],
+    ...     ["u1", 7.0, 9.0, "a"],
+    ...     ["u1", 9.0, 11.0, "n"],
+    ...     ["u1", 11.0, 13.0, "n"],
+    ...     ["u1", 13.0, 15.0, "n"],
+    ...     ["u1", 15.0, 16.0, "a"],
+    ... ]
     >>> merge_ssegs_same_emotion_adjacent(lol)
     [['u1', 0.0, 9.0, 'a'], ['u1', 9.0, 15.0, 'n'], ['u1', 15.0, 16.0, 'a']]
     """
@@ -183,15 +185,15 @@ def reference_to_lol(id, duration, emotion):
     Example
     -------
     >>> from speechbrain.utils.EDER import reference_to_lol
-    >>> id="u1"
-    >>> duration=8.0
-    >>> emotion=[{'emo': 'angry', 'start': 1.016, 'end': 6.336}]
+    >>> id = "u1"
+    >>> duration = 8.0
+    >>> emotion = [{"emo": "angry", "start": 1.016, "end": 6.336}]
     >>> reference_to_lol(id, duration, emotion)
     [['u1', 0, 1.016, 'n'], ['u1', 1.016, 6.336, 'a'], ['u1', 6.336, 8.0, 'n']]
     """
-    assert (
-        len(emotion) == 1
-    ), "NotImplementedError: The solution is only implemented for one-emotion utterance for now."
+    assert len(emotion) == 1, (
+        "NotImplementedError: The solution is only implemented for one-emotion utterance for now."
+    )
     lol = []
 
     start = emotion[0]["start"]
@@ -224,10 +226,10 @@ def distribute_overlap(lol):
     Example
     -------
     >>> lol = [
-    ...     ['r1', 5.5, 9.0, 's1'],
-    ...     ['r1', 8.0, 11.0, 's2'],
-    ...     ['r1', 11.5, 13.0, 's2'],
-    ...     ['r1', 12.0, 15.0, 's1'],
+    ...     ["r1", 5.5, 9.0, "s1"],
+    ...     ["r1", 8.0, 11.0, "s2"],
+    ...     ["r1", 11.5, 13.0, "s2"],
+    ...     ["r1", 12.0, 15.0, "s1"],
     ... ]
     >>> distribute_overlap(lol)
     [['r1', 5.5, 8.5, 's1'], ['r1', 8.5, 11.0, 's2'], ['r1', 11.5, 12.5, 's2'], ['r1', 12.5, 15.0, 's1']]
@@ -245,7 +247,6 @@ def distribute_overlap(lol):
         # This is because similar emotion's adjacent sub-segments are already merged by "merge_ssegs_same_emotion()"
 
         if is_overlapped(sseg[2], next_sseg[1]):
-
             # Get overlap duration.
             # Now this overlap will be divided equally between adjacent segments.
             overlap = sseg[2] - next_sseg[1]

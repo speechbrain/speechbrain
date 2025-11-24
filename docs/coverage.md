@@ -34,7 +34,7 @@ our tests cover one PyTorch version only, _the latest_.
 
 ### [pre-commit.yml](https://github.com/speechbrain/speechbrain/blob/develop/.github/workflows/pre-commit.yml)
    > SpeechBrain pre-commit / pre-commit (pull_request)
-* python-version: '3.8'
+* python-version: '3.12'
 * run pre-commit action, configured in [.pre-commit-config.yaml](https://github.com/speechbrain/speechbrain/blob/develop/.pre-commit-config.yaml)
   * hook: https://github.com/pre-commit/pre-commit-hooks
     <br/> trailing-whitespace
@@ -45,16 +45,15 @@ our tests cover one PyTorch version only, _the latest_.
   * hook: https://github.com/psf/black
     <br/> black
     <br/> click
-  * hook: https://gitlab.com/pycqa/flake8.git
-    <br/> flake8; see: [.flake8](https://github.com/speechbrain/speechbrain/blob/develop/.flake8)
+  * hook: https://github.com/astral-sh/ruff-pre-commit
+    <br/> ruff; see: [pyproject.toml](https://github.com/speechbrain/speechbrain/blob/develop/pyproject.toml) for configuration
   * hook: https://github.com/adrienverge/yamllint
     <br/> yamllint; see: [.yamllint.yaml](https://github.com/speechbrain/speechbrain/blob/develop/.yamllint.yaml)
 
 ### [pythonapp.yml](https://github.com/speechbrain/speechbrain/blob/develop/.github/workflows/pythonapp.yml)
-   > SpeechBrain toolkit CI / Tests (3.7) (pull_request)<br/>
-   > SpeechBrain toolkit CI / Tests (3.8) (pull_request)<br/>
-   > SpeechBrain toolkit CI / Tests (3.9) (pull_request)
-* python-version: [3.7, 3.8, 3.9]
+   > SpeechBrain toolkit CI / Tests (3.10) (pull_request)<br/>
+   > SpeechBrain toolkit CI / Tests (3.13) (pull_request)
+* python-version: ["3.10", 3.13]
 * create fresh environment
   ```shell
   sudo apt-get install -y libsndfile1
@@ -86,7 +85,7 @@ our tests cover one PyTorch version only, _the latest_.
 
 ### [verify-docs-gen.yml](https://github.com/speechbrain/speechbrain/blob/develop/.github/workflows/verify-docs-gen.yml) [I.2.a]
    > Verify docs generation / docs (pull_request)
-* python-version: '3.8'
+* python-version: '3.12'
 * create fresh environment
   ```shell
   pip install -r requirements.txt
@@ -120,7 +119,7 @@ our tests cover one PyTorch version only, _the latest_.
 
 ### [release.yml](https://github.com/speechbrain/speechbrain/blob/develop/.github/workflows/release.yml)
    > Publish to PyPI
-* python-version: 3.8
+* python-version: 3.12
 * action: checkout to `main` branch
 * creates: `pypa/build` for binary wheel and source tarball
 * action: Publish to PyPI via `pypa/gh-action-pypi-publish@master`
@@ -128,8 +127,7 @@ our tests cover one PyTorch version only, _the latest_.
   * [LICENSE](https://github.com/speechbrain/speechbrain/blob/develop/LICENSE)
   * [README.md](https://github.com/speechbrain/speechbrain/blob/develop/README.md)
   * [pyproject.toml](https://github.com/speechbrain/speechbrain/blob/develop/pyproject.toml) - target-version = ['py38']
-  * [setup.py](https://github.com/speechbrain/speechbrain/blob/develop/setup.py)
-    * python_requires=">=3.7",
+    * python_requires=">=3.8.1",
     * uses: [speechbrain/version.txt](https://github.com/speechbrain/speechbrain/blob/develop/speechbrain/version.txt)
     * requires:
       ```
@@ -149,8 +147,6 @@ our tests cover one PyTorch version only, _the latest_.
 The versions of tools used/hooked in these checks are controlled via [lint-requirements.txt](https://github.com/speechbrain/speechbrain/blob/develop/lint-requirements.txt), a nested dependency in [requirements.txt](https://github.com/speechbrain/speechbrain/blob/develop/requirements.txt).
 With major version releases of SpeechBrain, the versions of each hook should be updated—alongside requirement consistency in source, testing & builds incl. running spell-checking.
 
-_Note: [PyTorch statement](https://pytorch.org/get-started/locally/) on Python versions (as of 2022-11-09)_
-> _It is recommended that you use Python 3.6, 3.7 or 3.8_
 
 ## PyTest for reporting code coverage rates
 
@@ -206,22 +202,7 @@ speechbrain/lm/ngram.py                                      36      1    97%
 speechbrain/lobes/augment.py                                154     55    64% <== < 80%
 speechbrain/lobes/beamform_multimic.py                       20     14    30% <== < 80%
 speechbrain/lobes/features.py                                96      9    91%
-speechbrain/lobes/models/CRDNN.py                            52     12    77% <== < 80%
-speechbrain/lobes/models/ContextNet.py                       83      3    96%
-speechbrain/lobes/models/ECAPA_TDNN.py                      157      7    96%
-speechbrain/lobes/models/HifiGAN.py                         321    146    55% <== < 80%
-speechbrain/lobes/models/MetricGAN.py                        74     29    61% <== < 80%
-speechbrain/lobes/models/Tacotron2.py                       364     66    82%
-speechbrain/lobes/models/conv_tasnet.py                     121      6    95%
-speechbrain/lobes/models/dual_path.py                       357     55    85%
-speechbrain/lobes/models/fairseq_wav2vec.py                  93     93     0% <== < 80%
-speechbrain/lobes/models/g2p/dataio.py                      136    107    21% <== < 80%
-speechbrain/lobes/models/g2p/homograph.py                   118     20    83%
-speechbrain/lobes/models/g2p/model.py                       132    109    17% <== < 80%
-speechbrain/lobes/models/huggingface_wav2vec.py             145     47    68% <== < 80%
-speechbrain/lobes/models/resepformer.py                     180     21    88%
-speechbrain/lobes/models/segan_model.py                     102     88    14% <== < 80%
-speechbrain/lobes/models/transformer/Conformer.py           111      7    94%
+speechbrain/lobes/models/CRDNN.py                            52     12    77% <== < 80% Ruff #29
 speechbrain/lobes/models/transformer/Transformer.py         180     22    88%
 speechbrain/lobes/models/transformer/TransformerASR.py       92     28    70% <== < 80%
 speechbrain/lobes/models/transformer/TransformerLM.py        47      5    89%

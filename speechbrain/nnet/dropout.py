@@ -27,7 +27,7 @@ class Dropout2d(nn.Module):
     -------
     >>> drop = Dropout2d(drop_rate=0.5)
     >>> inputs = torch.rand(10, 50, 40)
-    >>> output=drop(inputs)
+    >>> output = drop(inputs)
     >>> output.shape
     torch.Size([10, 50, 40])
     """

@@ -2,106 +2,74 @@
 Audio loading troubleshooting
 =============================
 
-This page is intended to document how to install torchaudio backends and
+This page is intended to document how to install audio backends and
 provides troubleshooting steps for your audio loading troubles.
 
 Introduction
 ============
 
-SpeechBrain relies on
-`torchaudio <https://pytorch.org/audio/stable/index.html>`_
-for loading audio files in most cases. Please first try to **update torchaudio**
-if you are encountering issues. Please also ensure that you are using the
-correct PyTorch version for your installed torchaudio version.
+SpeechBrain now uses `soundfile <https://pypi.org/project/soundfile/>`_ as the
+sole supported audio I/O backend through the :mod:`speechbrain.dataio.audio_io` module.
 
-As of torchaudio `2.2.0`, three backends are supported: ``ffmpeg``, ``sox`` and
-``soundfile``. torchaudio documents how their backends are found in their
-`optional dependency docs <https://pytorch.org/audio/stable/installation.html#optional-dependencies>`_.
+The soundfile backend supports most common audio formats including:
+``wav``, ``flac``, and ``mp3``. For advanced format support or issues,
+please refer to the sections below.
 
-You can determine which backends are available in your environment by running
-:func:`torchaudio.list_audio_backends`.
-
-.. warning::
-    **A backend can *silently* fail to load** if initialization failed and will be
-    omitted from this list.
-
-.. warning::
-    **Not every backend can support any codec.** For instance, at the time of
-    writing, the torchaudio SoX backend cannot handle MP3 and the SoundFile
-    backend cannot handle AAC (usually ``.m4a``), both of which are found in
-    certain popular speech datasets.
-    However, most common formats are typically well supported by all backends
-    (``.wav``/``.ogg`` vorbis/opus/``.flac``).
+.. note::
+   **Legacy torchaudio backends**: SpeechBrain previously used torchaudio for
+   audio I/O, which supported three backends: ``ffmpeg``, ``sox`` and ``soundfile``.
+   However, torchaudio 2.9 deprecated all audio I/O support so SpeechBrain
+   now relies on ``soundfile`` directly for audio I/O.
 
 Recommended install steps
 =========================
 
-Often, torchaudio will work out of the box. On certain systems, there might not
-be a working backend installed. We recommend you try if any of those steps fixes
-your issue:
+The pip package `soundfile` is a dependency of SpeechBrain and should be automatically
+installed when you install SpeechBrain.
+Starting with SoundFile 0.12.0, the pip package bundles a prebuilt ``libsndfile``
+for most platforms (Windows, macOS, Linux), so it typically works out of the box
+when installed via pip.
 
-- On Linux, if you have superuser rights, install ffmpeg and/or libsndfile
-  and/or SoX through your distribution's package manager.
+If you encounter issues with audio loading:
 
-- On Windows/Linux/macOS, you can try installing ffmpeg through Conda
-  (see `ffmpeg`_), which does not require superuser rights (provided Conda is
-  available).
+- **Update soundfile**: Try running ``pip install --upgrade soundfile`` to get
+  the latest version with updated ``libsndfile`` binaries.
 
-- On macOS, alternatively, it appears to be possible to install ffmpeg through
-  Homebrew. Make sure that you are installing a version compatible with
-  torchaudio (see `ffmpeg`_).
+- **On Linux with superuser rights**: Install ``libsndfile`` through your
+  distribution's package manager (e.g., ``sudo apt install libsndfile1`` on
+  Ubuntu/Debian).
 
-- On Windows/Linux/macOS, `SoundFile <https://pypi.org/project/soundfile/>`_
-  has started shipping with a prebuilt ``libsndfile``, which does not require
-  admin rights. Try installing or updating it. See the linked page for more
-  details.
+- **For advanced codec support**: If you need to work with formats not supported
+  by soundfile (e.g., AAC/M4A), you may need to convert your audio files
+  to a supported format like WAV or FLAC using external tools such as ``ffmpeg``.
 
-Note for developers & breaking torchaudio `2.x` changes
-=======================================================
+- **Check installation**: You can verify soundfile is working by running:
 
-With torchaudio `<2.x`, backends were selected through
-``torchaudio.set_audio_backend``. This function was deprecated and then
-removed in the `2.x` branch of torchaudio and is no longer used in SpeechBrain.
-Since then, the backend is (optionally) selected through the ``backend``
-argument of :func:`torchaudio.load` and :func:`torchaudio.info`.
+  .. code-block:: python
 
-Installing/troubleshooting backends
-===================================
+      import soundfile as sf
+      print(sf.__version__)
+      print(sf.available_formats())
 
-ffmpeg
-------
+SpeechBrain Audio I/O API
+==========================
 
-torchaudio compiles their ffmpeg backend for a **specific range** of ffmpeg
-versions.
+SpeechBrain provides its own audio I/O interface through the
+:mod:`speechbrain.dataio.audio_io` module. Usage example:
 
-ffmpeg is commonly already installed on common Linux distributions.
-On Ubuntu, it can be installed through ``sudo apt install ffmpeg``.
+.. code-block:: python
 
-Depending on your OS version, it is possible that your installed ffmpeg version
-is not supported by torchaudio (if too recent or too old).
-If you believe this to be the case, you can try installing a specific version
-of the ``ffmpeg`` package as supplied by
-`conda-forge <https://anaconda.org/conda-forge/ffmpeg>`_.
+    from speechbrain.dataio import audio_io
 
-See `torchaudio documentation on optional dependencies <https://pytorch.org/audio/stable/installation.html#optional-dependencies>`_ for more details.
+    # Load audio file
+    audio, sample_rate = audio_io.load("path/to/audio.wav")
 
-SoundFile
----------
+    # Get audio metadata
+    info = audio_io.info("path/to/audio.wav")
+    print(info.sample_rate, info.duration, info.channels)
 
-torchaudio can use `soundfile <https://pypi.org/project/soundfile/>`_ as an
-audio backend, which depends on ``libsndfile``.
+    # Save audio file
+    audio_io.save("output.wav", audio, sample_rate)
 
-Starting with SoundFile 0.12.0, this package bundles a prebuilt ``libsndfile``
-for a number of platforms. Refer to the project page for more details.
-
-SoX
----
-
-Starting with torchaudio 0.12.0, the SoX backend no longer supports mp3 files.
-
-Starting with torchaudio 2.1.0, torchaudio no longer compiles and bundles SoX
-by itself, and expects it to be provided by the system.
-
-If you have upgraded from an earlier version and can no longer load audio files,
-it may be due to this. In this case, you may need to install SoX or use a
-different backend.
+This API is compatible with the previous torchaudio-based interface, making
+migration straightforward.

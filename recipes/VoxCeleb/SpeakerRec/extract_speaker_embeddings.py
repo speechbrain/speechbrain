@@ -28,15 +28,16 @@ Author
     * Nauman Dawalatabad 2020
     * Xuechen Liu 2023
 """
+
 import os
 import sys
 
 import numpy as np
 import torch
-import torchaudio
 from hyperpyyaml import load_hyperpyyaml
 
 import speechbrain as sb
+from speechbrain.dataio import audio_io
 from speechbrain.utils.data_utils import download_file
 from speechbrain.utils.distributed import run_on_main
 from speechbrain.utils.logger import get_logger
@@ -81,11 +82,11 @@ def compute_embeddings(params, wav_scp, outdir):
         numpy manner.
     """
     with torch.no_grad():
-        with open(wav_scp, "r", encoding="utf-8") as wavscp:
+        with open(wav_scp, encoding="utf-8") as wavscp:
             for line in wavscp:
                 utt, wav_path = line.split()
-                out_file = "{}/{}.npy".format(outdir, utt)
-                wav, _ = torchaudio.load(wav_path)
+                out_file = f"{outdir}/{utt}.npy"
+                wav, _ = audio_io.load(wav_path)
                 data = wav.transpose(0, 1).squeeze(1).unsqueeze(0)
                 lens = torch.Tensor([data.shape[1]])
                 data, lens = (
@@ -135,4 +136,4 @@ if __name__ == "__main__":
 
     print("Begin embedding extraction......")
     compute_embeddings(params, in_list, out_dir)
-    print("The embeddings have been extracted and stored at {}".format(out_dir))
+    print(f"The embeddings have been extracted and stored at {out_dir}")

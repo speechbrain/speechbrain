@@ -49,7 +49,7 @@ class NLLB(mBART):
     -------
     >>> import torch
     >>> src = torch.rand([10, 1, 1024])
-    >>> tgt = torch.LongTensor([[256057,    313,     25,    525,    773,  21525,   4004,      2]])
+    >>> tgt = torch.LongTensor([[256057, 313, 25, 525, 773, 21525, 4004, 2]])
     >>> model_hub = "facebook/nllb-200-distilled-600M"
     >>> save_path = "savedir"
     >>> model = NLLB(model_hub, save_path)

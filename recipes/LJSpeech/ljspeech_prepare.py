@@ -21,6 +21,7 @@ import torchaudio
 from tqdm import tqdm
 from unidecode import unidecode
 
+from speechbrain.dataio import audio_io
 from speechbrain.dataio.dataio import load_pkl, save_pkl
 from speechbrain.inference.text import GraphemeToPhoneme
 from speechbrain.utils.data_utils import download_file
@@ -94,9 +95,9 @@ def prepare_ljspeech(
     Example
     -------
     >>> from recipes.LJSpeech.TTS.ljspeech_prepare import prepare_ljspeech
-    >>> data_folder = 'data/LJspeech/'
-    >>> save_folder = 'save/'
-    >>> splits = ['train', 'valid']
+    >>> data_folder = "data/LJspeech/"
+    >>> save_folder = "save/"
+    >>> splits = ["train", "valid"]
     >>> split_ratio = [90, 10]
     >>> seed = 1234
     >>> prepare_ljspeech(data_folder, save_folder, splits, split_ratio, seed)
@@ -414,7 +415,7 @@ def prepare_json(
             label = custom_clean(label, model_name)
 
         # Compute duration
-        info = torchaudio.info(wav)
+        info = audio_io.info(wav)
         duration = info.num_frames / info.sample_rate
 
         json_dict[id] = {
@@ -427,7 +428,7 @@ def prepare_json(
 
         # FastSpeech2 specific data preparation
         if model_name == "FastSpeech2":
-            audio, fs = torchaudio.load(wav)
+            audio, fs = audio_io.load(wav)
 
             # Parses phoneme alignments
             textgrid_path = os.path.join(
@@ -508,7 +509,7 @@ def prepare_json(
 
         # FastSpeech2WithAlignment specific data preparation
         if model_name == "FastSpeech2WithAlignment":
-            audio, fs = torchaudio.load(wav)
+            audio, fs = audio_io.load(wav)
             # Computes pitch
             pitch_file = wav.replace(".wav", ".npy").replace(
                 wavs_folder, pitch_folder

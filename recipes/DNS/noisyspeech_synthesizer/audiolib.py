@@ -44,7 +44,7 @@ def audioread(path, norm=False, start=0, stop=None, target_level=-25):
 
     path = os.path.abspath(path)
     if not os.path.exists(path):
-        raise ValueError("[{}] does not exist!".format(path))
+        raise ValueError(f"[{path}] does not exist!")
     try:
         audio, sample_rate = sf.read(path, start=start, stop=stop)
     except RuntimeError:  # fix for sph pcm-embedded shortened v2
@@ -102,10 +102,8 @@ def audiowrite(
 
 def add_reverb(sasxExe, input_wav, filter_file, output_wav):
     """Function to add reverb"""
-    command_sasx_apply_reverb = "{0} -r {1} \
-        -f {2} -o {3}".format(
-        sasxExe, input_wav, filter_file, output_wav
-    )
+    command_sasx_apply_reverb = f"{sasxExe} -r {input_wav} \
+        -f {filter_file} -o {output_wav}"
 
     subprocess.call(command_sasx_apply_reverb)
     return output_wav
@@ -119,13 +117,11 @@ def add_clipping(audio, max_thresh_perc=0.8):
 
 
 def adsp_filter(Adspvqe, nearEndInput, nearEndOutput, farEndInput):
-    command_adsp_clean = "{0} --breakOnErrors 0 --sampleRate 16000 --useEchoCancellation 0 \
+    command_adsp_clean = f"{Adspvqe} --breakOnErrors 0 --sampleRate 16000 --useEchoCancellation 0 \
                     --operatingMode 2 --useDigitalAgcNearend 0 --useDigitalAgcFarend 0 \
                     --useVirtualAGC 0 --useComfortNoiseGenerator 0 --useAnalogAutomaticGainControl 0 \
-                    --useNoiseReduction 0 --loopbackInputFile {1} --farEndInputFile {2} \
-                    --nearEndInputFile {3} --nearEndOutputFile {4}".format(
-        Adspvqe, farEndInput, farEndInput, nearEndInput, nearEndOutput
-    )
+                    --useNoiseReduction 0 --loopbackInputFile {farEndInput} --farEndInputFile {farEndInput} \
+                    --nearEndInputFile {nearEndInput} --nearEndOutputFile {nearEndOutput}"
     subprocess.call(command_adsp_clean)
 
 

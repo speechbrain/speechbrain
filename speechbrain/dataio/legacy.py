@@ -6,8 +6,8 @@ import pickle
 import re
 
 import torch
-import torchaudio
 
+from speechbrain.dataio import audio_io
 from speechbrain.dataio.dataset import DynamicItemDataset
 from speechbrain.utils.logger import get_logger
 
@@ -216,7 +216,7 @@ def _read_csv_item(item):
     """
     opts = _parse_csv_item_opts(item.opts)
     if item.format in TORCHAUDIO_FORMATS:
-        audio, _ = torchaudio.load(item.data)
+        audio, _ = audio_io.load(item.data)
         return audio.squeeze(0)
     elif item.format == "pkl":
         return read_pkl(item.data, opts)
@@ -279,7 +279,6 @@ def read_pkl(file, data_options={}, lab2ind=None):
     type_ok = False
 
     if isinstance(pkl_element, list):
-
         if isinstance(pkl_element[0], float):
             tensor = torch.FloatTensor(pkl_element)
             type_ok = True
@@ -289,7 +288,6 @@ def read_pkl(file, data_options={}, lab2ind=None):
             type_ok = True
 
         if isinstance(pkl_element[0], str):
-
             # convert string to integer as specified in self.label_dict
             if lab2ind is not None:
                 for index, val in enumerate(pkl_element):

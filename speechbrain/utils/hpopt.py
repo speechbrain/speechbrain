@@ -58,12 +58,15 @@ def hpopt_mode(mode):
     Example
     -------
     >>> @hpopt_mode("raw")
-    ... class RawHyperparameterOptimizationReporter(HyperparameterOptimizationReporter):
-    ...    def __init__(self, *args, **kwargs):
-    ...        super().__init__(    *args, **kwargs)
-    ...    def report_objective(self, result):
-    ...        objective = result[self.objective_key]
-    ...        print(f"Objective: {objective}")
+    ... class RawHyperparameterOptimizationReporter(
+    ...     HyperparameterOptimizationReporter
+    ... ):
+    ...     def __init__(self, *args, **kwargs):
+    ...         super().__init__(*args, **kwargs)
+    ...
+    ...     def report_objective(self, result):
+    ...         objective = result[self.objective_key]
+    ...         print(f"Objective: {objective}")
 
     >>> reporter = get_reporter("raw", objective_key="error")
     >>> result = {"error": 1.2, "train_loss": 7.2}
@@ -174,7 +177,7 @@ class GenericHyperparameterOptimizationReporter(
         >>> import datetime
         >>> reporter = GenericHyperparameterOptimizationReporter(
         ...     objective_key="error",
-        ...     reference_date=datetime.datetime(2021, 1, 3)
+        ...     reference_date=datetime.datetime(2021, 1, 3),
         ... )
         >>> print(reporter.trial_id)
         20210103000000000000
@@ -319,8 +322,7 @@ class HyperparameterOptimizationContext:
     Example
     -------
     >>> ctx = HyperparameterOptimizationContext(
-    ...     reporter_args=[],
-    ...     reporter_kwargs={"objective_key": "error"}
+    ...     reporter_args=[], reporter_kwargs={"objective_key": "error"}
     ... )
     """
 
@@ -437,10 +439,11 @@ def hyperparameter_optimization(*args, **kwargs):
     Example
     -------
     >>> import sys
-    >>> with hyperparameter_optimization(objective_key="error", output=sys.stdout) as hp_ctx:
+    >>> with hyperparameter_optimization(
+    ...     objective_key="error", output=sys.stdout
+    ... ) as hp_ctx:
     ...     result = {"error": 3.5, "train_loss": 2.1}
     ...     report_result(result)
-    ...
     {"error": 3.5, "train_loss": 2.1, "objective": 3.5}
     """
     hpfit = HyperparameterOptimizationContext(args, kwargs)

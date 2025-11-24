@@ -355,7 +355,7 @@ class Leaf(torch.nn.Module):
     -------
     >>> inp_tensor = torch.rand([10, 8000])
     >>> leaf = Leaf(
-    ...     out_channels=40, window_len=25., window_stride=10., in_channels=1
+    ...     out_channels=40, window_len=25.0, window_stride=10.0, in_channels=1
     ... )
     >>> out_tensor = leaf(inp_tensor)
     >>> out_tensor.shape
@@ -739,9 +739,9 @@ class VocalFeatures(torch.nn.Module):
         self.eps = eps
         self.sma_neighbors = sma_neighbors
 
-        assert (
-            self.max_lag * PERIODIC_NEIGHBORS <= self.window_samples
-        ), f"Need at least {PERIODIC_NEIGHBORS} periods in a window"
+        assert self.max_lag * PERIODIC_NEIGHBORS <= self.window_samples, (
+            f"Need at least {PERIODIC_NEIGHBORS} periods in a window"
+        )
 
         self.compute_fbanks = Filterbank(
             sample_rate=sample_rate,
@@ -780,9 +780,9 @@ class VocalFeatures(torch.nn.Module):
              * spectral_flux: The 2-normed diff between successive spectral values.
              * mfcc_{0-n_mfcc}: The mel cepstral coefficients.
         """
-        assert (
-            audio.dim() == 2
-        ), "Expected audio to be 2-dimensional, [batch, samples]"
+        assert audio.dim() == 2, (
+            "Expected audio to be 2-dimensional, [batch, samples]"
+        )
 
         # Use frame-based autocorrelation to estimate harmonicity and f0
         frames = audio.unfold(
@@ -848,7 +848,7 @@ def moving_average(features, dim=1, n=3):
 
     Example
     -------
-    >>> feats = torch.tensor([[0., 1., 0., 1., 0., 1., 0.]])
+    >>> feats = torch.tensor([[0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0]])
     >>> moving_average(feats)
     tensor([[0.5000, 0.3333, 0.6667, 0.3333, 0.6667, 0.3333, 0.5000]])
     """

@@ -8,7 +8,7 @@ Authors
 import os
 import re
 
-from speechbrain.core import run_opt_defaults
+from speechbrain.utils.run_opts import RunOptions
 
 
 def get_yaml_var(hparam_file):
@@ -183,6 +183,7 @@ def check_yaml_vs_script(hparam_file, script_file):
     detected_vars_train = detect_script_vars(script_file, var_lst)
 
     # Check which variables are declared but not used
+    run_opt_defaults = RunOptions().as_dict()
     default_run_opt_keys = list(run_opt_defaults.keys()) + [
         "rescoring_lm_scale"
     ]

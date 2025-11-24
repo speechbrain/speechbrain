@@ -17,10 +17,10 @@ from pathlib import Path
 
 import numpy as np
 import torch
-import torchaudio
 from hyperpyyaml import load_hyperpyyaml
 
 import speechbrain as sb
+from speechbrain.dataio import audio_io
 from speechbrain.inference.text import GraphemeToPhoneme
 from speechbrain.inference.vocoders import HIFIGAN
 from speechbrain.utils.data_utils import scalarize
@@ -414,7 +414,7 @@ class FastSpeech2Brain(sb.Brain):
                 str(self.last_epoch),
                 f"pred_{sample_type}_{Path(wavs[idx]).stem}.wav",
             )
-            torchaudio.save(path, wav, self.hparams.sample_rate)
+            audio_io.save(path, wav, self.hparams.sample_rate)
 
     def batch_to_device(self, batch, return_metadata=False):
         """Transfers the batch to the target device
@@ -514,9 +514,9 @@ def dataio_prepare(hparams):
         label_phoneme = label_phoneme.split()
         text_seq = input_encoder.encode_sequence_torch(label_phoneme).int()
 
-        assert len(text_seq) == len(
-            durs
-        ), f"{len(text_seq)}, {len(durs), len(label_phoneme)}, ({label_phoneme})"  # ensure every token has a duration
+        assert len(text_seq) == len(durs), (
+            f"{len(text_seq)}, {len(durs), len(label_phoneme)}, ({label_phoneme})"
+        )  # ensure every token has a duration
 
         no_spn_label, last_phonemes = list(), list()
         for i in range(len(label_phoneme)):
@@ -532,7 +532,7 @@ def dataio_prepare(hparams):
             if label_phoneme[i] != "spn"
         ]
 
-        audio, fs = torchaudio.load(wav)
+        audio, fs = audio_io.load(wav)
 
         audio = audio.squeeze()
         audio = audio[int(fs * start) : int(fs * end)]

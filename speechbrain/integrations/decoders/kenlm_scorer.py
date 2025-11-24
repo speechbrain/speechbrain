@@ -61,7 +61,7 @@ def load_unigram_set_from_arpa(arpa_path: str) -> Set[str]:
 
     Example
     -------
-    >>> arpa_file = getfixture('tmpdir').join("bigram.arpa")
+    >>> arpa_file = getfixture("tmpdir").join("bigram.arpa")
     >>> arpa_file.write(
     ...     "Anything can be here\n"
     ...     + "\n"
@@ -73,7 +73,7 @@ def load_unigram_set_from_arpa(arpa_path: str) -> Set[str]:
     ...     + "0 <s>\n"
     ...     + "-0.6931 a 0.\n"
     ...     + "-0.6931 b 0.\n"
-    ...     + "" # Ends unigram section
+    ...     + ""  # Ends unigram section
     ...     + "\\2-grams:\n"
     ...     + "-0.6931 <s> a\n"
     ...     + "-0.6931 a a\n"
@@ -210,17 +210,19 @@ class KenlmScorer:
     Example
     -------
     >>> arpa_file = getfixture("tmpdir").join("bigram_hello.arpa")
-    >>> arpa_file.write("\\data\\\n"
-    ...   + "ngram 1=4\n"
-    ...   + "ngram 2=1\n\n"
-    ...   + "\\1-grams:\n"
-    ...   + "-1.0\t<s>\t-1.0\n"
-    ...   + "-1.0\t</s>\t-1.0\n"
-    ...   + "-1.0\tHello\t-0.23\n"
-    ...   + "-0.7\tworld\t-0.25\n\n"
-    ...   + "\\2-grams:\n"
-    ...   + "-0.3\tHello world\n\n"
-    ...   + "\\end\\")
+    >>> arpa_file.write(
+    ...     "\\data\\\n"
+    ...     + "ngram 1=4\n"
+    ...     + "ngram 2=1\n\n"
+    ...     + "\\1-grams:\n"
+    ...     + "-1.0\t<s>\t-1.0\n"
+    ...     + "-1.0\t</s>\t-1.0\n"
+    ...     + "-1.0\tHello\t-0.23\n"
+    ...     + "-0.7\tworld\t-0.25\n\n"
+    ...     + "\\2-grams:\n"
+    ...     + "-0.3\tHello world\n\n"
+    ...     + "\\end\\"
+    ... )
     >>> model = kenlm.Model(str(arpa_file))
     >>> scorer = KenlmScorer(kenlm_model=model, unigrams=["Hello", "world"])
     >>> state = scorer.get_start_state()

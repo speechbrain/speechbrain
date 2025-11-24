@@ -8,6 +8,7 @@ Authors
     * Cem Subakan 2022, 2023
     * Francesco Paissan 2022, 2023, 2024
 """
+
 import sys
 
 import torch
@@ -337,7 +338,6 @@ class L2I(InterpreterBrain):
 
 
 if __name__ == "__main__":
-
     # CLI:
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
 

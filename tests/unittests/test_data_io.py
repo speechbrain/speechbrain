@@ -19,9 +19,9 @@ def test_read_audio_info(tmpdir, device):
         # This remains an exact read of the metadata, however, which is what we
         # want to test and is the reason for `read_audio_info` to exist (see
         # comments there).
-        assert (
-            32000 <= info.num_frames <= 35000
-        ), f"expected consistent len for codec {ext}"
+        assert 32000 <= info.num_frames <= 35000, (
+            f"expected consistent len for codec {ext}"
+        )
         assert info.sample_rate == 16000
 
 

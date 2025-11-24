@@ -22,6 +22,7 @@ import torchaudio
 from hyperpyyaml import load_hyperpyyaml
 
 import speechbrain as sb
+from speechbrain.dataio import audio_io
 from speechbrain.utils.data_utils import scalarize
 
 
@@ -381,7 +382,7 @@ class HifiGanBrain(sb.Brain):
         target_path = pl.Path(self.hparams.progress_sample_path) / str(epoch)
         target_path.mkdir(parents=True, exist_ok=True)
         file_name = target_path / f"{name}.wav"
-        torchaudio.save(file_name.as_posix(), data.cpu(), 16000)
+        audio_io.save(file_name.as_posix(), data.cpu(), 16000)
 
 
 def sample_interval(seqs, segment_size):
@@ -415,7 +416,7 @@ def dataio_prepare(hparams):
     @sb.utils.data_pipeline.takes("id", "wav", "segment")
     @sb.utils.data_pipeline.provides("code", "sig")
     def audio_pipeline(utt_id, wav, segment):
-        info = torchaudio.info(wav)
+        info = audio_io.info(wav)
         audio = sb.dataio.dataio.read_audio(wav)
         audio = torchaudio.transforms.Resample(
             info.sample_rate,

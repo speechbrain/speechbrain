@@ -39,12 +39,7 @@ def test_CTCSegmentation(asr_model: EncoderDecoderASR):
     #   one blank line
     #   kaldi-style utterance names
     #   one char not included in char list
-    text = (
-        "\n"
-        "utt_a THE BIRCH CANOE\n"
-        "utt_b SLID ON THE\n"
-        "utt_c SMOOTH PLANKS\n"
-    )
+    text = "\nutt_a THE BIRCH CANOE\nutt_b SLID ON THE\nutt_c SMOOTH PLANKS\n"
     aligner = CTCSegmentation(
         asr_model=asr_model,
         kaldi_style_text=True,

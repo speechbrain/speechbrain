@@ -306,7 +306,7 @@ def diarize_dataset(full_meta, split_type, n_lambdas, pval, n_neighbors=10):
         for f in glob.glob(out_rttm_dir + "/*.rttm"):
             if f == concate_rttm_file:
                 continue
-            with open(f, "r", encoding="utf-8") as indi_rttm_file:
+            with open(f, encoding="utf-8") as indi_rttm_file:
                 shutil.copyfileobj(indi_rttm_file, cat_file)
 
     msg = "The system generated RTTM file for %s set : %s" % (
@@ -558,7 +558,7 @@ if __name__ == "__main__":  # noqa: C901
     # AMI Dev Set: Tune hyperparams on dev set.
     # Read the meta-data file for dev set generated during data_prep
     dev_meta_file = params["dev_meta_file"]
-    with open(dev_meta_file, "r", encoding="utf-8") as f:
+    with open(dev_meta_file, encoding="utf-8") as f:
         meta_dev = json.load(f)
 
     full_meta = meta_dev
@@ -600,7 +600,7 @@ if __name__ == "__main__":  # noqa: C901
     # Load 'dev' and 'eval' metadata files.
     full_meta_dev = full_meta  # current full_meta is for 'dev'
     eval_meta_file = params["eval_meta_file"]
-    with open(eval_meta_file, "r", encoding="utf-8") as f:
+    with open(eval_meta_file, encoding="utf-8") as f:
         full_meta_eval = json.load(f)
 
     # Tag to be appended to final output DER files. Writing DER for individual files.

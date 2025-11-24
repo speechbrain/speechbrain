@@ -1,8 +1,8 @@
-""" This file implements the CNN14 model from https://arxiv.org/abs/1912.10211
+"""This file implements the CNN14 model from https://arxiv.org/abs/1912.10211
 
- Authors
- * Cem Subakan 2022
- * Francesco Paissan 2022
+Authors
+* Cem Subakan 2022
+* Francesco Paissan 2022
 """
 
 import torch
@@ -39,7 +39,7 @@ class ConvBlock(nn.Module):
 
     Example
     -------
-    >>> convblock = ConvBlock(10, 20, 'ln')
+    >>> convblock = ConvBlock(10, 20, "ln")
     >>> x = torch.rand(5, 10, 20, 30)
     >>> y = convblock(x)
     >>> print(y.shape)
@@ -80,7 +80,7 @@ class ConvBlock(nn.Module):
             self.norm1 = nn.GroupNorm(1, out_channels)
             self.norm2 = nn.GroupNorm(1, out_channels)
         else:
-            raise ValueError("Unknown norm type {}".format(norm_type))
+            raise ValueError(f"Unknown norm type {norm_type}")
 
         self.init_weight()
 
@@ -171,7 +171,7 @@ class Cnn14(nn.Module):
         elif norm_type == "ln":
             self.norm0 = nn.GroupNorm(1, mel_bins)
         else:
-            raise ValueError("Unknown norm type {}".format(norm_type))
+            raise ValueError(f"Unknown norm type {norm_type}")
 
         self.conv_block1 = ConvBlock(
             in_channels=1, out_channels=64, norm_type=norm_type

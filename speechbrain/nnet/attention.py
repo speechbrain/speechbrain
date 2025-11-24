@@ -6,6 +6,7 @@ Authors
  * Loren Lugosch 2020
  * Samuele Cornell 2020
  * Shucong Zhang 2024
+
 """
 
 import math
@@ -47,7 +48,9 @@ class ContentBasedAttention(nn.Module):
     >>> enc_tensor = torch.rand([4, 10, 20])
     >>> enc_len = torch.ones([4]) * 10
     >>> dec_tensor = torch.rand([4, 25])
-    >>> net = ContentBasedAttention(enc_dim=20, dec_dim=25, attn_dim=30, output_dim=5)
+    >>> net = ContentBasedAttention(
+    ...     enc_dim=20, dec_dim=25, attn_dim=30, output_dim=5
+    ... )
     >>> out_tensor, out_weight = net(enc_tensor, enc_len, dec_tensor)
     >>> out_tensor.shape
     torch.Size([4, 5])
@@ -148,7 +151,8 @@ class LocationAwareAttention(nn.Module):
     ...     attn_dim=30,
     ...     output_dim=5,
     ...     conv_channels=10,
-    ...     kernel_size=100)
+    ...     kernel_size=100,
+    ... )
     >>> out_tensor, out_weight = net(enc_tensor, enc_len, dec_tensor)
     >>> out_tensor.shape
     torch.Size([4, 5])
@@ -269,7 +273,9 @@ class KeyValueAttention(nn.Module):
     >>> enc_tensor = torch.rand([4, 10, 20])
     >>> enc_len = torch.ones([4]) * 10
     >>> dec_tensor = torch.rand([4, 25])
-    >>> net = KeyValueAttention(enc_dim=20, dec_dim=25, attn_dim=30, output_dim=5)
+    >>> net = KeyValueAttention(
+    ...     enc_dim=20, dec_dim=25, attn_dim=30, output_dim=5
+    ... )
     >>> out_tensor, out_weight = net(enc_tensor, enc_len, dec_tensor)
     >>> out_tensor.shape
     torch.Size([4, 5])
@@ -444,7 +450,7 @@ class RelPosMHAXL(nn.Module):
     Example
     -------
     >>> inputs = torch.rand([6, 60, 512])
-    >>> pos_emb = torch.rand([1, 2*60-1, 512])
+    >>> pos_emb = torch.rand([1, 2 * 60 - 1, 512])
     >>> net = RelPosMHAXL(num_heads=8, embed_dim=inputs.shape[-1])
     >>> outputs, attn = net(inputs, inputs, inputs, pos_emb)
     >>> outputs.shape
@@ -472,12 +478,12 @@ class RelPosMHAXL(nn.Module):
         self.head_dim = embed_dim // num_heads
         self.vhead_dim = self.vdim // num_heads
 
-        assert (
-            self.head_dim * num_heads == self.embed_dim
-        ), "embed_dim must be divisible by num_heads"
-        assert (
-            self.vhead_dim * num_heads == self.vdim
-        ), "vdim must be divisible by num_heads"
+        assert self.head_dim * num_heads == self.embed_dim, (
+            "embed_dim must be divisible by num_heads"
+        )
+        assert self.vhead_dim * num_heads == self.vdim, (
+            "vdim must be divisible by num_heads"
+        )
 
         if self._qkv_same_embed_dim is False:
             self.qk_proj_weight = nn.Parameter(
@@ -964,7 +970,9 @@ class PrecomputedRoPESinusoids(nn.Module):
 
     Example
     -------
-    >>> precomputed = PrecomputedRoPESinusoids(3, 8, torch.float32, torch.device('cpu'))
+    >>> precomputed = PrecomputedRoPESinusoids(
+    ...     3, 8, torch.float32, torch.device("cpu")
+    ... )
     >>> precomputed.cosines.shape
     torch.Size([3, 8])
     >>> precomputed.sines.shape == precomputed.cosines.shape
@@ -1079,7 +1087,7 @@ class MemoiseAtLeastSize:
 
 
 def memoise_at_least(
-    round_up: Callable[[Any], Any]
+    round_up: Callable[[Any], Any],
 ) -> Callable[[Callable], MemoiseAtLeastSize]:
     """
     Decorator that memoises a function which has as its first argument a value
@@ -1230,12 +1238,12 @@ class RoPEMHA(nn.Module):
         self.head_dim = embed_dim // num_heads
         self.vhead_dim = self.vdim // num_heads
 
-        assert (
-            self.head_dim * num_heads == self.embed_dim
-        ), "embed_dim must be divisible by num_heads"
-        assert (
-            self.vhead_dim * num_heads == self.vdim
-        ), "vdim must be divisible by num_heads"
+        assert self.head_dim * num_heads == self.embed_dim, (
+            "embed_dim must be divisible by num_heads"
+        )
+        assert self.vhead_dim * num_heads == self.vdim, (
+            "vdim must be divisible by num_heads"
+        )
 
         if self._qkv_same_embed_dim is False:
             self.qk_proj_weight = nn.Parameter(

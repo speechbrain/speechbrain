@@ -1,4 +1,4 @@
-""" This file contains the loss functions for k2 training. Currently, we only
+"""This file contains the loss functions for k2 training. Currently, we only
 support CTC loss.
 
 Authors:
@@ -57,7 +57,9 @@ def ctc_k2(
     -------
     >>> import torch
     >>> from speechbrain.integrations.k2_fsa.losses import ctc_k2
-    >>> from speechbrain.integrations.k2_fsa.graph_compiler import CtcGraphCompiler
+    >>> from speechbrain.integrations.k2_fsa.graph_compiler import (
+    ...     CtcGraphCompiler,
+    ... )
     >>> from speechbrain.integrations.k2_fsa.lexicon import Lexicon
     >>> from speechbrain.integrations.k2_fsa.prepare_lang import prepare_lang
 
@@ -69,7 +71,7 @@ def ctc_k2(
     >>> # Assume all utterances have the same length so no padding was needed.
     >>> input_lens = torch.ones(batch_size)
     >>> # Create a small lexicon containing only two words and write it to a file.
-    >>> lang_tmpdir = getfixture('tmpdir')
+    >>> lang_tmpdir = getfixture("tmpdir")
     >>> lexicon_sample = "hello h e l l o\\nworld w o r l d\\n<UNK> <unk>"
     >>> lexicon_file = lang_tmpdir.join("lexicon.txt")
     >>> lexicon_file.write(lexicon_sample)

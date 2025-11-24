@@ -15,10 +15,10 @@ from dataclasses import dataclass, field
 from typing import List
 
 import torch
-import torchaudio
 from tqdm import tqdm
 
 from speechbrain.augment.time_domain import Resample
+from speechbrain.dataio import audio_io
 from speechbrain.utils.data_utils import get_all_files
 from speechbrain.utils.logger import get_logger
 from speechbrain.utils.torch_audio_backend import check_torchaudio_backend
@@ -95,8 +95,8 @@ def prepare_fisher_callhome_spanish(
 
     Example
     -------
-    >>> data_folder = '/path/to/fisher-callhome'
-    >>> save_folder = 'data'
+    >>> data_folder = "/path/to/fisher-callhome"
+    >>> save_folder = "data"
     >>> prepare_fisher_callhome_spanish(data_folder, save_folder)
     """
 
@@ -270,7 +270,7 @@ def check_folders(*folders) -> bool:
 
 
 def get_data_list(path: str) -> str:
-    with open(path, "r", encoding="utf-8") as data_file:
+    with open(path, encoding="utf-8") as data_file:
         return data_file.readlines()
 
 
@@ -313,7 +313,7 @@ def concate_transcriptions_by_mapping_file(
 ) -> List[Data]:
     """return concated transcriptions from the given mapping file"""
 
-    with open(mapping_file_path, "r", encoding="utf-8") as fisher_mapping_file:
+    with open(mapping_file_path, encoding="utf-8") as fisher_mapping_file:
         fisher_mapping = fisher_mapping_file.readlines()
         utterances = []
 
@@ -330,8 +330,9 @@ def concate_transcriptions_by_mapping_file(
             if len(need_to_be_concate_lines) > 1:
                 # index shift one is because id is count from 1 in file however, list start from 0
                 concated_transcripts = selected_transcription[
-                    need_to_be_concate_lines[0]
-                    - 1 : need_to_be_concate_lines[-1]
+                    need_to_be_concate_lines[0] - 1 : need_to_be_concate_lines[
+                        -1
+                    ]
                 ]
                 concated_transcripts = list(
                     map(lambda tdf: tdf.transcript, concated_transcripts)
@@ -392,7 +393,7 @@ def segment_audio(
     end = int(end / 100 * 8000)
     num_frames = end - start
 
-    data, _ = torchaudio.load(
+    data, _ = audio_io.load(
         audio_path, frame_offset=start, num_frames=num_frames
     )
 
@@ -401,7 +402,7 @@ def segment_audio(
     data = resampler(data)
     data = torch.unsqueeze(data[channel], 0)
 
-    torchaudio.save(save_path, src=data, sample_rate=sample_rate)
+    audio_io.save(save_path, src=data, sample_rate=sample_rate)
 
 
 def get_transcription_files_by_dataset(
@@ -478,7 +479,7 @@ def make_data_splits(
         for fisher_split in fisher_splits:
             split = set()
             with open(
-                f"{mapping_folder}/fisher_{fisher_split}", "r", encoding="utf-8"
+                f"{mapping_folder}/fisher_{fisher_split}", encoding="utf-8"
             ) as fisher_file, open(
                 f"./splits/{fisher_split}", "a+", encoding="utf-8"
             ) as split_file:
@@ -502,7 +503,7 @@ def remove_punctuation(text: str) -> str:
     text = text.replace("'", "apostrophe")
 
     # based on the definition of [[:punct]]
-    punctuation = r"[{}]".format(string.punctuation)
+    punctuation = rf"[{string.punctuation}]"
 
     text = re.sub(punctuation, "", text)
     text = text.replace("spacemark", "<space>")
@@ -652,7 +653,7 @@ def clean_transcription(transcription: str) -> str:
     transcription = transcription.replace("<", "larrow")
     transcription = transcription.replace(">", "rarrow")
 
-    punctuation = r"[{}]".format(string.punctuation)
+    punctuation = rf"[{string.punctuation}]"
     transcription = re.sub(punctuation, "", transcription)
 
     transcription = transcription.replace("larrow", "<")

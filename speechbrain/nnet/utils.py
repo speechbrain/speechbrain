@@ -40,15 +40,11 @@ class DoneDetector(nn.Module):
     ...     rnn_layers=1,
     ...     rnn_neurons=16,
     ...     dnn_blocks=1,
-    ...     dnn_neurons=16
+    ...     dnn_neurons=16,
     ... )
     >>> model_out = Linear(n_neurons=1, input_size=16)
     >>> model_act = nn.Sigmoid()
-    >>> model = Sequential(
-    ...     crdnn,
-    ...     model_out,
-    ...     model_act
-    ... )
+    >>> model = Sequential(crdnn, model_out, model_act)
     >>> out = Softmax(
     ...     apply_log=False,
     ... )
@@ -56,8 +52,8 @@ class DoneDetector(nn.Module):
     ...     model=model,
     ...     out=out,
     ... )
-    >>> preds = torch.randn(4, 10, 80) # Batch x Length x Feats
-    >>> length = torch.tensor([1., .8, .5, 1.])
+    >>> preds = torch.randn(4, 10, 80)  # Batch x Length x Feats
+    >>> length = torch.tensor([1.0, 0.8, 0.5, 1.0])
     >>> preds_len = done_detector(preds, length)
     >>> preds_len.shape
     torch.Size([4, 10, 1])

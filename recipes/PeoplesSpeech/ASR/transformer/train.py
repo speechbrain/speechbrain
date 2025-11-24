@@ -279,7 +279,6 @@ def dataio_prepare(hparams):
         "wrd", "tokens_list", "tokens_bos", "tokens_eos", "tokens"
     )
     def text_pipeline(wrd):
-
         wrd = english_specific_preprocess(wrd)
         yield wrd
         tokens_list = tokenizer.sp.encode_as_ids(wrd)

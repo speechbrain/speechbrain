@@ -48,4 +48,4 @@ do_clip: !new:speechbrain.augment.time_domain.DoClip
 
 speed_perturb: !new:speechbrain.augment.time_domain.SpeedPerturb
     orig_freq: !ref <sample_rate>
-    speeds: [90]
+    speeds: [111.11]

@@ -92,13 +92,15 @@ class SentencePiece:
     -------
     >>> import torch
     >>> dict_int2lab = {1: "HELLO", 2: "MORNING"}
-    >>> model_dir = getfixture('tmpdir') / "tokenizer_data"
+    >>> model_dir = getfixture("tmpdir") / "tokenizer_data"
     >>> # Example with csv
     >>> annotation_train = "tests/samples/annotation/dev-clean.csv"
     >>> annotation_read = "wrd"
     >>> model_type = "bpe"
-    >>> bpe = SentencePiece(str(model_dir), 100, annotation_train, annotation_read, model_type)
-    >>> batch_seq = torch.Tensor([[1, 2, 2, 1],[1, 2, 1, 0]])
+    >>> bpe = SentencePiece(
+    ...     str(model_dir), 100, annotation_train, annotation_read, model_type
+    ... )
+    >>> batch_seq = torch.Tensor([[1, 2, 2, 1], [1, 2, 1, 0]])
     >>> batch_lens = torch.Tensor([1.0, 0.75])
     >>> encoded_seq_ids, encoded_seq_pieces = bpe(
     ...     batch_seq, batch_lens, dict_int2lab, task="encode"
@@ -106,7 +108,14 @@ class SentencePiece:
     >>> # Example using JSON
     >>> annotation_train = str(model_dir + "/dev-clean.json")
     >>> annotation_read = "wrd"
-    >>> bpe = SentencePiece(model_dir, 100, annotation_train, annotation_read, model_type, annotation_format = 'json')
+    >>> bpe = SentencePiece(
+    ...     model_dir,
+    ...     100,
+    ...     annotation_train,
+    ...     annotation_read,
+    ...     model_type,
+    ...     annotation_format="json",
+    ... )
     >>> encoded_seq_ids, encoded_seq_pieces = bpe(
     ...     batch_seq, batch_lens, dict_int2lab, task="encode"
     ... )
@@ -215,7 +224,7 @@ class SentencePiece:
             + " sequences from:"
             + self.annotation_train
         )
-        annotation_file = open(self.annotation_train, "r", encoding="utf-8")
+        annotation_file = open(self.annotation_train, encoding="utf-8")
         reader = csv.reader(annotation_file)
         headers = next(reader, None)
         if self.annotation_read not in headers:
@@ -257,7 +266,7 @@ class SentencePiece:
         )
 
         # Read JSON
-        with open(self.annotation_train, "r", encoding="utf-8") as f:
+        with open(self.annotation_train, encoding="utf-8") as f:
             out_json = json.load(f)
 
         # Save text file
@@ -347,9 +356,7 @@ class SentencePiece:
                 )
                 # csv reading
                 if self.annotation_format == "csv":
-                    fannotation_file = open(
-                        annotation_file, "r", encoding="utf-8"
-                    )
+                    fannotation_file = open(annotation_file, encoding="utf-8")
                     reader = csv.reader(fannotation_file)
                     headers = next(reader, None)
                     if self.annotation_read not in headers:
@@ -361,9 +368,7 @@ class SentencePiece:
                     index_label = headers.index(self.annotation_read)
                 # json reading
                 else:
-                    with open(
-                        self.annotation_train, "r", encoding="utf-8"
-                    ) as f:
+                    with open(self.annotation_train, encoding="utf-8") as f:
                         reader = json.load(f)
                         index_label = self.annotation_read
 

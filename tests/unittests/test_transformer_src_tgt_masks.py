@@ -3,7 +3,6 @@ import torch.nn
 
 
 def test_make_transformer_src_tgt_masks(device):
-
     from numpy import inf
 
     from speechbrain.lobes.models.transformer.TransformerASR import (
@@ -44,7 +43,6 @@ def test_make_transformer_src_tgt_masks(device):
 
 
 def test_make_transformer_src_mask(device):
-
     from speechbrain.lobes.models.transformer.TransformerASR import (
         make_transformer_src_mask,
     )
@@ -67,7 +65,6 @@ def test_make_transformer_src_mask(device):
 
 
 def test_get_lookahead_mask(device):
-
     from numpy import inf
 
     from speechbrain.lobes.models.transformer.Transformer import (
@@ -89,7 +86,6 @@ def test_get_lookahead_mask(device):
 
 
 def test_get_key_padding_mask(device):
-
     from speechbrain.lobes.models.transformer.Transformer import (
         get_key_padding_mask,
     )

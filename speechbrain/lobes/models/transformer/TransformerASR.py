@@ -563,8 +563,12 @@ class TransformerASR(TransformerInterface):
         Example
         -------
         >>> import torch
-        >>> from speechbrain.lobes.models.transformer.TransformerASR import TransformerASR
-        >>> from speechbrain.utils.dynamic_chunk_training import DynChunkTrainConfig
+        >>> from speechbrain.lobes.models.transformer.TransformerASR import (
+        ...     TransformerASR,
+        ... )
+        >>> from speechbrain.utils.dynamic_chunk_training import (
+        ...     DynChunkTrainConfig,
+        ... )
         >>> net = TransformerASR(
         ...     tgt_vocab=100,
         ...     input_size=64,

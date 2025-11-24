@@ -15,11 +15,12 @@ from pathlib import Path
 
 import numpy as np
 import torch
-import torchaudio
 import tqdm
 
 # from oct2py import octave
 from scipy import signal
+
+from speechbrain.dataio import audio_io
 
 parser = argparse.ArgumentParser(
     "utility for resampling all audio files in a folder recursively"
@@ -54,7 +55,7 @@ def resample_folder(input_folder, output_folder, fs, regex):
 
     files = glob.glob(os.path.join(input_folder, regex), recursive=True)
     for f in tqdm.tqdm(files):
-        audio, fs_read = torchaudio.load(f)
+        audio, fs_read = audio_io.load(f)
         audio = audio[0].numpy()
         audio = signal.resample_poly(audio, fs, fs_read)
 
@@ -67,8 +68,7 @@ def resample_folder(input_folder, output_folder, fs, regex):
 
         relative_path = os.path.join(
             Path(f).relative_to(Path(input_folder)).parent,
-            Path(f).relative_to(Path(input_folder)).stem
-            + "_peak_{}.wav".format(peak),
+            Path(f).relative_to(Path(input_folder)).stem + f"_peak_{peak}.wav",
         )
 
         os.makedirs(
@@ -80,7 +80,7 @@ def resample_folder(input_folder, output_folder, fs, regex):
             exist_ok=True,
         )
 
-        torchaudio.save(
+        audio_io.save(
             os.path.join(output_folder, relative_path),
             audio.reshape(1, -1),
             fs,

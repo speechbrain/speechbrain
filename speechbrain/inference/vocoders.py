@@ -1,4 +1,4 @@
-""" Specifies the inference interfaces for Text-To-Speech (TTS) modules.
+"""Specifies the inference interfaces for Text-To-Speech (TTS) modules.
 
 Authors:
  * Aku Rouhe 2021
@@ -35,13 +35,15 @@ class HIFIGAN(Pretrained):
 
     Example
     -------
-    >>> tmpdir_vocoder = getfixture('tmpdir') / "vocoder"
-    >>> hifi_gan = HIFIGAN.from_hparams(source="speechbrain/tts-hifigan-ljspeech", savedir=tmpdir_vocoder)
-    >>> mel_specs = torch.rand(2, 80,298)
+    >>> tmpdir_vocoder = getfixture("tmpdir") / "vocoder"
+    >>> hifi_gan = HIFIGAN.from_hparams(
+    ...     source="speechbrain/tts-hifigan-ljspeech", savedir=tmpdir_vocoder
+    ... )
+    >>> mel_specs = torch.rand(2, 80, 298)
     >>> waveforms = hifi_gan.decode_batch(mel_specs)
     >>> # You can use the vocoder coupled with a TTS system
     >>>	# Initialize TTS (tacotron2)
-    >>> tmpdir_tts = getfixture('tmpdir') / "tts"
+    >>> tmpdir_tts = getfixture("tmpdir") / "tts"
     >>> from speechbrain.inference.TTS import Tacotron2
     >>>	tacotron2 = Tacotron2.from_hparams(source="speechbrain/tts-tacotron2-ljspeech", savedir=tmpdir_tts)
     >>>	# Running the TTS
@@ -129,10 +131,12 @@ class HIFIGAN(Pretrained):
         waveform: torch.Tensor
             waveform [1, time]
         audio can be saved by:
-        >>> import torchaudio
+        >>> from speechbrain.dataio import audio_io
         >>> waveform = torch.rand(1, 666666)
         >>> sample_rate = 22050
-        >>> torchaudio.save(str(getfixture('tmpdir') / "test.wav"), waveform, sample_rate)
+        >>> audio_io.save(
+        ...     str(getfixture("tmpdir") / "test.wav"), waveform, sample_rate
+        ... )
         """
         if self.first_call:
             self.hparams.generator.remove_weight_norm()
@@ -269,10 +273,12 @@ class DiffWaveVocoder(Pretrained):
             waveform [1, time]
 
         audio can be saved by:
-        >>> import torchaudio
+        >>> from speechbrain.dataio import audio_io
         >>> waveform = torch.rand(1, 666666)
         >>> sample_rate = 22050
-        >>> torchaudio.save(str(getfixture('tmpdir') / "test.wav"), waveform, sample_rate)
+        >>> audio_io.save(
+        ...     str(getfixture("tmpdir") / "test.wav"), waveform, sample_rate
+        ... )
         """
         with torch.no_grad():
             waveform = self.infer(
@@ -302,8 +308,11 @@ class UnitHIFIGAN(Pretrained):
 
     Example
     -------
-    >>> tmpdir_vocoder = getfixture('tmpdir') / "vocoder"
-    >>> hifi_gan = UnitHIFIGAN.from_hparams(source="speechbrain/hifigan-hubert-l1-3-7-12-18-23-k1000-LibriTTS", savedir=tmpdir_vocoder)
+    >>> tmpdir_vocoder = getfixture("tmpdir") / "vocoder"
+    >>> hifi_gan = UnitHIFIGAN.from_hparams(
+    ...     source="speechbrain/hifigan-hubert-l1-3-7-12-18-23-k1000-LibriTTS",
+    ...     savedir=tmpdir_vocoder,
+    ... )
     >>> codes = torch.randint(0, 99, (100, 1))
     >>> waveform = hifi_gan.decode_unit(codes)
     """

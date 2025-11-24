@@ -3,13 +3,13 @@ from functools import partial
 
 import numpy as np
 import torch
-import torchaudio
 from hyperpyyaml import load_hyperpyyaml
 from sep28k_prepare import prepare_sep28k
 from sklearn.metrics import confusion_matrix
 from torch.utils.tensorboard import SummaryWriter
 
 import speechbrain as sb
+from speechbrain.dataio import audio_io
 from speechbrain.utils import hpopt as hp
 from speechbrain.utils.distributed import run_on_main
 from speechbrain.utils.metric_stats import BinaryMetricStats
@@ -113,7 +113,7 @@ def dataio_prep(hparams):
     def audio_pipeline(Show, EpId, ClipId):
         EpId = int(EpId)
         file = f"{hparams['data_folder']}/sep28k_clips/{Show}/{EpId}/{Show}_{EpId}_{ClipId}.wav"
-        waveform, _ = torchaudio.load(file, normalize=True)
+        waveform, _ = audio_io.load(file, normalize=True)
         return (EpId, int(ClipId)), waveform.squeeze()
 
     @sb.utils.data_pipeline.takes(
@@ -186,7 +186,7 @@ if __name__ == "__main__":
         hparams_file, run_opts, overrides = hp_ctx.parse_arguments(
             sys.argv[1:]
         )  # <-- Replace sb with hp_ctx
-        with open(hparams_file, "r", encoding="utf-8") as fin:
+        with open(hparams_file, encoding="utf-8") as fin:
             hparams = load_hyperpyyaml(fin, overrides)
             if hp_ctx.reporter is not None:
                 hparams["output_folder"] = (

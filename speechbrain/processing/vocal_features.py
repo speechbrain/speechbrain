@@ -308,15 +308,15 @@ def compute_gne(
     Example
     -------
     >>> sample_rate = 16000
-    >>> audio = torch.rand(1, sample_rate) # 1s of audio
+    >>> audio = torch.rand(1, sample_rate)  # 1s of audio
     >>> gne = compute_gne(audio, sample_rate=sample_rate)
     >>> gne.shape
     torch.Size([1, 98])
     """
 
-    assert (
-        audio.dim() == 2
-    ), "Expected audio to be 2-dimensional, [batch, sample]"
+    assert audio.dim() == 2, (
+        "Expected audio to be 2-dimensional, [batch, sample]"
+    )
 
     # Step 1. Downsample to 10 kHz since voice energy is low above 5 kHz
     old_sample_rate, sample_rate = sample_rate, 10000

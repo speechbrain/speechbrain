@@ -28,7 +28,17 @@ class GumbelVectorQuantizer(nn.Module):
 
     Example
     -------
-    >>> quantiser = GumbelVectorQuantizer(128, 100, (2.0, 0.25, 0.999995,), 2, 50 )
+    >>> quantiser = GumbelVectorQuantizer(
+    ...     128,
+    ...     100,
+    ...     (
+    ...         2.0,
+    ...         0.25,
+    ...         0.999995,
+    ...     ),
+    ...     2,
+    ...     50,
+    ... )
     >>> inputs = torch.rand(10, 12, 128)
     >>> output = quantiser(inputs)
     >>> output["x"].shape
@@ -43,9 +53,9 @@ class GumbelVectorQuantizer(nn.Module):
         self.num_vars = num_vars
         self.vq_dim = vq_dim
 
-        assert (
-            vq_dim % groups == 0
-        ), f"dim {vq_dim} must be divisible by groups {groups} for concatenation"
+        assert vq_dim % groups == 0, (
+            f"dim {vq_dim} must be divisible by groups {groups} for concatenation"
+        )
 
         var_dim = vq_dim // groups
 

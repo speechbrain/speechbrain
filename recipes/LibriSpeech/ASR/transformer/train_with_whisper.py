@@ -108,7 +108,6 @@ class ASR(sb.Brain):
                 target_words, skip_special_tokens=True
             )
             if hasattr(self.hparams, "normalized_transcripts"):
-
                 if hasattr(self.tokenizer, "normalize"):
                     normalized_fn = self.tokenizer.normalize
                 else:

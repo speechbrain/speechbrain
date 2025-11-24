@@ -149,7 +149,9 @@ def prepare_SLURP(
                         "action": action,
                         "entities": entities,
                     }
-                    semantics_ = str(semantics_dict).replace(
+                    semantics_ = str(
+                        semantics_dict
+                    ).replace(
                         ",", "|"
                     )  # Commas in dict will make using csv files tricky; replace with pipe.
                     semantics.append(semantics_)

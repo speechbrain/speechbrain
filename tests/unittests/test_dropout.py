@@ -3,7 +3,6 @@ import torch.nn
 
 
 def test_dropout(device):
-
     from speechbrain.nnet.dropout import Dropout2d
 
     inputs = torch.rand([4, 10, 32], device=device)

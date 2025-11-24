@@ -20,8 +20,11 @@ from speechbrain.lm.arpa import arpa_to_fst
 from speechbrain.utils.distributed import run_on_main
 from speechbrain.utils.logger import get_logger
 
-from . import k2  # import k2 from ./__init__.py
-from . import graph_compiler, utils
+from . import (
+    graph_compiler,
+    k2,  # import k2 from ./__init__.py
+    utils,
+)
 
 logger = get_logger(__name__)
 
@@ -76,7 +79,9 @@ def get_decoding(
     >>> import torch
     >>> from speechbrain.integrations.k2_fsa.losses import ctc_k2
     >>> from speechbrain.integrations.k2_fsa.utils import lattice_paths_to_text
-    >>> from speechbrain.integrations.k2_fsa.graph_compiler import CtcGraphCompiler
+    >>> from speechbrain.integrations.k2_fsa.graph_compiler import (
+    ...     CtcGraphCompiler,
+    ... )
     >>> from speechbrain.integrations.k2_fsa.lexicon import Lexicon
     >>> from speechbrain.integrations.k2_fsa.prepare_lang import prepare_lang
     >>> from speechbrain.integrations.k2_fsa.lattice_decoder import get_decoding
@@ -89,7 +94,7 @@ def get_decoding(
     >>> # Assume all utterances have the same length so no padding was needed.
     >>> input_lens = torch.ones(batch_size)
     >>> # Create a small lexicon containing only two words and write it to a file.
-    >>> lang_tmpdir = getfixture('tmpdir')
+    >>> lang_tmpdir = getfixture("tmpdir")
     >>> lexicon_sample = "hello h e l l o\\nworld w o r l d\\n<UNK> <unk>"
     >>> lexicon_file = lang_tmpdir.join("lexicon.txt")
     >>> lexicon_file.write(lexicon_sample)
@@ -104,12 +109,15 @@ def get_decoding(
     ... )
 
     >>> decode = get_decoding(
-    ...     {"compose_HL_with_G": False,
-    ...      "decoding_method": "onebest",
-    ...      "lang_dir": lang_tmpdir},
-    ...     graph)
+    ...     {
+    ...         "compose_HL_with_G": False,
+    ...         "decoding_method": "onebest",
+    ...         "lang_dir": lang_tmpdir,
+    ...     },
+    ...     graph,
+    ... )
     >>> lattice = get_lattice(log_probs, input_lens, decode["decoding_graph"])
-    >>> path = decode["decoding_method"](lattice)['1best']
+    >>> path = decode["decoding_method"](lattice)["1best"]
     >>> text = lattice_paths_to_text(path, lexicon.word_table)
     """
 

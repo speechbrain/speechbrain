@@ -121,7 +121,7 @@ def load_utterInfo(inputFile):
         r"[\[]*[0-9]*[.][0-9]*[ -]*[0-9]*[.][0-9]*[\]][\t][a-z0-9_]*[\t][a-z]{3}[\t][\[][0-9]*[.][0-9]*[, ]+[0-9]*[.][0-9]*[, ]+[0-9]*[.][0-9]*[\]]",
         re.IGNORECASE,
     )  # noqa
-    with open(inputFile, "r", encoding="utf-8") as myfile:
+    with open(inputFile, encoding="utf-8") as myfile:
         data = myfile.read().replace("\n", " ")
     result = pattern.findall(data)
     out = []

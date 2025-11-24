@@ -11,6 +11,7 @@ Authors
     * Francesco Paissan 2024
     * Cem Subakan 2024
 """
+
 import sys
 
 import torch
@@ -299,7 +300,6 @@ class LMAC(InterpreterBrain):
 
 
 if __name__ == "__main__":
-
     # CLI:
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
 

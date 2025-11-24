@@ -8,7 +8,6 @@ from speechbrain.nnet.attention import memoise_at_least
 
 
 def test_rel_pos_MHA(device):
-
     from speechbrain.nnet.attention import RelPosMHAXL
 
     bsz = 2
@@ -91,9 +90,9 @@ def rope_rotate_slow(x: np.ndarray):
             result[dimension_pair_index * 2][dimension_pair_index * 2] = (
                 math.cos(angle)
             )
-            result[dimension_pair_index * 2][dimension_pair_index * 2 + 1] = (
-                -math.sin(angle)
-            )
+            result[dimension_pair_index * 2][
+                dimension_pair_index * 2 + 1
+            ] = -math.sin(angle)
             result[dimension_pair_index * 2 + 1][dimension_pair_index * 2] = (
                 math.sin(angle)
             )

@@ -457,7 +457,6 @@ def test_get_mask(device):
     generator = np.random.default_rng(seed=20250424)
 
     for dtype in [torch.bool, torch.int, torch.int64, torch.float32]:
-
         examples = generate_lengths(generator, number=50, lengths_ndim=1)
         for max_length, lengths, _ in examples:
             reference_mask = reference_length_to_mask(

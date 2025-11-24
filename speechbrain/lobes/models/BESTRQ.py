@@ -46,7 +46,7 @@ def compute_mask(shape, sample_lens, mask_prob, mask_length):
 
     Example
     -------
-    >>> compute_mask((2,50,60), [40, 50], 0.15, 2).shape
+    >>> compute_mask((2, 50, 60), [40, 50], 0.15, 2).shape
     torch.Size([12])
     """
     min_sample_len = min(sample_lens)

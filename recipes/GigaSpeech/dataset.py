@@ -425,14 +425,17 @@ class Gigaspeech(datasets.GeneratorBasedBuilder):
                     else audio_path_in_archive
                 )
 
-                yield audio_id, {
-                    "audio": {"path": path, "bytes": audio_file.read()},
-                    **{
-                        feature: value
-                        for feature, value in audio_meta.items()
-                        if feature in self.info.features
+                yield (
+                    audio_id,
+                    {
+                        "audio": {"path": path, "bytes": audio_file.read()},
+                        **{
+                            feature: value
+                            for feature, value in audio_meta.items()
+                            if feature in self.info.features
+                        },
                     },
-                }
+                )
 
 
 def _flatten_nested_dict(nested_dict):

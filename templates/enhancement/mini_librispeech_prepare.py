@@ -46,8 +46,10 @@ def prepare_mini_librispeech(
 
     Example
     -------
-    >>> data_folder = '/path/to/mini_librispeech'
-    >>> prepare_mini_librispeech(data_folder, 'train.json', 'valid.json', 'test.json')
+    >>> data_folder = "/path/to/mini_librispeech"
+    >>> prepare_mini_librispeech(
+    ...     data_folder, "train.json", "valid.json", "test.json"
+    ... )
     """
     # Check if this phase is already done (if so, skip it)
     if skip(save_json_train, save_json_valid, save_json_test):
@@ -88,7 +90,6 @@ def create_json(wav_list, json_file):
     # Processing all the wav files in the list
     json_dict = {}
     for wav_file in wav_list:
-
         # Reading the signal (to retrieve duration in seconds)
         signal = read_audio(wav_file)
         duration = signal.shape[0] / SAMPLERATE

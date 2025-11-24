@@ -20,17 +20,15 @@ class BLEUStats(MetricStats):
     -------
     >>> bleu = BLEUStats()
     >>> bleu.append(
-    ...     ids=['utterance1', 'utterance2'],
-    ...     predict=[
-    ...         'The dog bit the man.',
-    ...         'It was not surprising.'],
+    ...     ids=["utterance1", "utterance2"],
+    ...     predict=["The dog bit the man.", "It was not surprising."],
     ...     targets=[
-    ...                ['The dog bit the man.', 'It was not unexpected.'],
-    ...                ['The dog had bit the man.', 'No one was surprised.']
-    ...             ]
+    ...         ["The dog bit the man.", "It was not unexpected."],
+    ...         ["The dog had bit the man.", "No one was surprised."],
+    ...     ],
     ... )
     >>> stats = bleu.summarize()
-    >>> stats['BLEU']
+    >>> stats["BLEU"]
     74.19446627365011
     """
 
@@ -39,8 +37,8 @@ class BLEUStats(MetricStats):
         try:
             from sacrebleu.metrics import BLEU
         except ImportError:
-            print(
-                "Please install sacrebleu (https://pypi.org/project/sacrebleu/) in order to use the BLEU metric"
+            raise ImportError(
+                "Missing `sacrebleu` toolkit. Please install it with `pip install sacrebleu` in order to use the BLEU metric."
             )
 
         self.clear()
