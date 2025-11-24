@@ -23,7 +23,15 @@ def test_parse_arguments_both_formats():
 
     # Test with --arg value format
     filename2, run_opts2, overrides2 = RunOptions.from_command_line_args(
-        ["params.yaml", "--device", "cuda:1", "--max_grad_norm", "10.0", "--seed", "99"]
+        [
+            "params.yaml",
+            "--device",
+            "cuda:1",
+            "--max_grad_norm",
+            "10.0",
+            "--seed",
+            "99",
+        ]
     )
     assert filename2 == "params.yaml"
     assert run_opts2["device"] == "cuda:1"
