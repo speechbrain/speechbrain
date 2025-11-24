@@ -88,11 +88,11 @@ def test_fwd_default_precision_force_allow_autocast():
     module = TestModule()
     x = torch.randn(10, 10, dtype=torch.float16)
 
-    # With autocast and force_allow_autocast=True
+    # With autocast and force_allow_autocast=True, autocast behavior is preserved
+    # and the decorator's cast_inputs is ignored
     with torch.autocast(device_type="cpu", dtype=torch.bfloat16):
         y = module(x, force_allow_autocast=True)
-        # Should not be cast to float32, autocast should be allowed
-        # The output dtype depends on the operation
+        # Just verify the function executes without error
         assert y is not None
 
 

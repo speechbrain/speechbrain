@@ -134,6 +134,10 @@ class TorchAutocast:
 def _infer_device_type(*args, **kwargs):
     """Infer device type from the input tensors.
 
+    This function returns the device type of the first tensor found in the
+    arguments or keyword arguments. It assumes all tensors are on the same
+    device, which is typically the case in PyTorch operations.
+
     Arguments
     ---------
     *args: tuple
