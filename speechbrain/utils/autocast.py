@@ -190,7 +190,9 @@ def fwd_default_precision(
     # Detecting active AMP device automatically is non-trivial, so for now,
     # we assume CUDA context explicitly as before.
 
-    wrapped_fwd = torch.amp.custom_fwd(fwd, cast_inputs=cast_inputs, device_type=device_type)
+    wrapped_fwd = torch.amp.custom_fwd(
+        fwd, cast_inputs=cast_inputs, device_type=device_type
+    )
 
     @functools.wraps(fwd)
     def wrapper(*args, force_allow_autocast: bool = False, **kwargs):
@@ -216,4 +218,3 @@ def fwd_default_precision(
             return wrapped_fwd(*args, **kwargs)
 
     return wrapper
-
