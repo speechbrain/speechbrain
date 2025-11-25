@@ -31,7 +31,16 @@ class CachedHDF5DynamicItem(CachedDynamicItem):
     **kwargs
         Forwarded to DynamicItem constructor
     """
-    def __init__(self, cache_location, file_mode="a", cache_filename="cache.hdf5", compression="gzip", *args, **kwargs):
+
+    def __init__(
+        self,
+        cache_location,
+        file_mode="a",
+        cache_filename="cache.hdf5",
+        compression="gzip",
+        *args,
+        **kwargs,
+    ):
         super().__init__(cache_location, *args, **kwargs)
 
         # Open connection to HDF5 file
@@ -65,7 +74,9 @@ class CachedHDF5DynamicItem(CachedDynamicItem):
 
     def _cache(self, result, uid):
         """Save the result to the cache"""
-        self.hdf5file.create_dataset(uid, data=result, compression=self.compression)
+        self.hdf5file.create_dataset(
+            uid, data=result, compression=self.compression
+        )
 
     def change_file_mode(self, new_file_mode):
         """Change mode that the hdf5 file is opened with. Usually used to convert from
@@ -75,7 +86,13 @@ class CachedHDF5DynamicItem(CachedDynamicItem):
         self.hdf5file = h5py.File(self.cache_location, new_file_mode)
 
     @classmethod
-    def cache(cls, cache_location, file_mode="a", cache_filename="cache.hdf5", compression="gzip"):
+    def cache(
+        cls,
+        cache_location,
+        file_mode="a",
+        cache_filename="cache.hdf5",
+        compression="gzip",
+    ):
         """Decorator which takes a DynamicItem and creates a CachedHDF5DynamicItem
 
         Arguments
