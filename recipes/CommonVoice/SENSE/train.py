@@ -1,32 +1,22 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-Recipe for fine-tuning a wav2vec / w2v-bert model for semantic enrichment (SENSE).
+"""Recipe for training a w2v-BERT-based SENSE model on Common Voice.
 
-Training logic aligned with the original SENSE code:
-- Same ST Brain structure (wav2vec2 → attention pooling → linear layer → L2 norm)
-- Same loss: sum_b (1 - dot(speech_b, text_b)) * loss_scale
-- Same ReproducibleWeightedRandomSampler using language ratios
+The system fine-tunes a w2v-BERT encoder with an attention-pooling head
+to predict BGE-M3 sentence embeddings for each utterance, so that speech
+and text share a common semantic space.
 
-Differences:
-- Text embeddings are computed on-the-fly with BGE (FlagEmbedding)
-  from the "text" column of the CSV files (train.csv / dev.csv).
-- Data preparation starts directly from multilingual Common Voice TSV files
-  via `prep.prepare_sense`, with:
-    * filtering duration < 10 s,
-    * exclusion of empty files,
-    * computation of language ratios (alpha),
-    * optional conversion to .wav and resampling (convert_to_wav, sample_rate).
+To run this recipe, do the following:
+> python train.py hparams/train_sense.yaml
 
 Authors
-    * Maryem Bouziane 2025
-    * Salima Mdhaffar 2025
-    * Yannick Estève 2025
-    * Haroun Elleuch 2025
-    * Ha Nguyen 2025
+ * Maryem Bouziane 2025
+ * Salima Mdhaffar 2025
+ * Haroun Elleuch 2025
+ * Yannick Estève 2025
+ * Ha Nguyen 2023
+
 """
 
-import logging
 import sys
 
 import pandas as pd
@@ -35,112 +25,102 @@ import torch.nn.functional as F
 from hyperpyyaml import load_hyperpyyaml
 from speechbrain.dataio.sampler import ReproducibleWeightedRandomSampler
 from speechbrain.utils.distributed import run_on_main
+from speechbrain.utils.logger import get_logger
 
 import speechbrain as sb
 
-from preparation import prepare_sense
+from common_voice_sense_prepare import prepare_sense
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
-# Global variable (same behaviour as the original code)
+# Sampling weights, loaded from train.csv for the sampler
 sample_ratios = None
 
 
-# ============================
-# Brain ST (adapted original logic)
-# ============================
-class ST(sb.core.Brain):
+# Define training procedure
+class SenseBrain(sb.core.Brain):
     def compute_forward(self, batch, stage):
         """Forward computations from waveform batches to speech and text embeddings."""
         batch = batch.to(self.device)
         wavs, wav_lens = batch.sig
 
-        # wav2vec / w2v-bert module (W2VBert expects (wav, wav_lens))
+        # Student speech encoder: w2v-BERT
         feats = self.modules.wav2vec2(wavs, wav_lens)
-
-        # Self-attention pooling + linear projection
         uttr_embeddings = self.modules.attn_pooling(feats)
-        linear = self.modules.lin(uttr_embeddings)
+        # L2-normalise speech embeddings.
+        uttr_embeddings = F.normalize(uttr_embeddings, p=2, dim=-1)
 
-        # L2-normalisation
-        uttr_embeddings = F.normalize(linear, p=2)
-
-        # ======== TEXT: BGE embeddings on-the-fly ========
-        # batch.text comes from the "text" column in CSV files (train/dev)
+        # Teacher text encoder: BGE-M3
         src_text = batch.text
-
-        # BGE → NumPy (B, dim); hparams.bge_model is a BGEM3FlagModel
-        bge_out = self.hparams.bge_model.encode(src_text)["dense_vecs"]
-
-        # → torch.Tensor(float32) on the correct device
-        text_embeddings = torch.from_numpy(bge_out).to(self.device).float()
+        text_embeddings = self.modules.bge_model(src_text)
 
         return uttr_embeddings, text_embeddings
 
     def compute_objectives(self, predictions, batch, stage):
-        """Computes the cosine-based SENSE loss."""
+        """Cosine-based loss used for semantic alignment between speech and text."""
         uttr_embeddings, text_embeddings = predictions
 
-        B, S = uttr_embeddings.shape
-        loss = 0.0
-        for b in range(B):
-            cosine_sim = torch.dot(
-                uttr_embeddings[b].float(), text_embeddings[b].float()
-            )
-            loss += 1.0 - cosine_sim
+        cosine_sim = torch.sum(
+            uttr_embeddings.float() * text_embeddings.float(), dim=-1
+        )  
 
+        loss = 1.0 - cosine_sim 
+        loss = loss.sum()        
         loss *= self.hparams.loss_scale
         return loss
 
     def init_optimizers(self):
-        """Initialises optimizers as in the original SENSE recipe."""
+        """Initialises optimizers for the attention head and the w2v-BERT encoder."""
+        # Optimiser for the attention pooling
         self.adam_optimizer = self.hparams.adam_opt_class(
             self.hparams.model.parameters()
         )
-
         self.optimizers_dict = {"model_optimizer": self.adam_optimizer}
 
-        # Initializes the wav2vec2 optimizer if the encoder is not frozen
+        # Separate optimiser for w2v-BERT if not frozen
         if not self.hparams.wav2vec2_frozen:
             self.wav2vec_optimizer = self.hparams.wav2vec_opt_class(
                 self.modules.wav2vec2.parameters()
             )
             self.optimizers_dict["wav2vec_optimizer"] = self.wav2vec_optimizer
 
+
     def freeze_optimizers(self, optimizers):
-        """Optionally freezes the wav2vec2 optimizer according to warm-up steps."""
+        """Freezes the wav2vec2 optimizer according to the warmup steps"""
         valid_optimizers = {}
         if not self.hparams.wav2vec2_frozen:
             valid_optimizers["wav2vec_optimizer"] = optimizers["wav2vec_optimizer"]
         return valid_optimizers
 
     def on_stage_start(self, stage, epoch):
-        """Called at the beginning of each stage (train/valid/test)."""
+        """Gets called when a stage (either training, validation, test) starts."""
         return
 
     def on_stage_end(self, stage, stage_loss, epoch):
-        """Called at the end of each epoch or test stage."""
-        # Store main stats
+        """Gets called at the end of each stage and handles logging and checkpoints."""
         if stage == sb.Stage.TRAIN:
             self.train_stats = stage_loss
+            return
 
-        else:  # valid or test
-            stage_stats = {"loss": stage_loss}
-            current_epoch = self.hparams.epoch_counter.current
+        # VALID or TEST
+        stage_stats = {"loss": stage_loss}
+        current_epoch = self.hparams.epoch_counter.current
 
-        # Log stats and save checkpoint at the end of validation
-        if stage == sb.Stage.VALID and sb.utils.distributed.if_main_process():
-            current_epoch = self.hparams.epoch_counter.current
+        if stage == sb.Stage.VALID:
+            # Scheduler for the attention pooling
             old_lr_adam, new_lr_adam = self.hparams.lr_annealing_adam(
                 stage_stats["loss"]
             )
-            sb.nnet.schedulers.update_learning_rate(self.adam_optimizer, new_lr_adam)
+            sb.nnet.schedulers.update_learning_rate(
+                self.adam_optimizer, new_lr_adam
+            )
 
             stats_meta = {
                 "epoch": current_epoch,
                 "lr_adam": old_lr_adam,
             }
 
+            # Scheduler for w2v-BERT if not frozen
             if not self.hparams.wav2vec2_frozen:
                 (
                     old_lr_wav2vec,
@@ -151,35 +131,38 @@ class ST(sb.core.Brain):
                 )
                 stats_meta["lr_wav2vec"] = old_lr_wav2vec
 
-            self.hparams.train_logger.log_stats(
-                stats_meta=stats_meta,
-                train_stats={"loss": self.train_stats},
-                valid_stats=stage_stats,
-            )
+            # Logging + checkpoints only on the main process
+            if sb.utils.distributed.if_main_process():
+                self.hparams.train_logger.log_stats(
+                    stats_meta=stats_meta,
+                    train_stats={"loss": self.train_stats},
+                    valid_stats=stage_stats,
+                )
 
-            # Create checkpoint
-            meta = {"loss": stage_stats["loss"], "epoch": current_epoch}
-            name = "checkpoint_epoch" + str(current_epoch)
-
-            self.checkpointer.save_and_keep_only(
-                meta=meta, name=name, num_to_keep=10, min_keys=["loss"]
-            )
+                meta = {"loss": stage_stats["loss"], "epoch": current_epoch}
+                name = "checkpoint_epoch" + str(current_epoch)
+                self.checkpointer.save_and_keep_only(
+                    meta=meta, name=name, num_to_keep=10, min_keys=["loss"]
+                )
 
         elif stage == sb.Stage.TEST:
-            # Only loss is logged on the evaluation set
-            self.hparams.train_logger.log_stats(
-                stats_meta={"Epoch loaded": self.hparams.epoch_counter.current},
-                test_stats=stage_stats,
-            )
+            if sb.utils.distributed.if_main_process():
+                self.hparams.train_logger.log_stats(
+                    stats_meta={"Epoch loaded": current_epoch},
+                    test_stats=stage_stats,
+                )
 
     def make_dataloader(
         self, dataset, stage, ckpt_prefix="dataloader-", **loader_kwargs
     ):
         """
-        Overrides dataloader creation to obtain a balanced language sampling
-        in each batch during training (as in the original SENSE recipe).
+        Overrides dataloader creation to use a language-balanced sampler
+        during training.
 
-        The global variable `sample_ratios` must be filled from train.csv.
+        The variable ``sample_ratios`` must be filled from train.csv.
+        These ratios are used as weights in a
+        ``ReproducibleWeightedRandomSampler`` to oversample low-resource
+        languages and undersample high-resource ones.
         """
         if stage == sb.Stage.TRAIN:
             global sample_ratios
@@ -197,76 +180,45 @@ class ST(sb.core.Brain):
             )
             loader_kwargs["sampler"] = sampler
 
-        # Standard dataloader creation
         return super().make_dataloader(dataset, stage, ckpt_prefix, **loader_kwargs)
 
 
-# ============================
-# Data I/O
-# ============================
 def dataio_prepare(hparams):
-    """
-    Prepares the datasets used by the ST Brain.
-
-    The original SENSE structure is preserved, but precomputed embeddings
-    are replaced by raw text in the CSV files, which is then encoded
-    on-the-fly by BGE in compute_forward.
-    """
-
-    # Audio pipeline
+    """Prepares the datasets and data pipelines used by the SenseBrain."""
     @sb.utils.data_pipeline.takes("wav")
     @sb.utils.data_pipeline.provides("sig")
     def audio_pipeline(wav):
-        """Loads the audio signal from disk."""
+        """Audio pipeline: reads the waveform."""
         sig = sb.dataio.dataio.read_audio(wav)
         return sig
 
-    @sb.utils.data_pipeline.takes("wav")
-    @sb.utils.data_pipeline.provides("sig")
-    def sp_audio_pipeline(wav):
-        """Version with speed perturbation (only used if enabled in hparams)."""
-        sig = sb.dataio.dataio.read_audio(wav)
-        sig = sig.unsqueeze(0)
-        sig = hparams["speed_perturb"](sig)
-        sig = sig.squeeze(0)
-        return sig
-
-    # Text pipeline: pass raw transcription (CSV "text" column)
     @sb.utils.data_pipeline.takes("text")
     @sb.utils.data_pipeline.provides("text")
     def text_pipeline(text):
-        yield text
+        """Text pipeline: returns the raw sentence as a string."""
+        return text
 
     datasets = {}
 
-    # ===== TRAIN =====
+    # TRAIN
     train_csv = hparams["train_csv"]
-    is_use_sp = "speed_perturb" in hparams
-    audio_pipeline_func = sp_audio_pipeline if is_use_sp else audio_pipeline
-
     datasets["train"] = sb.dataio.dataset.DynamicItemDataset.from_csv(
         csv_path=train_csv,
-        dynamic_items=[
-            audio_pipeline_func,
-            text_pipeline,
-        ],
+        dynamic_items=[audio_pipeline, text_pipeline],
         output_keys=[
-            "id",       # logical SpeechBrain key (CSV column is ID)
+            "id",
             "lang",
             "sig",
             "duration",
-            "text",     # used for BGE embeddings
+            "text",
         ],
     )
 
-    # ===== VALID =====
+    # VALID
     valid_csv = hparams["valid_csv"]
     datasets["valid"] = sb.dataio.dataset.DynamicItemDataset.from_csv(
         csv_path=valid_csv,
-        dynamic_items=[
-            audio_pipeline,
-            text_pipeline,
-        ],
+        dynamic_items=[audio_pipeline, text_pipeline],
         output_keys=[
             "id",
             "lang",
@@ -279,16 +231,13 @@ def dataio_prepare(hparams):
     return datasets
 
 
-# ============================
-# Main
-# ============================
 if __name__ == "__main__":
-    # Load hyperparameters file with command-line overrides
+    # CLI:
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
-    with open(hparams_file) as fin:
+    with open(hparams_file, encoding="utf-8") as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
-    # Create ddp_group with the right communication protocol
+    # create ddp_group
     sb.utils.distributed.ddp_init_group(run_opts)
 
     # Create experiment directory
@@ -298,26 +247,24 @@ if __name__ == "__main__":
         overrides=overrides,
     )
 
-    # ============================
-    # Data preparation: TSV → combined train.csv / dev.csv
-    # ============================
+    # Dataset preparation (TSV -> multilingual train/dev CSV)
     if not hparams["skip_prep"]:
         run_on_main(
             prepare_sense,
             kwargs={
                 "data_folder": hparams["data_folder"],
-                # CSV files and JSON ratios are written directly under output_folder
-                "preparation_output_folder": hparams["output_folder"],
+                "output_folder": hparams["output_folder"],
+                "languages": hparams["languages"],
+                "sampling_alpha": hparams["sampling_alpha"],
                 "language_ratios_file": hparams["language_ratios_file"],
-                "alpha": hparams.get("sampling_alpha", 0.05),
-                "skip_prep": hparams.get("skip_prep", False),
-                "convert_to_wav": hparams.get("convert_to_wav", False),
-                "sample_rate": hparams.get("sample_rate", 16000),
+                "train_csv": hparams["train_csv"],
+                "valid_csv": hparams["valid_csv"],
+                "convert_to_wav": hparams["convert_to_wav"],
             },
         )
 
     # Create main experiment class
-    st_brain = ST(
+    sense_brain = SenseBrain(
         modules=hparams["modules"],
         hparams=hparams,
         run_opts=run_opts,
@@ -327,7 +274,7 @@ if __name__ == "__main__":
     # Datasets
     datasets = dataio_prepare(hparams)
 
-    # Load language ratios from train.csv
+    # Load language ratios from train.csv (global sampler weights)
     logger.info("Loading language ratios from train.csv ...")
     manifest = pd.read_csv(hparams["train_csv"])
     if "ratio" not in manifest.columns:
@@ -336,22 +283,22 @@ if __name__ == "__main__":
             "Check that the preparation step ran correctly."
         )
 
-    # Global variable used by the sampler (same logic as the original code)
+    # Global sampler weights
     sample_ratios = list(manifest["ratio"])
 
     # Training
     logger.info("Start of model training:")
-    st_brain.fit(
-        st_brain.hparams.epoch_counter,
+    sense_brain.fit(
+        sense_brain.hparams.epoch_counter,
         datasets["train"],
         datasets["valid"],
         train_loader_kwargs=hparams["dataloader_options"],
         valid_loader_kwargs=hparams["test_dataloader_options"],
     )
 
-    # Final evaluation on the validation split (loss only, no WER file)
+    # Final evaluation on the validation split
     logger.info("Final evaluation on the validation split:")
-    st_brain.evaluate(
+    sense_brain.evaluate(
         datasets["valid"],
         test_loader_kwargs=hparams["test_dataloader_options"],
     )
