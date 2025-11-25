@@ -1,7 +1,8 @@
 """A pipeline for caching data transformations into hdf5 files.
 
-Author:
- * Peter Plantinga
+Authors:
+ * Peter Plantinga, 2025
+ * Adel Moumen, 2025
 """
 
 import h5py
@@ -22,18 +23,37 @@ class CachedHDF5DynamicItem(CachedDynamicItem):
         The mode to use when opening the HDF5 file. When creating the
         cache, writing must be allowed, but when reading from multiple
         processes, writing should not be allowed.
+    cache_filename : str
+        The name of the HDF5 file to store the cache in.
+    compression : str
+        The compression algorithm to use for the HDF5 file.
     *args
     **kwargs
         Forwarded to DynamicItem constructor
     """
-
-    def __init__(self, cache_location, file_mode="a", *args, **kwargs):
+    def __init__(self, cache_location, file_mode="a", cache_filename="cache.hdf5", compression="gzip", *args, **kwargs):
         super().__init__(cache_location, *args, **kwargs)
 
         # Open connection to HDF5 file
         self.file_mode = file_mode
-        self.cache_location /= "cache.hdf5"
+        self.compression = compression
+        self.cache_location /= cache_filename
         self.hdf5file = h5py.File(self.cache_location, file_mode)
+
+    def __getstate__(self):
+        """Get the state of the object for pickling. In case of pickling, we need to close the HDF5 file."""
+        state = self.__dict__.copy()
+        # h5py objects can't be pickled; drop the live handle
+        h5_handle = state.pop("hdf5file", None)
+        if h5_handle is not None:
+            h5_handle.close()
+        return state
+
+    def __setstate__(self, state):
+        """Set the state of the object for unpickling."""
+        self.__dict__ = state
+        # reopen the file lazily in the same mode
+        self.hdf5file = h5py.File(self.cache_location, self.file_mode)
 
     def _is_cached(self, uid):
         """Test whether uid is cached."""
@@ -45,7 +65,7 @@ class CachedHDF5DynamicItem(CachedDynamicItem):
 
     def _cache(self, result, uid):
         """Save the result to the cache"""
-        self.hdf5file.create_dataset(uid, data=result)
+        self.hdf5file.create_dataset(uid, data=result, compression=self.compression)
 
     def change_file_mode(self, new_file_mode):
         """Change mode that the hdf5 file is opened with. Usually used to convert from
@@ -55,7 +75,7 @@ class CachedHDF5DynamicItem(CachedDynamicItem):
         self.hdf5file = h5py.File(self.cache_location, new_file_mode)
 
     @classmethod
-    def cache(cls, cache_location, file_mode="a"):
+    def cache(cls, cache_location, file_mode="a", cache_filename="cache.hdf5", compression="gzip"):
         """Decorator which takes a DynamicItem and creates a CachedHDF5DynamicItem
 
         Arguments
@@ -66,6 +86,10 @@ class CachedHDF5DynamicItem(CachedDynamicItem):
             The mode to use when opening the HDF5 file. When creating the
             cache, writing must be allowed, but when reading from multiple
             processes, writing should not be allowed.
+        cache_filename : str
+            The name of the HDF5 file to store the cache in.
+        compression : str
+            The compression algorithm to use for the HDF5 file.
 
         Example
         -------
@@ -98,6 +122,8 @@ class CachedHDF5DynamicItem(CachedDynamicItem):
             return cls(
                 cache_location,
                 file_mode,
+                cache_filename=cache_filename,
+                compression=compression,
                 takes=obj.takes,
                 func=obj.func,
                 provides=obj.provides,
