@@ -37,7 +37,7 @@ class CachedHDF5DynamicItem(CachedDynamicItem):
         cache_location,
         file_mode="a",
         cache_filename="cache.hdf5",
-        compression="gzip",
+        compression=None,
         *args,
         **kwargs,
     ):
@@ -91,7 +91,7 @@ class CachedHDF5DynamicItem(CachedDynamicItem):
         cache_location,
         file_mode="a",
         cache_filename="cache.hdf5",
-        compression="gzip",
+        compression=None,
     ):
         """Decorator which takes a DynamicItem and creates a CachedHDF5DynamicItem
 
