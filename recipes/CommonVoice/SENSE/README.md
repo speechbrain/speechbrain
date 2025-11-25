@@ -58,8 +58,8 @@ These ratios are saved to `<output_folder>/language_ratios.json` and stored in a
 
 ## Pretrained checkpoint
 
-Download checkpoint_epoch10:  
-[https://github.com/MaryemBouziane/CKPT-checkpoint_epoch10](https://github.com/MaryemBouziane/CKPT-checkpoint_epoch10)  
+Download SENSE model:  
+[https://github.com/MaryemBouziane/SENSE](https://github.com/MaryemBouziane/SENSE)  
 (Trained on 32×A100 GPUs)
 
 
