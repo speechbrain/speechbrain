@@ -155,3 +155,191 @@ def test_MIMO_pipeline():
         ["message"], {"text": "abc", "other-text": "def"}
     )
     assert result["message"] == "hello-world, abc"
+
+
+def test_cached_dynamic_item(tmp_path):
+    """Test CachedDynamicItem basic functionality."""
+
+    import torch
+
+    from speechbrain.utils.data_pipeline import (
+        CachedDynamicItem,
+        provides,
+        takes,
+    )
+
+    cache_dir = tmp_path / "cache"
+    cache_dir.mkdir()
+
+    # Test basic caching
+    call_count = 0
+
+    @takes("id", "text")
+    @provides("tokenized")
+    def tokenize(id, text):
+        nonlocal call_count
+        call_count += 1
+        return text.strip().lower().split()
+
+    cached_tokenize = CachedDynamicItem(
+        cache_dir, takes=["id", "text"], func=tokenize, provides=["tokenized"]
+    )
+
+    # First call should compute and cache
+    result1 = cached_tokenize("utt1", "  Hello World  ")
+    assert result1 == ["hello", "world"]
+    assert call_count == 1
+    assert (cache_dir / "utt1.pt").exists()
+
+    # Second call with same id should use cache
+    result2 = cached_tokenize("utt1", "  Hello World  ")
+    assert result2 == ["hello", "world"]
+    assert call_count == 1  # Should not increment
+
+    # Different id should compute again
+    result3 = cached_tokenize("utt2", "  Test Sentence  ")
+    assert result3 == ["test", "sentence"]
+    assert call_count == 2
+    assert (cache_dir / "utt2.pt").exists()
+
+    # Verify cache files contain correct data
+    cached_data1 = torch.load(cache_dir / "utt1.pt")
+    assert cached_data1 == ["hello", "world"]
+    cached_data2 = torch.load(cache_dir / "utt2.pt")
+    assert cached_data2 == ["test", "sentence"]
+
+
+def test_cached_dynamic_item_decorator(tmp_path):
+    """Test CachedDynamicItem.cache decorator."""
+    from speechbrain.utils.data_pipeline import (
+        CachedDynamicItem,
+        provides,
+        takes,
+    )
+
+    cache_dir = tmp_path / "cache"
+    cache_dir.mkdir()
+
+    call_count = 0
+
+    @CachedDynamicItem.cache(cache_dir)
+    @takes("id", "text")
+    @provides("tokenized")
+    def tokenize(id, text):
+        nonlocal call_count
+        call_count += 1
+        return text.strip().lower().split()
+
+    # First call
+    result1 = tokenize("utt1", "  Hello World  ")
+    assert result1 == ["hello", "world"]
+    assert call_count == 1
+    assert (cache_dir / "utt1.pt").exists()
+
+    # Second call should use cache
+    result2 = tokenize("utt1", "  Hello World  ")
+    assert result2 == ["hello", "world"]
+    assert call_count == 1
+
+    # Verify it's a CachedDynamicItem
+    assert isinstance(tokenize, CachedDynamicItem)
+
+
+def test_cached_dynamic_item_validation(tmp_path):
+    """Test CachedDynamicItem validation errors."""
+    from speechbrain.utils.data_pipeline import CachedDynamicItem
+
+    cache_dir = tmp_path / "cache"
+
+    # Test empty takes list
+    with pytest.raises(
+        ValueError, match="Expected 'takes' list to have at least one item"
+    ):
+        CachedDynamicItem(
+            cache_dir, takes=[], func=lambda x: x, provides=["out"]
+        )
+
+    # Test first item not "id"
+    with pytest.raises(
+        ValueError, match="First item in 'takes' list must be 'id'"
+    ):
+        CachedDynamicItem(
+            cache_dir, takes=["text"], func=lambda x: x, provides=["out"]
+        )
+
+    # Test decorator with non-DynamicItem
+    with pytest.raises(ValueError, match="Can only cache a DynamicItem"):
+        CachedDynamicItem.cache(cache_dir)(lambda x: x)
+
+
+def test_cached_dynamic_item_torch_tensors(tmp_path):
+    """Test CachedDynamicItem with PyTorch tensors."""
+    import torch
+
+    from speechbrain.utils.data_pipeline import (
+        CachedDynamicItem,
+        provides,
+        takes,
+    )
+
+    cache_dir = tmp_path / "cache"
+    cache_dir.mkdir()
+
+    @CachedDynamicItem.cache(cache_dir)
+    @takes("id", "data")
+    @provides("processed")
+    def process_tensor(id, data):
+        return data * 2
+
+    # Test with tensor
+    input_tensor = torch.tensor([1.0, 2.0, 3.0])
+    result1 = process_tensor("tensor1", input_tensor)
+    expected = torch.tensor([2.0, 4.0, 6.0])
+    assert torch.allclose(result1, expected)
+
+    # Second call should use cache
+    result2 = process_tensor("tensor1", input_tensor)
+    assert torch.allclose(result2, expected)
+
+    # Verify cache file
+    cached_tensor = torch.load(cache_dir / "tensor1.pt")
+    assert torch.allclose(cached_tensor, expected)
+
+
+def test_cached_dynamic_item_cache_methods(tmp_path):
+    """Test CachedDynamicItem internal cache methods."""
+    from speechbrain.utils.data_pipeline import (
+        CachedDynamicItem,
+        provides,
+        takes,
+    )
+
+    cache_dir = tmp_path / "cache"
+    cache_dir.mkdir()
+
+    @CachedDynamicItem.cache(cache_dir)
+    @takes("id", "value")
+    @provides("doubled")
+    def double(id, value):
+        return value * 2
+
+    # Test _is_cached
+    assert not double._is_cached("test_id")
+    result = double("test_id", 5)
+    assert result == 10
+    assert double._is_cached("test_id")
+
+    # Test _uid2path
+    path = double._uid2path("test_id")
+    assert path == cache_dir / "test_id.pt"
+    assert path.exists()
+
+    # Test _load
+    loaded = double._load("test_id")
+    assert loaded == 10
+
+    # Test _cache
+    double._cache(42, "new_id")
+    assert double._is_cached("new_id")
+    loaded_new = double._load("new_id")
+    assert loaded_new == 42
