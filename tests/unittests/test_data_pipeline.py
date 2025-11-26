@@ -89,6 +89,7 @@ def test_takes_provides():
     @takes("a")
     @provides("b")
     def a_to_b(a):
+        """Return a + 1 for testing takes/provides decorators."""
         return a + 1
 
     assert a_to_b(1) == 2
@@ -108,21 +109,25 @@ def test_MIMO_pipeline():
     @takes("text", "other-text")
     @provides("reversed", "concat")
     def text_pipeline(text, other):
+        """Return reversed text and text+other for MIMO pipeline."""
         return text[::-1], text + other
 
     @takes("reversed", "concat")
     @provides("reversed_twice", "double_concat")
     def second_pipeline(rev, concat):
+        """Yield reversed-twice and concatenated-twice strings."""
         yield rev[::-1]
         yield concat + concat
 
     @provides("hello-world")
     def provider():
+        """Yield a constant 'hello-world' string."""
         yield "hello-world"
 
     @takes("hello-world", "reversed_twice")
     @provides("message")
     def messenger(hello, name):
+        """Return greeting message combining hello and name."""
         return f"{hello}, {name}"
 
     pipeline = DataPipeline(
@@ -177,6 +182,7 @@ def test_cached_dynamic_item(tmp_path):
     @takes("id", "text")
     @provides("tokenized")
     def tokenize(id, text):
+        """Return tokenized, lowercased text for given id."""
         nonlocal call_count
         call_count += 1
         return text.strip().lower().split()
@@ -289,6 +295,7 @@ def test_cached_dynamic_item_torch_tensors(tmp_path):
     @takes("id", "data")
     @provides("processed")
     def process_tensor(id, data):
+        """Return tensor or value multiplied by 2, cached on disk."""
         return data * 2
 
     # Test with tensor
@@ -321,6 +328,7 @@ def test_cached_dynamic_item_cache_methods(tmp_path):
     @takes("id", "value")
     @provides("doubled")
     def double(id, value):
+        """Return value * 2 and exercise CachedDynamicItem internals."""
         return value * 2
 
     # Test _is_cached
