@@ -89,7 +89,18 @@ def test_takes_provides():
     @takes("a")
     @provides("b")
     def a_to_b(a):
-        """Return a + 1 for testing takes/provides decorators."""
+        """Maps input ``a`` to ``b = a + 1``.
+
+        Arguments
+        ---------
+        a : int or float
+            Input value.
+
+        Returns
+        -------
+        int or float
+            The value ``a + 1``.
+        """
         return a + 1
 
     assert a_to_b(1) == 2
@@ -109,25 +120,73 @@ def test_MIMO_pipeline():
     @takes("text", "other-text")
     @provides("reversed", "concat")
     def text_pipeline(text, other):
-        """Return reversed text and text+other for MIMO pipeline."""
+        """Creates two text variants for the MIMO pipeline.
+
+        Arguments
+        ---------
+        text : str
+            Input text sequence.
+        other : str
+            Auxiliary text sequence.
+
+        Returns
+        -------
+        tuple[str, str]
+            A tuple ``(reversed, concat)`` where ``reversed`` is
+            ``text[::-1]`` and ``concat`` is ``text + other``.
+        """
         return text[::-1], text + other
 
     @takes("reversed", "concat")
     @provides("reversed_twice", "double_concat")
     def second_pipeline(rev, concat):
-        """Yield reversed-twice and concatenated-twice strings."""
+        """Yields second-stage text transforms for the MIMO pipeline.
+
+        Arguments
+        ---------
+        rev : str
+            Previously reversed text.
+        concat : str
+            Concatenated text from the first stage.
+
+        Yields
+        ------
+        str
+            First, the text reversed back (``rev[::-1]``).
+        str
+            Second, the concatenation repeated twice (``concat + concat``).
+        """
         yield rev[::-1]
         yield concat + concat
 
     @provides("hello-world")
     def provider():
-        """Yield a constant 'hello-world' string."""
+        """Provides a constant greeting string.
+
+        Yields
+        ------
+        str
+            The literal string ``\"hello-world\"``.
+        """
         yield "hello-world"
 
     @takes("hello-world", "reversed_twice")
     @provides("message")
     def messenger(hello, name):
-        """Return greeting message combining hello and name."""
+        """Formats a greeting message from its components.
+
+        Arguments
+        ---------
+        hello : str
+            Greeting prefix, e.g., ``\"hello-world\"``.
+        name : str
+            Name or identifier to greet.
+
+        Returns
+        -------
+        str
+            Formatted message ``f\"{hello}, {name}\"``.
+        """
         return f"{hello}, {name}"
 
     pipeline = DataPipeline(
@@ -182,7 +241,20 @@ def test_cached_dynamic_item(tmp_path):
     @takes("id", "text")
     @provides("tokenized")
     def tokenize(id, text):
-        """Return tokenized, lowercased text for given id."""
+        """Tokenizes and normalizes input text for a given id.
+
+        Arguments
+        ---------
+        id : str
+            Unique identifier used as cache key.
+        text : str
+            Input text to be normalized and split into tokens.
+
+        Returns
+        -------
+        list[str]
+            List of lowercase tokens produced from ``text``.
+        """
         nonlocal call_count
         call_count += 1
         return text.strip().lower().split()
@@ -295,7 +367,20 @@ def test_cached_dynamic_item_torch_tensors(tmp_path):
     @takes("id", "data")
     @provides("processed")
     def process_tensor(id, data):
-        """Return tensor or value multiplied by 2, cached on disk."""
+        """Applies a simple scaling transform and caches the result.
+
+        Arguments
+        ---------
+        id : str
+            Unique identifier used as cache key.
+        data : torch.Tensor or number
+            Input value or tensor to be doubled.
+
+        Returns
+        -------
+        same as data
+            The value ``data * 2``.
+        """
         return data * 2
 
     # Test with tensor
@@ -328,7 +413,20 @@ def test_cached_dynamic_item_cache_methods(tmp_path):
     @takes("id", "value")
     @provides("doubled")
     def double(id, value):
-        """Return value * 2 and exercise CachedDynamicItem internals."""
+        """Doubles a scalar value to exercise CachedDynamicItem internals.
+
+        Arguments
+        ---------
+        id : str
+            Unique identifier used as cache key.
+        value : int or float
+            Input scalar to be doubled.
+
+        Returns
+        -------
+        int or float
+            The value ``value * 2``.
+        """
         return value * 2
 
     # Test _is_cached

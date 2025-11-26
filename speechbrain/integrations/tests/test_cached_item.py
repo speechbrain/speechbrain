@@ -22,7 +22,20 @@ def test_cached_hdf5_dynamic_item_basic(tmp_path):
     @takes("id", "limit")
     @provides("array")
     def count_to(id, limit):
-        """Return np.arange(limit) for the given id."""
+        """Creates a cached integer range for the given id.
+
+        Arguments
+        ---------
+        id : str
+            Unique identifier used as cache key.
+        limit : int
+            Upper bound (exclusive) for ``numpy.arange``.
+
+        Returns
+        -------
+        numpy.ndarray
+            One-dimensional array ``np.arange(limit)``.
+        """
         nonlocal call_count
         call_count += 1
         return np.arange(limit)
@@ -74,7 +87,20 @@ def test_cached_hdf5_dynamic_item_decorator(tmp_path):
     @takes("id", "limit")
     @provides("array")
     def count_to(id, limit):
-        """Return np.arange(limit) for the given id using cached HDF5 backend."""
+        """Creates a cached integer range using the HDF5 backend.
+
+        Arguments
+        ---------
+        id : str
+            Unique identifier used as HDF5 dataset name.
+        limit : int
+            Upper bound (exclusive) for ``numpy.arange``.
+
+        Returns
+        -------
+        numpy.ndarray
+            One-dimensional array ``np.arange(limit)`` loaded or stored in HDF5.
+        """
         nonlocal call_count
         call_count += 1
         return np.arange(limit)
@@ -116,7 +142,20 @@ def test_cached_hdf5_dynamic_item_file_mode(tmp_path):
     @takes("id", "value")
     @provides("doubled")
     def double(id, value):
-        """Return value * 2 stored in HDF5 cache."""
+        """Doubles a scalar value and stores it in the HDF5 cache.
+
+        Arguments
+        ---------
+        id : str
+            Unique identifier used as HDF5 dataset name.
+        value : int or float
+            Input scalar to be doubled.
+
+        Returns
+        -------
+        numpy.ndarray
+            Array of shape ``(1,)`` containing ``value * 2``.
+        """
         return np.array([value * 2])
 
     # Create some cache entries
@@ -149,6 +188,20 @@ def test_cached_hdf5_dynamic_item_compression(tmp_path):
     @takes("id", "data")
     @provides("processed")
     def process_data(id, data):
+        """Doubles an array while storing it with HDF5 compression.
+
+        Arguments
+        ---------
+        id : str
+            Unique identifier used as HDF5 dataset name.
+        data : numpy.ndarray
+            Input array to be scaled.
+
+        Returns
+        -------
+        numpy.ndarray
+            The value ``data * 2``.
+        """
         return data * 2
 
     input_data = np.array([1.0, 2.0, 3.0])
@@ -178,7 +231,20 @@ def test_cached_hdf5_dynamic_item_custom_filename(tmp_path):
     @takes("id", "value")
     @provides("doubled")
     def double(id, value):
-        """Return value * 2 stored in custom-named HDF5 cache."""
+        """Doubles a scalar value using a custom-named HDF5 cache file.
+
+        Arguments
+        ---------
+        id : str
+            Unique identifier used as HDF5 dataset name.
+        value : int or float
+            Input scalar to be doubled.
+
+        Returns
+        -------
+        numpy.ndarray
+            Array of shape ``(1,)`` containing ``value * 2``.
+        """
         return np.array([value * 2])
 
     result = double("test_id", 5)
@@ -201,7 +267,20 @@ def test_cached_hdf5_dynamic_item_cache_methods(tmp_path):
     @takes("id", "value")
     @provides("doubled")
     def double(id, value):
-        """Return value * 2 and test low-level cache helpers."""
+        """Doubles a scalar value and exercises low-level cache helpers.
+
+        Arguments
+        ---------
+        id : str
+            Unique identifier used as HDF5 dataset name.
+        value : int or float
+            Input scalar to be doubled.
+
+        Returns
+        -------
+        numpy.ndarray
+            Array of shape ``(1,)`` containing ``value * 2``.
+        """
         return np.array([value * 2])
 
     # Test _is_cached
@@ -233,7 +312,20 @@ def test_cached_hdf5_dynamic_item_torch_tensors(tmp_path):
     @takes("id", "data")
     @provides("processed")
     def process_tensor(id, data):
-        """Return tensor or array multiplied by 2, stored via HDF5."""
+        """Doubles tensor or array inputs and stores them via HDF5.
+
+        Arguments
+        ---------
+        id : str
+            Unique identifier used as HDF5 dataset name.
+        data : torch.Tensor or numpy.ndarray
+            Input values to be scaled.
+
+        Returns
+        -------
+        numpy.ndarray
+            Numpy array containing the doubled data.
+        """
         # Convert to numpy for HDF5 storage
         if isinstance(data, torch.Tensor):
             return data.numpy() * 2
@@ -262,7 +354,20 @@ def test_cached_hdf5_dynamic_item_multiple_items(tmp_path):
     @takes("id", "value")
     @provides("squared")
     def square(id, value):
-        """Return value ** 2 stored in a shared HDF5 cache file."""
+        """Squares a scalar value and stores it in a shared HDF5 cache.
+
+        Arguments
+        ---------
+        id : str
+            Unique identifier used as HDF5 dataset name.
+        value : int or float
+            Input scalar to be squared.
+
+        Returns
+        -------
+        numpy.ndarray
+            Array of shape ``(1,)`` containing ``value**2``.
+        """
         return np.array([value**2])
 
     # Create multiple cache entries
@@ -298,6 +403,20 @@ def test_cached_hdf5_dynamic_item_inheritance(tmp_path):
     @takes("id", "value")
     @provides("doubled")
     def double(id, value):
+        """Doubles a scalar value for inheritance tests.
+
+        Arguments
+        ---------
+        id : str
+            Unique identifier used as HDF5 dataset name.
+        value : int or float
+            Input scalar to be doubled.
+
+        Returns
+        -------
+        numpy.ndarray
+            Array of shape ``(1,)`` containing ``value * 2``.
+        """
         return np.array([value * 2])
 
     # Should be instance of both classes
