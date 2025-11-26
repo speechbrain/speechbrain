@@ -25,8 +25,9 @@ class CachedHDF5DynamicItem(CachedDynamicItem):
         processes, writing should not be allowed.
     cache_filename : str
         The name of the HDF5 file to store the cache in.
-    compression : str
-        The compression algorithm to use for the HDF5 file.
+    compression : str or int, optional
+        Compression to use for the HDF5 file. Valid values are "gzip", "lzf", "szip", or an integer 0-9 (for gzip compression level).
+        See h5py documentation for details. Example: compression="gzip" or compression=4.
     *args
     **kwargs
         Forwarded to DynamicItem constructor
