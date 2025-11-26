@@ -22,6 +22,7 @@ def test_cached_hdf5_dynamic_item_basic(tmp_path):
     @takes("id", "limit")
     @provides("array")
     def count_to(id, limit):
+        """Return np.arange(limit) for the given id."""
         nonlocal call_count
         call_count += 1
         return np.arange(limit)
@@ -73,6 +74,7 @@ def test_cached_hdf5_dynamic_item_decorator(tmp_path):
     @takes("id", "limit")
     @provides("array")
     def count_to(id, limit):
+        """Return np.arange(limit) for the given id using cached HDF5 backend."""
         nonlocal call_count
         call_count += 1
         return np.arange(limit)
@@ -114,6 +116,7 @@ def test_cached_hdf5_dynamic_item_file_mode(tmp_path):
     @takes("id", "value")
     @provides("doubled")
     def double(id, value):
+        """Return value * 2 stored in HDF5 cache."""
         return np.array([value * 2])
 
     # Create some cache entries
@@ -175,6 +178,7 @@ def test_cached_hdf5_dynamic_item_custom_filename(tmp_path):
     @takes("id", "value")
     @provides("doubled")
     def double(id, value):
+        """Return value * 2 stored in custom-named HDF5 cache."""
         return np.array([value * 2])
 
     result = double("test_id", 5)
@@ -197,6 +201,7 @@ def test_cached_hdf5_dynamic_item_cache_methods(tmp_path):
     @takes("id", "value")
     @provides("doubled")
     def double(id, value):
+        """Return value * 2 and test low-level cache helpers."""
         return np.array([value * 2])
 
     # Test _is_cached
@@ -228,6 +233,7 @@ def test_cached_hdf5_dynamic_item_torch_tensors(tmp_path):
     @takes("id", "data")
     @provides("processed")
     def process_tensor(id, data):
+        """Return tensor or array multiplied by 2, stored via HDF5."""
         # Convert to numpy for HDF5 storage
         if isinstance(data, torch.Tensor):
             return data.numpy() * 2
@@ -256,6 +262,7 @@ def test_cached_hdf5_dynamic_item_multiple_items(tmp_path):
     @takes("id", "value")
     @provides("squared")
     def square(id, value):
+        """Return value ** 2 stored in a shared HDF5 cache file."""
         return np.array([value**2])
 
     # Create multiple cache entries
