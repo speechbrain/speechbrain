@@ -1,54 +1,15 @@
 #!/usr/bin/env python3
-"""
-module load gcc arrow/17.0.0
-module load python/3.12.4
-virtualenv --no-download $SLURM_TMPDIR/env
-source $SLURM_TMPDIR/env/bin/activate
-pip install --no-index --upgrade pip
+"""Recipe for training a SpeechLLM ASR system with LibriSpeech.
+The system employs a speech SSL encoder, and a pre-trained LLM decoder.
+The speech features are projected to the LLM embedding space using a linear layer projection.
+The LLM is trained used the cross-entropy loss on the text tokens excluding the prompt.
 
-pip install torch==2.7.1
-pip install torchaudio==2.7.1
-pip install transformers
-pip install triton==3.0.0
-pip install flash-attn
-pip install wandb 
-pip install accelerate
-pip install -e . 
-pip install h5py
-
-cd $SLURM_TMPDIR
-scp -r $SCRATCH/models/wavlm-large/ .
-scp -r $SCRATCH/models/HuggingFaceTB/SmolLM2-360M/ .
-scp $HOME/projects/def-ravanelm/datasets/librispeech/*.tar.gz .
-for f in *.tar.gz; do tar -xf "$f"; done
-
-cd /home/adelmou/proj/speechbrain/speechllm_librispeech/speechbrain/recipes/LibriSpeech/ASR/transformer/
-
-
-TOKENIZERS_PARALLELISM=false python train_speechllm.py hparams/llama.yaml         --data_folder $SLURM_TMPDIR/LibriSpeech/         --output_folder $SLURM_TMPDIR/wavlm_large-smollm2_360M_linear_proj_lora         --ssl_hub $SLURM_TMPDIR/wavlm-large/         --llm_path $SLURM_TMPDIR/SmolLM2-360M/         --llm_emb_size 960 --pad_token 128004        --feats_cache_dir $SCRATCH/cached_feats_ls960h --max_batch_length_train 400 --grad_accumulation_factor 8
-
-
-TOKENIZERS_PARALLELISM=false python train_speechllm.py hparams/llama.yaml     \
-    --data_folder $SLURM_TMPDIR/LibriSpeech/     \
-    --output_folder $SLURM_TMPDIR/wavlm_large+smol3B_gateddnn_lora/     \
-    --ssl_hub $SLURM_TMPDIR/wavlm-large/     \
-    --llm_path $SLURM_TMPDIR/SmolLM3-3B/     \
-    --llm_emb_size 2048 --pad_token 128004 \
-    --grad_accumulation_factor 16 --max_batch_length_train 200 --test_only
-
-
-TOKENIZERS_PARALLELISM=false python train_speechllm.py hparams/llama.yaml \
-    --data_folder $SLURM_TMPDIR/LibriSpeech/     \
-    --output_folder $SLURM_TMPDIR/wavlm_large-smollm2_360M_linear_proj_lora     \
-    --ssl_hub $SLURM_TMPDIR/wavlm-large/     \
-    --llm_path $SLURM_TMPDIR/SmolLM2-360M/     \
-    --llm_emb_size 960 --pad_token 128004        \
-    --feats_cache_dir $SCRATCH/cached_feats_ls960h \
-    --max_batch_length_train 400 \
-    --grad_accumulation_factor 8
+An input sequence is typically constructed like this: 
+ <|start_of_audio|> audio features <|end_of_audio|> <prompt> <bos> <text> <eos>
 
 Authors
- * Adel Moumen 2025
+-------
+ * Adel Moumen, 2025
 """
 
 import os
@@ -98,7 +59,6 @@ class ASR(sb.core.Brain):
             wavs = self.hparams.normalize(wavs, wav_lens)
             audio_feats = self.modules.ssl(wavs, wav_lens)
             audio_feats_lens = wav_lens
-
         # R^L*D -> R^(L/R)*(D*R)
         audio_down_feats = self.modules.feat_downsampler(audio_feats)
         # R^D' -> R^llm_emb_size
@@ -124,7 +84,7 @@ class ASR(sb.core.Brain):
             inputs_embeds = multimodal_embds[
                 :, :audio_and_prompt_len
             ]
-            hyps = self.modules.valid_search(
+            hyps = self.modules.searcher(
                 inputs_embeds,
                 audio_feats_lens,
                 attention_mask[:, :audio_and_prompt_len],
@@ -138,21 +98,21 @@ class ASR(sb.core.Brain):
         ids = batch.id
 
         num_audio_feats = logits.shape[1] - tokens_eos.shape[1]
-        # We prepend `-100` to the tokens_eos to ignore them in the loss.
+        # We prepend `ignore_index` to the tokens_eos to ignore them in the loss.
         # This corresponds to the audio features.
         target_tokens = torch.cat([
-            torch.full((tokens_eos.shape[0], num_audio_feats), -100, device=self.device),
+            torch.full((tokens_eos.shape[0], num_audio_feats), self.hparams.ignore_index, device=self.device),
             tokens_eos,
         ], dim=1).long()
         # compute the cross entropy loss
         loss = torch.nn.functional.cross_entropy(
             logits.view(-1, logits.shape[-1]),
             target_tokens.view(-1),
-            ignore_index=-100
+            ignore_index=self.hparams.ignore_index
         )
         if stage != sb.Stage.TRAIN:
-            # replace -100 with pad token
-            target_tokens = target_tokens.masked_fill(target_tokens == -100, self.tokenizer.pad_token_id)
+            # replace ignore_index with pad token
+            target_tokens = target_tokens.masked_fill(target_tokens == self.hparams.ignore_index, self.tokenizer.pad_token_id)
             preds = self.tokenizer.batch_decode(hyps[0], skip_special_tokens=True)
             preds_words = [pred.split(" ") for pred in preds]
             targets = self.tokenizer.batch_decode(target_tokens, skip_special_tokens=True)
@@ -231,231 +191,105 @@ class ASR(sb.core.Brain):
                 self.checkpointer.add_recoverable("ssl_optimizer", self.ssl_optimizer)
 
 def dataio_prepare(hparams, tokenizer):
-    """This function prepares the datasets to be used in the brain class.
-    It also defines the data processing pipeline through user-defined functions.
+    """Prepares the datasets and dynamic pipelines for the brain class.
+
+    Handles both standard audio and SSL/offline/cached features mode depending on hparams. 
     """
     data_folder = hparams["data_folder"]
+    use_feats = hparams.get("ssl", False) or hparams.get("use_feats", False) or hparams.get("feats_cache_dir", None) is not None
 
-    train_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["train_csv"],
-        replacements={"data_root": data_folder},
+    # Token indices and prompt setup
+    bos_index = hparams["bos_index"]
+    eos_index = hparams["eos_index"]
+    pad_index = hparams["pad_token"]
+    start_of_audio_index = tokenizer.convert_tokens_to_ids("<|start_of_audio|>")
+    end_of_audio_index = tokenizer.convert_tokens_to_ids("<|end_of_audio|>")
+    print(bos_index, eos_index, pad_index, start_of_audio_index, end_of_audio_index, hparams['prompt'])
+    prompt_ids = tokenizer(
+        hparams['prompt'], return_tensors="pt", add_special_tokens=False
+    ).input_ids.view(-1).tolist()
+
+    @sb.utils.data_pipeline.takes("wrd")
+    @sb.utils.data_pipeline.provides(
+        "wrd", "tokens_list", "tokens_bos", "tokens_eos", "tokens", "prompt_len"
     )
+    def text_pipeline(wrd):
+        yield wrd
+        tokens_list = tokenizer(wrd, add_special_tokens=False).input_ids
+        yield tokens_list
+        tokens_bos = torch.LongTensor([start_of_audio_index] + [end_of_audio_index] + prompt_ids + [bos_index] + tokens_list)
+        yield tokens_bos
+        tokens_eos = torch.LongTensor(tokens_list + [eos_index])
+        yield tokens_eos
+        tokens = torch.LongTensor(tokens_list)
+        yield tokens
+        prompt_len = len([start_of_audio_index] + [end_of_audio_index] + prompt_ids)
+        yield prompt_len
 
-    if hparams["sorting"] == "ascending":
-        # we sort training data to speed up training and get better results.
-        train_data = train_data.filtered_sorted(sort_key="duration")
-        # when sorting do not shuffle in dataloader ! otherwise is pointless
-        hparams["train_dataloader_opts"]["shuffle"] = False
+    # Define dynamic items based on mode
+    if use_feats:
+        def build_dynamic_items():
+            feats_pipeline = CachedHDF5DynamicItem(
+                hparams["feats_cache_dir"],
+                file_mode="r",
+                takes=["id"],
+                provides=["feats"],
+            )
+            return [text_pipeline, feats_pipeline]
 
-    elif hparams["sorting"] == "descending":
-        train_data = train_data.filtered_sorted(
-            sort_key="duration", reverse=True
-        )
-        # when sorting do not shuffle in dataloader ! otherwise is pointless
-        hparams["train_dataloader_opts"]["shuffle"] = False
-
-    elif hparams["sorting"] == "random":
-        pass
-
+        output_keys = ["id", "wrd", "tokens_bos", "tokens_eos", "tokens", "prompt_len", "feats"]
     else:
-        raise NotImplementedError(
-            "sorting must be random, ascending or descending"
-        )
-    valid_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["valid_csv"],
-        replacements={"data_root": data_folder},
-    )
-    valid_data = valid_data.filtered_sorted(sort_key="duration")
+        @sb.utils.data_pipeline.takes("wav")
+        @sb.utils.data_pipeline.provides("sig")
+        def audio_pipeline(wav):
+            sig = sb.dataio.dataio.read_audio(wav)
+            return sig
+        
+        dynamic_items = [text_pipeline, audio_pipeline]
+        output_keys = ["id", "sig", "wrd", "tokens_bos", "tokens_eos", "tokens", "prompt_len"]
 
-    # test is separate
-    test_datasets = {}
-    for csv_file in hparams["test_csv"]:
-        name = Path(csv_file).stem
-        test_datasets[name] = sb.dataio.dataset.DynamicItemDataset.from_csv(
-            csv_path=csv_file, replacements={"data_root": data_folder}
-        )
-        test_datasets[name] = test_datasets[name].filtered_sorted(
-            sort_key="duration"
-        )
-
-    datasets = [train_data, valid_data] + [i for k, i in test_datasets.items()]
-
-    # 2. Define audio pipeline:
-    @sb.utils.data_pipeline.takes("wav")
-    @sb.utils.data_pipeline.provides("sig")
-    def audio_pipeline(wav):
-        sig = sb.dataio.dataio.read_audio(wav)
-        return sig
-
-    sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline)
-
-    # todo: bos, eos, pad should be set by the user! they are hard to retrieve automatically
-    bos_index = tokenizer.bos_token_id
-    if bos_index is None:
-        bos_index = 128000
-    eos_index = tokenizer.eos_token_id
-    pad_index = tokenizer.pad_token_id
-    start_of_audio_index = tokenizer.convert_tokens_to_ids("<|start_of_audio|>")
-    end_of_audio_index = tokenizer.convert_tokens_to_ids("<|end_of_audio|>")
-    prompt = "Transcribe speech to text."
-    print(bos_index, eos_index, pad_index, start_of_audio_index, end_of_audio_index, prompt)
-    # exit()
-    # print(tokenizer.additional_special_tokens)
-    prompt_ids = tokenizer(
-        prompt, return_tensors="pt", add_special_tokens=False
-    ).input_ids.view(-1).tolist()
-
-    # 3. Define text pipeline:
-    @sb.utils.data_pipeline.takes("wrd")
-    @sb.utils.data_pipeline.provides(
-        "wrd", "tokens_list", "tokens_bos", "tokens_eos", "tokens", "prompt_len"
-    )
-    def text_pipeline(wrd):
-        # wrd = wrd[0] + wrd[1:].lower()
-        yield wrd
-        tokens_list = tokenizer(wrd, add_special_tokens=False).input_ids
-        yield tokens_list
-        tokens_bos = torch.LongTensor([start_of_audio_index] + [end_of_audio_index] + prompt_ids  + [bos_index] + tokens_list )
-        yield tokens_bos
-        tokens_eos = torch.LongTensor(tokens_list + [eos_index])
-        yield tokens_eos
-        tokens = torch.LongTensor(tokens_list)
-        yield tokens
-        prompt_len = len([start_of_audio_index] + [end_of_audio_index] + prompt_ids)
-        yield prompt_len
-
-    sb.dataio.dataset.add_dynamic_item(datasets, text_pipeline)
-
-    # 4. Set output:
-    sb.dataio.dataset.set_output_keys(
-        datasets,
-        ["id", "sig", "wrd", "tokens_bos", "tokens_eos", "tokens", "prompt_len"],
-    )
-
-    # 5. If Dynamic Batching is used, we instantiate the needed samplers.
-    train_batch_sampler = None
-    valid_batch_sampler = None
-    if hparams["dynamic_batching"]:
-        from speechbrain.dataio.sampler import DynamicBatchSampler  # noqa
-
-        dynamic_hparams_train = hparams["dynamic_batch_sampler_train"]
-        dynamic_hparams_valid = hparams["dynamic_batch_sampler_valid"]
-
-        train_batch_sampler = DynamicBatchSampler(
-            train_data,
-            length_func=lambda x: x["duration"],
-            **dynamic_hparams_train,
-        )
-        valid_batch_sampler = DynamicBatchSampler(
-            valid_data,
-            length_func=lambda x: x["duration"],
-            **dynamic_hparams_valid,
-        )
-
-    return (
-        train_data,
-        valid_data,
-        test_datasets,
-        tokenizer,
-        train_batch_sampler,
-        valid_batch_sampler,
-    )
-
-def offline_feats_dataio_prepare(hparams, tokenizer):
-    """This function prepares the datasets to be used in the brain class.
-    It also defines the data processing pipeline through user-defined functions.
-    """
-    data_folder = hparams["data_folder"]
-    
-    # todo: bos, eos, pad should be set by the user! they are hard to retrieve automatically
-    bos_index = tokenizer.bos_token_id
-    if bos_index is None:
-        bos_index = 128000
-    eos_index = tokenizer.eos_token_id
-    pad_index = tokenizer.pad_token_id
-    start_of_audio_index = tokenizer.convert_tokens_to_ids("<|start_of_audio|>")
-    end_of_audio_index = tokenizer.convert_tokens_to_ids("<|end_of_audio|>")
-    prompt = "Transcribe speech to text."
-    print(bos_index, eos_index, pad_index, start_of_audio_index, end_of_audio_index, prompt)
-    # exit()
-    # print(tokenizer.additional_special_tokens)
-    prompt_ids = tokenizer(
-        prompt, return_tensors="pt", add_special_tokens=False
-    ).input_ids.view(-1).tolist()
-
-    # 3. Define text pipeline:
-    @sb.utils.data_pipeline.takes("wrd")
-    @sb.utils.data_pipeline.provides(
-        "wrd", "tokens_list", "tokens_bos", "tokens_eos", "tokens", "prompt_len"
-    )
-    def text_pipeline(wrd):
-        yield wrd
-        tokens_list = tokenizer(wrd, add_special_tokens=False).input_ids
-        yield tokens_list
-        tokens_bos = torch.LongTensor([start_of_audio_index] + [end_of_audio_index] + prompt_ids  + [bos_index] + tokens_list )
-        yield tokens_bos
-        tokens_eos = torch.LongTensor(tokens_list + [eos_index])
-        yield tokens_eos
-        tokens = torch.LongTensor(tokens_list)
-        yield tokens
-        prompt_len = len([start_of_audio_index] + [end_of_audio_index] + prompt_ids)
-        yield prompt_len
-
-    feats_pipeline = CachedHDF5DynamicItem(
-        hparams["feats_cache_dir"], 
-        file_mode="r", 
-        takes=["id"], 
-        provides=["feats"]
-    )
-
-    dynamic_items = [text_pipeline, feats_pipeline]
-    output_keys = ["id", "wrd", "tokens_bos", "tokens_eos", "tokens", "prompt_len", "feats"]
-
-    train_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["train_csv"],
-        replacements={"data_root": data_folder},
-        dynamic_items=dynamic_items,
-        output_keys=output_keys,
-    )
-    
-    # Build valid dataset with its own cached wrapper
-    valid_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["valid_csv"],
-        replacements={"data_root": data_folder},
-        dynamic_items=dynamic_items,
-        output_keys=output_keys,
-    )
-
-
-    # test is separate
-    test_datasets = {}
-    for csv_file in hparams["test_csv"]:
-        name = Path(csv_file).stem
-        test_datasets[name] = sb.dataio.dataset.DynamicItemDataset.from_csv(
-            csv_path=csv_file, 
+    def _create_dataset(csv_path, sorting="ascending"):
+        assert sorting in ["ascending", "descending", "random"]
+        dataset = sb.dataio.dataset.DynamicItemDataset.from_csv(
+            csv_path=csv_path,
             replacements={"data_root": data_folder},
-            dynamic_items=dynamic_items,
+            dynamic_items=build_dynamic_items() if use_feats else [audio_pipeline, text_pipeline],
             output_keys=output_keys,
         )
+        if sorting == "ascending":
+            dataset = dataset.filtered_sorted(sort_key="duration")
+            hparams["train_dataloader_opts"]["shuffle"] = False
+        elif sorting == "descending":
+            dataset = dataset.filtered_sorted(sort_key="duration", reverse=True)
+            hparams["train_dataloader_opts"]["shuffle"] = False
+        elif sorting == "random":
+            pass
+        return dataset
 
-    # 5. If Dynamic Batching is used, we instantiate the needed samplers.
+    # Create training dataset with sorting logic
+    train_data = _create_dataset(hparams["train_csv"], sorting=hparams["sorting"])
+    valid_data = _create_dataset(hparams["valid_csv"], sorting="ascending")
+    
+    test_datasets = {}
+    for csv_file in hparams["test_csv"]:
+        name = Path(csv_file).stem
+        test_datasets[name] = _create_dataset(csv_file, sorting="ascending")
+
+    # Dynamic batch sampling
     train_batch_sampler = None
     valid_batch_sampler = None
     if hparams["dynamic_batching"]:
-        from speechbrain.dataio.sampler import DynamicBatchSampler  # noqa
-
-        dynamic_hparams_train = hparams["dynamic_batch_sampler_train"]
-        dynamic_hparams_valid = hparams["dynamic_batch_sampler_valid"]
+        from speechbrain.dataio.sampler import DynamicBatchSampler
 
         train_batch_sampler = DynamicBatchSampler(
             train_data,
             length_func=lambda x: x["duration"],
-            **dynamic_hparams_train,
+            **hparams["dynamic_batch_sampler_train"],
         )
         valid_batch_sampler = DynamicBatchSampler(
             valid_data,
             length_func=lambda x: x["duration"],
-            **dynamic_hparams_valid,
+            **hparams["dynamic_batch_sampler_valid"],
         )
 
     return (
@@ -505,24 +339,14 @@ if __name__ == "__main__":
     # here we create the datasets objects as well as tokenization and encoding
     tokenizer = hparams["llm"].tokenizer
     
-    if not hparams.get("ssl", False):
-        (
-            train_data,
-            valid_data,
-            test_datasets,
-            tokenizer,
-            train_bsampler,
-            valid_bsampler,
-        ) = offline_feats_dataio_prepare(hparams, tokenizer)
-    else:
-        (
-            train_data,
-            valid_data,
-            test_datasets,
-            tokenizer,
-            train_bsampler,
-            valid_bsampler,
-        ) = dataio_prepare(hparams, tokenizer)
+    (
+        train_data,
+        valid_data,
+        test_datasets,
+        tokenizer,
+        train_bsampler,
+        valid_bsampler,
+    ) = dataio_prepare(hparams, tokenizer)
 
     # Trainer initialization
     asr_brain = ASR(
@@ -532,8 +356,6 @@ if __name__ == "__main__":
         checkpointer=hparams["checkpointer"],
     )
     asr_brain.tokenizer = tokenizer
-    # todo: delete this call.
-    asr_brain.gen_func = asr_brain.raw_modules.llm.model.generate
     asr_brain.txt_embedding = asr_brain.raw_modules.llm.model.get_input_embeddings()
     # adding objects to trainer:
     train_dataloader_opts = hparams["train_dataloader_opts"]

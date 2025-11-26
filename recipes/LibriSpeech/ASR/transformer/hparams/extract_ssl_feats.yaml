@@ -1,0 +1,46 @@
+# ############################################################################
+# Authors:  Adel Moumen
+# ############################################################################
+# Seed needs to be set at top of yaml, before objects with parameters are made
+seed: 3407
+__set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
+experiment_name: llama_3.2_1b_ASR
+output_folder: !ref results/<experiment_name>/<seed>
+save_folder: !ref <output_folder>/save
+train_log: !ref <output_folder>/train_log.txt
+feats_cache_dir: !ref <output_folder>/feats_cache
+
+# Data files
+data_folder: !PLACEHOLDER # e.g., /path/to/LibriSpeech
+# If RIRS_NOISES dir exists in /localscratch/xxx_corpus/RIRS_NOISES
+# then data_folder_rirs should be /localscratch/xxx_corpus
+# otherwise the dataset will automatically be downloaded
+# data_folder_rirs: !ref <data_folder>
+train_splits: ["train-clean-100", "train-clean-360", "train-other-500"] # , "train-clean-360", "train-other-500"
+dev_splits: ["dev-clean"]
+test_splits: ["test-clean", "test-other"]
+skip_prep: False
+train_csv: !ref <output_folder>/train.csv
+valid_csv: !ref <output_folder>/dev-clean.csv
+test_csv:
+    - !ref <output_folder>/test-clean.csv
+    - !ref <output_folder>/test-other.csv
+
+####################### Training Parameters ####################################
+# URL for the HuggingFace model we want to load (BASE here)
+ssl_hub: /scratch/adelmou/models/facebook/wav2vec2-large-960h
+ssl_folder: !ref <save_folder>/ssl_checkpoint
+ssl_frozen: True
+############################## models ################################
+normalize: !new:speechbrain.processing.features.InputNormalization
+    norm_type: sentence
+
+#wav2vec model
+ssl: !new:speechbrain.integrations.huggingface.wav2vec2.Wav2Vec2
+    source: !ref <ssl_hub>
+    output_norm: True
+    freeze: !ref <ssl_frozen>
+    save_path: !ref <ssl_folder>
+    device_map: 'cuda'
+    # attn_implementation: sdpa
+    # normalize_wav: False
