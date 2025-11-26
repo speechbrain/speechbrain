@@ -33,26 +33,25 @@ In this configuration, the model was trained on the following **90 Common Voice 
 ## Multilingual sampling ratios
 
 Common Voice languages do **not** have the same number of utterances: some are very high-resource, others much smaller. To avoid that high-resource languages dominate the training batches, we compute a **sampling ratio** for each language.
-
 For the train split, let:
+
 - $N_l$ be the number of utterances in language $l$,
 - $N_{\text{total}} = \sum_l N_l$ be the total number of utterances over all languages,
-- $p_l$ be the empirical probability of language $l$:
-  $$
-  p_l = \frac{N_l}{N_{\text{total}}}.
-  $$
+- $p_l = \frac{N_l}{N_{\text{total}}}$ be the empirical probability of language $l$.
 
 The sampling ratio $r_l$ used by the sampler is then defined as:
+
 $$
 r_l = \frac{1}{p_l} \cdot \frac{p_l^\alpha}{\sum_k p_k^\alpha},
 $$
 
-where $\alpha = \texttt{sampling\_alpha}$ (e.g. $\alpha = 0.05$).
+where $\alpha$ is the hyperparameter `sampling_alpha` (e.g. $\alpha = 0.05$).
 
 - $p_l$ reflects how frequent a language is in the corpus.
 - $r_l$ is the **sampling ratio** used as a weight in the sampler:
   - high-resource languages (large $p_l$) are down-weighted,
   - low-resource languages (small $p_l$) are up-weighted.
+
 
 These ratios are saved to `<output_folder>/language_ratios.json` and stored in a `ratio` column inside `train.csv`. During training, `ReproducibleWeightedRandomSampler` uses this `ratio` column to build multilingual batches where smaller languages are seen more often and larger languages are not over-represented.
 
