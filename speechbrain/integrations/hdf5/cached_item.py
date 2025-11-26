@@ -46,8 +46,10 @@ class CachedHDF5DynamicItem(CachedDynamicItem):
         # Open connection to HDF5 file
         self.file_mode = file_mode
         self.compression = compression
-        self.cache_location /= cache_filename
-        self.hdf5file = h5py.File(self.cache_location, file_mode)
+        # cache_location in the parent is a directory; keep filename separate.
+        self.cache_filename = cache_filename
+        self.hdf5_path = self.cache_location / self.cache_filename
+        self.hdf5file = h5py.File(self.hdf5_path, file_mode)
 
     def __getstate__(self):
         """Get the state of the object for pickling. In case of pickling, we need to close the HDF5 file."""
@@ -61,8 +63,9 @@ class CachedHDF5DynamicItem(CachedDynamicItem):
     def __setstate__(self, state):
         """Set the state of the object for unpickling."""
         self.__dict__ = state
-        # reopen the file lazily in the same mode
-        self.hdf5file = h5py.File(self.cache_location, self.file_mode)
+        # Reopen the file lazily in the same mode using the directory and filename.
+        self.hdf5_path = self.cache_location / self.cache_filename
+        self.hdf5file = h5py.File(self.hdf5_path, self.file_mode)
 
     def _is_cached(self, uid):
         """Test whether uid is cached."""
@@ -83,7 +86,8 @@ class CachedHDF5DynamicItem(CachedDynamicItem):
         writing format (building cache) to read-only format (multi-process loading)."""
         self.hdf5file.close()
         self.file_mode = new_file_mode
-        self.hdf5file = h5py.File(self.cache_location, new_file_mode)
+        self.hdf5_path = self.cache_location / self.cache_filename
+        self.hdf5file = h5py.File(self.hdf5_path, new_file_mode)
 
     @classmethod
     def cache(
