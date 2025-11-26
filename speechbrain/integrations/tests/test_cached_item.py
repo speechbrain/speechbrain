@@ -1,7 +1,7 @@
-"""Tests for CachedHDF5DynamicItem
+"""Tests for CachedHDF5DynamicItem.
 
 Authors:
- * Adel Moumen, 2025
+* Adel Moumen, 2025
 """
 
 import numpy as np
@@ -430,3 +430,77 @@ def test_cached_hdf5_dynamic_item_inheritance(tmp_path):
 
     # Clean up
     double.hdf5file.close()
+
+
+def test_cached_hdf5_dynamic_item_getset_state(tmp_path):
+    """Test __getstate__ and __setstate__ behavior for CachedHDF5DynamicItem.
+
+    This verifies that:
+
+    - __getstate__ returns a state without a live HDF5 handle and closes it.
+    - __setstate__ recreates the HDF5 handle with the correct mode.
+    - The restored object can still read data cached before serialization.
+    """
+    cache_dir = tmp_path / "cache"
+    cache_dir.mkdir()
+
+    @takes("id", "value")
+    @provides("doubled")
+    def double(id, value):
+        """Doubles a scalar value for state roundtrip tests.
+
+        Arguments
+        ---------
+        id : str
+            Unique identifier used as HDF5 dataset name.
+        value : int or float
+            Input scalar to be doubled.
+
+        Returns
+        -------
+        numpy.ndarray
+            Array of shape ``(1,)`` containing ``value * 2``.
+        """
+        return np.array([value * 2])
+
+    item = CachedHDF5DynamicItem(
+        cache_dir,
+        file_mode="a",
+        cache_filename="state_cache.hdf5",
+        takes=["id", "value"],
+        func=double,
+        provides=["doubled"],
+    )
+
+    # Create one cached entry.
+    result = item("state_id", 7)
+    assert result[0] == 14
+    assert item.hdf5_path.exists()
+    assert "state_id" in item.hdf5file
+
+    # Capture the file id and verify it is valid before __getstate__.
+    file_id = item.hdf5file.id
+    assert file_id.valid
+
+    # Extract state; this should close the underlying HDF5 handle.
+    state = item.__getstate__()
+    assert "hdf5file" not in state
+    assert not file_id.valid
+
+    # Manually construct a new instance and restore its state.
+    restored = object.__new__(CachedHDF5DynamicItem)
+    restored.__setstate__(state)
+
+    # The restored object should point to the same cache location and filename.
+    assert restored.cache_location == item.cache_location
+    assert restored.cache_filename == item.cache_filename
+    assert restored.file_mode == item.file_mode
+    assert restored.hdf5file.id.valid
+
+    # The restored object should be able to read the existing cached data.
+    restored_result = restored("state_id", 7)
+    assert restored_result[0] == 14
+    assert len(restored.hdf5file.keys()) == 1
+
+    # Clean up.
+    restored.hdf5file.close()
