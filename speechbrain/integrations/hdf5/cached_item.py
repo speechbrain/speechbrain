@@ -5,6 +5,8 @@ Authors:
  * Adel Moumen, 2025
 """
 
+from pathlib import Path
+
 import h5py
 
 from speechbrain.utils.data_pipeline import CachedDynamicItem, DynamicItem
@@ -48,7 +50,7 @@ class CachedHDF5DynamicItem(CachedDynamicItem):
         self.file_mode = file_mode
         self.compression = compression
         # cache_location in the parent is a directory; keep filename separate.
-        self.cache_filename = cache_filename
+        self.cache_filename = Path(cache_filename)
         self.hdf5_path = self.cache_location / self.cache_filename
         self.hdf5file = h5py.File(self.hdf5_path, file_mode)
 
@@ -65,7 +67,6 @@ class CachedHDF5DynamicItem(CachedDynamicItem):
         """Set the state of the object for unpickling."""
         self.__dict__ = state
         # Reopen the file lazily in the same mode using the directory and filename.
-        self.hdf5_path = self.cache_location / self.cache_filename
         self.hdf5file = h5py.File(self.hdf5_path, self.file_mode)
 
     def _is_cached(self, uid):

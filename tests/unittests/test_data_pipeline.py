@@ -315,7 +315,7 @@ def test_cached_dynamic_item_decorator(tmp_path):
     assert (cache_dir / "utt1.pt").exists()
 
     # Second call should use cache
-    result2 = tokenize("utt1", "  Hello World  ")
+    result2 = tokenize("utt1", "  Bonjour  ")
     assert result2 == ["hello", "world"]
     assert call_count == 1
 
