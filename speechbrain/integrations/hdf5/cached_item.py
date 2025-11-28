@@ -53,6 +53,18 @@ class CachedHDF5DynamicItem(CachedDynamicItem):
         self.cache_filename = Path(cache_filename)
         self.hdf5file = h5py.File(self.hdf5_path, file_mode)
 
+    def _is_cached(self, uid):
+        """Test whether uid is cached."""
+        return uid in self.hdf5file
+
+    def _load(self, uid):
+        """Load result from cache"""
+        return self.hdf5file[uid][:]
+
+    def _cache(self, result, uid):
+        """Save the result to the cache"""
+        self.hdf5file.create_dataset(uid, data=result)
+
     @property
     def hdf5_path(self):
         """Compute the full path to the HDF5 file from cache_location and cache_filename."""
