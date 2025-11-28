@@ -20,6 +20,7 @@ from hyperpyyaml import load_hyperpyyaml
 from torch.nn.parallel import DistributedDataParallel
 
 import speechbrain as sb
+from speechbrain.dataio import audio_io
 from speechbrain.inference.ASR import EncoderDecoderASR
 from speechbrain.inference.vocoders import UnitHIFIGAN
 from speechbrain.utils.logger import get_logger
@@ -441,7 +442,7 @@ def dataio_prepare(hparams):
         """Load the source language audio signal.
         This is done on the CPU in the `collate_fn`
         """
-        info = torchaudio.info(wav)
+        info = audio_io.info(wav)
         sig = sb.dataio.dataio.read_audio(wav)
         sig = torchaudio.transforms.Resample(
             info.sample_rate, hparams["sample_rate"]
@@ -454,7 +455,7 @@ def dataio_prepare(hparams):
         """Load the target language audio signal.
         This is done on the CPU in the `collate_fn`.
         """
-        info = torchaudio.info(wav)
+        info = audio_io.info(wav)
         sig = sb.dataio.dataio.read_audio(wav)
         sig = torchaudio.transforms.Resample(
             info.sample_rate,

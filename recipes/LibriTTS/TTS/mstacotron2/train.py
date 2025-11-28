@@ -20,6 +20,7 @@ import torchaudio
 from hyperpyyaml import load_hyperpyyaml
 
 import speechbrain as sb
+from speechbrain.dataio import audio_io
 from speechbrain.inference.vocoders import HIFIGAN
 from speechbrain.utils.data_utils import scalarize
 from speechbrain.utils.logger import get_logger
@@ -314,7 +315,7 @@ class Tacotron2Brain(sb.Brain):
                 str(self.hparams.epoch_counter.current),
                 "train_input_audio.wav",
             )
-            torchaudio.save(
+            audio_io.save(
                 train_input_audio,
                 sb.dataio.dataio.read_audio(wavs[0]).unsqueeze(0),
                 self.hparams.sample_rate,
@@ -329,7 +330,7 @@ class Tacotron2Brain(sb.Brain):
                     str(self.hparams.epoch_counter.current),
                     "train_output_audio.wav",
                 )
-                torchaudio.save(
+                audio_io.save(
                     train_sample_audio,
                     waveform_ss.squeeze(1).cpu(),
                     self.hparams.sample_rate,
@@ -460,7 +461,7 @@ class Tacotron2Brain(sb.Brain):
                 str(self.hparams.epoch_counter.current),
                 "inf_input_audio.wav",
             )
-            torchaudio.save(
+            audio_io.save(
                 inf_input_audio,
                 sb.dataio.dataio.read_audio(wavs[0]).unsqueeze(0),
                 self.hparams.sample_rate,
@@ -473,7 +474,7 @@ class Tacotron2Brain(sb.Brain):
                     str(self.hparams.epoch_counter.current),
                     "inf_output_audio.wav",
                 )
-                torchaudio.save(
+                audio_io.save(
                     inf_sample_audio,
                     waveform_ss.squeeze(1).cpu(),
                     self.hparams.sample_rate,
@@ -513,7 +514,7 @@ def dataio_prepare(hparams):
             text_to_sequence(label, hparams["text_cleaners"])
         )
 
-        audio, sig_sr = torchaudio.load(wav)
+        audio, sig_sr = audio_io.load(wav)
         if sig_sr != hparams["sample_rate"]:
             audio = torchaudio.functional.resample(
                 audio, sig_sr, hparams["sample_rate"]

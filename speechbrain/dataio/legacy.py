@@ -6,8 +6,8 @@ import pickle
 import re
 
 import torch
-import torchaudio
 
+from speechbrain.dataio import audio_io
 from speechbrain.dataio.dataset import DynamicItemDataset
 from speechbrain.utils.logger import get_logger
 
@@ -216,7 +216,7 @@ def _read_csv_item(item):
     """
     opts = _parse_csv_item_opts(item.opts)
     if item.format in TORCHAUDIO_FORMATS:
-        audio, _ = torchaudio.load(item.data)
+        audio, _ = audio_io.load(item.data)
         return audio.squeeze(0)
     elif item.format == "pkl":
         return read_pkl(item.data, opts)

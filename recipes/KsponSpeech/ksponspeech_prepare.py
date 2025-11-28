@@ -10,8 +10,7 @@ import csv
 import os
 import re
 
-import torchaudio
-
+from speechbrain.dataio import audio_io
 from speechbrain.dataio.dataio import load_pkl, merge_csvs, save_pkl
 from speechbrain.utils.data_utils import get_all_files
 from speechbrain.utils.logger import get_logger
@@ -167,7 +166,7 @@ def create_csv(save_folder, wav_lst, text_dict, split, select_n_sentences):
         spk_id = snt_id.split("_")[-1]
         wrds = text_dict[snt_id]
 
-        duration = torchaudio.info(wav_file).num_frames / SAMPLERATE
+        duration = audio_io.info(wav_file).num_frames / SAMPLERATE
 
         csv_line = [
             snt_id,

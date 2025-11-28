@@ -34,6 +34,7 @@ import torchaudio
 from hyperpyyaml import load_hyperpyyaml
 
 import speechbrain as sb
+from speechbrain.dataio import audio_io
 from speechbrain.utils.distributed import run_on_main
 from speechbrain.utils.logger import get_logger
 
@@ -199,7 +200,7 @@ def dataio_prepare(hparams):
     @sb.utils.data_pipeline.takes("wav")
     @sb.utils.data_pipeline.provides("sig")
     def audio_pipeline(wav):
-        info = torchaudio.info(wav)
+        info = audio_io.info(wav)
         sig = sb.dataio.dataio.read_audio(wav)
         if info.num_channels > 1:
             sig = torch.mean(sig, dim=1)

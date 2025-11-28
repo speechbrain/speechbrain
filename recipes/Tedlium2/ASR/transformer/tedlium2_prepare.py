@@ -10,8 +10,7 @@ import csv
 import functools
 import os
 
-import torchaudio
-
+from speechbrain.dataio import audio_io
 from speechbrain.utils.logger import get_logger
 from speechbrain.utils.parallel import parallel_map
 
@@ -48,7 +47,7 @@ def make_splits(sph_file, stm_file, utt_save_folder, avoid_if_shorter_than):
     annotations = annotation_file.readlines()
 
     # load the original speech recording
-    original_speech, sample_rate = torchaudio.load(sph_file)
+    original_speech, sample_rate = audio_io.load(sph_file)
 
     entry = []
 
@@ -96,7 +95,7 @@ def make_splits(sph_file, stm_file, utt_save_folder, avoid_if_shorter_than):
             start = float(line[3]) * sample_rate
             end = float(line[4]) * sample_rate
             curr_utt = original_speech[:, int(start) : int(end)]
-            torchaudio.save(clipped_save_path, curr_utt, sample_rate)
+            audio_io.save(clipped_save_path, curr_utt, sample_rate)
         # append to the csv entry list
         csv_line = [
             f"{talk_id}-{str(i)}",

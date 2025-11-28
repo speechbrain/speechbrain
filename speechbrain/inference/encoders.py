@@ -125,7 +125,8 @@ class MelSpectrogramEncoder(Pretrained):
     ... )  # doctest: +SKIP
 
     >>> # Compute embedding from a waveform (sample_rate must match the sample rate of the encoder)
-    >>> signal, fs = torchaudio.load(
+    >>> from speechbrain.dataio import audio_io
+    >>> signal, fs = audio_io.load(
     ...     "tests/samples/single-mic/example1.wav"
     ... )  # doctest: +SKIP
     >>> spk_emb = encoder.encode_waveform(signal)  # doctest: +SKIP
