@@ -15,8 +15,9 @@ import os
 from os import path
 import functools
 import json
+import csv
+from typing import List, Dict, Any
 
-import pandas as pd
 from tqdm import tqdm
 
 from speechbrain.utils.logger import get_logger
@@ -181,15 +182,16 @@ def skip_prepared_splits(train_csv: str, dev_csv: str) -> bool:
     return False
 
 
-def read_split_lang_to_df(
+def read_split_lang_to_rows(
     data_folder: str,
     lang: str,
     split: str,
     convert_to_wav: bool = False,
     duration_max: float = DURATION_MAX,
-):
+) -> List[Dict[str, Any]]:
     """
-    Reads one split (train/dev) for a given language and returns a DataFrame.
+    Reads one split (train/dev) for a given language and returns a list of
+    utterance dictionaries.
 
     The function:
       * loads the corresponding Common Voice TSV file,
@@ -197,7 +199,7 @@ def read_split_lang_to_df(
       * filters out utterances with invalid or too long durations,
       * attaches the raw transcription from the TSV file.
 
-    The resulting DataFrame has the following columns:
+    Each dictionary has the following keys:
 
         ID, duration, wav, spk_id, text
 
@@ -217,9 +219,9 @@ def read_split_lang_to_df(
 
     Returns
     -------
-    pandas.DataFrame or None
-        DataFrame containing the selected utterances for this language and
-        split, or None if no valid samples are found.
+    list of dict
+        List of utterance dictionaries for this language and split. Returns
+        an empty list if no valid samples are found.
 
     Raises
     ------
@@ -249,7 +251,7 @@ def read_split_lang_to_df(
     if len(csv_lines) <= 1:
         msg = "No usable data in %s" % (orig_tsv_file)
         logger.warning(msg)
-        return None
+        return []
 
     header_line = csv_lines[0]
     data_lines = csv_lines[1:]
@@ -266,7 +268,7 @@ def read_split_lang_to_df(
         )
 
     # Map sentence id (snt_id) → raw transcription from TSV
-    raw_text_by_id = {}
+    raw_text_by_id: Dict[str, str] = {}
     for line in data_lines:
         cols = line.rstrip("\n").split("\t")
         audio_path_filename = cols[header_map["path"]]
@@ -286,11 +288,7 @@ def read_split_lang_to_df(
 
     processed_rows = parallel_map(line_processor, data_lines)
 
-    ids = []
-    durations = []
-    wavs = []
-    spk_ids = []
-    texts = []
+    rows: List[Dict[str, Any]] = []
     total_duration = 0.0
 
     for row in processed_rows:
@@ -302,38 +300,33 @@ def read_split_lang_to_df(
             continue
 
         full_id = row.snt_id
-        ids.append(full_id)
-        durations.append(row.duration)
-        wavs.append(row.audio_path)
-        spk_ids.append(row.spk_id)
         raw_sentence = raw_text_by_id.get(row.snt_id, "")
-        texts.append(raw_sentence)
+
+        rows.append(
+            {
+                "ID": full_id,
+                "duration": row.duration,
+                "wav": row.audio_path,
+                "spk_id": row.spk_id,
+                "text": raw_sentence,
+            }
+        )
         total_duration += row.duration
 
-    if len(ids) == 0:
+    if not rows:
         msg = "No valid samples for %s / %s" % (lang, split)
         logger.warning(msg)
-        return None
+        return []
 
     msg = "%s / %s: kept %s utterances for a total of %.2f hours" % (
         lang,
         split,
-        len(ids),
+        len(rows),
         total_duration / 3600.0,
     )
     logger.info(msg)
 
-    df = pd.DataFrame(
-        {
-            "ID": ids,
-            "duration": durations,
-            "wav": wavs,
-            "spk_id": spk_ids,
-            "text": texts,
-        }
-    )
-
-    return df
+    return rows
 
 
 def build_combined_split(
@@ -350,7 +343,7 @@ def build_combined_split(
 
     For each language in ``languages``, this function:
       * reads the corresponding TSV file,
-      * processes and filters utterances using ``read_split_lang_to_df``,
+      * processes and filters utterances using ``read_split_lang_to_rows``,
       * concatenates all languages into a single CSV manifest.
 
     For the ``train`` split, it also computes per-language sampling ratios
@@ -384,7 +377,7 @@ def build_combined_split(
         train split. If None, ratios are not written to disk.
     convert_to_wav : bool, optional
         If True, audio files are converted to WAV inside
-        ``read_split_lang_to_df`` via ``process_line``.
+        ``read_split_lang_to_rows`` via ``process_line``.
 
     Returns
     -------
@@ -401,40 +394,40 @@ def build_combined_split(
     logger.info(msg)
     create_directory(os.path.dirname(out_csv))
 
-    dfs = []
-    language_counts = {}
+    all_rows: List[Dict[str, Any]] = []
+    language_counts: Dict[str, int] = {}
 
     for lang in tqdm(languages, desc="Split %s" % (split)):
-        df_lang = read_split_lang_to_df(
+        rows_lang = read_split_lang_to_rows(
             data_folder=data_folder,
             lang=lang,
             split=split,
             convert_to_wav=convert_to_wav,
             duration_max=DURATION_MAX,
         )
-        if df_lang is None or df_lang.empty:
+        if not rows_lang:
             continue
 
-        df_lang["lang"] = lang
-        language_counts[lang] = len(df_lang)
-        dfs.append(df_lang)
+        for r in rows_lang:
+            r["lang"] = lang
 
-    if len(dfs) == 0:
+        language_counts[lang] = len(rows_lang)
+        all_rows.extend(rows_lang)
+
+    if not all_rows:
         raise RuntimeError(
             "No valid samples for split %s across the selected languages."
             % (split)
         )
 
-    combined = pd.concat(dfs, ignore_index=True)
-
     if split == "train":
-        total = len(combined)
+        total = len(all_rows)
         if total == 0:
             raise RuntimeError("Combined train split is empty after filtering.")
 
-        ratio_map = {}
-        ps = {}
-        p_alphas = {}
+        ratio_map: Dict[str, float] = {}
+        ps: Dict[str, float] = {}
+        p_alphas: Dict[str, float] = {}
 
         # p_l = N_l / N_total, then p_l**alpha
         for lang, count in language_counts.items():
@@ -463,9 +456,19 @@ def build_combined_split(
             msg = "Language ratios: %s" % (ratio_map)
             logger.info(msg)
 
-        combined["ratio"] = combined["lang"].map(ratio_map)
+        for r in all_rows:
+            r["ratio"] = ratio_map[r["lang"]]
 
-    combined.to_csv(out_csv, index=False)
+    fieldnames = ["ID", "duration", "wav", "spk_id", "text", "lang"]
+    if split == "train":
+        fieldnames.append("ratio")
+
+    with open(out_csv, "w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer.writeheader()
+        for r in all_rows:
+            writer.writerow(r)
+
     msg = "Multilingual %s.csv written to: %s" % (split, out_csv)
     logger.info(msg)
     return out_csv
