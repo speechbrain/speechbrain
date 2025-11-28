@@ -51,7 +51,7 @@ class CachedHDF5DynamicItem(CachedDynamicItem):
         self.compression = compression
         # cache_location in the parent is a directory; keep filename separate.
         self.cache_filename = Path(cache_filename)
-        self.hdf5_path = self.cache_location / self.cache_filename
+        self.hdf5_path = Path(self.cache_location) / self.cache_filename
         self.hdf5file = h5py.File(self.hdf5_path, file_mode)
 
     def __getstate__(self):
