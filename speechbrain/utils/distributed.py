@@ -456,7 +456,7 @@ def ddp_init_group(run_opts):
     None
     """
     rank = get_rank()
-    local_rank = get_local_rank()
+    local_rank = os.environ.get("LOCAL_RANK")
     if local_rank is None or rank is None:
         return
 
