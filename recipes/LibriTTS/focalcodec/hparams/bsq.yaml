@@ -1,0 +1,309 @@
+# ###########################################################################################
+# Model: BSQ
+# Authors: Luca Della Libera 2025
+# ###########################################################################################
+
+experiment_name: bsq
+
+# Seed needs to be set at top of YAML
+seed: 0
+__set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
+
+# Data preparation
+data_folder: !PLACEHOLDER
+train_json: !ref <save_folder>/train.json
+valid_json: !ref <save_folder>/valid.json
+test_json: !ref <save_folder>/test.json
+train_split:
+    - train-clean-100
+    - train-clean-360
+    - train-other-500
+valid_split: [dev-clean]
+test_split: [test-clean]
+skip_prep: False
+
+# Output folders
+output_folder: !ref results/<experiment_name>/<seed>
+save_folder: !ref <output_folder>/save
+cache_folder: !name:huggingface_hub.constants.HUGGINGFACE_HUB_CACHE
+
+# Save options
+compute_metrics: True
+save_audios: True
+
+# Preprocessing parameters
+sample_rate: 16000
+audio_backend: soundfile
+train_remove_if_longer: 60.0  # Seconds
+valid_remove_if_longer: 60.0  # Seconds
+test_remove_if_longer: 60.0  # Seconds
+sorting: random
+
+# Training parameters
+num_epochs: 100
+grad_accumulation_factor: 1
+dynamic_batching: False
+train_batch_size: 16
+valid_batch_size: 1
+test_batch_size: 1
+train_max_batch_length: 20.0  # Seconds
+valid_max_batch_length: 20.0  # Seconds
+test_max_batch_length: 20.0  # Seconds
+num_buckets: 100
+max_batch_size: 128
+dataloader_workers: 4
+nonfinite_patience: 10
+max_grad_norm: 5.0
+precision: fp32
+ckpt_interval_steps: 10000
+keep_checkpoints: 1
+augment: False
+augment_prob: 0.75
+segment_size: null
+segment_pad: False
+valid_freq: 1
+
+# Optimizer parameters
+lr: 0.0005
+betas: [0.9, 0.98]
+weight_decay: 0.01
+improvement_threshold: 0.0025
+annealing_factor: 0.9
+patient: 0
+
+# Encoder parameters
+encoder_hidden_dims: [512, 512, 512, 512, 512, 512, 512]
+encoder_kernel_sizes: [10, 3, 3, 3, 3, 2, 2]
+encoder_strides: [5, 2, 2, 2, 2, 2, 2]
+encoder_num_layers: 6
+encoder_dim: 1024
+encoder_ffn_dim: 4096
+encoder_num_heads: 16
+encoder_num_buckets: 320
+encoder_max_distance: 800
+encoder_max_cached_steps: 2048
+encoder_dropout: 0.0
+encoder_conv_pos: 128
+encoder_conv_pos_groups: 16
+encoder_causal: False
+encoder_window_size: 512
+encoder_lookahead_size: 3
+encoder_use_flex_attention: False
+encoder_checkpoint: !apply:utils.download_wavlm6 [!ref <cache_folder>]
+
+# Compressor parameters
+compressor_input_dim: !ref <encoder_dim>
+compressor_output_dim: !ref <quantizer_code_dim>
+compressor_hidden_dims: [1024, 512, 256]
+compressor_downscale_factors: [1, 1, 1]
+compressor_focal_window: 7
+compressor_focal_level: 2
+compressor_focal_factor: 2
+compressor_dropout: 0.0
+compressor_use_post_norm: False
+compressor_use_layerscale: False
+compressor_layerscale_init: 0.0001
+compressor_tanhscale_init: 0.5
+compressor_normalize_modulator: False
+compressor_causal: False
+compressor_window_size: 512
+
+# Quantizer parameters
+quantizer_code_dim: 13  # codebook_size = 2 ** 13
+quantizer_entropy_loss_weight: 0.1
+quantizer_diversity_gamma: 1.0
+
+# Decompressor parameters
+decompressor_input_dim: !ref <quantizer_code_dim>
+decompressor_output_dim: !ref <encoder_dim>
+decompressor_hidden_dims: [256, 512, 1024]
+decompressor_upscale_factors: [1, 1, 1]
+decompressor_focal_window: 7
+decompressor_focal_level: 2
+decompressor_focal_factor: 2
+decompressor_dropout: 0.0
+decompressor_use_post_norm: False
+decompressor_use_layerscale: False
+decompressor_layerscale_init: 0.0001
+decompressor_tanhscale_init: 0.5
+decompressor_normalize_modulator: False
+decompressor_causal: False
+decompressor_window_size: 512
+decompressor_last_window_size: 512
+decompressor_lookahead_size: 3
+
+# Decoder parameters
+decoder_input_dim: !ref <encoder_dim>
+decoder_num_layers: 8
+decoder_dim: 512
+decoder_ffn_dim: 1536
+decoder_kernel_size: 7
+decoder_hop_length: 320
+decoder_layerscale_init: null
+decoder_n_fft: 1024
+decoder_causal: False
+decoder_checkpoint: null
+
+# Augmentation
+drop_freq: !new:speechbrain.augment.time_domain.DropFreq
+    drop_freq_low: 0  # Min frequency band dropout probability
+    drop_freq_high: 1  # Max frequency band dropout probability
+    drop_freq_count_low: 1  # Min number of frequency bands to drop
+    drop_freq_count_high: 3  # Max number of frequency bands to drop
+    drop_freq_width: 0.05  # Width of frequency bands to drop
+
+drop_chunk: !new:speechbrain.augment.time_domain.DropChunk
+    drop_length_low: 1  # Min number of audio chunks to drop
+    drop_length_high: 5  # Max number of audio chunks to drop
+    drop_count_low: 1000  # Min length of audio chunks to drop
+    drop_count_high: 2000  # Max length of audio chunks to drop
+
+augmentation: !new:speechbrain.augment.augmenter.Augmenter
+    parallel_augment: False
+    concat_original: False
+    repeat_augment: 1
+    shuffle_augmentations: False
+    min_augmentations: 2
+    max_augmentations: 2
+    augment_prob: !ref <augment_prob>
+    augmentations: [!ref <drop_freq>, !ref <drop_chunk>]
+
+# Modules
+encoder: !new:focalcodec.wavlm.WavLM
+    hidden_dims: !ref <encoder_hidden_dims>
+    kernel_sizes: !ref <encoder_kernel_sizes>
+    strides: !ref <encoder_strides>
+    num_layers: !ref <encoder_num_layers>
+    dim: !ref <encoder_dim>
+    ffn_dim: !ref <encoder_ffn_dim>
+    num_heads: !ref <encoder_num_heads>
+    num_buckets: !ref <encoder_num_buckets>
+    max_distance: !ref <encoder_max_distance>
+    max_cached_steps: !ref <encoder_max_cached_steps>
+    dropout: !ref <encoder_dropout>
+    conv_pos: !ref <encoder_conv_pos>
+    conv_pos_groups: !ref <encoder_conv_pos_groups>
+    causal: !ref <encoder_causal>
+    window_size: !ref <encoder_window_size>
+    lookahead_size: !ref <encoder_lookahead_size>
+    use_flex_attention: !ref <encoder_use_flex_attention>
+
+compressor: !new:focalcodec.focalnet.FocalEncoder
+    input_dim: !ref <compressor_input_dim>
+    output_dim: !ref <compressor_output_dim>
+    hidden_dims: !ref <compressor_hidden_dims>
+    downscale_factors: !ref <compressor_downscale_factors>
+    focal_window: !ref <compressor_focal_window>
+    focal_level: !ref <compressor_focal_level>
+    focal_factor: !ref <compressor_focal_factor>
+    dropout: !ref <compressor_dropout>
+    use_post_norm: !ref <compressor_use_post_norm>
+    use_layerscale: !ref <compressor_use_layerscale>
+    layerscale_init: !ref <compressor_layerscale_init>
+    tanhscale_init: !ref <compressor_tanhscale_init>
+    normalize_modulator: !ref <compressor_normalize_modulator>
+    causal: !ref <compressor_causal>
+    window_size: !ref <compressor_window_size>
+
+quantizer: !new:speechbrain.lobes.models.bsq.BinarySphericalQuantizer
+    code_dim: !ref <quantizer_code_dim>
+    entropy_loss_weight: !ref <quantizer_entropy_loss_weight>
+    diversity_gamma: !ref <quantizer_diversity_gamma>
+
+decompressor: !new:focalcodec.focalnet.FocalDecoder
+    input_dim: !ref <decompressor_input_dim>
+    output_dim: !ref <decompressor_output_dim>
+    hidden_dims: !ref <decompressor_hidden_dims>
+    upscale_factors: !ref <decompressor_upscale_factors>
+    focal_window: !ref <decompressor_focal_window>
+    focal_level: !ref <decompressor_focal_level>
+    focal_factor: !ref <decompressor_focal_factor>
+    dropout: !ref <decompressor_dropout>
+    use_post_norm: !ref <decompressor_use_post_norm>
+    use_layerscale: !ref <decompressor_use_layerscale>
+    layerscale_init: !ref <decompressor_layerscale_init>
+    tanhscale_init: !ref <decompressor_tanhscale_init>
+    normalize_modulator: !ref <decompressor_normalize_modulator>
+    causal: !ref <decompressor_causal>
+    window_size: !ref <decompressor_window_size>
+    last_window_size: !ref <decompressor_last_window_size>
+    lookahead_size: !ref <decompressor_lookahead_size>
+
+decoder: !new:focalcodec.vocos.Vocos
+    input_dim: !ref <decoder_input_dim>
+    num_layers: !ref <decoder_num_layers>
+    dim: !ref <decoder_dim>
+    ffn_dim: !ref <decoder_ffn_dim>
+    kernel_size: !ref <decoder_kernel_size>
+    hop_length: !ref <decoder_hop_length>
+    layerscale_init: !ref <decoder_layerscale_init>
+    n_fft: !ref <decoder_n_fft>
+    causal: !ref <decoder_causal>
+
+modules:
+    compressor: !ref <compressor>
+    quantizer: !ref <quantizer>
+    decompressor: !ref <decompressor>
+
+# Loss functions
+rec_loss: !name:speechbrain.nnet.losses.mse_loss
+    allowed_len_diff: 0
+    reduction: mean
+
+# Optimizers
+opt_class: !name:torch.optim.AdamW
+    lr: !ref <lr>
+    betas: !ref <betas>
+    eps: 1.e-8
+    weight_decay: !ref <weight_decay>
+
+# Schedulers
+scheduler: !new:speechbrain.nnet.schedulers.NewBobScheduler
+    initial_value: !ref <lr>
+    improvement_threshold: !ref <improvement_threshold>
+    annealing_factor: !ref <annealing_factor>
+    patient: !ref <patient>
+
+# Performance metrics
+utmos_computer: !name:metrics.utmos.UTMOS
+    sample_rate: !ref <sample_rate>
+
+dwer_computer: !name:metrics.dwer.DWER
+    model_hub: openai/whisper-small
+    save_path: !ref <cache_folder>
+    sample_rate: !ref <sample_rate>
+
+wavlm_sim_computer: !name:metrics.speaker_similarity.SpkSimWavLM
+    model_hub: microsoft/wavlm-base-sv
+    save_path: !ref <cache_folder>
+    sample_rate: !ref <sample_rate>
+
+# Pretrainer
+pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
+    collect_in: !ref <save_folder>
+    loadables:
+        encoder: !ref <encoder>
+        decoder: !ref <decoder>
+    paths:
+        encoder: !ref <encoder_checkpoint>
+        decoder: !ref <decoder_checkpoint>
+    conditions:
+        encoder: !ref <encoder_checkpoint>
+        decoder: !ref <decoder_checkpoint>
+
+# Counters, checkpointers, loggers, etc.
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+    limit: !ref <num_epochs>
+
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+    checkpoints_dir: !ref <save_folder>
+    recoverables:
+        compressor: !ref <compressor>
+        quantizer: !ref <quantizer>
+        decompressor: !ref <decompressor>
+        scheduler: !ref <scheduler>
+        counter: !ref <epoch_counter>
+
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+    save_file: !ref <output_folder>/train_log.txt
+    precision: 5
