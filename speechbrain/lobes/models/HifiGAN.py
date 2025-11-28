@@ -1430,6 +1430,37 @@ class MSEGLoss(nn.Module):
         return loss_fake
 
 
+class HingeGLoss(nn.Module):
+    """Hinge Generator Loss.
+
+    The generator is trained to fake the discriminator by updating the sample quality
+    to be classified to a value almost equal to 1.
+
+    Example
+    -------
+    > import torch
+    > score_fake = torch.randn(4, 88)
+    > loss = HingeGLoss()(score_fake)
+    > print(loss)
+
+    """
+
+    def forward(self, score_fake):
+        """Returns Generator GAN loss
+
+        Arguments
+        ---------
+        score_fake : torch.Tensor
+            Discriminator scores of generated waveforms D(G(s))
+
+        Returns
+        -------
+        Generator loss
+        """
+        loss_fake = (1 - score_fake).clamp(min=0).mean()
+        return loss_fake
+
+
 class MelganFeatureLoss(nn.Module):
     """Calculates the feature matching loss, which is a learned similarity metric measured by
     the difference in features of the discriminator between a ground truth sample and a generated
@@ -1506,6 +1537,42 @@ class MSEDLoss(nn.Module):
         loss_fake = self.loss_func(
             score_fake, score_fake.new_zeros(score_fake.shape)
         )
+        loss_d = loss_real + loss_fake
+        return loss_d, loss_real, loss_fake
+
+
+class HingeDLoss(nn.Module):
+    """Hinge Discriminator Loss.
+
+    The discriminator is trained to classify ground truth samples to 1,
+    and the samples synthesized from the generator to 0.
+
+    Example
+    -------
+    > import torch
+    > score_fake = torch.randn(4, 88)
+    > score_real = torch.randn(4, 88)
+    > loss = HingeDLoss()(score_fake, score_real)
+    > print(loss)
+
+    """
+
+    def forward(self, score_fake, score_real):
+        """Returns Discriminator GAN losses
+
+        Arguments
+        ---------
+        score_fake : torch.Tensor
+            discriminator scores of generated waveforms
+        score_real : torch.Tensor
+            discriminator scores of groundtruth waveforms
+
+        Returns
+        -------
+        Discriminator losses
+        """
+        loss_real = (1 - score_real).clamp(min=0).mean()
+        loss_fake = (1 + score_fake).clamp(min=0).mean()
         loss_d = loss_real + loss_fake
         return loss_d, loss_real, loss_fake
 
