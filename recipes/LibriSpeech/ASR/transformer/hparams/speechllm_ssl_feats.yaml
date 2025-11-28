@@ -1,79 +1,76 @@
 # ############################################################################
-# SpeechLLM with SSL features for ASR.
-# Authors:  
-#  * Adel Moumen, 2025
+# SpeechLLM for ASR with SSL features 
+# Authors: Adel Moumen, 2025
 # ############################################################################
-# Seed needs to be set at top of yaml, before objects with parameters are made
+
+# Seed must be set at the top before objects with parameters are created
 seed: 3407
 __set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
-experiment_name: llama_3.2_1b_ASR
+
+####################### Experiment Configuration ###########################
+
+experiment_name: speechllm_ssl_feats
 output_folder: !ref results/<experiment_name>/<seed>
-csv_folder: !ref <output_folder>
 output_wer_folder: !ref <output_folder>/wer_results
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 feats_cache_dir: !ref <output_folder>/feats_cache
+ckpt_interval_minutes: 15
 
-# Data files
-data_folder: !PLACEHOLDER # e.g., /path/to/LibriSpeech
-# If RIRS_NOISES dir exists in /localscratch/xxx_corpus/RIRS_NOISES
-# then data_folder_rirs should be /localscratch/xxx_corpus
-# otherwise the dataset will automatically be downloaded
-# data_folder_rirs: !ref <data_folder>
-train_splits: ["train-clean-100", "train-clean-360", "train-other-500"] # , "train-clean-360", "train-other-500"
+####################### Data Configuration #################################
+
+data_folder: !PLACEHOLDER  # e.g., /path/to/LibriSpeech
+train_splits: ["train-clean-100", "train-clean-360", "train-other-500"]
 dev_splits: ["dev-clean"]
 test_splits: ["test-clean", "test-other"]
 skip_prep: False
+csv_folder: !ref <output_folder>
 train_csv: !ref <csv_folder>/train.csv
 valid_csv: !ref <csv_folder>/dev-clean.csv
 test_csv:
     - !ref <csv_folder>/test-clean.csv
     - !ref <csv_folder>/test-other.csv
 
-ckpt_interval_minutes: 15 # save checkpoint every N min
+####################### Model Paths & Configuration ########################
 
-####################### Training Parameters ####################################
-# LLM options
-llm_path: /scratch/adelmou/models/meta-llama/Llama-3.2-1B
+# LLM Configuration
+llm_path: !PLACEHOLDER  # e.g., /path/to/meta-llama/Llama-3.2-1B
 llm_emb_size: 2048
 
+####################### Training Hyperparameters ###########################
+
 number_of_epochs: 1
-batch_size: 32 # Only used if dynamic batching is off.
-test_batch_size: 1
-# 400s * 10 => 1h / opt step
+batch_size: 32  # Only used if dynamic batching is off
 grad_accumulation_factor: 5
 loss_reduction: 'batchmean'
 sorting: random
 num_workers: 0
-precision: bf16 # bf16, fp16 or fp32
+precision: bf16  # Options: bf16, fp16, fp32
 eval_precision: bf16
-max_grad_norm: 1.0 
-avg_checkpoints: 3 
-ignore_index: -100
+max_grad_norm: 1.0
 
-# stages related parameters
+####################### Learning Rate & Optimization ######################
+
 initial_lr: 0.0005
 final_lr: 0.00001
-
 weight_decay: 0.0
 warmup_steps: 5000
-augment_warmup: 7500
 
-# BPE parameters
-token_type: unigram  # ["unigram", "bpe", "char"]
-character_coverage: 1.0
+####################### Feature & Audio Parameters #########################
 
-# Feature parameters
 sample_rate: 16000
-downsampling_factor: 5 # Used to downsample frames before llm projection.
+downsampling_factor: 5  # Used to downsample frames before LLM projection
+downsampling_output_dim: 5120
 
-# This setup works well for A100 80GB GPU, adapts it to your needs.
-# Or turn it off (but training speed will decrease)
+####################### Dynamic Batching Configuration ######################
+
+# This setup works well for A100 80GB GPU; adapt to your needs
+# Turn off dynamic batching if needed (training speed will decrease)
 dynamic_batching: True
 max_batch_length_train: 400
-max_batch_length_val: 100 # we reduce it as the beam is much wider (VRAM)
+max_batch_length_val: 100  # Reduced for validation due to wider beam (VRAM)
 num_bucket: 200
-shuffle: True # if true re-creates batches at each epoch shuffling examples.
+shuffle: True  # Re-creates batches at each epoch by shuffling examples
 batch_ordering: random
 max_batch_ex: 256
 
@@ -90,6 +87,10 @@ dynamic_batch_sampler_valid:
     shuffle: !ref <shuffle>
     batch_ordering: !ref <batch_ordering>
     max_batch_ex: !ref <max_batch_ex>
+
+####################### DataLoader Configuration ##########################
+ignore_index: -100
+test_batch_size: 1
 
 # Dataloader options
 train_dataloader_opts:
@@ -123,10 +124,10 @@ test_dataloader_opts:
             tokens_eos:
                 value: !ref <ignore_index>
 
-####################### Model Parameters ###########################
+####################### Model Architecture Parameters #######################
 lora_rank: 16
 
-# Outputs
+# Output & Decoding Parameters
 # The user needs to set the bos_index, eos_index and pad_token.
 # If a value is None, we won't use the corresponding token.
 # Current template is: 
@@ -135,13 +136,16 @@ bos_index: !PLACEHOLDER # 0
 eos_index: !PLACEHOLDER # 0
 pad_token: !PLACEHOLDER # 128256
 prompt: "Transcribe speech to text."
+avg_checkpoints: 3
 
-############################## models ################################
+####################### Model Components ####################################
+
 proj: !new:torch.nn.Linear
     in_features: 5120
     out_features: !ref <llm_emb_size>
     bias: False
 
+output_hidden_states: False
 backbone_llm: !new:speechbrain.integrations.huggingface.llama.LLaMA
     source: !ref <llm_path>
     save_path: !ref <save_folder>
@@ -152,14 +156,14 @@ backbone_llm: !new:speechbrain.integrations.huggingface.llama.LLaMA
     additional_special_tokens:
         - "<|start_of_audio|>"
         - "<|end_of_audio|>"
-    output_hidden_states: False
+    output_hidden_states: !ref <output_hidden_states>
 
 llm: !new:speechbrain.nnet.adapters.AdaptedModel
-   model_to_adapt: !ref <backbone_llm>
-   adapter_class: !name:speechbrain.nnet.adapters.LoRA
-   all_linear: True
-   adapter_kwargs:
-       rank: !ref <lora_rank>
+    model_to_adapt: !ref <backbone_llm>
+    adapter_class: !name:speechbrain.nnet.adapters.LoRA
+    all_linear: True
+    adapter_kwargs:
+        rank: !ref <lora_rank>
 
 feat_downsampler: !new:speechbrain.lobes.downsampling.ConcatDownsampler
     downsampling_factor: !ref <downsampling_factor>
@@ -178,9 +182,10 @@ modules:
     searcher: !ref <searcher>
 
 model: !new:torch.nn.ModuleList
-   - [!ref <llm>, !ref <proj>]
+    - [!ref <llm>, !ref <proj>]
 
-# We define two optimizers as we have two stages (training + finetuning)
+####################### Optimizers & Schedulers ############################
+
 opt: !name:torch.optim.AdamW
     lr: !ref <initial_lr>
     weight_decay: !ref <weight_decay>
@@ -190,19 +195,24 @@ scheduler: !new:speechbrain.nnet.schedulers.LinearScheduler
     final_value: !ref <final_lr>
     epoch_count: !ref <number_of_epochs>
 
+####################### Checkpointing & Logging #############################
+
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     checkpoints_dir: !ref <save_folder>
     recoverables:
         llm: !ref <llm>
         proj: !ref <proj>
         counter: !ref <epoch_counter>
-        
+
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
 
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
     save_file: !ref <train_log>
 
+####################### Metrics #############################################
+
 cer_computer: !name:speechbrain.utils.metric_stats.ErrorRateStats
     split_tokens: True
+
 error_rate_computer: !name:speechbrain.utils.metric_stats.ErrorRateStats

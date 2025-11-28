@@ -1,11 +1,27 @@
 #!/usr/bin/env python3
 """Recipe for training a SpeechLLM ASR system with LibriSpeech.
+
 The system employs a speech SSL encoder, and a pre-trained LLM decoder.
 The speech features are projected to the LLM embedding space using a linear layer projection.
 The LLM is trained used the cross-entropy loss on the text tokens excluding the prompt.
 
 An input sequence is typically constructed like this: 
  <|start_of_audio|> audio features <|end_of_audio|> <prompt> <bos> <text> <eos>
+
+This script supports both offline and online SSL/cached features mode.
+To extract the features offline, run the `extract_ssl_feats.py` script, and use
+the correct yaml file for this script.
+
+python extract_ssl_feats.py hparams/extract_ssl_feats.yaml
+    --data_folder path/to/LibriSpeech \
+    --output_folder path/to/feats_cache \
+    --ssl_hub path/to/wavlm-large \
+    --feats_cache_dir path/to/feats_cache
+    ...other_hparams...
+
+python train_speechllm.py hparams/speechllm_ssl_feats.yaml
+    --feats_cache_dir path/to/feats_cache \
+    ...other_hparams...
 
 Authors
 -------
@@ -28,6 +44,28 @@ logger = get_logger(__name__)
 
 
 def get_multimodal_attention_mask(wav, wav_lens, txt, txt_lens, device):
+    """Create attention mask for multimodal sequence.
+    
+    Arguments
+    ---------
+    wav : torch.Tensor
+        Audio features tensor of shape (batch_size, L_audio, ...)
+    wav_lens : torch.Tensor
+        Relative lengths of audio features, shape (batch_size,)
+    txt : torch.Tensor
+        Text embeddings tensor of shape (batch_size, txt_len, ...)
+        This is txt_embds which includes: [start_of_audio, end_of_audio, prompt, bos, text]
+    txt_lens : torch.Tensor
+        Relative lengths of text tokens, shape (batch_size,)
+    device : torch.device
+        Device to create the mask on
+        
+    Returns
+    -------
+    attention_mask : torch.Tensor
+        Boolean attention mask of shape (batch_size, L_audio + txt_len)
+        True indicates valid (non-padded) positions
+    """
     batch_size = wav.size(0)
     wav_len = wav.size(1)
     txt_len = txt.size(1)
@@ -47,7 +85,29 @@ def get_multimodal_attention_mask(wav, wav_lens, txt, txt_lens, device):
 # Define training procedure
 class ASR(sb.core.Brain):
     def compute_forward(self, batch, stage):
-        """Forward computations from the waveform batches to the output probabilities."""
+        """Forward computations from the waveform batches to the output probabilities.
+        
+        The forward pass processes either cached SSL features or raw audio waveforms,
+        projects them to the LLM embedding space, and concatenates with text embeddings
+        to form a multimodal sequence.
+        
+        Sequence structure:
+        [start_of_audio] + [audio_features] + [end_of_audio + prompt + bos + text]
+        
+        Arguments
+        ---------
+        batch : PaddedBatch
+            Batch containing audio/features, tokens, and metadata
+        stage : sb.Stage
+            Current stage (TRAIN, VALID, or TEST)
+            
+        Returns
+        -------
+        logits : torch.Tensor
+            Model output logits of shape (batch_size, seq_len, vocab_size)
+        hyps : list or None
+            Decoded hypotheses (only during validation/test, None during training)
+        """
         batch = batch.to(self.device)
         tokens_bos, tokens_bos_lens = batch.tokens_bos
         prompt_len = batch.prompt_len
@@ -92,7 +152,26 @@ class ASR(sb.core.Brain):
         return logits, hyps
 
     def compute_objectives(self, predictions, batch, stage):
-        """Computes the loss (CTC+NLL) given predictions and targets."""
+        """Computes the cross-entropy loss given predictions and targets.
+        
+        The loss is computed only on text tokens, with audio feature positions
+        masked out using ignore_index. During validation/test, also computes
+        CER and WER metrics.
+        
+        Arguments
+        ---------
+        predictions : tuple
+            (logits, hyps) from compute_forward
+        batch : PaddedBatch
+            Batch containing target tokens and metadata
+        stage : sb.Stage
+            Current stage (TRAIN, VALID, or TEST)
+            
+        Returns
+        -------
+        loss : torch.Tensor
+            Cross-entropy loss value
+        """
         logits, hyps = predictions
         tokens_eos, _ = batch.tokens_eos
         ids = batch.id
@@ -122,14 +201,35 @@ class ASR(sb.core.Brain):
         return loss
 
     def on_stage_start(self, stage, epoch):
-        """Gets called at the beginning of each epoch"""
-        # check if txt_embedding is already set
+        """Gets called at the beginning of each epoch.
+        
+        Initializes metrics for validation and test stages.
+        
+        Arguments
+        ---------
+        stage : sb.Stage
+            Current stage (TRAIN, VALID, or TEST)
+        epoch : int
+            Current epoch number
+        """
         if stage != sb.Stage.TRAIN:
             self.cer_metric = self.hparams.cer_computer()
             self.wer_metric = self.hparams.error_rate_computer()
 
     def on_stage_end(self, stage, stage_loss, epoch):
-        """Gets called at the end of a epoch."""
+        """Gets called at the end of an epoch.
+        
+        Logs statistics, updates learning rate, and saves checkpoints.
+        
+        Arguments
+        ---------
+        stage : sb.Stage
+            Current stage (TRAIN, VALID, or TEST)
+        stage_loss : float
+            Average loss for this stage
+        epoch : int
+            Current epoch number
+        """
         # Compute/store important stats
         stage_stats = {"loss": stage_loss}
         if stage == sb.Stage.TRAIN:
@@ -175,6 +275,11 @@ class ASR(sb.core.Brain):
                     self.wer_metric.write_stats(w)
 
     def init_optimizers(self):
+        """Initialize optimizers for the model.
+        
+        Creates separate optimizers for the main model and optionally for the SSL encoder
+        if it's not frozen. Registers optimizers with the checkpointer for resuming training.
+        """
         self.optimizer = self.hparams.opt(self.hparams.model.parameters())
         self.optimizers_dict = {"model_optimizer": self.optimizer}
 
@@ -193,7 +298,32 @@ class ASR(sb.core.Brain):
 def dataio_prepare(hparams, tokenizer):
     """Prepares the datasets and dynamic pipelines for the brain class.
 
-    Handles both standard audio and SSL/offline/cached features mode depending on hparams. 
+    This function sets up the data pipelines for both training and evaluation.
+    It handles two modes:
+    1. Standard audio mode: loads raw audio files and processes them on-the-fly
+    2. Cached features mode: loads pre-extracted SSL features from HDF5 cache
+
+    Arguments
+    ---------
+    hparams : dict
+        Hyperparameters dictionary containing data paths, token indices, etc.
+    tokenizer : transformers.PreTrainedTokenizer
+        Tokenizer for encoding text tokens
+
+    Returns
+    -------
+    train_data : DynamicItemDataset
+        Training dataset
+    valid_data : DynamicItemDataset
+        Validation dataset
+    test_datasets : dict
+        Dictionary of test datasets (keyed by split name)
+    tokenizer : transformers.PreTrainedTokenizer
+        The tokenizer (returned for convenience)
+    train_batch_sampler : DynamicBatchSampler or None
+        Batch sampler for training if dynamic batching is enabled
+    valid_batch_sampler : DynamicBatchSampler or None
+        Batch sampler for validation if dynamic batching is enabled
     """
     data_folder = hparams["data_folder"]
     use_feats = hparams.get("ssl", False) or hparams.get("use_feats", False) or hparams.get("feats_cache_dir", None) is not None
@@ -202,9 +332,20 @@ def dataio_prepare(hparams, tokenizer):
     bos_index = hparams["bos_index"]
     eos_index = hparams["eos_index"]
     pad_index = hparams["pad_token"]
-    start_of_audio_index = tokenizer.convert_tokens_to_ids("<|start_of_audio|>")
-    end_of_audio_index = tokenizer.convert_tokens_to_ids("<|end_of_audio|>")
-    print(bos_index, eos_index, pad_index, start_of_audio_index, end_of_audio_index, hparams['prompt'])
+    
+    # Convert special tokens to IDs with error handling
+    start_of_audio_token = "<|start_of_audio|>"
+    end_of_audio_token = "<|end_of_audio|>"
+    
+    start_of_audio_index = tokenizer.convert_tokens_to_ids(start_of_audio_token)
+    end_of_audio_index = tokenizer.convert_tokens_to_ids(end_of_audio_token)
+    
+    logger.info(
+        f"Token indices - BOS: {bos_index}, EOS: {eos_index}, PAD: {pad_index}, "
+        f"start_of_audio: {start_of_audio_index}, end_of_audio: {end_of_audio_index}"
+    )
+    logger.info(f"Prompt: '{hparams['prompt']}'")
+    
     prompt_ids = tokenizer(
         hparams['prompt'], return_tensors="pt", add_special_tokens=False
     ).input_ids.view(-1).tolist()
@@ -214,6 +355,32 @@ def dataio_prepare(hparams, tokenizer):
         "wrd", "tokens_list", "tokens_bos", "tokens_eos", "tokens", "prompt_len"
     )
     def text_pipeline(wrd):
+        """Process text through tokenization pipeline.
+        
+        Creates the following sequence structure:
+        tokens_bos: [<|start_of_audio|>, <|end_of_audio|>, prompt_tokens, <bos>, text_tokens]
+        tokens_eos: [text_tokens, <eos>]
+        
+        Arguments
+        ---------
+        wrd : str
+            Word/transcription text
+            
+        Yields
+        ------
+        wrd : str
+            Original word (unchanged)
+        tokens_list : list
+            List of token IDs for the text (without special tokens)
+        tokens_bos : torch.LongTensor
+            Token sequence with start_of_audio, end_of_audio, prompt, bos, and text
+        tokens_eos : torch.LongTensor
+            Token sequence with text and eos
+        tokens : torch.LongTensor
+            Token IDs for text only (same as tokens_list but as tensor)
+        prompt_len : int
+            Length of prompt tokens (start_of_audio + end_of_audio + prompt)
+        """
         yield wrd
         tokens_list = tokenizer(wrd, add_special_tokens=False).input_ids
         yield tokens_list
@@ -227,33 +394,73 @@ def dataio_prepare(hparams, tokenizer):
         yield prompt_len
 
     # Define dynamic items based on mode
-    if use_feats:
-        def build_dynamic_items():
+    # Note: build_dynamic_items is defined outside the if/else to avoid scope issues
+    def build_dynamic_items():
+        """Build dynamic items list based on whether we're using cached features or raw audio.
+        
+        Returns
+        -------
+        list
+            List of dynamic item pipelines
+        """
+        if use_feats:
             feats_pipeline = CachedHDF5DynamicItem(
                 hparams["feats_cache_dir"],
                 file_mode="r",
                 takes=["id"],
                 provides=["feats"],
+                compression="gzip",
             )
             return [text_pipeline, feats_pipeline]
+        else:
+            @sb.utils.data_pipeline.takes("wav")
+            @sb.utils.data_pipeline.provides("sig")
+            def audio_pipeline(wav):
+                """Load audio from file path.
+                
+                Arguments
+                ---------
+                wav : str
+                    Path to audio file
+                    
+                Returns
+                -------
+                sig : torch.Tensor
+                    Audio waveform
+                """
+                sig = sb.dataio.dataio.read_audio(wav)
+                return sig
+            
+            return [text_pipeline, audio_pipeline]
 
+    # Set output keys based on mode
+    if use_feats:
         output_keys = ["id", "wrd", "tokens_bos", "tokens_eos", "tokens", "prompt_len", "feats"]
     else:
-        @sb.utils.data_pipeline.takes("wav")
-        @sb.utils.data_pipeline.provides("sig")
-        def audio_pipeline(wav):
-            sig = sb.dataio.dataio.read_audio(wav)
-            return sig
-        
-        dynamic_items = [text_pipeline, audio_pipeline]
         output_keys = ["id", "sig", "wrd", "tokens_bos", "tokens_eos", "tokens", "prompt_len"]
 
     def _create_dataset(csv_path, sorting="ascending"):
-        assert sorting in ["ascending", "descending", "random"]
+        """Create a dataset from CSV file with optional sorting.
+        
+        Arguments
+        ---------
+        csv_path : str
+            Path to CSV file containing dataset metadata
+        sorting : str
+            Sorting strategy: "ascending", "descending", or "random"
+            
+        Returns
+        -------
+        dataset : DynamicItemDataset
+            Configured dataset with dynamic pipelines applied
+        """
+        assert sorting in ["ascending", "descending", "random"], \
+            f"sorting must be one of ['ascending', 'descending', 'random'], got '{sorting}'"
+        
         dataset = sb.dataio.dataset.DynamicItemDataset.from_csv(
             csv_path=csv_path,
             replacements={"data_root": data_folder},
-            dynamic_items=build_dynamic_items() if use_feats else [audio_pipeline, text_pipeline],
+            dynamic_items=build_dynamic_items(),
             output_keys=output_keys,
         )
         if sorting == "ascending":
