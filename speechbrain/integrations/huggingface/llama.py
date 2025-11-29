@@ -103,9 +103,31 @@ class LLaMA(HFTransformersInterface):
 
         # We resize the token embeddings size to a factor of 8 to maximise
         # the use of tensorcores.
+        # Note: resize_token_embeddings may require float32 for some operations
+        # (e.g., Cholesky decomposition), so we temporarily convert to float32
+        # if the model is in bfloat16, then convert back.
+        # Skip dtype conversion if model is quantized (bnb_config is set)
+        original_dtype = None
+        model_needs_conversion = False
+        if self.bnb_config is None and torch_dtype == torch.bfloat16:
+            # Check if model is actually in bfloat16
+            if hasattr(self.model, 'get_input_embeddings'):
+                embedding_layer = self.model.get_input_embeddings()
+                if embedding_layer is not None and embedding_layer.weight.dtype == torch.bfloat16:
+                    model_needs_conversion = True
+                    original_dtype = torch.bfloat16
+                    # Temporarily convert entire model to float32 for resize operation
+                    # This is necessary because resize_token_embeddings performs operations
+                    # (like Cholesky decomposition) that require float32
+                    self.model = self.model.to(torch.float32)
+        
         self.model.resize_token_embeddings(
             len(self.tokenizer), pad_to_multiple_of=8
         )
+        
+        # Convert back to original dtype if we changed it
+        if model_needs_conversion and original_dtype == torch.bfloat16:
+            self.model = self.model.to(original_dtype)
 
     def override_config(self, config):
         # Apply user-specified config overrides captured from kwargs

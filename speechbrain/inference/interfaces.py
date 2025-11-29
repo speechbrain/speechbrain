@@ -36,6 +36,7 @@ from speechbrain.utils.fetching import FetchConfig, LocalStrategy, fetch
 from speechbrain.utils.logger import get_logger
 from speechbrain.utils.run_opts import RunOptions
 from speechbrain.utils.superpowers import import_from_path
+from speechbrain.utils.autocast import AMPConfig, TorchAutocast
 
 logger = get_logger(__name__)
 
@@ -275,6 +276,23 @@ class Pretrained(torch.nn.Module):
         # If device was not provided, make a best guess
         if self.device is None:
             self.device = infer_device()
+
+        # Set device type based on device string
+        if self.device == "cpu":
+            self.device_type = "cpu"
+        elif "cuda" in self.device:
+            self.device_type = "cuda"
+            # Set cuda device based on device string
+            try:
+                _, device_index = self.device.split(":")
+                torch.cuda.set_device(int(device_index))
+            except ValueError:
+                torch.cuda.set_device(0)
+
+        precision_dtype = AMPConfig.from_name(self.precision).dtype
+        self.inference_ctx = TorchAutocast(
+            device_type=self.device_type, dtype=precision_dtype
+        )
 
         # Put modules on the right device, accessible with dot notation
         self.mods = torch.nn.ModuleDict(modules)
