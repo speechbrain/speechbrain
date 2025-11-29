@@ -1,8 +1,24 @@
 #!/usr/bin/env python3
-"""
+"""Script to extract SSL features from the audio waveforms.
+
+The script uses the `speechbrain.integrations.hdf5.cached_item` module to cache the features.
+The cached features are used in the `train_speechllm.py` script to train the SpeechLLM ASR system.
+
+Since we do the extractions within the pipeline in the dataloader, we must place
+our hparams elements directly on device, and use a default bsize of 1. 
+
+Example
+-------
+python extract_ssl_feats.py hparams/extract_ssl_feats.yaml
+    --data_folder path/to/LibriSpeech \
+    --output_folder path/to/feats_cache \
+    --ssl_hub path/to/wavlm-large \
+    --feats_cache_dir path/to/feats_cache
+    ...other_hparams...
 
 Authors
- * Adel Moumen 2025
+-------
+ * Adel Moumen, 2025
 """
 
 import os
@@ -33,21 +49,18 @@ def dataio_prepare(hparams):
         sig = sb.dataio.dataio.read_audio(wav)
         return sig
 
-    
-    # todo yaml this
-    normalizer = hparams["normalize"].to("cuda").eval()
-    ssl_encoder = hparams["ssl"].to("cuda").eval()
+    normalizer = hparams["normalize"].to(hparams["device"]).eval()
+    ssl_encoder = hparams["ssl"].to(hparams["device"]).eval()
 
     # Base compute function used by all cached wrappers (no file bound yet)
     @CachedHDF5DynamicItem.cache(hparams["feats_cache_dir"])
     @sb.utils.data_pipeline.takes("id", "sig")
     @sb.utils.data_pipeline.provides("feats")
     def compute_feats(uid, sig):
-        sig = sig.to("cuda").unsqueeze(0)
-        length = torch.ones(1, device="cuda")
-        # todo allow mixed precision call
+        sig = sig.to(hparams["device"]).unsqueeze(0)
+        length = torch.ones(1, device=hparams["device"])
         with torch.no_grad(), torch.cuda.amp.autocast(
-            dtype=torch.float16
+            dtype=hparams["dtype"]
         ):
             feats = normalizer(sig, length)
             feats = ssl_encoder(feats, length)
@@ -62,7 +75,7 @@ def dataio_prepare(hparams):
         dynamic_items=dynamic_items,
         output_keys=output_keys,
     )
-    
+
     # Build valid dataset with its own cached wrapper
     valid_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
         csv_path=hparams["valid_csv"],
@@ -85,7 +98,7 @@ def dataio_prepare(hparams):
     datasets = {"train": train_data, "valid": valid_data} | {k: v for k, v in test_datasets.items()}
 
     for stage, dataset in datasets.items():
-        print(f"Iterating {stage} dataset to warm the cache.")
+        logger.info(f"Iterating {stage} dataset to warm the cache.")
         dataset.iterate_once(output_keys=["feats"])
 
 
@@ -122,6 +135,6 @@ if __name__ == "__main__":
             "skip_prep": hparams["skip_prep"],
         },
     )
-    print("Preparing data...")
+    logger.info("Preparing data...")
     dataio_prepare(hparams)
-    print("Done preparing data")
+    logger.info("Done preparing data")
