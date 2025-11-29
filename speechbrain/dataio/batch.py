@@ -118,10 +118,19 @@ class PaddedBatch:
     >>> batch.text
     [['Hello'], ['How', 'are', 'you?']]
     >>> # Per-key padding configuration:
-    >>> batch = PaddedBatch([
-    ...     {"wav": torch.tensor([1,2,3]), "labels": torch.tensor([1,2])},
-    ...     {"wav": torch.tensor([4,5]), "labels": torch.tensor([3])}],
-    ...     per_key_padding_kwargs={"wav": {"value": 0}, "labels": {"value": -100}})
+    >>> batch = PaddedBatch(
+    ...     [
+    ...         {
+    ...             "wav": torch.tensor([1, 2, 3]),
+    ...             "labels": torch.tensor([1, 2]),
+    ...         },
+    ...         {"wav": torch.tensor([4, 5]), "labels": torch.tensor([3])},
+    ...     ],
+    ...     per_key_padding_kwargs={
+    ...         "wav": {"value": 0},
+    ...         "labels": {"value": -100},
+    ...     },
+    ... )
     >>> batch.wav.data
     tensor([[1, 2, 3],
             [4, 5, 0]])
@@ -157,7 +166,7 @@ class PaddedBatch:
             ):
                 # Padding and PaddedData
                 self.__padded_keys.append(key)
-                
+
                 # Use per-key padding config if available, otherwise fall back to global padding_kwargs
                 if key in per_key_padding_kwargs:
                     key_padding_kwargs = per_key_padding_kwargs[key]
@@ -175,6 +184,7 @@ class PaddedBatch:
                 device_prep_keys is None and isinstance(values[0], torch.Tensor)
             ):
                 self.__device_prep_keys.append(key)
+
     def __len__(self):
         return self.__length
 
