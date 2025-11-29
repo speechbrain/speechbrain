@@ -65,6 +65,7 @@ class LLaMA(HFTransformersInterface):
         pad_token: str = "[PAD]",
         torch_dtype: torch.dtype = torch.float16,
         additional_special_tokens: List[str] = None,
+        pad_to_multiple_of: int = 8,
         **kwargs,
     ) -> None:
         self.pad_token = pad_token
@@ -122,7 +123,7 @@ class LLaMA(HFTransformersInterface):
                     self.model = self.model.to(torch.float32)
         
         self.model.resize_token_embeddings(
-            len(self.tokenizer), pad_to_multiple_of=8
+            len(self.tokenizer), pad_to_multiple_of=pad_to_multiple_of
         )
         
         # Convert back to original dtype if we changed it
