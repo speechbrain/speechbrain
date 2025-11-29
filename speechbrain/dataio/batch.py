@@ -46,7 +46,7 @@ class PaddedBatch:
     padding_kwargs : dict
         (Optional) Extra kwargs to pass to padding_func. E.G. mode, value
         This is used as the default padding configuration for all keys.
-    per_key_padding_kwargs : dict, None
+    per_key_padding_kwargs : dict
         (Optional) Per-key padding configuration. Keys in this dict should match
         the keys in the examples. Each value should be a dict with padding parameters
         (e.g., {'value': -100, 'mode': 'constant'}). If a key is not in this dict,
