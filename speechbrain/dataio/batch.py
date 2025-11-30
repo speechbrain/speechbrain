@@ -43,10 +43,10 @@ class PaddedBatch:
     padding_func : callable, optional
         Called with a list of tensors to be padded together. Needs to return
         two tensors: the padded data, and another tensor for the data lengths.
-    padding_kwargs : dict
+    padding_kwargs : dict, None
         (Optional) Extra kwargs to pass to padding_func. E.G. mode, value
         This is used as the default padding configuration for all keys.
-    per_key_padding_kwargs : dict
+    per_key_padding_kwargs : dict, None
         (Optional) Per-key padding configuration. Keys in this dict should match
         the keys in the examples. Each value should be a dict with padding parameters
         (e.g., {'value': -100, 'mode': 'constant'}). If a key is not in this dict,
