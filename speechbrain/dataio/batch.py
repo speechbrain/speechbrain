@@ -135,8 +135,8 @@ class PaddedBatch:
     tensor([[1, 2, 3],
             [4, 5, 0]])
     >>> batch.labels.data
-    tensor([[ 1,  2],
-            [ 3, -100]])
+    tensor([[   1,    2],
+            [   3, -100]])
 
     """
 
