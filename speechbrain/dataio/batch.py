@@ -146,11 +146,13 @@ class PaddedBatch:
         padded_keys=None,
         device_prep_keys=None,
         padding_func=batch_pad_right,
-        padding_kwargs={},
-        per_key_padding_kwargs={},
+        padding_kwargs=None,
+        per_key_padding_kwargs=None,
         apply_default_convert=True,
         nonpadded_stack=True,
     ):
+        padding_kwargs = padding_kwargs if padding_kwargs is not None else {}
+        per_key_padding_kwargs = per_key_padding_kwargs if per_key_padding_kwargs is not None else {}
         self.__length = len(examples)
         self.__keys = list(examples[0].keys())
         self.__padded_keys = []
