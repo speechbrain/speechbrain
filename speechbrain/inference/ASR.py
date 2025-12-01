@@ -1505,8 +1505,10 @@ class SpeechLLMASR(Pretrained):
             multimodal_embds, attention_mask = self.build_multimodal_embds(
                 audio_feats
             )
+            # Use the precision configured in self.inference_ctx, defaulting to float32 if not set
+            target_precision = getattr(self.inference_ctx, "precision", torch.float32)
             hyps = self.mods.searcher(
-                multimodal_embds.to(torch.bfloat16), wav_lens, attention_mask
+                multimodal_embds.to(target_precision), wav_lens, attention_mask
             )
             predicted_tokens = hyps[0]
             predicted_words = self.tokenizer.batch_decode(
