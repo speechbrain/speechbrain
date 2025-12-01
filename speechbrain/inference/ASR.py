@@ -1489,7 +1489,7 @@ class SpeechLLMASR(Pretrained):
         -------
         predicted_words : str
             The predicted words of the audio file.
-        """"
+        """
         waveform = self.load_audio(path, **kwargs)
         batch = waveform.unsqueeze(0)
         rel_length = torch.tensor([1.0])
