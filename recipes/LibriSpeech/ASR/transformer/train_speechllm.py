@@ -123,6 +123,9 @@ class ASR(sb.core.Brain):
         audio_down_feats = self.modules.feat_downsampler(audio_feats)
         # R^D' -> R^llm_emb_size
         projected_audio_feats = self.modules.proj(audio_down_feats)
+        # opt non-linear MLP: R^llm_emb_size -> R^llm_emb_size
+        if hasattr(self.modules, 'gated_nn'):
+            projected_audio_feats = self.modules.gated_nn(projected_audio_feats)
         txt_embds = self.txt_embedding(tokens_bos)
         multimodal_embds = torch.cat([
             txt_embds[:, 0].unsqueeze(1), # B, D -> B, 1, D
@@ -138,7 +141,7 @@ class ASR(sb.core.Brain):
             attention_mask=attention_mask
         ).logits
         
-        hyps = None        
+        hyps = None
         if stage != sb.Stage.TRAIN:
             audio_and_prompt_len = projected_audio_feats.shape[1] + prompt_len[0]
             inputs_embeds = multimodal_embds[
@@ -260,7 +263,6 @@ class ASR(sb.core.Brain):
             self.checkpointer.save_and_keep_only(
                 meta={"WER": stage_stats["WER"], "epoch": epoch},
                 min_keys=["WER"],
-                num_to_keep=self.hparams.avg_checkpoints,
             )
 
         elif stage == sb.Stage.TEST:

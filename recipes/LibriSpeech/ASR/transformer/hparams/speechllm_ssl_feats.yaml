@@ -136,7 +136,6 @@ bos_index: !PLACEHOLDER # 0
 eos_index: !PLACEHOLDER # 0
 pad_token: !PLACEHOLDER # 128256
 prompt: "Transcribe speech to text."
-avg_checkpoints: 3
 
 ####################### Model Components ####################################
 
@@ -145,7 +144,16 @@ proj: !new:torch.nn.Linear
     out_features: !ref <llm_emb_size>
     bias: False
 
-output_hidden_states: False
+#### uncomment to add MLP after the projection
+activation: !name:speechbrain.nnet.activations.Swish
+dnn_layers: 2
+dnn_neurons: !ref <llm_emb_size>
+gated_nn: !new:speechbrain.lobes.models.GatedNN.GatedNN
+    input_shape: [null, null, !ref <llm_emb_size>]
+    activation: !ref <activation>
+    blocks: !ref <dnn_layers>
+    neurons: !ref <dnn_neurons>
+
 backbone_llm: !new:speechbrain.integrations.huggingface.llama.LLaMA
     source: !ref <llm_path>
     save_path: !ref <save_folder>
@@ -156,7 +164,7 @@ backbone_llm: !new:speechbrain.integrations.huggingface.llama.LLaMA
     additional_special_tokens:
         - "<|start_of_audio|>"
         - "<|end_of_audio|>"
-    output_hidden_states: !ref <output_hidden_states>
+    output_hidden_states: False
 
 llm: !new:speechbrain.nnet.adapters.AdaptedModel
     model_to_adapt: !ref <backbone_llm>
