@@ -1,7 +1,7 @@
 # ############################################################################
 # Model: SpeechLLM-based E2E ASR using pre-extracted SSL features
 # Task : Large-scale ASR on LibriSpeech 960h with an LLM decoder
-# Authors: 
+# Authors:
 # * Adel Moumen, 2025
 # ############################################################################
 

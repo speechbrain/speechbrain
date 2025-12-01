@@ -1,7 +1,7 @@
 # ############################################################################
 # Model: End-to-end SpeechLLM-based ASR with on-the-fly SSL feature extraction
 # Task : Large-scale ASR on LibriSpeech 960h with an LLM decoder
-# Authors: 
+# Authors:
 # * Adel Moumen, 2025
 # ############################################################################
 
