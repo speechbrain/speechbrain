@@ -102,7 +102,6 @@ def prepare_librispeech(
 
     if skip_prep:
         return
-
     splits = tr_splits + dev_splits + te_splits
     save_folder = save_folder
     select_n_sentences = select_n_sentences
