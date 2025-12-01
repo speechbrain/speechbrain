@@ -1,5 +1,6 @@
 # ############################################################################
-# Script to extract SSL features from the audio waveforms.
+# Task : Extraction of self-supervised (SSL) speech features from LibriSpeech
+# Usage: Precompute and cache SSL representations for downstream SpeechLLM ASR
 # Authors:
 #  * Adel Moumen, 2025
 # ############################################################################
