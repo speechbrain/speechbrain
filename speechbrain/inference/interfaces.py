@@ -286,7 +286,10 @@ class Pretrained(torch.nn.Module):
             try:
                 _, device_index = self.device.split(":")
                 torch.cuda.set_device(int(device_index))
-            except ValueError:
+            except (ValueError, IndexError, TypeError) as e:
+                logger.warning(
+                    f"Could not parse CUDA device string '{self.device}': {e}. Falling back to device 0."
+                )
                 torch.cuda.set_device(0)
 
         precision_dtype = AMPConfig.from_name(self.precision).dtype
