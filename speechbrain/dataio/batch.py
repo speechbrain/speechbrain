@@ -159,10 +159,6 @@ class PaddedBatch:
         self.__keys = list(examples[0].keys())
         self.__padded_keys = []
         self.__device_prep_keys = []
-        # Initialize per_key_padding_kwargs if None
-        if per_key_padding_kwargs is None:
-            per_key_padding_kwargs = {}
-
         for key in self.__keys:
             values = [example[key] for example in examples]
             # Default convert usually does the right thing (numpy2torch etc.)
