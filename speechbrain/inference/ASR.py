@@ -1506,7 +1506,9 @@ class SpeechLLMASR(Pretrained):
                 audio_feats
             )
             # Use the precision configured in self.inference_ctx, defaulting to float32 if not set
-            target_precision = getattr(self.inference_ctx, "precision", torch.float32)
+            target_precision = getattr(
+                self.inference_ctx, "precision", torch.float32
+            )
             hyps = self.mods.searcher(
                 multimodal_embds.to(target_precision), wav_lens, attention_mask
             )

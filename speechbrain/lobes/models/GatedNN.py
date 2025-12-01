@@ -62,6 +62,18 @@ class GatedNNBlock(torch.nn.Module):
         self.activation = activation()
 
     def forward(self, x):
+        """Returns the output of the GatedNNBlock.
+
+        Arguments
+        ---------
+        x : torch.Tensor
+            Input tensor.
+
+        Returns
+        -------
+        x : torch.Tensor
+            Output tensor.
+        """
         x_fc1 = self.fc1(x)
         x_fc2 = self.fc2(x)
         x_act = self.activation(x_fc1) * x_fc2
