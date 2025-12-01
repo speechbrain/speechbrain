@@ -136,6 +136,18 @@ class LLaMA(HFTransformersInterface):
             self.model = self.model.to(original_dtype)
 
     def override_config(self, config):
+        """Users should modify this function according to their own tasks.
+
+        Arguments
+        ---------
+        config : HuggingFace config object
+            The original config.
+
+        Returns
+        -------
+        config : HuggingFace config object
+            Overridden config.
+        """
         # Apply user-specified config overrides captured from kwargs
         for key, value in getattr(self, "_config_overrides", {}).items():
             if hasattr(config, key):
