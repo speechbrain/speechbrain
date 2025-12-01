@@ -44,7 +44,6 @@ llm_emb_size: 2048
 number_of_epochs: 1
 batch_size: 32  # Only used if dynamic batching is off
 grad_accumulation_factor: 5
-loss_reduction: 'batchmean'
 sorting: random
 num_workers: 0
 precision: bf16  # Options: bf16, fp16, fp32
@@ -56,13 +55,10 @@ max_grad_norm: 1.0
 initial_lr: 0.0005
 final_lr: 0.00001
 weight_decay: 0.0
-warmup_steps: 5000
 
 ####################### Feature & Audio Parameters #########################
 
-sample_rate: 16000
 downsampling_factor: 5  # Used to downsample frames before LLM projection
-downsampling_output_dim: 5120
 
 ####################### Dynamic Batching Configuration ######################
 

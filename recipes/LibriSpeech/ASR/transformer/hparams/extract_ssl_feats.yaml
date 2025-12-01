@@ -10,7 +10,6 @@ __set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
 experiment_name: ssl_feats_extraction
 output_folder: !ref results/<experiment_name>/<seed>
 save_folder: !ref <output_folder>/save
-train_log: !ref <output_folder>/train_log.txt
 feats_cache_dir: !ref <output_folder>/feats_cache
 
 # Data files
