@@ -1371,7 +1371,7 @@ class SpeechLLMASR(Pretrained):
     Then, the hidden states are downsampled using the `feat_downsampler` and projected using the `proj` module.
     The projected features are concatenated with the text embeddings and passed to the `searcher` module.
     The `searcher` module returns the predicted tokens and the predicted words using an LLM decoder.
-    
+
     The given YAML must contains the fields specified in the HPARAMS_NEEDED list.
 
     Arguments
@@ -1394,8 +1394,16 @@ class SpeechLLMASR(Pretrained):
     >>> hyp  # doctest: +SKIP
     THE BIRCH CANOE SLID ON THE SMOOTH PLANKS
     """
+
     HPARAMS_NEEDED = ["bos_index", "eos_index", "prompt"]
-    MODULES_NEEDED = ["speech_encoder", "feat_downsampler", "proj", "llm", "normalize", "searcher"]
+    MODULES_NEEDED = [
+        "speech_encoder",
+        "feat_downsampler",
+        "proj",
+        "llm",
+        "normalize",
+        "searcher",
+    ]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -1404,31 +1412,56 @@ class SpeechLLMASR(Pretrained):
 
     def build_multimodal_embds(self, audio_feats):
         """Builds the multimodal embeddings for the audio features."""
-        prompt_ids = self.tokenizer(
-            self.hparams.prompt, return_tensors="pt", add_special_tokens=False
-        ).input_ids.view(-1).tolist()
+        prompt_ids = (
+            self.tokenizer(
+                self.hparams.prompt,
+                return_tensors="pt",
+                add_special_tokens=False,
+            )
+            .input_ids.view(-1)
+            .tolist()
+        )
         start_of_audio_token = "<|start_of_audio|>"
         end_of_audio_token = "<|end_of_audio|>"
-        start_of_audio_index = self.tokenizer.convert_tokens_to_ids(start_of_audio_token)
-        end_of_audio_index = self.tokenizer.convert_tokens_to_ids(end_of_audio_token)
+        start_of_audio_index = self.tokenizer.convert_tokens_to_ids(
+            start_of_audio_token
+        )
+        end_of_audio_index = self.tokenizer.convert_tokens_to_ids(
+            end_of_audio_token
+        )
         prompt_ids = torch.LongTensor(
-            [start_of_audio_index] + [end_of_audio_index] + prompt_ids + [self.hparams.bos_index]
+            [start_of_audio_index]
+            + [end_of_audio_index]
+            + prompt_ids
+            + [self.hparams.bos_index]
         ).to(audio_feats.device)
-        prompt_embds = self.txt_embedding(prompt_ids).unsqueeze(0).repeat(audio_feats.size(0), 1, 1)
-        multimodal_embds = torch.cat([
-            prompt_embds[:, 0].unsqueeze(1), # B, D -> B, 1, D
-            audio_feats, 
-            prompt_embds[:, 1:]
-        ], dim=1)
-        attention_mask = torch.ones(multimodal_embds.size(0), multimodal_embds.size(1), dtype=torch.bool, device=multimodal_embds.device)
+        prompt_embds = (
+            self.txt_embedding(prompt_ids)
+            .unsqueeze(0)
+            .repeat(audio_feats.size(0), 1, 1)
+        )
+        multimodal_embds = torch.cat(
+            [
+                prompt_embds[:, 0].unsqueeze(1),  # B, D -> B, 1, D
+                audio_feats,
+                prompt_embds[:, 1:],
+            ],
+            dim=1,
+        )
+        attention_mask = torch.ones(
+            multimodal_embds.size(0),
+            multimodal_embds.size(1),
+            dtype=torch.bool,
+            device=multimodal_embds.device,
+        )
         return multimodal_embds, attention_mask
 
     @torch.no_grad()
     def encode_batch(self, wavs, wav_lens):
         """Encodes the audio waveforms into a sequence of hidden states.
         By default, the `self.inference_ctx` is used to run the forward pass.
-        Can be overridden by passing a custom `--precision` argument. 
-        
+        Can be overridden by passing a custom `--precision` argument.
+
         Arguments
         ---------
         wavs : torch.Tensor
@@ -1450,7 +1483,7 @@ class SpeechLLMASR(Pretrained):
     @torch.no_grad()
     def transcribe_batch(self, wavs, wav_lens):
         """Transcribes the input audio into a sequence of words.
-        
+
         Arguments
         ---------
         wavs : torch.Tensor
@@ -1469,15 +1502,21 @@ class SpeechLLMASR(Pretrained):
             encoder_out = self.encode_batch(wavs, wav_lens)
             audio_down_feats = self.mods.feat_downsampler(encoder_out)
             audio_feats = self.mods.proj(audio_down_feats)
-            multimodal_embds, attention_mask = self.build_multimodal_embds(audio_feats)
-            hyps = self.mods.searcher(multimodal_embds.to(torch.bfloat16), wav_lens, attention_mask)
+            multimodal_embds, attention_mask = self.build_multimodal_embds(
+                audio_feats
+            )
+            hyps = self.mods.searcher(
+                multimodal_embds.to(torch.bfloat16), wav_lens, attention_mask
+            )
             predicted_tokens = hyps[0]
-            predicted_words = self.tokenizer.batch_decode(predicted_tokens, skip_special_tokens=True)
+            predicted_words = self.tokenizer.batch_decode(
+                predicted_tokens, skip_special_tokens=True
+            )
         return predicted_words, predicted_tokens
 
     def transcribe_file(self, path, **kwargs):
         """Transcribe the given audio file into a sequence of words.
-        
+
         Arguments
         ---------
         path : str

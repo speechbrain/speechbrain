@@ -162,7 +162,7 @@ class PaddedBatch:
         # Initialize per_key_padding_kwargs if None
         if per_key_padding_kwargs is None:
             per_key_padding_kwargs = {}
-        
+
         for key in self.__keys:
             values = [example[key] for example in examples]
             # Default convert usually does the right thing (numpy2torch etc.)
@@ -191,6 +191,7 @@ class PaddedBatch:
                 device_prep_keys is None and isinstance(values[0], torch.Tensor)
             ):
                 self.__device_prep_keys.append(key)
+
     def __len__(self):
         return self.__length
 

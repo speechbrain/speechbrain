@@ -28,7 +28,7 @@ Two SpeechLLM modes are supported:
 - SpeechLLM with SSL features
 - SpeechLLM with E2E features
 
-In the first mode, the speech features are extracted from the audio waveforms using a pre-trained SSL model, and then projected to the LLM embedding space using a linear layer projection, where everything is trained jointly. 
+In the first mode, the speech features are extracted from the audio waveforms using a pre-trained SSL model, and then projected to the LLM embedding space using a linear layer projection, where everything is trained jointly.
 
 In the second mode, the speech features are already being extracted offline (see: `extract_ssl_feats.py` script). The LLM is then trained on the frozen SSL representations. This mode is more efficient and faster to train, but at the cost of flexibility on the frozen SSL model.
 

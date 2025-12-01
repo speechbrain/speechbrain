@@ -170,6 +170,7 @@ class Swish(torch.nn.Module):
 
         return self.silu(x)
 
+
 class GeLU(torch.nn.Module):
     """Gaussian Error Linear Unit activation.
 
@@ -191,10 +192,11 @@ class GeLU(torch.nn.Module):
     Example
     -------
     >>> x = torch.randn((8, 40, 120))
-    >>> act = GeLU(approximate='tanh')
+    >>> act = GeLU(approximate="tanh")
     >>> y = act(x)
     """
-    def __init__(self, approximate: str = 'tanh'):
+
+    def __init__(self, approximate: str = "tanh"):
         super().__init__()
         self.approximate = approximate
 

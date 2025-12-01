@@ -1,5 +1,5 @@
 # ############################################################################
-# SpeechLLM for ASR with SSL features 
+# SpeechLLM for ASR with SSL features
 # Authors: Adel Moumen, 2025
 # ############################################################################
 
@@ -130,7 +130,7 @@ lora_rank: 16
 # Output & Decoding Parameters
 # The user needs to set the bos_index, eos_index and pad_token.
 # If a value is None, we won't use the corresponding token.
-# Current template is: 
+# Current template is:
 # <|start_of_audio|> audio_feats <|end_of_audio|> <prompt> <bos_index> txt tokens <eos_index>
 bos_index: !PLACEHOLDER # 0
 eos_index: !PLACEHOLDER # 0

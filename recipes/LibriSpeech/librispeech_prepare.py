@@ -148,7 +148,9 @@ def prepare_librispeech(
         else:
             n_sentences = len(wav_lst)
 
-        create_csv(data_folder, save_folder, wav_lst, text_dict, split, n_sentences)
+        create_csv(
+            data_folder, save_folder, wav_lst, text_dict, split, n_sentences
+        )
 
     # Merging csv file if needed
     if merge_lst and merge_name is not None:
@@ -309,7 +311,9 @@ def process_line(wav_file, text_dict) -> LSRow:
     )
 
 
-def create_csv(data_folder, save_folder, wav_lst, text_dict, split, select_n_sentences):
+def create_csv(
+    data_folder, save_folder, wav_lst, text_dict, split, select_n_sentences
+):
     """
     Create the dataset csv file given a list of wav files.
 
@@ -352,7 +356,7 @@ def create_csv(data_folder, save_folder, wav_lst, text_dict, split, select_n_sen
             row.snt_id,
             str(row.duration),
             # replace data_folder - 'LibriSpeech' with '$data_root'
-            row.file_path.replace(data_folder, '$data_root/'),
+            row.file_path.replace(data_folder, "$data_root/"),
             row.spk_id,
             row.words,
         ]

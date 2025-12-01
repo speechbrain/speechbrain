@@ -5,7 +5,7 @@ The system employs a speech SSL encoder, and a pre-trained LLM decoder.
 The speech features are projected to the LLM embedding space using a linear layer projection.
 The LLM is trained used the cross-entropy loss on the text tokens excluding the prompt.
 
-An input sequence is typically constructed like this: 
+An input sequence is typically constructed like this:
  <|start_of_audio|> audio features <|end_of_audio|> <prompt> <bos> <text> <eos>
 
 This script supports both offline and online SSL/cached features mode.
@@ -36,16 +36,16 @@ import torch
 from hyperpyyaml import load_hyperpyyaml
 
 import speechbrain as sb
+from speechbrain.integrations.hdf5.cached_item import CachedHDF5DynamicItem
 from speechbrain.utils.distributed import if_main_process, run_on_main
 from speechbrain.utils.logger import get_logger
-from speechbrain.integrations.hdf5.cached_item import CachedHDF5DynamicItem
 
 logger = get_logger(__name__)
 
 
 def get_multimodal_attention_mask(wav, wav_lens, txt, txt_lens, device):
     """Create attention mask for multimodal sequence.
-    
+
     Arguments
     ---------
     wav : torch.Tensor
@@ -59,7 +59,7 @@ def get_multimodal_attention_mask(wav, wav_lens, txt, txt_lens, device):
         Relative lengths of text tokens, shape (batch_size,)
     device : torch.device
         Device to create the mask on
-        
+
     Returns
     -------
     attention_mask : torch.Tensor
@@ -71,14 +71,16 @@ def get_multimodal_attention_mask(wav, wav_lens, txt, txt_lens, device):
     txt_len = txt.size(1)
     # Max total length for padding
     max_total_len = wav_len + txt_len
-    attention_mask = torch.zeros(batch_size, max_total_len, dtype=torch.bool, device=device)
+    attention_mask = torch.zeros(
+        batch_size, max_total_len, dtype=torch.bool, device=device
+    )
     for i in range(batch_size):
         actual_wav_len = int(wav_lens[i].item() * wav_len)
         actual_txt_len = int(txt_lens[i].item() * txt_len)
         # Fill mask: audio part
         attention_mask[i, :actual_wav_len] = True
         # Fill mask: text part (after audio)
-        attention_mask[i, wav_len:wav_len + actual_txt_len] = True
+        attention_mask[i, wav_len : wav_len + actual_txt_len] = True
     return attention_mask
 
 
@@ -86,21 +88,21 @@ def get_multimodal_attention_mask(wav, wav_lens, txt, txt_lens, device):
 class ASR(sb.core.Brain):
     def compute_forward(self, batch, stage):
         """Forward computations from the waveform batches to the output probabilities.
-        
+
         The forward pass processes either cached SSL features or raw audio waveforms,
         projects them to the LLM embedding space, and concatenates with text embeddings
         to form a multimodal sequence.
-        
+
         Sequence structure:
         [start_of_audio] + [audio_features] + [end_of_audio + prompt + bos + text]
-        
+
         Arguments
         ---------
         batch : PaddedBatch
             Batch containing audio/features, tokens, and metadata
         stage : sb.Stage
             Current stage (TRAIN, VALID, or TEST)
-            
+
         Returns
         -------
         logits : torch.Tensor
@@ -111,8 +113,8 @@ class ASR(sb.core.Brain):
         batch = batch.to(self.device)
         tokens_bos, tokens_bos_lens = batch.tokens_bos
         prompt_len = batch.prompt_len
-        
-        if getattr(batch, 'feats', None) is not None:
+
+        if getattr(batch, "feats", None) is not None:
             audio_feats, audio_feats_lens = batch.feats
         else:
             wavs, wav_lens = batch.sig
@@ -124,29 +126,35 @@ class ASR(sb.core.Brain):
         # R^D' -> R^llm_emb_size
         projected_audio_feats = self.modules.proj(audio_down_feats)
         # opt non-linear MLP: R^llm_emb_size -> R^llm_emb_size
-        if hasattr(self.modules, 'gated_nn'):
+        if hasattr(self.modules, "gated_nn"):
             projected_audio_feats = self.modules.gated_nn(projected_audio_feats)
         txt_embds = self.txt_embedding(tokens_bos)
-        multimodal_embds = torch.cat([
-            txt_embds[:, 0].unsqueeze(1), # B, D -> B, 1, D
-            projected_audio_feats, 
-            txt_embds[:, 1:]
-        ], dim=1)
+        multimodal_embds = torch.cat(
+            [
+                txt_embds[:, 0].unsqueeze(1),  # B, D -> B, 1, D
+                projected_audio_feats,
+                txt_embds[:, 1:],
+            ],
+            dim=1,
+        )
         # attention_mask should be all the true audio features + all the true text features
         attention_mask = get_multimodal_attention_mask(
-            projected_audio_feats, audio_feats_lens, txt_embds, tokens_bos_lens, self.device
+            projected_audio_feats,
+            audio_feats_lens,
+            txt_embds,
+            tokens_bos_lens,
+            self.device,
         )
         logits = self.modules.llm(
-            inputs_embeds=multimodal_embds, 
-            attention_mask=attention_mask
+            inputs_embeds=multimodal_embds, attention_mask=attention_mask
         ).logits
-        
+
         hyps = None
         if stage != sb.Stage.TRAIN:
-            audio_and_prompt_len = projected_audio_feats.shape[1] + prompt_len[0]
-            inputs_embeds = multimodal_embds[
-                :, :audio_and_prompt_len
-            ]
+            audio_and_prompt_len = (
+                projected_audio_feats.shape[1] + prompt_len[0]
+            )
+            inputs_embeds = multimodal_embds[:, :audio_and_prompt_len]
             hyps = self.modules.searcher(
                 inputs_embeds,
                 audio_feats_lens,
@@ -156,11 +164,11 @@ class ASR(sb.core.Brain):
 
     def compute_objectives(self, predictions, batch, stage):
         """Computes the cross-entropy loss given predictions and targets.
-        
+
         The loss is computed only on text tokens, with audio feature positions
         masked out using ignore_index. During validation/test, also computes
         CER and WER metrics.
-        
+
         Arguments
         ---------
         predictions : tuple
@@ -169,7 +177,7 @@ class ASR(sb.core.Brain):
             Batch containing target tokens and metadata
         stage : sb.Stage
             Current stage (TRAIN, VALID, or TEST)
-            
+
         Returns
         -------
         loss : torch.Tensor
@@ -182,22 +190,36 @@ class ASR(sb.core.Brain):
         num_audio_feats = logits.shape[1] - tokens_eos.shape[1]
         # We prepend `ignore_index` to the tokens_eos to ignore them in the loss.
         # This corresponds to the audio features.
-        target_tokens = torch.cat([
-            torch.full((tokens_eos.shape[0], num_audio_feats), self.hparams.ignore_index, device=self.device),
-            tokens_eos,
-        ], dim=1).long()
+        target_tokens = torch.cat(
+            [
+                torch.full(
+                    (tokens_eos.shape[0], num_audio_feats),
+                    self.hparams.ignore_index,
+                    device=self.device,
+                ),
+                tokens_eos,
+            ],
+            dim=1,
+        ).long()
         # compute the cross entropy loss
         loss = torch.nn.functional.cross_entropy(
             logits.view(-1, logits.shape[-1]),
             target_tokens.view(-1),
-            ignore_index=self.hparams.ignore_index
+            ignore_index=self.hparams.ignore_index,
         )
         if stage != sb.Stage.TRAIN:
             # replace ignore_index with pad token
-            target_tokens = target_tokens.masked_fill(target_tokens == self.hparams.ignore_index, self.tokenizer.pad_token_id)
-            preds = self.tokenizer.batch_decode(hyps[0], skip_special_tokens=True)
+            target_tokens = target_tokens.masked_fill(
+                target_tokens == self.hparams.ignore_index,
+                self.tokenizer.pad_token_id,
+            )
+            preds = self.tokenizer.batch_decode(
+                hyps[0], skip_special_tokens=True
+            )
             preds_words = [pred.split(" ") for pred in preds]
-            targets = self.tokenizer.batch_decode(target_tokens, skip_special_tokens=True)
+            targets = self.tokenizer.batch_decode(
+                target_tokens, skip_special_tokens=True
+            )
             targets_words = [target.split(" ") for target in targets]
             self.cer_metric.append(ids, preds_words, targets_words)
             self.wer_metric.append(ids, preds_words, targets_words)
@@ -205,9 +227,9 @@ class ASR(sb.core.Brain):
 
     def on_stage_start(self, stage, epoch):
         """Gets called at the beginning of each epoch.
-        
+
         Initializes metrics for validation and test stages.
-        
+
         Arguments
         ---------
         stage : sb.Stage
@@ -221,9 +243,9 @@ class ASR(sb.core.Brain):
 
     def on_stage_end(self, stage, stage_loss, epoch):
         """Gets called at the end of an epoch.
-        
+
         Logs statistics, updates learning rate, and saves checkpoints.
-        
+
         Arguments
         ---------
         stage : sb.Stage
@@ -278,14 +300,14 @@ class ASR(sb.core.Brain):
 
     def init_optimizers(self):
         """Initialize optimizers for the model.
-        
+
         Creates separate optimizers for the main model and optionally for the SSL encoder
         if it's not frozen. Registers optimizers with the checkpointer for resuming training.
         """
         self.optimizer = self.hparams.opt(self.hparams.model.parameters())
         self.optimizers_dict = {"model_optimizer": self.optimizer}
 
-        ssl_frozen = getattr(self.hparams, 'ssl_frozen', True)
+        ssl_frozen = getattr(self.hparams, "ssl_frozen", True)
         if not ssl_frozen:
             self.ssl_optimizer = self.hparams.opt_ssl(
                 self.modules.ssl.parameters()
@@ -295,7 +317,10 @@ class ASR(sb.core.Brain):
         if self.checkpointer is not None:
             self.checkpointer.add_recoverable("model_optimizer", self.optimizer)
             if not ssl_frozen:
-                self.checkpointer.add_recoverable("ssl_optimizer", self.ssl_optimizer)
+                self.checkpointer.add_recoverable(
+                    "ssl_optimizer", self.ssl_optimizer
+                )
+
 
 def dataio_prepare(hparams, tokenizer):
     """Prepares the datasets and dynamic pipelines for the brain class.
@@ -328,29 +353,37 @@ def dataio_prepare(hparams, tokenizer):
         Batch sampler for validation if dynamic batching is enabled
     """
     data_folder = hparams["data_folder"]
-    use_feats = hparams.get("ssl", False) or hparams.get("use_feats", False) or hparams.get("feats_cache_dir", None) is not None
+    use_feats = (
+        hparams.get("ssl", False)
+        or hparams.get("use_feats", False)
+        or hparams.get("feats_cache_dir", None) is not None
+    )
 
     # Token indices and prompt setup
     bos_index = hparams["bos_index"]
     eos_index = hparams["eos_index"]
     pad_index = hparams["pad_token"]
-    
+
     # Convert special tokens to IDs with error handling
     start_of_audio_token = "<|start_of_audio|>"
     end_of_audio_token = "<|end_of_audio|>"
-    
+
     start_of_audio_index = tokenizer.convert_tokens_to_ids(start_of_audio_token)
     end_of_audio_index = tokenizer.convert_tokens_to_ids(end_of_audio_token)
-    
+
     logger.info(
         f"Token indices - BOS: {bos_index}, EOS: {eos_index}, PAD: {pad_index}, "
         f"start_of_audio: {start_of_audio_index}, end_of_audio: {end_of_audio_index}"
     )
     logger.info(f"Prompt: '{hparams['prompt']}'")
-    
-    prompt_ids = tokenizer(
-        hparams['prompt'], return_tensors="pt", add_special_tokens=False
-    ).input_ids.view(-1).tolist()
+
+    prompt_ids = (
+        tokenizer(
+            hparams["prompt"], return_tensors="pt", add_special_tokens=False
+        )
+        .input_ids.view(-1)
+        .tolist()
+    )
 
     @sb.utils.data_pipeline.takes("wrd")
     @sb.utils.data_pipeline.provides(
@@ -358,16 +391,16 @@ def dataio_prepare(hparams, tokenizer):
     )
     def text_pipeline(wrd):
         """Process text through tokenization pipeline.
-        
+
         Creates the following sequence structure:
         tokens_bos: [<|start_of_audio|>, <|end_of_audio|>, prompt_tokens, <bos>, text_tokens]
         tokens_eos: [text_tokens, <eos>]
-        
+
         Arguments
         ---------
         wrd : str
             Word/transcription text
-            
+
         Yields
         ------
         wrd : str
@@ -386,20 +419,28 @@ def dataio_prepare(hparams, tokenizer):
         yield wrd
         tokens_list = tokenizer(wrd, add_special_tokens=False).input_ids
         yield tokens_list
-        tokens_bos = torch.LongTensor([start_of_audio_index] + [end_of_audio_index] + prompt_ids + [bos_index] + tokens_list)
+        tokens_bos = torch.LongTensor(
+            [start_of_audio_index]
+            + [end_of_audio_index]
+            + prompt_ids
+            + [bos_index]
+            + tokens_list
+        )
         yield tokens_bos
         tokens_eos = torch.LongTensor(tokens_list + [eos_index])
         yield tokens_eos
         tokens = torch.LongTensor(tokens_list)
         yield tokens
-        prompt_len = len([start_of_audio_index] + [end_of_audio_index] + prompt_ids)
+        prompt_len = len(
+            [start_of_audio_index] + [end_of_audio_index] + prompt_ids
+        )
         yield prompt_len
 
     # Define dynamic items based on mode
     # Note: build_dynamic_items is defined outside the if/else to avoid scope issues
     def build_dynamic_items():
         """Build dynamic items list based on whether we're using cached features or raw audio.
-        
+
         Returns
         -------
         list
@@ -415,16 +456,17 @@ def dataio_prepare(hparams, tokenizer):
             )
             return [text_pipeline, feats_pipeline]
         else:
+
             @sb.utils.data_pipeline.takes("wav")
             @sb.utils.data_pipeline.provides("sig")
             def audio_pipeline(wav):
                 """Load audio from file path.
-                
+
                 Arguments
                 ---------
                 wav : str
                     Path to audio file
-                    
+
                 Returns
                 -------
                 sig : torch.Tensor
@@ -432,33 +474,50 @@ def dataio_prepare(hparams, tokenizer):
                 """
                 sig = sb.dataio.dataio.read_audio(wav)
                 return sig
-            
+
             return [text_pipeline, audio_pipeline]
 
     # Set output keys based on mode
     if use_feats:
-        output_keys = ["id", "wrd", "tokens_bos", "tokens_eos", "tokens", "prompt_len", "feats"]
+        output_keys = [
+            "id",
+            "wrd",
+            "tokens_bos",
+            "tokens_eos",
+            "tokens",
+            "prompt_len",
+            "feats",
+        ]
     else:
-        output_keys = ["id", "sig", "wrd", "tokens_bos", "tokens_eos", "tokens", "prompt_len"]
+        output_keys = [
+            "id",
+            "sig",
+            "wrd",
+            "tokens_bos",
+            "tokens_eos",
+            "tokens",
+            "prompt_len",
+        ]
 
     def _create_dataset(csv_path, sorting="ascending"):
         """Create a dataset from CSV file with optional sorting.
-        
+
         Arguments
         ---------
         csv_path : str
             Path to CSV file containing dataset metadata
         sorting : str
             Sorting strategy: "ascending", "descending", or "random"
-            
+
         Returns
         -------
         dataset : DynamicItemDataset
             Configured dataset with dynamic pipelines applied
         """
-        assert sorting in ["ascending", "descending", "random"], \
+        assert sorting in ["ascending", "descending", "random"], (
             f"sorting must be one of ['ascending', 'descending', 'random'], got '{sorting}'"
-        
+        )
+
         dataset = sb.dataio.dataset.DynamicItemDataset.from_csv(
             csv_path=csv_path,
             replacements={"data_root": data_folder},
@@ -476,9 +535,11 @@ def dataio_prepare(hparams, tokenizer):
         return dataset
 
     # Create training dataset with sorting logic
-    train_data = _create_dataset(hparams["train_csv"], sorting=hparams["sorting"])
+    train_data = _create_dataset(
+        hparams["train_csv"], sorting=hparams["sorting"]
+    )
     valid_data = _create_dataset(hparams["valid_csv"], sorting="ascending")
-    
+
     test_datasets = {}
     for csv_file in hparams["test_csv"]:
         name = Path(csv_file).stem
@@ -547,7 +608,7 @@ if __name__ == "__main__":
 
     # here we create the datasets objects as well as tokenization and encoding
     tokenizer = hparams["llm"].tokenizer
-    
+
     (
         train_data,
         valid_data,
@@ -565,7 +626,9 @@ if __name__ == "__main__":
         checkpointer=hparams["checkpointer"],
     )
     asr_brain.tokenizer = tokenizer
-    asr_brain.txt_embedding = asr_brain.raw_modules.llm.model.get_input_embeddings()
+    asr_brain.txt_embedding = (
+        asr_brain.raw_modules.llm.model.get_input_embeddings()
+    )
     # adding objects to trainer:
     train_dataloader_opts = hparams["train_dataloader_opts"]
     valid_dataloader_opts = hparams["valid_dataloader_opts"]

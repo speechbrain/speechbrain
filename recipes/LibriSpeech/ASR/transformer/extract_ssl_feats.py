@@ -5,7 +5,7 @@ The script uses the `speechbrain.integrations.hdf5.cached_item` module to cache 
 The cached features are used in the `train_speechllm.py` script to train the SpeechLLM ASR system.
 
 Since we do the extractions within the pipeline in the dataloader, we must place
-our hparams elements directly on device, and use a default bsize of 1. 
+our hparams elements directly on device, and use a default bsize of 1.
 
 Example
 -------
@@ -21,7 +21,6 @@ Authors
  * Adel Moumen, 2025
 """
 
-import os
 import sys
 from pathlib import Path
 
@@ -29,9 +28,9 @@ import torch
 from hyperpyyaml import load_hyperpyyaml
 
 import speechbrain as sb
-from speechbrain.utils.distributed import if_main_process, run_on_main
-from speechbrain.utils.logger import get_logger
 from speechbrain.integrations.hdf5.cached_item import CachedHDF5DynamicItem
+from speechbrain.utils.distributed import run_on_main
+from speechbrain.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
@@ -59,9 +58,7 @@ def dataio_prepare(hparams):
     def compute_feats(uid, sig):
         sig = sig.to(hparams["device"]).unsqueeze(0)
         length = torch.ones(1, device=hparams["device"])
-        with torch.no_grad(), torch.cuda.amp.autocast(
-            dtype=hparams["dtype"]
-        ):
+        with torch.no_grad(), torch.cuda.amp.autocast(dtype=hparams["dtype"]):
             feats = normalizer(sig, length)
             feats = ssl_encoder(feats, length)
         return feats.squeeze(0).cpu()
@@ -89,13 +86,15 @@ def dataio_prepare(hparams):
     for csv_file in hparams["test_csv"]:
         name = Path(csv_file).stem
         test_datasets[name] = sb.dataio.dataset.DynamicItemDataset.from_csv(
-            csv_path=csv_file, 
+            csv_path=csv_file,
             replacements={"data_root": data_folder},
             dynamic_items=dynamic_items,
             output_keys=output_keys,
         )
 
-    datasets = {"train": train_data, "valid": valid_data} | {k: v for k, v in test_datasets.items()}
+    datasets = {"train": train_data, "valid": valid_data} | {
+        k: v for k, v in test_datasets.items()
+    }
 
     for stage, dataset in datasets.items():
         logger.info(f"Iterating {stage} dataset to warm the cache.")

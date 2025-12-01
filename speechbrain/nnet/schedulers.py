@@ -244,6 +244,7 @@ class NewBobScheduler:
         self.metric_values = data["metric_values"]
         self.current_patient = data["current_patient"]
 
+
 class LinearScheduler:
     """Scheduler with linear annealing technique.
 

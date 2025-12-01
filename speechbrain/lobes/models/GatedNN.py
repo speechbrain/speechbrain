@@ -9,9 +9,10 @@ import torch
 
 import speechbrain as sb
 
+
 class GatedNNBlock(torch.nn.Module):
-    """
-    """
+    """ """
+
     def __init__(
         self,
         n_neurons,
@@ -36,17 +37,17 @@ class GatedNNBlock(torch.nn.Module):
         self.fc2 = torch.nn.Linear(input_size, n_neurons, bias=bias)
         self.fc3 = torch.nn.Linear(n_neurons, input_size, bias=bias)
         self.activation = activation()
-        
+
     def forward(self, x):
         x_fc1 = self.fc1(x)
         x_fc2 = self.fc2(x)
         x_act = self.activation(x_fc1) * x_fc2
         x_fc3 = self.fc3(x_act)
         return x_fc3
-        
+
+
 class GatedNN(sb.nnet.containers.Sequential):
-    """
-    """
+    """ """
 
     def __init__(
         self,

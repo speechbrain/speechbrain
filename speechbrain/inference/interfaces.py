@@ -29,6 +29,7 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 from speechbrain.dataio import audio_io
 from speechbrain.dataio.batch import PaddedBatch, PaddedData
 from speechbrain.dataio.preprocess import AudioNormalizer
+from speechbrain.utils.autocast import AMPConfig, TorchAutocast
 from speechbrain.utils.data_pipeline import DataPipeline
 from speechbrain.utils.data_utils import split_path
 from speechbrain.utils.distributed import infer_device
@@ -36,7 +37,6 @@ from speechbrain.utils.fetching import FetchConfig, LocalStrategy, fetch
 from speechbrain.utils.logger import get_logger
 from speechbrain.utils.run_opts import RunOptions
 from speechbrain.utils.superpowers import import_from_path
-from speechbrain.utils.autocast import AMPConfig, TorchAutocast
 
 logger = get_logger(__name__)
 
