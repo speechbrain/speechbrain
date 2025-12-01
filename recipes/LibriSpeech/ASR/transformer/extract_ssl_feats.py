@@ -52,7 +52,7 @@ def dataio_prepare(hparams):
     ssl_encoder = hparams["ssl"].to(hparams["device"]).eval()
 
     # Base compute function used by all cached wrappers (no file bound yet)
-    @CachedHDF5DynamicItem.cache(hparams["feats_cache_dir"])
+    @CachedHDF5DynamicItem.cache(hparams["feats_cache_dir"], compression="gzip")
     @sb.utils.data_pipeline.takes("id", "sig")
     @sb.utils.data_pipeline.provides("feats")
     def compute_feats(uid, sig):
