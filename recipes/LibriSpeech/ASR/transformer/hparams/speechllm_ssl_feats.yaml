@@ -16,7 +16,7 @@ output_folder: !ref results/<experiment_name>/<seed>
 output_wer_folder: !ref <output_folder>/wer_results
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
-feats_cache_dir: !ref <output_folder>/feats_cache
+feats_cache_dir: !PLACEHOLDER
 ckpt_interval_minutes: 15
 
 ####################### Data Configuration #################################
