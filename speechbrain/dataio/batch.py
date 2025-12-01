@@ -43,7 +43,7 @@ class PaddedBatch:
     padding_func : callable, optional
         Called with a list of tensors to be padded together. Needs to return
         two tensors: the padded data, and another tensor for the data lengths.
-    padding_kwargs : dict
+    padding_kwargs : dict, None
         (Optional) Extra kwargs to pass to padding_func. E.G. mode, value
         This is used as the default padding configuration for all keys.
     per_key_padding_kwargs : dict, None
@@ -118,16 +118,25 @@ class PaddedBatch:
     >>> batch.text
     [['Hello'], ['How', 'are', 'you?']]
     >>> # Per-key padding configuration:
-    >>> batch = PaddedBatch([
-    ...     {"wav": torch.tensor([1,2,3]), "labels": torch.tensor([1,2])},
-    ...     {"wav": torch.tensor([4,5]), "labels": torch.tensor([3])}],
-    ...     per_key_padding_kwargs={"wav": {"value": 0}, "labels": {"value": -100}})
+    >>> batch = PaddedBatch(
+    ...     [
+    ...         {
+    ...             "wav": torch.tensor([1, 2, 3]),
+    ...             "labels": torch.tensor([1, 2]),
+    ...         },
+    ...         {"wav": torch.tensor([4, 5]), "labels": torch.tensor([3])},
+    ...     ],
+    ...     per_key_padding_kwargs={
+    ...         "wav": {"value": 0},
+    ...         "labels": {"value": -100},
+    ...     },
+    ... )
     >>> batch.wav.data
     tensor([[1, 2, 3],
             [4, 5, 0]])
     >>> batch.labels.data
-    tensor([[ 1,  2],
-            [ 3, -100]])
+    tensor([[   1,    2],
+            [   3, -100]])
 
     """
 
@@ -137,11 +146,15 @@ class PaddedBatch:
         padded_keys=None,
         device_prep_keys=None,
         padding_func=batch_pad_right,
-        padding_kwargs={},
+        padding_kwargs=None,
         per_key_padding_kwargs=None,
         apply_default_convert=True,
         nonpadded_stack=True,
     ):
+        padding_kwargs = padding_kwargs if padding_kwargs is not None else {}
+        per_key_padding_kwargs = (
+            per_key_padding_kwargs if per_key_padding_kwargs is not None else {}
+        )
         self.__length = len(examples)
         self.__keys = list(examples[0].keys())
         self.__padded_keys = []
@@ -160,7 +173,7 @@ class PaddedBatch:
             ):
                 # Padding and PaddedData
                 self.__padded_keys.append(key)
-                
+
                 # Use per-key padding config if available, otherwise fall back to global padding_kwargs
                 if key in per_key_padding_kwargs:
                     key_padding_kwargs = per_key_padding_kwargs[key]
