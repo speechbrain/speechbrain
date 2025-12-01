@@ -201,4 +201,15 @@ class GeLU(torch.nn.Module):
         self.approximate = approximate
 
     def forward(self, x):
+        """Returns the GeLU of the input tensor.
+
+        Arguments
+        ---------
+        x : torch.Tensor
+            Input tensor.
+
+        Returns
+        -------
+        The GeLU output.
+        """
         return F.gelu(x, approximate=self.approximate)
