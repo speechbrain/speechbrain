@@ -1,5 +1,8 @@
 # ############################################################################
-# Authors: Adel Moumen
+# Model: End-to-end SpeechLLM-based ASR with on-the-fly SSL feature extraction
+# Task : Large-scale ASR on LibriSpeech 960h with an LLM decoder
+# Authors: 
+# * Adel Moumen, 2025
 # ############################################################################
 
 # Seed must be set at the top before objects with parameters are created
