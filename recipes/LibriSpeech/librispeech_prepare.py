@@ -354,7 +354,7 @@ def create_csv(
         csv_line = [
             row.snt_id,
             str(row.duration),
-            # replace data_folder - 'LibriSpeech' with '$data_root'
+            # Replace data_folder with $data_root/ placeholder
             row.file_path.replace(data_folder, "$data_root/"),
             row.spk_id,
             row.words,
