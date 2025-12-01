@@ -234,7 +234,7 @@ class S2SGreedySearcher(S2SBaseSearcher):
                     ],
                     dim=1,
                 )
-                attention_mask[has_ended] = False
+                attention_mask[has_ended, -1] = False
 
             logits, memory, _ = self.forward_step(
                 inp_tokens, memory, enc_states, enc_lens, attention_mask
