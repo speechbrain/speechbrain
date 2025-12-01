@@ -1,6 +1,8 @@
 # ############################################################################
-# SpeechLLM for ASR with SSL features
-# Authors: Adel Moumen, 2025
+# Model: SpeechLLM-based E2E ASR using pre-extracted SSL features
+# Task : Large-scale ASR on LibriSpeech 960h with an LLM decoder
+# Authors: 
+# * Adel Moumen, 2025
 # ############################################################################
 
 # Seed must be set at the top before objects with parameters are created
