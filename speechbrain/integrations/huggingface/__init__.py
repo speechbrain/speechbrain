@@ -1,7 +1,4 @@
-"""High level processing blocks.
-
-This subpackage gathers higher level blocks, or "lobes" for HuggingFace Transformers.
-"""
+"""Package with interfaces to HuggingFace Transformer models."""
 
 # Transformers is required for this package.
 try:

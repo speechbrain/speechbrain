@@ -1,3 +1,3 @@
 """
-This folder integrates models with code existing in stand-alone repos (not in SpeechBrain or Huggingface).
+Package with models from stand-alone repos (i.e. not SpeechBrain or Huggingface).
 """

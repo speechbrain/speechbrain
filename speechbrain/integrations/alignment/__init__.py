@@ -1,3 +1,3 @@
 """
-This module contains code for doing speech alignment using the CTC Segmentation library
+Package for speech alignment using the CTC Segmentation library.
 """
