@@ -10,6 +10,7 @@ Authors
 from typing import List
 
 import torch
+
 from speechbrain.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -154,9 +155,9 @@ class BGEM3SentenceEmbeddings(torch.nn.Module):
             outputs["sparse_vecs"] = raw["sparse_vecs"]
 
         if self.return_colbert_vecs and "colbert_vecs" in raw:
-            outputs["colbert_vecs"] = torch.from_numpy(
-                raw["colbert_vecs"]
-            ).to(device=device, dtype=dtype)
+            outputs["colbert_vecs"] = torch.from_numpy(raw["colbert_vecs"]).to(
+                device=device, dtype=dtype
+            )
 
         return outputs
 

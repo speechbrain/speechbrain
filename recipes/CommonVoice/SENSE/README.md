@@ -18,16 +18,16 @@ python train.py hparams/train_sense.yaml
 
 This recipe uses the multilingual **Common Voice** dataset. A large number of languages is selected, and all of them are merged into a single multilingual training setup.
 
-Any Common Voice language can be used by editing the `languages` field in `hparams/train_sense.yaml`.  
+Any Common Voice language can be used by editing the `languages` field in `hparams/train_sense.yaml`.
 In this configuration, the model was trained on the following **90 Common Voice languages**:
 
-`af`, `am`, `ar`, `as`, `ast`, `az`, `ba`, `be`, `bg`, `bn`, `br`, `ca`,  
-`ckb`, `cs`, `cv`, `cy`, `da`, `de`, `dv`, `el`, `en`, `eo`, `es`, `et`,  
-`fa`, `fi`, `fr`, `fy-NL`, `ga-IE`, `gl`, `gn`, `he`, `hi`, `hsb`, `ht`,  
-`hu`, `ia`, `id`, `is`, `it`, `ja`, `ka`, `kab`, `kk`, `ko`, `ky`, `lt`,  
-`lo`, `lv`, `ml`, `mn`, `mhr`, `mk`, `mr`, `mt`, `ne-NP`, `nl`, `nn-NO`,  
-`oc`, `or`, `os`, `pa-IN`, `pl`, `ps`, `pt`, `ro`, `ru`, `sah`, `sc`,  
-`sk`, `sl`, `sr`, `sv-SE`, `sw`, `ta`, `te`, `th`, `ti`, `tk`, `tr`, `tt`,  
+`af`, `am`, `ar`, `as`, `ast`, `az`, `ba`, `be`, `bg`, `bn`, `br`, `ca`,
+`ckb`, `cs`, `cv`, `cy`, `da`, `de`, `dv`, `el`, `en`, `eo`, `es`, `et`,
+`fa`, `fi`, `fr`, `fy-NL`, `ga-IE`, `gl`, `gn`, `he`, `hi`, `hsb`, `ht`,
+`hu`, `ia`, `id`, `is`, `it`, `ja`, `ka`, `kab`, `kk`, `ko`, `ky`, `lt`,
+`lo`, `lv`, `ml`, `mn`, `mhr`, `mk`, `mr`, `mt`, `ne-NP`, `nl`, `nn-NO`,
+`oc`, `or`, `os`, `pa-IN`, `pl`, `ps`, `pt`, `ro`, `ru`, `sah`, `sc`,
+`sk`, `sl`, `sr`, `sv-SE`, `sw`, `ta`, `te`, `th`, `ti`, `tk`, `tr`, `tt`, <!-- codespell:ignore -->
 `ug`, `uk`, `ur`, `uz`, `vi`, `yi`, `yo`, `zh-HK`, `zu`.
 
 ## Multilingual sampling ratios
@@ -57,8 +57,8 @@ These ratios are saved to `<output_folder>/language_ratios.json` and stored in a
 
 ## Pretrained checkpoint
 
-Download SENSE model:  
-[https://github.com/MaryemBouziane/SENSE](https://github.com/MaryemBouziane/SENSE)  
+Download SENSE model:
+[https://github.com/MaryemBouziane/SENSE](https://github.com/MaryemBouziane/SENSE)
 (Trained on 32×A100 GPUs)
 
 

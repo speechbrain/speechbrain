@@ -11,21 +11,21 @@ Authors
  * Yannick Estève 2025
 """
 
-import os
-from os import path
+import csv
 import functools
 import json
-import csv
-from typing import List, Dict, Any
+import os
+from os import path
+from typing import Any, Dict, List
 
 from tqdm import tqdm
 
+from recipes.CommonVoice.common_voice_prepare import (
+    check_commonvoice_folders,
+    process_line,
+)
 from speechbrain.utils.logger import get_logger
 from speechbrain.utils.parallel import parallel_map
-from recipes.CommonVoice.common_voice_prepare import (
-    process_line,
-    check_commonvoice_folders,
-)
 
 logger = get_logger(__name__)
 
@@ -173,9 +173,9 @@ def skip_prepared_splits(train_csv: str, dev_csv: str) -> bool:
         False otherwise.
     """
     if all(path.isfile(p) for p in [train_csv, dev_csv]):
-        msg = (
-            "%s and %s already exist, skipping data preparation!"
-            % (train_csv, dev_csv)
+        msg = "%s and %s already exist, skipping data preparation!" % (
+            train_csv,
+            dev_csv,
         )
         logger.info(msg)
         return True
@@ -443,9 +443,8 @@ def build_combined_split(
             if p > 0:
                 ratio_map[lang] = (1.0 / p) * (p_alphas[lang] / p_alpha_sum)
             else:
-                msg = (
-                    "Language %s has no valid samples in the train split."
-                    % (lang)
+                msg = "Language %s has no valid samples in the train split." % (
+                    lang
                 )
                 logger.warning(msg)
 

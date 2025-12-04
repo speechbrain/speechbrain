@@ -172,10 +172,7 @@ class W2VBert(HFTransformersInterface):
                 wav_lens.detach().cpu(),
             )
         else:
-            wav_list = [
-                wav[b].detach().cpu()
-                for b in range(B)
-            ]
+            wav_list = [wav[b].detach().cpu() for b in range(B)]
 
         inputs = self.feature_extractor(
             wav_list,

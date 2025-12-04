@@ -22,14 +22,13 @@ import sys
 import pandas as pd
 import torch
 import torch.nn.functional as F
+from common_voice_sense_prepare import prepare_sense
 from hyperpyyaml import load_hyperpyyaml
+
+import speechbrain as sb
 from speechbrain.dataio.sampler import ReproducibleWeightedRandomSampler
 from speechbrain.utils.distributed import run_on_main
 from speechbrain.utils.logger import get_logger
-
-import speechbrain as sb
-
-from common_voice_sense_prepare import prepare_sense
 
 logger = get_logger(__name__)
 
@@ -62,10 +61,10 @@ class SenseBrain(sb.core.Brain):
 
         cosine_sim = torch.sum(
             uttr_embeddings.float() * text_embeddings.float(), dim=-1
-        )  
+        )
 
-        loss = 1.0 - cosine_sim 
-        loss = loss.sum()        
+        loss = 1.0 - cosine_sim
+        loss = loss.sum()
         loss *= self.hparams.loss_scale
         return loss
 
@@ -84,12 +83,13 @@ class SenseBrain(sb.core.Brain):
             )
             self.optimizers_dict["wav2vec_optimizer"] = self.wav2vec_optimizer
 
-
     def freeze_optimizers(self, optimizers):
         """Freezes the wav2vec2 optimizer according to the warmup steps"""
         valid_optimizers = {}
         if not self.hparams.wav2vec2_frozen:
-            valid_optimizers["wav2vec_optimizer"] = optimizers["wav2vec_optimizer"]
+            valid_optimizers["wav2vec_optimizer"] = optimizers[
+                "wav2vec_optimizer"
+            ]
         return valid_optimizers
 
     def on_stage_start(self, stage, epoch):
@@ -180,11 +180,14 @@ class SenseBrain(sb.core.Brain):
             )
             loader_kwargs["sampler"] = sampler
 
-        return super().make_dataloader(dataset, stage, ckpt_prefix, **loader_kwargs)
+        return super().make_dataloader(
+            dataset, stage, ckpt_prefix, **loader_kwargs
+        )
 
 
 def dataio_prepare(hparams):
     """Prepares the datasets and data pipelines used by the SenseBrain."""
+
     @sb.utils.data_pipeline.takes("wav")
     @sb.utils.data_pipeline.provides("sig")
     def audio_pipeline(wav):
