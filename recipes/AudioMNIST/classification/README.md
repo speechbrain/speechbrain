@@ -27,9 +27,9 @@ python train.py hparams/audionet_custom_lfb.yaml --data_folder=/path_to_/AudioMN
 # Checkpoints and Training logs
 
 You can find the full experiment folder (i.e., checkpoints, logs, etc) here:
-- AudioNet: https://os.unil.cloud.switch.ch/swift/v1/lts2-speechbrain/AudioMNIST/results/audionet
-- AudioNet + LFB: https://os.unil.cloud.switch.ch/swift/v1/lts2-speechbrain/AudioMNIST/results/audionet_lfb
-- AudioNet custom + LFB: https://os.unil.cloud.switch.ch/swift/v1/lts2-speechbrain/AudioMNIST/results/audionet_custom_lfb
+- AudioNet: https://datasets.epfl.ch/lts2-datasets/speechbrain/AudioMNIST/results/audionet
+- AudioNet + LFB: https://datasets.epfl.ch/lts2-datasets/speechbrain/AudioMNIST/results/audionet_lfb
+- AudioNet custom + LFB: https://datasets.epfl.ch/lts2-datasets/speechbrain/AudioMNIST/results/audionet_custom_lfb
 
 ## Notes
 

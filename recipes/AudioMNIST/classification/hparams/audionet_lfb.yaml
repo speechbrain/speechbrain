@@ -10,7 +10,7 @@ __set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
 
 number_of_digits: 10
 # use "split[0-4].zip" for the official audiomnist splits, null for default data url in audiomnist_prepare.py
-metadata_repo: https://os.unil.cloud.switch.ch/swift/v1/lts2-speechbrain/AudioMNIST/metadata_split0.zip
+metadata_repo: https://datasets.epfl.ch/lts2-datasets/speechbrain/AudioMNIST/metadata_split0.zip
 metadata_folder: null
 output_folder: !ref ./results/audionet_lfb/<seed>
 save_folder: !ref <output_folder>/save

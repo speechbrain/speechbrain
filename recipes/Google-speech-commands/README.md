@@ -31,7 +31,7 @@ You can find the pre-trained model with an easy-inference function on HuggingFac
 You can find the full experiment folder (i.e., checkpoints, logs, etc) here:
 - xvector v12: https://www.dropbox.com/sh/9n9q42pugbx0g7a/AADihpfGKuWf6gkwQznEFINDa?dl=0
 - xvector leaf v35: https://www.dropbox.com/sh/r63w4gytft4s1x6/AAApP8-pp179QKGCZHV_OuD8a?dl=0
-- xvector LFB v12: https://os.unil.cloud.switch.ch/swift/v1/lts2-speechbrain/GoogleSpeechCommands/xvect_lfb_v12
+- xvector LFB v12: https://datasets.epfl.ch/lts2-datasets/speechbrain/GoogleSpeechCommands/xvect_lfb_v12
 
 # **About SpeechBrain**
 - Website: https://speechbrain.github.io/
