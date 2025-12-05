@@ -298,10 +298,3 @@ if __name__ == "__main__":
         train_loader_kwargs=hparams["dataloader_options"],
         valid_loader_kwargs=hparams["test_dataloader_options"],
     )
-
-    # Final evaluation on the validation split
-    logger.info("Final evaluation on the validation split:")
-    sense_brain.evaluate(
-        datasets["valid"],
-        test_loader_kwargs=hparams["test_dataloader_options"],
-    )
