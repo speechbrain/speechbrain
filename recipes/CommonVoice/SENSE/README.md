@@ -33,6 +33,9 @@ In this configuration, the model was trained on the following **90 Common Voice 
 ## Multilingual sampling ratios
 
 Common Voice languages do **not** have the same number of utterances: some are very high-resource, others much smaller. To avoid that high-resource languages dominate the training batches, we compute a **sampling ratio** for each language.
+
+This multilingual smoothing strategy follows the rebalancing scheme introduced in **SAMU-XLSR** (“SAMU-XLSR: Semantically-Aligned Multimodal Utterance-level Cross-Lingual Speech Representation”, Khurana et al., 2022, Eq. (3), see https://arxiv.org/abs/2205.08180).
+
 For the train split, let:
 
 - $N_l$ be the number of utterances in language $l$,

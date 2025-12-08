@@ -10,8 +10,6 @@
 seed: 2422
 __set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
 
-
-
 ############################## Data ####################################
 
 # Root folder containing the multilingual Common Voice data tree.
@@ -20,7 +18,8 @@ output_folder: !ref results/SENSE_training/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 # Exponent used in the language sampling formula for SENSE.
-# Small alpha oversamples low-resource languages and undersamples high-resource ones.
+# Small alpha oversamples low-resource languages
+# and undersamples high-resource ones.
 sampling_alpha: 0.05
 
 # Paths for the multilingual CSV manifests produced by prepare_sense().
@@ -111,7 +110,7 @@ languages:
   - "sv-SE"
   - "sw"
   - "ta"
-  - "te"
+  - "te" # codespell:ignore te
   - "th"
   - "ti"
   - "tk"
@@ -127,15 +126,14 @@ languages:
   - "zh-HK"
   - "zu"
 
-
 ############################## Text encoder: BGE-M3 ####################
 
 bge_path: "BAAI/bge-m3"
 
 bge_model: !new:speechbrain.integrations.nlp.bgeM3_embeddings.BGEM3SentenceEmbeddings
-    source: !ref <bge_path>
-    use_fp16: True
-    return_dense: True
+  source: !ref <bge_path>
+  use_fp16: True
+  return_dense: True
 
 ############################## Speech encoder: w2v-BERT ################
 
@@ -154,18 +152,13 @@ lr: 1.5
 lr_wav2vec: 0.00001
 
 batch_size: 2
-test_batch_size: 2
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
-    limit: !ref <number_of_epochs>
+  limit: !ref <number_of_epochs>
 
 dataloader_options:
-    batch_size: !ref <batch_size>
-    num_workers: 8
-
-test_dataloader_options:
-    batch_size: !ref <test_batch_size>
-    num_workers: 8
+  batch_size: !ref <batch_size>
+  num_workers: 8
 
 ############################## Architecture ############################
 
@@ -176,57 +169,58 @@ d_model: 1024
 loss_scale: 50
 
 wav2vec2: !new:speechbrain.integrations.huggingface.w2v_bert.W2VBert
-    source: !ref <wav2vec2_hub>
-    save_path: !ref <save_folder>/wav2vec2_checkpoint
-    freeze: !ref <wav2vec2_frozen>
+  source: !ref <wav2vec2_hub>
+  save_path: !ref <save_folder>/wav2vec2_checkpoint
+  freeze: !ref <wav2vec2_frozen>
 
 attn_pooling: !new:speechbrain.nnet.pooling.AttentionPooling
-    input_dim: !ref <d_model>
+  input_dim: !ref <d_model>
 
 modules:
-    wav2vec2: !ref <wav2vec2>
-    attn_pooling: !ref <attn_pooling>
-    bge_model: !ref <bge_model>
+  wav2vec2: !ref <wav2vec2>
+  attn_pooling: !ref <attn_pooling>
+  bge_model: !ref <bge_model>
 
-# Only the attention pooling head is grouped under "model" for the main optimiser.
+# Only the attention pooling head
+# is grouped under "model" for the main optimiser.
 model: !new:torch.nn.ModuleList
-    modules: [!ref <attn_pooling>]
+  modules: [!ref <attn_pooling>]
 
 ############################## Optimizers & schedulers #################
 
 # Optimiser for the attention pooling head.
 adam_opt_class: !name:torch.optim.Adadelta
-    lr: !ref <lr>
-    rho: 0.95
-    eps: 0.00000001
+  lr: !ref <lr>
+  rho: 0.95
+  eps: 0.00000001
 
 # Optimiser for the w2v-BERT encoder.
 wav2vec_opt_class: !name:torch.optim.Adam
-    lr: !ref <lr_wav2vec>
+  lr: !ref <lr_wav2vec>
 
 # Learning-rate scheduler for the attention pooling head.
 lr_annealing_adam: !new:speechbrain.nnet.schedulers.NewBobScheduler
-    initial_value: !ref <lr>
-    improvement_threshold: 0.0025
-    annealing_factor: 0.5
-    patient: 2
+  initial_value: !ref <lr>
+  improvement_threshold: 0.0025
+  annealing_factor: 0.5
+  patient: 2
 
 # Learning-rate scheduler for the w2v-BERT encoder.
 lr_annealing_wav2vec: !new:speechbrain.nnet.schedulers.NewBobScheduler
-    initial_value: !ref <lr_wav2vec>
-    improvement_threshold: 0.0025
-    annealing_factor: 0.9
+  initial_value: !ref <lr_wav2vec>
+  improvement_threshold: 0.0025
+  annealing_factor: 0.9
 
 ############################## Checkpointer & logger ###################
 
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
-    checkpoints_dir: !ref <save_folder>
-    recoverables:
-        model: !ref <model>
-        wav2vec2: !ref <wav2vec2>
-        lr_annealing_adam: !ref <lr_annealing_adam>
-        lr_annealing_wav2vec: !ref <lr_annealing_wav2vec>
-        counter: !ref <epoch_counter>
+  checkpoints_dir: !ref <save_folder>
+  recoverables:
+    model: !ref <model>
+    wav2vec2: !ref <wav2vec2>
+    lr_annealing_adam: !ref <lr_annealing_adam>
+    lr_annealing_wav2vec: !ref <lr_annealing_wav2vec>
+    counter: !ref <epoch_counter>
 
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
-    save_file: !ref <train_log>
+  save_file: !ref <train_log>

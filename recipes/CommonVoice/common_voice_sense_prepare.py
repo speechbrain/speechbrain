@@ -201,7 +201,7 @@ def read_split_lang_to_rows(
 
     Each dictionary has the following keys:
 
-        ID, duration, wav, spk_id, text
+        ID, duration, wav, spk_id, wrd
 
     Arguments
     ---------
@@ -268,13 +268,13 @@ def read_split_lang_to_rows(
         )
 
     # Map sentence id (snt_id) → raw transcription from TSV
-    raw_text_by_id: Dict[str, str] = {}
+    raw_wrd_by_id: Dict[str, str] = {}
     for line in data_lines:
         cols = line.rstrip("\n").split("\t")
         audio_path_filename = cols[header_map["path"]]
         snt_id = audio_path_filename.split(".")[-2].split("/")[-1]
         raw_sentence = cols[header_map["sentence"]]
-        raw_text_by_id[snt_id] = raw_sentence
+        raw_wrd_by_id[snt_id] = raw_sentence
 
     # Audio processing and duration filtering
     line_processor = functools.partial(
@@ -300,7 +300,7 @@ def read_split_lang_to_rows(
             continue
 
         full_id = row.snt_id
-        raw_sentence = raw_text_by_id.get(row.snt_id, "")
+        raw_sentence = raw_wrd_by_id.get(row.snt_id, "")
 
         rows.append(
             {
@@ -308,7 +308,7 @@ def read_split_lang_to_rows(
                 "duration": row.duration,
                 "wav": row.audio_path,
                 "spk_id": row.spk_id,
-                "text": raw_sentence,
+                "wrd": raw_sentence,
             }
         )
         total_duration += row.duration
@@ -458,7 +458,7 @@ def build_combined_split(
         for r in all_rows:
             r["ratio"] = ratio_map[r["lang"]]
 
-    fieldnames = ["ID", "duration", "wav", "spk_id", "text", "lang"]
+    fieldnames = ["ID", "duration", "wav", "spk_id", "wrd", "lang"]
     if split == "train":
         fieldnames.append("ratio")
 

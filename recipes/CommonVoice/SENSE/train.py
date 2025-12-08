@@ -14,7 +14,6 @@ Authors
  * Haroun Elleuch 2025
  * Yannick Estève 2025
  * Ha Nguyen 2023
-
 """
 
 import sys
@@ -32,9 +31,6 @@ from speechbrain.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
-# Sampling weights, loaded from train.csv for the sampler
-sample_ratios = None
-
 
 # Define training procedure
 class SenseBrain(sb.core.Brain):
@@ -50,7 +46,7 @@ class SenseBrain(sb.core.Brain):
         uttr_embeddings = F.normalize(uttr_embeddings, p=2, dim=-1)
 
         # Teacher text encoder: BGE-M3
-        src_text = batch.text
+        src_text = batch.wrd
         text_embeddings = self.modules.bge_model(src_text)
 
         return uttr_embeddings, text_embeddings
@@ -84,7 +80,7 @@ class SenseBrain(sb.core.Brain):
             self.optimizers_dict["wav2vec_optimizer"] = self.wav2vec_optimizer
 
     def freeze_optimizers(self, optimizers):
-        """Freezes the wav2vec2 optimizer according to the warmup steps"""
+        """Freezes the wav2vec2 optimizer according to the warmup steps."""
         valid_optimizers = {}
         if not self.hparams.wav2vec2_frozen:
             valid_optimizers["wav2vec_optimizer"] = optimizers[
@@ -93,16 +89,20 @@ class SenseBrain(sb.core.Brain):
         return valid_optimizers
 
     def on_stage_start(self, stage, epoch):
-        """Gets called when a stage (either training, validation, test) starts."""
+        """Gets called when a stage (either training or validation) starts."""
         return
 
     def on_stage_end(self, stage, stage_loss, epoch):
-        """Gets called at the end of each stage and handles logging and checkpoints."""
+        """Gets called at the end of each stage.
+
+        For validation, applies learning rate scheduling and handles
+        logging and checkpointing.
+        """
         if stage == sb.Stage.TRAIN:
             self.train_stats = stage_loss
             return
 
-        # VALID or TEST
+        # VALID
         stage_stats = {"loss": stage_loss}
         current_epoch = self.hparams.epoch_counter.current
 
@@ -131,58 +131,18 @@ class SenseBrain(sb.core.Brain):
                 )
                 stats_meta["lr_wav2vec"] = old_lr_wav2vec
 
-            # Logging + checkpoints only on the main process
-            if sb.utils.distributed.if_main_process():
-                self.hparams.train_logger.log_stats(
-                    stats_meta=stats_meta,
-                    train_stats={"loss": self.train_stats},
-                    valid_stats=stage_stats,
-                )
-
-                meta = {"loss": stage_stats["loss"], "epoch": current_epoch}
-                name = "checkpoint_epoch" + str(current_epoch)
-                self.checkpointer.save_and_keep_only(
-                    meta=meta, name=name, num_to_keep=10, min_keys=["loss"]
-                )
-
-        elif stage == sb.Stage.TEST:
-            if sb.utils.distributed.if_main_process():
-                self.hparams.train_logger.log_stats(
-                    stats_meta={"Epoch loaded": current_epoch},
-                    test_stats=stage_stats,
-                )
-
-    def make_dataloader(
-        self, dataset, stage, ckpt_prefix="dataloader-", **loader_kwargs
-    ):
-        """
-        Overrides dataloader creation to use a language-balanced sampler
-        during training.
-
-        The variable ``sample_ratios`` must be filled from train.csv.
-        These ratios are used as weights in a
-        ``ReproducibleWeightedRandomSampler`` to oversample low-resource
-        languages and undersample high-resource ones.
-        """
-        if stage == sb.Stage.TRAIN:
-            global sample_ratios
-            if sample_ratios is None:
-                raise RuntimeError(
-                    "sample_ratios is not initialised. "
-                    "Check the preparation step and train.csv."
-                )
-            num_samples = len(sample_ratios)
-            sampler = ReproducibleWeightedRandomSampler(
-                sample_ratios,
-                epoch=self.hparams.epoch_counter.current,
-                replacement=True,
-                num_samples=num_samples,
+            # Log validation statistics and save the checkpoint
+            self.hparams.train_logger.log_stats(
+                stats_meta=stats_meta,
+                train_stats={"loss": self.train_stats},
+                valid_stats=stage_stats,
             )
-            loader_kwargs["sampler"] = sampler
 
-        return super().make_dataloader(
-            dataset, stage, ckpt_prefix, **loader_kwargs
-        )
+            meta = {"loss": stage_stats["loss"], "epoch": current_epoch}
+            name = "checkpoint_epoch" + str(current_epoch)
+            self.checkpointer.save_and_keep_only(
+                meta=meta, name=name, num_to_keep=10, min_keys=["loss"]
+            )
 
 
 def dataio_prepare(hparams):
@@ -195,25 +155,19 @@ def dataio_prepare(hparams):
         sig = sb.dataio.dataio.read_audio(wav)
         return sig
 
-    @sb.utils.data_pipeline.takes("text")
-    @sb.utils.data_pipeline.provides("text")
-    def text_pipeline(text):
-        """Text pipeline: returns the raw sentence as a string."""
-        return text
-
     datasets = {}
 
     # TRAIN
     train_csv = hparams["train_csv"]
     datasets["train"] = sb.dataio.dataset.DynamicItemDataset.from_csv(
         csv_path=train_csv,
-        dynamic_items=[audio_pipeline, text_pipeline],
+        dynamic_items=[audio_pipeline],
         output_keys=[
             "id",
             "lang",
             "sig",
             "duration",
-            "text",
+            "wrd",
         ],
     )
 
@@ -221,13 +175,13 @@ def dataio_prepare(hparams):
     valid_csv = hparams["valid_csv"]
     datasets["valid"] = sb.dataio.dataset.DynamicItemDataset.from_csv(
         csv_path=valid_csv,
-        dynamic_items=[audio_pipeline, text_pipeline],
+        dynamic_items=[audio_pipeline],
         output_keys=[
             "id",
             "lang",
             "sig",
             "duration",
-            "text",
+            "wrd",
         ],
     )
 
@@ -277,7 +231,7 @@ if __name__ == "__main__":
     # Datasets
     datasets = dataio_prepare(hparams)
 
-    # Load language ratios from train.csv (global sampler weights)
+    # Load sampling ratios from train.csv
     logger.info("Loading language ratios from train.csv ...")
     manifest = pd.read_csv(hparams["train_csv"])
     if "ratio" not in manifest.columns:
@@ -286,8 +240,19 @@ if __name__ == "__main__":
             "Check that the preparation step ran correctly."
         )
 
-    # Global sampler weights
     sample_ratios = list(manifest["ratio"])
+    num_samples = len(sample_ratios)
+
+    # Create weighted sampler for the training dataloader
+    train_sampler = ReproducibleWeightedRandomSampler(
+        sample_ratios,
+        replacement=True,
+        num_samples=num_samples,
+    )
+
+    # inject the sampler in the training dataloader
+    train_loader_kwargs = dict(hparams["dataloader_options"])
+    train_loader_kwargs["sampler"] = train_sampler
 
     # Training
     logger.info("Start of model training:")
@@ -295,6 +260,6 @@ if __name__ == "__main__":
         sense_brain.hparams.epoch_counter,
         datasets["train"],
         datasets["valid"],
-        train_loader_kwargs=hparams["dataloader_options"],
-        valid_loader_kwargs=hparams["test_dataloader_options"],
+        train_loader_kwargs=train_loader_kwargs,
+        valid_loader_kwargs=hparams["dataloader_options"],
     )
