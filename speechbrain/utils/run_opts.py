@@ -266,10 +266,16 @@ class RunOptions:
 
         # Go through arg list to see which were set
         # NOTE: Slight risk of collisions if an arg value matches an arg name
-        overridden_args = {
-            arg_mapping[arg] for arg in arg_list if arg in arg_mapping
-        }
-
+        overridden_args = set()
+        for arg in arg_list:
+            # Handle both --arg=value and --arg value formats
+            if arg.startswith("--") and "=" in arg:
+                # Split on first = to get the argument name
+                arg_name = arg.split("=", 1)[0]
+                if arg_name in arg_mapping:
+                    overridden_args.add(arg_mapping[arg_name])
+            elif arg in arg_mapping:
+                overridden_args.add(arg_mapping[arg])
         # Add a record of which args were specified
         run_opts = cls(
             **{**vars(parsed_args), "overridden_args": overridden_args}
