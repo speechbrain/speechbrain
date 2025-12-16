@@ -1,9 +1,10 @@
 
 """
-Myst data preparation (SpeechBrain-style) — silence detection removed.
+Myst data preparation (SpeechBrain-style).
 
 This mirrors the API of `librispeech_prepare.py` while adding zero-shot
-WER filtering across all splits (train/valid/test).
+WER filtering across all splits (train/valid/test).This step makes it
+possible to remove utterances with incorrect transcriptions present in the dataset.
 
 Outputs CSVs with columns:
     ID,duration,wav,spk_id,wrd
@@ -18,82 +19,44 @@ Authors: Thomas Rolland 2025
 import csv
 import functools
 import os
-import random
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Optional, Sequence, Tuple
+from typing import Callable, List, Optional, Sequence, Tuple
+
+TextNormalizer = Callable[[str], str]
 from tqdm import tqdm
 import re
 
 
-# Optional dependencies used by LibriSpeech prep
-try:
-    from speechbrain.dataio.dataio import (
-        load_pkl,
-        merge_csvs,
-        read_audio_info,
-        save_pkl,
-    )
-    from speechbrain.utils.data_utils import get_all_files
-    from speechbrain.utils.logger import get_logger
-    from speechbrain.utils.parallel import parallel_map
-except Exception:  # graceful fallback if SpeechBrain is not present
-    load_pkl = None
-    merge_csvs = None
-    read_audio_info = None
-    save_pkl = None
-    parallel_map = None
-    def get_all_files(folder, match_and=None, match_or=None, exclude_or=None):
-        out = []
-        for root, _dirs, files in os.walk(folder):
-            for fn in files:
-                path = os.path.join(root, fn)
-                if match_or and not any(path.endswith(m) for m in match_or):
-                    continue
-                if match_and and not all(m in path for m in match_and):
-                    continue
-                if exclude_or and any(ex in path for ex in exclude_or):
-                    continue
-                out.append(path)
-        return out
-    class _Logger:
-        def info(self, *a, **k): print(*a)
-        def warning(self, *a, **k): print(*a)
-    def get_logger(name): return _Logger()
+from speechbrain.dataio.dataio import (
+    load_pkl,
+    merge_csvs,
+    read_audio_info,
+    save_pkl,
+)
+from speechbrain.utils.data_utils import get_all_files
+from speechbrain.utils.logger import get_logger
+from speechbrain.utils.parallel import parallel_map
+
+from speechbrain.utils.metric_stats import ErrorRateStats
+from transformers import AutoModelForSpeechSeq2Seq, AutoProcessor, pipeline
+
+def sb_wer(ref_tokens, hyp_tokens): # Quick WER computation using SpeechBrain's ErrorRateStats
+    stats = ErrorRateStats()
+    stats.append([0], [ref_tokens], [hyp_tokens])
+    summary = stats.summarize()
+    # Prefer standard WER key, fallback to alt naming if present
+    if "WER" in summary:
+        return float(summary["WER"])
+    if "WER-w/o-trailing-silence" in summary:
+        return float(summary["WER-w/o-trailing-silence"])
+    return 100.0
 
 logger = get_logger(__name__)
 OPT_FILE = "opt_myst_prepare.pkl"
 
 # Audio / text utilities
 AUDIO_EXTS = (".wav", ".flac", ".mp3", ".m4a", ".ogg")
-try:
-    from whisper_normalizer.english import EnglishTextNormalizer  # type: ignore
-except Exception:
-    EnglishTextNormalizer = None
-
-# ASR + WER (optional)
-try:
-    from faster_whisper import WhisperModel  # type: ignore
-    _HAS_FASTER = True
-except Exception:
-    _HAS_FASTER = False
-    WhisperModel = None  # type: ignore
-try:
-    import whisper  # type: ignore
-    _HAS_OPENAI = True
-except Exception:
-    _HAS_OPENAI = False
-try:
-    from jiwer import wer  # type: ignore
-    _HAS_JIWER = True
-except Exception:
-    _HAS_JIWER = False
-
-# librosa for duration (fallback if read_audio_info absent)
-try:
-    import librosa
-except Exception:
-    librosa = None
 
 
 @dataclass
@@ -105,11 +68,11 @@ class MystRow:
     words: str
 
 
-def _normalize_text(text: str) -> str:
+def _normalize_text(
+    text: str,
+    normalizer: Optional[TextNormalizer] = None,
+) -> str:
     """Normalize a transcript string for Whisper (also to remove some formating errors in transcriptions).
-
-    Uses `whisper_normalizer.EnglishTextNormalizer` if available,
-    otherwise just strips leading / trailing whitespace.
 
     Arguments
     ---------
@@ -121,12 +84,28 @@ def _normalize_text(text: str) -> str:
     str
         Normalized text.
     """
-
+    print(normalizer)
     if not text:
         return text
-    if EnglishTextNormalizer is None:
-        return text.strip()
-    return EnglishTextNormalizer()(text).strip()
+    if normalizer is not None and callable(normalizer):
+        try:
+            return normalizer(text).strip()
+        except Exception:
+            pass
+    return text.strip()
+
+
+def _get_normalizer_from_tokenizer(tokenizer) -> Optional[TextNormalizer]:
+    """Extract a callable normalizer from a Whisper tokenizer if available."""
+    for attr in ("normalize", "_normalize"):
+        norm = getattr(tokenizer, attr, None)
+        if norm is None:
+            continue
+        if callable(norm):
+            return norm
+        if hasattr(norm, "normalize"):
+            return lambda text: norm.normalize(text)
+    return None
 
 
 def _sidecar_text(audio_path: str) -> Optional[str]:
@@ -159,8 +138,7 @@ def _sidecar_text(audio_path: str) -> Optional[str]:
 def _compute_duration(path: str) -> float:
     """Compute the duration (in seconds) of an audio file.
 
-    Uses `speechbrain.dataio.dataio.read_audio_info` when available,
-    falling back to `librosa` otherwise.
+    Uses `speechbrain.dataio.dataio.read_audio_info`.
 
     Arguments
     ---------
@@ -173,16 +151,8 @@ def _compute_duration(path: str) -> float:
         Duration of the audio in seconds.
     """
 
-    if read_audio_info is not None:
-        info = read_audio_info(path)
-        return float(info.num_frames) / float(info.sample_rate)
-    if librosa is None:
-        raise RuntimeError("Neither speechbrain.read_audio_info nor librosa is available to compute duration.")
-    try:
-        return float(librosa.get_duration(path=path))
-    except Exception:
-        y, sr = librosa.load(path, sr=16000, mono=True)
-        return float(len(y) / sr)
+    info = read_audio_info(path)
+    return float(info.num_frames) / float(info.sample_rate)
 
 
 def _derive_ids(audio_file: str, split_root: Path) -> Tuple[str, str]:
@@ -230,7 +200,11 @@ def _find_audio(split_dir: Path) -> List[str]:
     return wavs
 
 
-def _process_line(audio_file: str, split_root: Path) -> Optional[MystRow]:
+def _process_line(
+    audio_file: str,
+    split_root: Path,
+    normalizer: Optional[TextNormalizer] = None,
+) -> Optional[MystRow]:
     """Create a `MystRow` from a single audio file.
 
     Loads thetranscript, filters out unsuitable utterances
@@ -265,13 +239,15 @@ def _process_line(audio_file: str, split_root: Path) -> Optional[MystRow]:
         return None
 
     snt_id, spk_id = _derive_ids(audio_file, split_root)
-    wrds = _normalize_text(txt)
+    print(txt)
+    wrds = _normalize_text(txt, normalizer=normalizer)
+    print(wrds)
     if "$" in wrds: # We have one utterance with $ that will raises errors later if we don't remove it now
         wrds =  re.sub(r'\$(\d+)', r'\1 dollars', wrds)
     duration = _compute_duration(audio_file)
 
-    # Skip files longer than 30s
-    if duration > 30.0:
+    # Skip files longer than 30s or shorter than a second
+    if duration > 30.0 or duration < 1.0:
         return None
 
     return MystRow(
@@ -284,20 +260,30 @@ def _process_line(audio_file: str, split_root: Path) -> Optional[MystRow]:
 
 
 class _ASRBackend:
-    """Thin wrapper around Faster-Whisper or OpenAI Whisper.
+    """Thin wrapper around Hugging Face Whisper ASR."""
 
-    Selects the available backend at construction time and exposes
-    a single `transcribe(path)` method used for WER filtering.
-    """
-    def __init__(self, model_name: str = "small", device: Optional[str] = None):
-        if _HAS_FASTER:
-            self.kind = "faster"
-            self.model = WhisperModel(model_name, device=device or "auto", compute_type="float32")
-        elif _HAS_OPENAI:
-            self.kind = "openai"
-            self.model = whisper.load_model(model_name, device=device or None)  # type: ignore
-        else:
-            raise RuntimeError("No ASR backend. Install faster-whisper or openai-whisper.")
+    def __init__(
+        self,
+        model_name: str = "openai/whisper-large-v3",
+        device: Optional[str] = None,
+        normalizer: Optional[TextNormalizer] = None,
+        preloaded_asr: Optional[object] = None,
+    ):
+        self.device_index = 0 if device and device.startswith("cuda") else -1
+        self.processor = None
+        self.pipe = preloaded_asr
+        if self.pipe is None:
+            self.processor = AutoProcessor.from_pretrained(model_name)
+            model = AutoModelForSpeechSeq2Seq.from_pretrained(model_name)
+            self.pipe = pipeline(
+                task="automatic-speech-recognition",
+                model=model,
+                tokenizer=self.processor.tokenizer,
+                feature_extractor=self.processor.feature_extractor,
+                device=self.device_index,
+            )
+        tokenizer = getattr(self.processor, "tokenizer", None) or getattr(self.pipe, "tokenizer", None)
+        self.normalizer = normalizer or _get_normalizer_from_tokenizer(tokenizer)
 
     def transcribe(self, path: str) -> str:
         """Transcribe an audio file to text.
@@ -312,16 +298,19 @@ class _ASRBackend:
         str
             Normalized ASR hypothesis.
         """
-        if self.kind == "faster":
-            segs, _ = self.model.transcribe(path, task="transcribe", language="en")
-            hyp = " ".join(s.text for s in segs).strip()
-        else:
-            out = self.model.transcribe(path, task="transcribe", language="en")
-            hyp = out.get("text", "").strip()
-        return _normalize_text(hyp)
+        out = self.pipe(path)
+        hyp = out.get("text", "") if isinstance(out, dict) else str(out)
+        return _normalize_text(hyp, normalizer=self.normalizer)
 
 
-def _apply_wer_filter(rows: List[MystRow], threshold: float, asr_model: str, device: Optional[str]) -> List[MystRow]:
+def _apply_wer_filter(
+    rows: List[MystRow],
+    threshold: float,
+    asr_model: str,
+    device: Optional[str],
+    normalizer: Optional[TextNormalizer],
+    asr_instance: Optional[object] = None,
+) -> List[MystRow]:
     """Filter rows using zero-shot ASR and WER.
 
     Runs an ASR model (whisper) on each utterance and keeps only those whose
@@ -333,11 +322,15 @@ def _apply_wer_filter(rows: List[MystRow], threshold: float, asr_model: str, dev
     rows : list of MystRow
         Input rows to filter.
     threshold : float
-        Maximum allowed WER (e.g., 0.3 for 30%).
+        Maximum allowed WER (e.g., 30%).
     asr_model : str
         Whisper model size/name to use for ASR.
     device : str, optional
         Device for ASR inference (e.g., 'cpu', 'cuda').
+    normalizer : callable, optional
+        Normalizer (string -> string) to apply to both reference and hypothesis.
+    asr_instance : HF pipeline, optional
+        Preloaded Hugging Face ASR pipeline to reuse.
 
     Returns
     -------
@@ -346,15 +339,19 @@ def _apply_wer_filter(rows: List[MystRow], threshold: float, asr_model: str, dev
     """
     if threshold is None:
         return rows
-    if not _HAS_JIWER:
-        raise RuntimeError("jiwer is required for WER filtering. pip install jiwer")
-    asr = _ASRBackend(asr_model, device=device)
+    asr = _ASRBackend(
+        asr_model,
+        device=device,
+        normalizer=normalizer,
+        preloaded_asr=asr_instance,
+    )
+    norm_fn = asr.normalizer or normalizer
     kept: List[MystRow] = []
     for r in tqdm(rows, desc="WER filtering"):
         hyp = asr.transcribe(r.file_path)
-        ref = _normalize_text(r.words)
-        hyp = _normalize_text(hyp)
-        score = wer(ref, hyp)
+        ref = _normalize_text(r.words, normalizer=norm_fn)
+        hyp = _normalize_text(hyp, normalizer=norm_fn)
+        score = sb_wer(ref.split(), hyp.split())
         if score <= threshold:
             kept.append(r)
     return kept
@@ -415,7 +412,7 @@ def _maybe_skip(save_folder: str, splits: Sequence[str], conf: dict) -> bool:
             skip = False
     # Option equality check (if speechbrain load/save pkl available)
     save_opt = os.path.join(save_folder, OPT_FILE)
-    if skip and load_pkl is not None and os.path.isfile(save_opt):
+    if skip and os.path.isfile(save_opt):
         try:
             old = load_pkl(save_opt)
             if old == conf:
@@ -436,9 +433,10 @@ def prepare_myst(
     merge_lst=[],
     merge_name=None,
     enable_wer_filter=True,
-    wer_threshold=0.3,
-    asr_model="small",
+    wer_threshold=30.0,
+    asr_model="openai/whisper-large-v3",
     device="cuda",
+    normalizer: Optional[TextNormalizer] = None,
     skip_prep=False,
 ):
     """Prepare Myst-style CSVs (train/valid/test) with optional WER filtering.
@@ -460,14 +458,19 @@ def prepare_myst(
     enable_wer_filter : bool
         If True, apply zero-shot WER filtering to all splits.
     wer_threshold : float
-        Drop rows with WER > threshold (e.g., 0.3 = 30%).
+        Drop rows with WER > threshold (e.g.,  30%).
     asr_model : str
         Whisper model size/name.
     device : str, optional
         Backend device (e.g., 'cpu', 'cuda').
+    normalizer : callable, optional
+        Text normalizer (string -> string). If None, a normalizer is pulled
+        from the Whisper tokenizer (loading the model if needed).
     skip_prep : bool
         If True, skip if files already prepared with same options.
     """
+
+    normalizer_label = normalizer.__class__.__name__ if normalizer is not None else "auto"
 
     conf = {
         "data_folder": data_folder,
@@ -482,6 +485,7 @@ def prepare_myst(
         "wer_threshold": wer_threshold,
         "asr_model": asr_model,
         "device": device,
+        "normalizer": normalizer_label,
     }
 
     os.makedirs(save_folder, exist_ok=True)
@@ -494,6 +498,15 @@ def prepare_myst(
     if skip_prep and _maybe_skip(save_folder, [s for s,_ in splits], conf):
         logger.info("Preparation already completed with same options. Skipping.")
         return
+
+    resolved_normalizer = normalizer
+    shared_asr_for_norm: Optional[object] = None
+    if resolved_normalizer is None:
+        try:
+            processor = AutoProcessor.from_pretrained(asr_model)
+            resolved_normalizer = _get_normalizer_from_tokenizer(processor.tokenizer)
+        except Exception as exc:
+            logger.warning(f"Unable to fetch Whisper normalizer automatically: {exc}")
 
     # Process each split
     for split_name, split_path in splits:
@@ -515,14 +528,22 @@ def prepare_myst(
         if parallel_map is not None:
             logger.info(f"Parallel mapping")
 
-            line_proc = functools.partial(_process_line, split_root=split_root)
+            line_proc = functools.partial(
+                _process_line,
+                split_root=split_root,
+                normalizer=resolved_normalizer,
+            )
             rows = list(filter(None, parallel_map(line_proc, wav_lst)))
         else:
             logger.info(f"Sequential mapping")
 
             rows = []
             for w in wav_lst:
-                r = _process_line(w, split_root=split_root)
+                r = _process_line(
+                    w,
+                    split_root=split_root,
+                    normalizer=resolved_normalizer,
+                )
                 if r is not None:
                     rows.append(r)
         logger.info(f"Before WER filtering {len(rows)} audio files for split '{split_name}'")
@@ -533,7 +554,14 @@ def prepare_myst(
 
         # Optional WER filter
         if enable_wer_filter and wer_threshold is not None:
-            rows = _apply_wer_filter(rows, wer_threshold, asr_model, device)
+            rows = _apply_wer_filter(
+                rows,
+                wer_threshold,
+                asr_model,
+                device,
+                normalizer=resolved_normalizer,
+                asr_instance=shared_asr_for_norm,
+            )
         logger.info(f"After WER filtering {len(rows)} audio files for split '{split_name}'")
 
         # Deterministic order
@@ -542,19 +570,15 @@ def prepare_myst(
         _write_csv(rows, csv_file)
         logger.info(f"[{split_name}] {len(rows)} rows -> {csv_file}")
 
-    # Save options (if speechbrain present)
-    if save_pkl is not None:
-        try:
-            save_pkl(conf, os.path.join(save_folder, OPT_FILE))
-        except Exception:
-            pass
+    # Save options
+    try:
+        save_pkl(conf, os.path.join(save_folder, OPT_FILE))
+    except Exception:
+        pass
 
     # Optional merge (could be useful if use of unsupervised/semi supersived data)
     if merge_lst and merge_name:
-        if merge_csvs is None:
-            logger.warning("merge_csvs not available (speechbrain not installed). Skipping merge.")
-        else:
-            csv_to_merge = [os.path.join(save_folder, s + ".csv") for s in merge_lst]
-            merged_csv = os.path.join(save_folder, merge_name + ".csv")
-            merge_csvs(csv_to_merge, merged_csv)
-            logger.info(f"Merged -> {merged_csv}")
+        csv_to_merge = [os.path.join(save_folder, s + ".csv") for s in merge_lst]
+        merged_csv = os.path.join(save_folder, merge_name + ".csv")
+        merge_csvs(csv_to_merge, merged_csv)
+        logger.info(f"Merged -> {merged_csv}")

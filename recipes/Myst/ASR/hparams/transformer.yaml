@@ -42,9 +42,7 @@ test_csv: !ref <output_folder>/test.csv
 ckpt_interval_minutes: 30 # save checkpoint every N min
 
 #Data preparation
-enable_wer_filter: True
-wer_threshold: 0.5
-asr_model: "large-v3"
+asr_model: "openai/whisper-large-v3"
 ####################### Training Parameters ####################################
 
 # To make Transformers converge, the global bath size should be large enough.

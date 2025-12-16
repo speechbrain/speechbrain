@@ -1,5 +1,8 @@
 # Myst ASR with Transformers or Whisper models.
-This folder contains the scripts to train a Transformer-based speech recognizer or the scripts to fine-tune the Whisper model.
+This folder contains the scripts to train a Transformer-based speech recognizer or the scripts to fine-tune the Whisper model for the My Science Tutor (MyST).
+MyST is one of the largest publicly accessible collections of English children’s speech, comprising approximately 400 hours. It encompasses dialogues between
+children and a virtual tutor across eight scientific domains, involving 1,372 students in grades three to five. The corpus is pre-partitioned, ensuring equitable
+representation of scientific domains and unique student occurrences within each partition. However, only 45% of utterances are transcribed at the word level.
 
 You can find Myst dataset at https://catalog.ldc.upenn.edu/LDC2021S05
 
@@ -27,12 +30,6 @@ installed in your environment (see extra-requirements.txt)**
 # Note about data preparation
 
 In accordance with the methodology presented in [1], we offer an optional WER filtering mechanism. This filters out all utterances that exceed a specified threshold, which may result in a longer data preparation time, as every file must be decoded using a pre-trained Whisper model. We highly recommend running the data preparation process only once and saving the resulting CSV files for future use.
-
-To implement this feature, please install the additional requirements and choose between `faster-whisper` or `openai-whisper`:
-
-```bash
-pip install -r extra_requirements.txt
-```
 
 Note that this data filtering will take couple of hours to run.
 

@@ -7,7 +7,7 @@
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 1986
 __set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
-output_folder: !ref results/whisper_lora/<seed>
+output_folder: !ref results/whisper_lora_no_filtering/<seed>
 output_wer_folder: !ref <output_folder>/
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
@@ -21,7 +21,8 @@ whisper_folder: !ref <save_folder>/whisper_checkpoint
 normalized_transcripts: True
 
 # Data files
-data_folder: !PLACEHOLDER # e,g./path/to/Myst/data
+data_folder: /cfs/collections/ldc/LDC2021/S05/myst_child_conv_speech/data # e,g./path/to/Myst/data
+#data_folder: !PLACEHOLDER # e,g./path/to/Myst/data
 train_splits: ["train"]
 dev_splits: ["development"]
 test_splits: ["test"]
@@ -31,9 +32,7 @@ valid_csv: !ref <output_folder>/development.csv
 test_csv: !ref <output_folder>/test.csv
 
 # Data preparation
-enable_wer_filter: True
-wer_threshold: 0.5
-asr_model: "large-v3"
+asr_model: "openai/whisper-large-v3"
 
 ckpt_interval_minutes: 1 # save checkpoint every N min
 

@@ -213,7 +213,7 @@ def dataio_prepare(hparams, tokenizer):
     )
     test_data = test_data.filtered_sorted(sort_key="duration")
 
-    datasets = [train_data, valid_data, test_data] #+ [i for k, i in test_datasets.items()]
+    datasets = [train_data, valid_data, test_data]
 
     # 2. Define audio pipeline:
     @sb.utils.data_pipeline.takes("wav")
@@ -273,28 +273,45 @@ if __name__ == "__main__":
         hyperparams_to_save=hparams_file,
         overrides=overrides,
     )
-
-    # Dataset prep (parsing Myst)
-    from myst_prepare import prepare_myst  # noqa
-
-    # multi-gpu (ddp) save data preparation
-    run_on_main(
-        prepare_myst,
-        kwargs={
-            "data_folder": hparams["data_folder"],
-            "save_folder": hparams["output_folder"],
-            "tr_splits": hparams["train_splits"],
-            "dev_splits": hparams["dev_splits"],
-            "te_splits": hparams["test_splits"],
-            "enable_wer_filter": hparams["enable_wer_filter"],
-            "wer_threshold": hparams["wer_threshold"],
-            "asr_model": hparams["asr_model"],
-            "skip_prep": hparams["skip_prep"],
-        },
-    )
-
     # Defining tokenizer and loading it
     tokenizer = hparams["whisper"].tokenizer
+    # Dataset prep (parsing Myst) depeding on if we have WER filtering or not
+    try:
+        from myst_prepare import prepare_myst  # noqa
+
+        # multi-gpu (ddp) save data preparation
+        run_on_main(
+            prepare_myst,
+            kwargs={
+                "data_folder": hparams["data_folder"],
+                "save_folder": hparams["output_folder"],
+                "tr_splits": hparams["train_splits"],
+                "dev_splits": hparams["dev_splits"],
+                "te_splits": hparams["test_splits"],
+                "enable_wer_filter": hparams["enable_wer_filter"],
+                "wer_threshold": hparams["wer_threshold"],
+                "asr_model": hparams["asr_model"],
+                "normalizer": tokenizer.normalize,
+                "skip_prep": hparams["skip_prep"],
+            },
+        )
+    except:
+        from myst_prepare_no_filtering import prepare_myst_no_filtering  # noqa
+        # multi-gpu (ddp) save data preparation
+        run_on_main(
+            prepare_myst_no_filtering,
+            kwargs={
+                "data_folder": hparams["data_folder"],
+                "save_folder": hparams["output_folder"],
+                "tr_splits": hparams["train_splits"],
+                "dev_splits": hparams["dev_splits"],
+                "te_splits": hparams["test_splits"],
+                "asr_model": hparams["asr_model"],
+                "normalizer": tokenizer.normalize,
+                "skip_prep": hparams["skip_prep"],
+            },
+        )
+
 
     # here we create the datasets objects as well as tokenization and encoding
     train_data, valid_data, test_data = dataio_prepare(hparams, tokenizer)
