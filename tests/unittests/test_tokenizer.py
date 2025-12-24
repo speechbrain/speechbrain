@@ -154,7 +154,7 @@ def test_tokenizer_text_file():
     with tempfile.TemporaryDirectory() as temp_dir:
         # Define custom text_file path
         custom_text_file = os.path.join(temp_dir, "custom_text_file.txt")
-        
+
         # Create tokenizer with custom text_file parameter
         spm = SentencePiece(
             os.path.join(temp_dir, "tokenizer_data"),
@@ -166,13 +166,13 @@ def test_tokenizer_text_file():
             model_type="bpe",
             text_file=custom_text_file,
         )
-        
+
         # Verify that the custom text_file path was assigned correctly
         assert spm.text_file == custom_text_file, (
             f"Expected text_file to be {custom_text_file}, "
             f"but got {spm.text_file}"
         )
-        
+
         # Verify that the text file was created at the custom location
         assert os.path.isfile(custom_text_file), (
             f"Custom text file was not created at {custom_text_file}"
