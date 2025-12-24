@@ -143,3 +143,45 @@ def test_tokenizer():
     ]
     words_seq = spm(hyps_list, task="decode_from_list")
     assert words_seq == gt, "output not the same"
+
+
+def test_tokenizer_text_file():
+    """Test that custom text_file parameter is properly assigned and used."""
+    from speechbrain.tokenizers.SentencePiece import SentencePiece
+    import tempfile
+    import shutil
+
+    # Create a temporary directory for test outputs
+    temp_dir = tempfile.mkdtemp()
+    
+    try:
+        # Define custom text_file path
+        custom_text_file = os.path.join(temp_dir, "custom_text_file.txt")
+        
+        # Create tokenizer with custom text_file parameter
+        spm = SentencePiece(
+            os.path.join(temp_dir, "tokenizer_data"),
+            100,
+            annotation_train=os.path.abspath(
+                "tests/samples/annotation/tokenizer.csv"
+            ),
+            annotation_read="wrd",
+            model_type="bpe",
+            text_file=custom_text_file,
+        )
+        
+        # Verify that the custom text_file path was assigned correctly
+        assert spm.text_file == custom_text_file, (
+            f"Expected text_file to be {custom_text_file}, "
+            f"but got {spm.text_file}"
+        )
+        
+        # Verify that the text file was created at the custom location
+        assert os.path.isfile(custom_text_file), (
+            f"Custom text file was not created at {custom_text_file}"
+        )
+        
+    finally:
+        # Clean up temporary directory
+        if os.path.exists(temp_dir):
+            shutil.rmtree(temp_dir)
