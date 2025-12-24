@@ -149,12 +149,9 @@ def test_tokenizer_text_file():
     """Test that custom text_file parameter is properly assigned and used."""
     from speechbrain.tokenizers.SentencePiece import SentencePiece
     import tempfile
-    import shutil
 
     # Create a temporary directory for test outputs
-    temp_dir = tempfile.mkdtemp()
-    
-    try:
+    with tempfile.TemporaryDirectory() as temp_dir:
         # Define custom text_file path
         custom_text_file = os.path.join(temp_dir, "custom_text_file.txt")
         
@@ -180,8 +177,3 @@ def test_tokenizer_text_file():
         assert os.path.isfile(custom_text_file), (
             f"Custom text file was not created at {custom_text_file}"
         )
-        
-    finally:
-        # Clean up temporary directory
-        if os.path.exists(temp_dir):
-            shutil.rmtree(temp_dir)
