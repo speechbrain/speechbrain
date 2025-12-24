@@ -1,4 +1,5 @@
 import os
+import tempfile
 
 import torch
 
@@ -148,7 +149,6 @@ def test_tokenizer():
 def test_tokenizer_text_file():
     """Test that custom text_file parameter is properly assigned and used."""
     from speechbrain.tokenizers.SentencePiece import SentencePiece
-    import tempfile
 
     # Create a temporary directory for test outputs
     with tempfile.TemporaryDirectory() as temp_dir:
