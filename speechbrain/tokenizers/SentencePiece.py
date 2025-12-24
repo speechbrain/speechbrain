@@ -163,7 +163,7 @@ class SentencePiece:
                         ext, ".txt"
                     ),
                 )
-            self.text_file = text_file
+        self.text_file = text_file
 
         self.prefix_model_file = os.path.join(
             model_dir, str(vocab_size) + "_" + model_type
