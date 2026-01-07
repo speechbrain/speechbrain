@@ -65,7 +65,7 @@ class SenseBrain(sb.core.Brain):
         return loss
 
     def init_optimizers(self):
-        """Initialises optimizers for the attention head and the w2v-BERT encoder."""
+        """Initializes optimizers for the attention head and the w2v-BERT encoder."""
         # Optimiser for the attention pooling
         self.adam_optimizer = self.hparams.adam_opt_class(
             self.hparams.model.parameters()
