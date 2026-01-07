@@ -61,7 +61,7 @@ These ratios are saved to `<output_folder>/language_ratios.json` and stored in a
 ## Pretrained checkpoint
 
 Download SENSE model:
-[https://www.dropbox.com/scl/fi/ju3nhhu2lfs8521778y3c/SENSE.7z?rlkey=h62fkfpwbc52vg20ayyzz2ciz&st=5wv9xfts&dl](https://www.dropbox.com/scl/fi/ju3nhhu2lfs8521778y3c/SENSE.7z?rlkey=h62fkfpwbc52vg20ayyzz2ciz&st=5wv9xfts&dl)
+[https://www.dropbox.com/scl/fi/ju3nhhu2lfs8521778y3c/SENSE.7z?rlkey=h62fkfpwbc52vg20ayyzz2ciz&st=5wv9xfts&dl=0](https://www.dropbox.com/scl/fi/ju3nhhu2lfs8521778y3c/SENSE.7z?rlkey=h62fkfpwbc52vg20ayyzz2ciz&st=5wv9xfts&dl=0)
 (Trained on 32×A100 GPUs)
 
 
