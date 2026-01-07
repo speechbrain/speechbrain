@@ -66,13 +66,13 @@ class SenseBrain(sb.core.Brain):
 
     def init_optimizers(self):
         """Initializes optimizers for the attention head and the w2v-BERT encoder."""
-        # Optimiser for the attention pooling
+        # Optimizer for the attention pooling
         self.adam_optimizer = self.hparams.adam_opt_class(
             self.hparams.model.parameters()
         )
         self.optimizers_dict = {"model_optimizer": self.adam_optimizer}
 
-        # Separate optimiser for w2v-BERT if not frozen
+        # Separate optimizer for w2v-BERT if not frozen
         if not self.hparams.wav2vec2_frozen:
             self.wav2vec_optimizer = self.hparams.wav2vec_opt_class(
                 self.modules.wav2vec2.parameters()
