@@ -182,19 +182,19 @@ modules:
   bge_model: !ref <bge_model>
 
 # Only the attention pooling head
-# is grouped under "model" for the main optimiser.
+# is grouped under "model" for the main optimizer.
 model: !new:torch.nn.ModuleList
   modules: [!ref <attn_pooling>]
 
 ############################## Optimizers & schedulers #################
 
-# Optimiser for the attention pooling head.
+# Optimizer for the attention pooling head.
 adam_opt_class: !name:torch.optim.Adadelta
   lr: !ref <lr>
   rho: 0.95
   eps: 0.00000001
 
-# Optimiser for the w2v-BERT encoder.
+# Optimizer for the w2v-BERT encoder.
 wav2vec_opt_class: !name:torch.optim.Adam
   lr: !ref <lr_wav2vec>
 
