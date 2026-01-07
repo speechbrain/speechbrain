@@ -6,7 +6,7 @@ This folder contains scripts to train **SENSE** models that align a self-supervi
 A **single multilingual model** is trained on **90 Common Voice languages**.
 
 Two components are used:
-1. A **student audio encoder**: wav2vec-BERT followed by attention pooling and a linear projection.
+1. A **student audio encoder**: wav2vec-BERT followed by attention pooling to obtain utterance-level embeddings.
 2. A **teacher text encoder**: BGE-M3 sentence embeddings computed on-the-fly from the reference transcripts.
 
 # How to run
