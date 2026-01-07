@@ -88,7 +88,7 @@ class BGEM3SentenceEmbeddings(torch.nn.Module):
         )
 
         logger.info(
-            "BGEM3SentenceEmbeddings initialised with source='%s', "
+            "BGEM3SentenceEmbeddings initialized with source='%s', "
             "use_fp16=%s, return_dense=%s, return_sparse=%s, "
             "return_colbert_vecs=%s, max_length=%d, batch_size=%d",
             source,
