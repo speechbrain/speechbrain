@@ -21,7 +21,7 @@ import sys
 import pandas as pd
 import torch
 import torch.nn.functional as F
-from recipes.CommonVoice.common_voice_sense_prepare import prepare_sense
+from common_voice_sense_prepare import prepare_sense
 from hyperpyyaml import load_hyperpyyaml
 
 import speechbrain as sb
