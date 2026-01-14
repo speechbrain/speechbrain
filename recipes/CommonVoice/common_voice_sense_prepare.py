@@ -282,7 +282,7 @@ def read_split_lang_to_rows(
         convert_to_wav=convert_to_wav,
         data_folder=data_folder_lang,
         language=lang,
-        accented_letters=False,
+        accented_letters=True,
         header_map=header_map,
     )
 
