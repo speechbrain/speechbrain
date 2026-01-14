@@ -30,8 +30,8 @@ valid_csv: !ref <output_folder>/dev.csv
 # If True, data preparation (TSV → CSV) is skipped.
 skip_prep: False
 
-# If True, Common Voice .mp3 clips are converted to .wav before training.
-convert_to_wav: True
+# Audio is .mp3.
+convert_to_wav: False
 
 # Languages included in the multilingual SENSE training.
 languages:
