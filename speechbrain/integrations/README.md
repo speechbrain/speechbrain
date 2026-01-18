@@ -2,8 +2,8 @@ Third-Party Integrations
 ------------------------
 
 This python module serves to collect all the (non-recipe) SpeechBrain code that relies on
-external libraries not present in the `requirements.txt`. By keeping `requirements.txt`
-as small as possible we keep SpeechBrain lightweight and easy to maintain.
+external libraries not present in the explicit dependency list in `pyproject.toml` (and `requirements.txt`).
+By keeping the dependency list as small as possible we keep SpeechBrain lightweight and easy to maintain.
 In addition, this folder makes it easier to keep track of what third-party tools have been
 added and apply different rules to the adding and maintenance of new external integrations.
 

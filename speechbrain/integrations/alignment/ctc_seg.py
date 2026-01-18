@@ -135,9 +135,7 @@ class CTCSegmentationTask(SimpleNamespace):
 class CTCSegmentation:
     """Align text to audio using CTC segmentation.
 
-    Usage
-    -----
-    Initialize with given ASR model and parameters.
+    Usage: Initialize with given ASR model and parameters.
     If needed, parameters for CTC segmentation can be set with ``set_config(·)``.
     Then call the instance as function to align text within an audio file.
 
@@ -194,7 +192,7 @@ class CTCSegmentation:
     (1) ``get_lpz``: obtain the lpz,
     (2) ``prepare_segmentation_task``: prepare the task, and
     (3) ``get_segments``: perform CTC segmentation.
-    Note that the function `get_segments` is a staticmethod and therefore
+    Note that the function `get_segments` is a static method and therefore
     independent of an already initialized CTCSegmentation object.
 
     References
