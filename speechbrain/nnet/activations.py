@@ -213,3 +213,30 @@ class GeLU(torch.nn.Module):
         The GeLU output.
         """
         return F.gelu(x, approximate=self.approximate)
+
+class ReLU(torch.nn.Module):
+    """Rectified Linear Unit activation.
+
+    Implements the ReLU activation from:
+    Nair & Hinton (2010) - https://arxiv.org/abs/1003.0358
+
+    Given input x:
+    ReLU(x) = max(0, x)
+    """
+    def __init__(self):
+        super().__init__()
+        self.relu = torch.nn.ReLU()
+
+    def forward(self, x):
+        """Returns the ReLU of the input tensor.
+
+        Arguments
+        ---------
+        x : torch.Tensor
+            Input tensor.
+
+        Returns
+        -------
+        The ReLU output.
+        """
+        return self.relu(x)
