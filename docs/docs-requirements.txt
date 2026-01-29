@@ -10,5 +10,5 @@ sphinx-copybutton
 sphinx-design
 sphinx-markdown-tables
 sphinx-rtd-theme>=0.4.3
-Sphinx>=7.4.1
+Sphinx>=7.4.1,<8.0  # better-apidoc is incompatible with Sphinx 8.0+
 transformers
