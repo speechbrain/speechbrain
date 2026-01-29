@@ -32,9 +32,9 @@ In the first mode, the speech features are extracted from the audio waveforms us
 
 In the second mode, the speech features are already being extracted offline (see: `extract_ssl_feats.py` script). The LLM is then trained on the frozen SSL representations. This mode is more efficient and faster to train, but at the cost of flexibility on the frozen SSL model.
 
-| Release | Model | hyperparams file | Dev Clean WER | Test Clean WER | Test Other WER | HuggingFace link | Model link | GPUs |
-|:-------------:|:-------------:|:-------------:|:---------------------------:| :-----:| :-----:| :-----:| :--------:|
-| 29-11-25 | WavLM Large + SmolLM2 1.7B + LoRA | speechllm_ssl_feats.yaml | N/A | 3.17 | 6.83 | [HuggingFace](https://huggingface.co/speechbrain/asr-speechllm-librispeech) | - | 1xH100 40GB |
+| Release | Model | hyperparams file | Dev Clean WER | Dev Other WER | Test Clean WER | Test Other WER | HuggingFace link | Model link | GPUs |
+|:-------------:|:-------------:|:-------------:|:---------------------------:| :-----:| :-----:| :-----:| :-----:| :--------:|
+| 29-01-26 | WavLM Large + LLama 3.2 1B + LoRA | speechllm_e2e.yaml | 2.79 | 5.03 | 2.72 | 5.34 | [HuggingFace](https://huggingface.co/speechbrain/asr-speechllm-librispeech) | - | 1xA100 80GB |
 
 ## Whisper Finetuning Result:
 
