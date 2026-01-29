@@ -13,8 +13,8 @@
 import os
 import sys
 
-import better_apidoc
 import hyperpyyaml
+from sphinx.ext.apidoc import main as apidoc_main
 from sphinx.ext.autodoc.mock import mock
 
 sys.path.insert(-1, os.path.abspath("../"))
@@ -122,7 +122,7 @@ exclude_patterns = ["_apidoc_templates", "build"]
 # Make backticks behave as inline code blocks rather than italics
 default_role = "code"
 
-# -- Better apidoc -----------------------------------------------------------
+# -- Sphinx apidoc -----------------------------------------------------------
 
 
 def run_apidoc(app):
@@ -130,10 +130,9 @@ def run_apidoc(app):
 
     with mock(autodoc_mock_imports):
         try:
-            better_apidoc.APP = app
-            better_apidoc.main(
+            # Generate docs for speechbrain
+            apidoc_main(
                 [
-                    "better-apidoc",
                     "-t",
                     "_apidoc_templates",
                     "--force",
@@ -144,9 +143,9 @@ def run_apidoc(app):
                     os.path.join("../", "speechbrain"),
                 ]
             )
-            better_apidoc.main(
+            # Generate docs for hyperpyyaml
+            apidoc_main(
                 [
-                    "better-apidoc",
                     "-t",
                     "_apidoc_templates",
                     "--force",
