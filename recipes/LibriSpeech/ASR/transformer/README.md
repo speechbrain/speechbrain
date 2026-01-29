@@ -34,7 +34,7 @@ In the second mode, the speech features are already being extracted offline (see
 
 | Release | Model | hyperparams file | Dev Clean WER | Dev Other WER | Test Clean WER | Test Other WER | HuggingFace link | Model link | GPUs |
 |:-------------:|:-------------:|:-------------:|:---------------------------:| :-----:| :-----:| :-----:| :-----:| :--------:|
-| 29-01-26 | WavLM Large + LLama 3.2 1B + LoRA | speechllm_e2e.yaml | 2.79 | 5.03 | 2.72 | 5.34 | [HuggingFace](https://huggingface.co/speechbrain/asr-speechllm-librispeech) | - | 1xA100 80GB |
+| 29-01-26 | WavLM Large + LLama 3.2 1B + LoRA | speechllm_e2e.yaml | 2.79 | 5.03 | 2.72 | 5.34 | [HuggingFace](https://huggingface.co/speechbrain/asr-wavlm-large-llama3.2-1b-lora-librispeech) | - | 1xA100 80GB |
 
 ## Whisper Finetuning Result:
 
