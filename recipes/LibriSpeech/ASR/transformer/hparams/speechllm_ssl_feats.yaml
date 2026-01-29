@@ -144,14 +144,14 @@ proj: !new:torch.nn.Linear
     bias: False
 
 #### uncomment to add MLP after the projection
-activation: !name:speechbrain.nnet.activations.Swish
+activation: !name:speechbrain.nnet.activations.ReLU
 dnn_layers: 2
 dnn_neurons: !ref <llm_emb_size>
-gated_nn: !new:speechbrain.lobes.models.GatedNN.GatedNN
-    input_shape: [null, null, !ref <llm_emb_size>]
+proj: !new:speechbrain.lobes.models.VanillaNN.VanillaNN
+    input_shape: [null, null, 5120] # 1024 * downsampling_factor
     activation: !ref <activation>
-    blocks: !ref <dnn_layers>
-    neurons: !ref <dnn_neurons>
+    dnn_blocks: !ref <dnn_layers>
+    dnn_neurons: !ref <dnn_neurons>
 
 backbone_llm: !new:speechbrain.integrations.huggingface.llama.LLaMA
     source: !ref <llm_path>
