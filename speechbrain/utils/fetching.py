@@ -269,7 +269,7 @@ def download_file(source, source_path, destination):
 @main_process_only
 def download_file_hf(hf_kwargs, destination, local_strategy):
     """Download a source file from huggingface to local"""
-    from requests.exceptions import HTTPError
+    from huggingface_hub.utils import EntryNotFoundError
 
     try:
         fetched_file = huggingface_hub.hf_hub_download(**hf_kwargs)
@@ -277,10 +277,8 @@ def download_file_hf(hf_kwargs, destination, local_strategy):
         if local_strategy != LocalStrategy.COPY_SKIP_CACHE:
             link_with_strategy(fetched_file, destination, local_strategy)
 
-    except HTTPError as e:
-        if "404 Client Error" in str(e):
-            raise ValueError("File not found on HF hub") from e
-        raise
+    except EntryNotFoundError as e:
+        raise ValueError("File not found on HF hub") from e
 
 
 def fetch(
