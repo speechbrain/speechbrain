@@ -82,7 +82,9 @@ def get_multimodal_attention_mask(wav, wav_lens, txt, txt_lens, device):
     txt_len = txt.size(1)
     # Total length matches multimodal_embds: 1 (start token) + L_audio + (txt_len - 1)
     total_len = wav_len + txt_len
-    attention_mask = torch.zeros(batch_size, total_len, dtype=torch.bool, device=device)
+    attention_mask = torch.zeros(
+        batch_size, total_len, dtype=torch.bool, device=device
+    )
     for i in range(batch_size):
         # Match SpeechBrain convention (see S2SGreedySearcher): round relative lengths.
         actual_wav_len = int(torch.round(wav_lens[i] * wav_len).item())

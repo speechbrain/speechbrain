@@ -214,6 +214,7 @@ class GeLU(torch.nn.Module):
         """
         return F.gelu(x, approximate=self.approximate)
 
+
 class ReLU(torch.nn.Module):
     """Rectified Linear Unit activation.
 
@@ -223,6 +224,7 @@ class ReLU(torch.nn.Module):
     Given input x:
     ReLU(x) = max(0, x)
     """
+
     def __init__(self):
         super().__init__()
         self.relu = torch.nn.ReLU()

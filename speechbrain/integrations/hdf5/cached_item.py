@@ -7,8 +7,8 @@ Authors:
 
 from pathlib import Path
 
-from speechbrain.utils.importutils import LazyModule
 from speechbrain.utils.data_pipeline import CachedDynamicItem, DynamicItem
+from speechbrain.utils.importutils import LazyModule
 
 h5py = LazyModule("h5py", "h5py", None)
 
