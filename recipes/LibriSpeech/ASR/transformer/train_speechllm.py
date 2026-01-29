@@ -63,24 +63,40 @@ def get_multimodal_attention_mask(wav, wav_lens, txt, txt_lens, device):
     Returns
     -------
     attention_mask : torch.Tensor
-        Boolean attention mask of shape (batch_size, L_audio + txt_len)
-        True indicates valid (non-padded) positions
+        Boolean attention mask of shape (batch_size, L_audio + txt_len).
+
+        Important
+        ---------
+        The actual multimodal embedding order in this recipe is:
+
+            [start_of_audio] + [audio_feats] + [end_of_audio + prompt + bos + text]
+
+        i.e., the first text token (<|start_of_audio|>) is placed *before* audio.
+        Therefore, we must build the mask with the same layout:
+            position 0              -> <|start_of_audio|>
+            positions [1 : 1+L_audio] -> audio feats
+            positions [1+L_audio : ]  -> remaining text tokens (txt[:, 1:])
     """
     batch_size = wav.size(0)
     wav_len = wav.size(1)
     txt_len = txt.size(1)
-    # Max total length for padding
-    max_total_len = wav_len + txt_len
-    attention_mask = torch.zeros(
-        batch_size, max_total_len, dtype=torch.bool, device=device
-    )
+    # Total length matches multimodal_embds: 1 (start token) + L_audio + (txt_len - 1)
+    total_len = wav_len + txt_len
+    attention_mask = torch.zeros(batch_size, total_len, dtype=torch.bool, device=device)
     for i in range(batch_size):
-        actual_wav_len = int(wav_lens[i].item() * wav_len)
-        actual_txt_len = int(txt_lens[i].item() * txt_len)
-        # Fill mask: audio part
-        attention_mask[i, :actual_wav_len] = True
-        # Fill mask: text part (after audio)
-        attention_mask[i, wav_len : wav_len + actual_txt_len] = True
+        # Match SpeechBrain convention (see S2SGreedySearcher): round relative lengths.
+        actual_wav_len = int(torch.round(wav_lens[i] * wav_len).item())
+        actual_txt_len = int(torch.round(txt_lens[i] * txt_len).item())
+
+        # (1) start_of_audio token (always valid)
+        attention_mask[i, 0] = True
+
+        # (2) audio features
+        attention_mask[i, 1 : 1 + actual_wav_len] = True
+
+        # (3) remaining text tokens (exclude the start token already handled above)
+        remaining_txt = max(actual_txt_len - 1, 0)
+        attention_mask[i, 1 + wav_len : 1 + wav_len + remaining_txt] = True
     return attention_mask
 
 
@@ -114,7 +130,13 @@ class ASR(sb.core.Brain):
         tokens_bos, tokens_bos_lens = batch.tokens_bos
         prompt_len = batch.prompt_len
 
-        if getattr(batch, "feats", None) is not None:
+        use_feats = bool(getattr(self.hparams, "use_feats", False))
+        if use_feats:
+            if getattr(batch, "feats", None) is None:
+                raise ValueError(
+                    "`use_feats=True` but the batch does not provide `feats`. "
+                    "Check `feats_cache_dir` and the data pipeline."
+                )
             audio_feats, audio_feats_lens = batch.feats
         else:
             wavs, wav_lens = batch.sig
@@ -125,9 +147,6 @@ class ASR(sb.core.Brain):
         audio_down_feats = self.modules.feat_downsampler(audio_feats)
         # R^D' -> R^llm_emb_size
         projected_audio_feats = self.modules.proj(audio_down_feats)
-        # opt non-linear MLP: R^llm_emb_size -> R^llm_emb_size
-        if hasattr(self.modules, "gated_nn"):
-            projected_audio_feats = self.modules.gated_nn(projected_audio_feats)
         txt_embds = self.txt_embedding(tokens_bos)
         multimodal_embds = torch.cat(
             [
@@ -151,8 +170,8 @@ class ASR(sb.core.Brain):
 
         hyps = None
         if stage != sb.Stage.TRAIN:
-            audio_and_prompt_len = (
-                projected_audio_feats.shape[1] + prompt_len[0]
+            audio_and_prompt_len = projected_audio_feats.shape[1] + int(
+                prompt_len[0].item()
             )
             inputs_embeds = multimodal_embds[:, :audio_and_prompt_len]
             hyps = self.modules.searcher(
@@ -268,6 +287,17 @@ class ASR(sb.core.Brain):
             old_lr, new_lr = self.hparams.scheduler(epoch)
             sb.nnet.schedulers.update_learning_rate(self.optimizer, new_lr)
 
+            # Optional: SSL fine-tuning LR scheduling (only when SSL is unfrozen).
+            if hasattr(self, "ssl_optimizer") and hasattr(
+                self.hparams, "lr_annealing_ssl"
+            ):
+                old_lr_ssl, new_lr_ssl = self.hparams.lr_annealing_ssl(
+                    stage_stats["WER"]
+                )
+                sb.nnet.schedulers.update_learning_rate(
+                    self.ssl_optimizer, new_lr_ssl
+                )
+
             steps = self.optimizer_step
             optimizer = self.optimizer.__class__.__name__
 
@@ -353,12 +383,28 @@ def dataio_prepare(hparams, tokenizer):
         Batch sampler for validation if dynamic batching is enabled
     """
     data_folder = hparams["data_folder"]
-    use_feats = (
-        hparams.get("ssl", False)
-        or hparams.get("use_feats", False)
-        or hparams.get("feats_cache_dir", None) is not None
-    )
+    # Cached-feats mode should be enabled ONLY via the explicit `use_feats` flag.
+    # Do not use `hparams["ssl"]` as a boolean (it's a model object).
+    use_feats = bool(hparams.get("use_feats", False))
 
+    if use_feats:
+        feats_cache_dir = hparams.get("feats_cache_dir", None)
+        if not feats_cache_dir:
+            raise ValueError(
+                "`use_feats=True` requires `feats_cache_dir` to be set "
+                "(directory produced by `extract_ssl_feats.py`)."
+            )
+    else:
+        # On-the-fly SSL feature extraction requires an SSL encoder module.
+        modules = hparams.get("modules", {})
+        if not (isinstance(modules, dict) and "ssl" in modules):
+            raise ValueError(
+                "`use_feats=False` requires an SSL encoder under `modules.ssl` "
+                "to extract features on-the-fly. Either set `use_feats=True` "
+                "and provide `feats_cache_dir`, or add `ssl` to `modules`."
+            )
+
+    logger.info("use_feats=%s", use_feats)
     # Token indices and prompt setup
     bos_index = hparams["bos_index"]
     eos_index = hparams["eos_index"]
