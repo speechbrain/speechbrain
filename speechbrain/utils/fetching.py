@@ -20,7 +20,6 @@ from enum import Enum
 from typing import Optional, Union
 
 import huggingface_hub
-from requests.exceptions import HTTPError
 
 from speechbrain.utils.distributed import main_process_only
 from speechbrain.utils.logger import get_logger
@@ -270,6 +269,8 @@ def download_file(source, source_path, destination):
 @main_process_only
 def download_file_hf(hf_kwargs, destination, local_strategy):
     """Download a source file from huggingface to local"""
+    from requests.exceptions import HTTPError
+
     try:
         fetched_file = huggingface_hub.hf_hub_download(**hf_kwargs)
         fetched_file = pathlib.Path(fetched_file)
