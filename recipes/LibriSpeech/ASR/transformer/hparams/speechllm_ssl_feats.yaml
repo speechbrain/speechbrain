@@ -138,12 +138,6 @@ prompt: "Transcribe speech to text."
 
 ####################### Model Components ####################################
 
-proj: !new:torch.nn.Linear
-    in_features: 5120
-    out_features: !ref <llm_emb_size>
-    bias: False
-
-#### uncomment to add MLP after the projection
 activation: !name:speechbrain.nnet.activations.ReLU
 dnn_layers: 2
 dnn_neurons: !ref <llm_emb_size>
