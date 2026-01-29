@@ -17,6 +17,7 @@ output_wer_folder: !ref <output_folder>/wer_results
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 feats_cache_dir: !PLACEHOLDER
+use_feats: True  # Use pre-extracted SSL features from `feats_cache_dir`
 ckpt_interval_minutes: 15
 
 ####################### Data Configuration #################################
@@ -176,6 +177,7 @@ feat_downsampler: !new:speechbrain.lobes.downsampling.ConcatDownsampler
 
 searcher: !new:speechbrain.decoders.seq2seq.S2SHuggingFaceLLMGreedySearcher
     llm_model: !ref <llm>
+    temperature: 0.0  # 0.0 => true greedy (deterministic). >0 => stochastic sampling
     min_decode_ratio: 0.0
     max_decode_ratio: 1.0
     bos_index: !ref <bos_index>
