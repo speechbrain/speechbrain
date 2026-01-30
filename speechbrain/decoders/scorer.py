@@ -1935,7 +1935,7 @@ class HuggingFaceLMRescorer(BaseRescorerInterface):
             )
 
         self.lm = AutoModelForCausalLM.from_pretrained(
-            self.model_name, is_decoder=True
+            self.model_name
         ).eval()
 
         self.tokenizer = AutoTokenizer.from_pretrained(
