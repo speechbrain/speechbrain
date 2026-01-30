@@ -35,9 +35,15 @@ from transformers import (
     AutoModelForCausalLM,
     AutoModelForPreTraining,
     AutoModelForSeq2SeqLM,
-    AutoModelWithLMHead,
     AutoTokenizer,
 )
+
+# AutoModelWithLMHead is deprecated in newer transformers versions
+# Fall back to AutoModelForCausalLM if not available
+try:
+    from transformers import AutoModelWithLMHead
+except ImportError:
+    AutoModelWithLMHead = AutoModelForCausalLM
 
 from speechbrain.dataio.dataio import length_to_mask
 from speechbrain.utils.fetching import fetch
