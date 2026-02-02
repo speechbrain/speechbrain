@@ -2025,7 +2025,7 @@ class HuggingFaceLMRescorer(BaseRescorerInterface):
         text_augmented_with_tokens = list(
             map(self._add_special_tokens, normalized_hyps)
         )
-        encoding = self.tokenizer.batch_encode_plus(
+        encoding = self.tokenizer(
             text_augmented_with_tokens, return_tensors="pt", padding=True
         )
         return encoding
