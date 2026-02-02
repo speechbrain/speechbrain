@@ -1934,9 +1934,7 @@ class HuggingFaceLMRescorer(BaseRescorerInterface):
                 "Please install transformers with: pip install transformers"
             )
 
-        self.lm = AutoModelForCausalLM.from_pretrained(
-            self.model_name
-        ).eval()
+        self.lm = AutoModelForCausalLM.from_pretrained(self.model_name).eval()
 
         self.tokenizer = AutoTokenizer.from_pretrained(
             self.model_name, use_fast=True
