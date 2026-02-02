@@ -38,13 +38,6 @@ from transformers import (
     AutoTokenizer,
 )
 
-# AutoModelWithLMHead is deprecated in newer transformers versions
-# Fall back to AutoModelForCausalLM if not available
-try:
-    from transformers import AutoModelWithLMHead
-except ImportError:
-    AutoModelWithLMHead = AutoModelForCausalLM
-
 from speechbrain.dataio.dataio import length_to_mask
 from speechbrain.utils.fetching import fetch
 from speechbrain.utils.logger import get_logger
@@ -135,9 +128,7 @@ class HFTransformersInterface(nn.Module):
 
         if self.for_pretraining:
             self.auto_class = AutoModelForPreTraining
-        elif with_lm_head:
-            self.auto_class = AutoModelWithLMHead
-        elif with_casual_lm:
+        elif with_lm_head or with_casual_lm:
             self.auto_class = AutoModelForCausalLM
         elif seq2seqlm:
             self.auto_class = AutoModelForSeq2SeqLM

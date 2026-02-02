@@ -24,7 +24,7 @@ jobs:
             - name: Full dependencies
               run: |
                   pip install uv
-                  uv pip install --system sphinx>=7.4.1
+                  uv pip install --system "sphinx>=7.4.1,<9.0"
                   uv pip install --system -r requirements.txt -r docs/docs-requirements.txt torch==2.6.0+cpu torchaudio==2.6.0+cpu --extra-index-url https://download.pytorch.org/whl/cpu
                   uv pip install --system --editable . --no-deps  # already installed pinned deps from requirements.txt, we're good
             - name: Generate docs
