@@ -20,6 +20,7 @@ from enum import Enum
 from typing import Optional, Union
 
 import huggingface_hub
+from requests.exceptions import HTTPError
 
 from speechbrain.utils.distributed import main_process_only
 from speechbrain.utils.logger import get_logger
@@ -269,16 +270,16 @@ def download_file(source, source_path, destination):
 @main_process_only
 def download_file_hf(hf_kwargs, destination, local_strategy):
     """Download a source file from huggingface to local"""
-    from huggingface_hub.utils import EntryNotFoundError
-
     try:
         fetched_file = huggingface_hub.hf_hub_download(**hf_kwargs)
         fetched_file = pathlib.Path(fetched_file)
         if local_strategy != LocalStrategy.COPY_SKIP_CACHE:
             link_with_strategy(fetched_file, destination, local_strategy)
 
-    except EntryNotFoundError as e:
-        raise ValueError("File not found on HF hub") from e
+    except HTTPError as e:
+        if "404 Client Error" in str(e):
+            raise ValueError("File not found on HF hub") from e
+        raise
 
 
 def fetch(

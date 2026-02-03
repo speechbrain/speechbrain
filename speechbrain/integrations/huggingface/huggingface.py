@@ -38,9 +38,6 @@ from transformers import (
     AutoTokenizer,
 )
 
-# AutoModelWithLMHead is deprecated, use AutoModelForCausalLM instead
-AutoModelWithLMHead = AutoModelForCausalLM
-
 from speechbrain.dataio.dataio import length_to_mask
 from speechbrain.utils.fetching import fetch
 from speechbrain.utils.logger import get_logger
