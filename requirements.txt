@@ -6,6 +6,7 @@ numpy>=1.17.0
 packaging
 pandas>=1.0.1
 pre-commit>=2.3.0
+requests>=2.20.0
 scipy>=1.4.1
 sentencepiece>=0.1.91
 soundfile>=0.12.1

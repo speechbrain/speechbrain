@@ -131,9 +131,7 @@ class HFTransformersInterface(nn.Module):
 
         if self.for_pretraining:
             self.auto_class = AutoModelForPreTraining
-        elif with_lm_head:
-            self.auto_class = AutoModelWithLMHead
-        elif with_casual_lm:
+        elif with_lm_head or with_casual_lm:
             self.auto_class = AutoModelForCausalLM
         elif seq2seqlm:
             self.auto_class = AutoModelForSeq2SeqLM
