@@ -45,6 +45,10 @@ class LLaMA(HFTransformersInterface):
         String representation of the padding token. This may change from one model to another.
     torch_dtype : torch.dtype (default: torch.float16)
         If no bnb_config is given, this parameter defines the loading type of the parameters of the model. This is useful to reduce memory footprint, but it does not change the compute dtype. For this just refer to mixed precision training in SpeechBrain.
+    additional_special_tokens : List[str], optional
+        A list of additional special tokens to add to the tokenizer. These tokens will be added using the tokenizer's `add_special_tokens` method.
+    pad_to_multiple_of : int (default: 8)
+        The token embeddings will be resized to a multiple of this value. This is useful to maximise the use of tensor cores on modern GPUs.
     **kwargs : dict
         Extra keyword arguments passed to the `from_pretrained` function. This can be used, for instance, to change the type of attention. The HuggingFace documentation gives the full dict of parameters which may be model dependent.
 
