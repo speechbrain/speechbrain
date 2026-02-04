@@ -99,10 +99,19 @@ class TestGetAvailableCpuCount:
 
     def test_fallback_when_all_fail(self):
         """Test fallback to 1 when all detection methods fail."""
+        import sys
+
         with mock.patch.dict(os.environ, {}, clear=True):
             with mock.patch("os.sched_getaffinity", side_effect=AttributeError):
                 with mock.patch("os.cpu_count", return_value=None):
-                    assert get_available_cpu_count() == 1
+                    # On Python 3.13+, also mock os.process_cpu_count
+                    if sys.version_info >= (3, 13):
+                        with mock.patch(
+                            "os.process_cpu_count", return_value=None
+                        ):
+                            assert get_available_cpu_count() == 1
+                    else:
+                        assert get_available_cpu_count() == 1
 
 
 class TestParallelMapDefaultProcessCount:
