@@ -19,7 +19,7 @@ import os
 from dataclasses import dataclass
 
 from speechbrain.dataio import audio_io
-from speechbrain.utils.parallel import parallel_map
+from speechbrain.utils.parallel import get_available_cpu_count, parallel_map
 
 logger = logging.getLogger(__name__)
 FILLERS = [
@@ -222,9 +222,7 @@ def prepare_gigaspeech(
 
         nproc = 1
         if hf_multiprocess_load:
-            import multiprocessing
-
-            nproc = multiprocessing.cpu_count()
+            nproc = get_available_cpu_count()
 
         hf_dataset = load_dataset(
             "dataset.py",
