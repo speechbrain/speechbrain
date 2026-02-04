@@ -58,9 +58,14 @@ def get_available_cpu_count() -> int:
 
     # Priority 2: os.process_cpu_count() (Python 3.13+)
     if sys.version_info >= (3, 13):
-        count = os.process_cpu_count()
-        if count is not None and count > 0:
-            return count
+        try:
+            count = os.process_cpu_count()
+            if count is not None and count > 0:
+                return count
+        except AttributeError:
+            # os.process_cpu_count may be unavailable in some Python builds
+            # Fall through to the next detection method
+            pass
 
     # Priority 3: os.sched_getaffinity() (Unix systems)
     try:
