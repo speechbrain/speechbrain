@@ -37,9 +37,6 @@ def get_available_cpu_count() -> int:
 
     Examples
     --------
-    >>> # On a SLURM cluster with 4 allocated CPUs:
-    >>> get_available_cpu_count()
-    4
     >>> # With environment variable override:
     >>> import os
     >>> os.environ["SB_NUM_PROC"] = "2"
