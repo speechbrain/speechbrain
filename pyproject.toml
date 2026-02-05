@@ -21,6 +21,7 @@ dependencies = [
     "joblib>=0.14.1",
     "numpy>=1.17.0",
     "packaging",
+    "requests>=2.20.0",
     "scipy>=1.4.1",
     "sentencepiece>=0.1.91",
     "soundfile>=0.12.1",

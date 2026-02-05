@@ -1934,9 +1934,7 @@ class HuggingFaceLMRescorer(BaseRescorerInterface):
                 "Please install transformers with: pip install transformers"
             )
 
-        self.lm = AutoModelForCausalLM.from_pretrained(
-            self.model_name, is_decoder=True
-        ).eval()
+        self.lm = AutoModelForCausalLM.from_pretrained(self.model_name).eval()
 
         self.tokenizer = AutoTokenizer.from_pretrained(
             self.model_name, use_fast=True
@@ -2027,7 +2025,7 @@ class HuggingFaceLMRescorer(BaseRescorerInterface):
         text_augmented_with_tokens = list(
             map(self._add_special_tokens, normalized_hyps)
         )
-        encoding = self.tokenizer.batch_encode_plus(
+        encoding = self.tokenizer(
             text_augmented_with_tokens, return_tensors="pt", padding=True
         )
         return encoding
