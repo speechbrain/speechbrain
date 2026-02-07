@@ -5,7 +5,9 @@ Authors
  * Mirco Ravanelli 2020
  * Peter Plantinga 2020
  * Loren Lugosch 2020
+ * Ge Li 2022
  * Shucong Zhang 2023
+ * Adel Moumen 2026
 """
 
 import math
