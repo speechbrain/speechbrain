@@ -1252,13 +1252,11 @@ class ScorerBuilder:
             score, new_memory[k] = impl.score(inp_tokens, memory[k], None, attn)
             log_probs += score * self.weights[k]
 
-        # This is just to avoid an edge case in the case if candidates in log_probs is less than int(beam_size * self.scorer_beam_scale)
-        if log_probs.shape[-1] < int(beam_size * self.scorer_beam_scale):
-            sbc = int(log_probs.shape[-1])  # scorer beam scale.
-        else:
-            sbc = int(beam_size * self.scorer_beam_scale)  # scorer beam scale.
-        # select candidates from the results of full scorers for partial scorers
-        _, candidates = log_probs.topk(sbc, dim=-1)
+        # Select candidates from the results of full scorers for partial scorers
+        # clamp number of candidates to [1, vocab_size] to avoid invalid topk size
+        num_candidates = int(beam_size * self.scorer_beam_scale)
+        num_candidates = max(1, min(num_candidates, log_probs.shape[-1]))
+        candidates = log_probs.topk(num_candidates, dim=-1).indices
 
         # score pruned tokens candidates
         for k, impl in self.partial_scorers.items():
