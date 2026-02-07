@@ -12,9 +12,9 @@ platform linux -- Python 3.12.11, pytest-9.0.2, pluggy-1.6.0
 rootdir: /users/amoumen/jean-zay-home/proj/speechbrain
 configfile: pytest.ini
 plugins: cov-7.0.0, anyio-4.12.1
-collected 1 item                                                                                                                                                       
+collected 1 item
 
-speechbrain/integrations/numba/transducer_loss.py .                                                                                
+speechbrain/integrations/numba/transducer_loss.py .
 
 ___________________________________________________________ coverage: platform linux, python 3.12.11-final-0 ___________________________________________________________
 
