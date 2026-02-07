@@ -58,6 +58,11 @@ def make_deprecated_redirections():
     deprecated_redirect(
         "speechbrain.nnet.loss.transducer_loss",
         "speechbrain.integrations.numba.transducer_loss",
+        extra_reason=(
+            "This module depends on the optional 'numba' package. "
+            "If you encounter an ImportError here, please install numba, "
+            "for example with: pip install numba"
+        ),
     )
 
 
