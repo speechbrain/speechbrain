@@ -9,8 +9,6 @@ $ pip install numba
 $ pytest --cov=speechbrain/integrations/numba/ --cov-context=test --doctest-modules speechbrain/integrations/numba/
 ========================================================================= test session starts ==========================================================================
 platform linux -- Python 3.12.11, pytest-9.0.2, pluggy-1.6.0
-rootdir: /users/amoumen/jean-zay-home/proj/speechbrain
-configfile: pytest.ini
 plugins: cov-7.0.0, anyio-4.12.1
 collected 1 item
 

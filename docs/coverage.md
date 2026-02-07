@@ -68,11 +68,6 @@ our tests cover one PyTorch version only, _the latest_.
   # excerpts
   parser.addoption("--device", action="store", default="cpu")
   ...
-  try:
-    import numba  # noqa: F401
-  except ModuleNotFoundError:
-    collect_ignore.append("speechbrain/nnet/loss/transducer_loss.py")
-  ...
   ```
   * a. hook: Consistency tests with pytest
     <br/> `pytest tests/consistency`
@@ -161,7 +156,7 @@ pip install ctc_segmentation
 pip install pytest-cov
 
 # run the test (w/ duration reporting)
-pytest --durations=0 --cov=speechbrain --cov-context=test --doctest-modules speechbrain tests --ignore=speechbrain/nnet/loss/transducer_loss.py
+pytest --durations=0 --cov=speechbrain --cov-context=test --doctest-modules speechbrain tests
 ```
 Example: _After collecting 459 testing items, 4481/16782 statements are reported "missing" (73% coverage)._
 
@@ -175,7 +170,7 @@ Further reading:
 ---
 
 ```
-pytest --durations=0 --cov=speechbrain --cov-context=test --doctest-modules speechbrain tests --ignore=speechbrain/nnet/loss/transducer_loss.py
+pytest --durations=0 --cov=speechbrain --cov-context=test --doctest-modules speechbrain tests
 
 ---------- coverage: platform linux, python 3.9.12-final-0 -----------
 Name                                                      Stmts   Miss  Cover
@@ -221,7 +216,6 @@ speechbrain/nnet/containers.py                              139     14    90%
 speechbrain/nnet/linear.py                                   27      1    96%
 speechbrain/nnet/loss/si_snr_loss.py                         20     16    20% <== < 80%
 speechbrain/nnet/loss/stoi_loss.py                           81      1    99%
-speechbrain/nnet/loss/transducer_loss.py                    136    136     0% <== < 80%
 speechbrain/nnet/losses.py                                  323    112    65% <== < 80%
 speechbrain/nnet/normalization.py                           142      6    96%
 speechbrain/nnet/pooling.py                                 156     31    80%
