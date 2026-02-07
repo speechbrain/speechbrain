@@ -21,7 +21,3 @@ collect_ignore = [
     "speechbrain/lobes/models/fairseq_wav2vec.py",
     "speechbrain/lobes/models/kmeans.py",
 ]
-try:
-    import numba  # noqa: F401
-except ModuleNotFoundError:
-    collect_ignore.append("speechbrain/nnet/loss/transducer_loss.py")

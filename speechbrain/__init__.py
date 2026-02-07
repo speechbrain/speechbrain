@@ -52,6 +52,14 @@ def make_deprecated_redirections():
     for old_path, new_path in deprecations.items():
         deprecated_redirect(old_path, new_path, also_lazy_export=True)
 
+    # speechbrain.nnet.loss is not yet loaded at this point, so we cannot use
+    # also_lazy_export (it would try to access sys.modules['speechbrain.nnet.loss']).
+    # The sys.modules redirect alone is sufficient for import compatibility.
+    deprecated_redirect(
+        "speechbrain.nnet.loss.transducer_loss",
+        "speechbrain.integrations.numba.transducer_loss",
+    )
+
 
 make_deprecated_redirections()
 
