@@ -28,7 +28,7 @@ class GatedNNBlock(torch.nn.Module):
         Flattened size of the last (or spatially combined) input dimension.
         One of ``input_shape`` or ``input_size`` must be provided.
     activation : torch.nn.Module or callable
-        Activation class used in the gated branch (default: ``GeLU``).
+        Activation class used in the gated branch (default: ``torch.nn.GELU``).
     bias : bool
         If True, use bias terms in the linear layers.
     combine_dims : bool
@@ -41,7 +41,7 @@ class GatedNNBlock(torch.nn.Module):
         n_neurons,
         input_shape=None,
         input_size=None,
-        activation=sb.nnet.activations.GeLU,
+        activation=torch.nn.GELU,
         bias=False,
         combine_dims=False,
     ):
@@ -93,7 +93,7 @@ class GatedNN(sb.nnet.containers.Sequential):
     input_shape : tuple
         Expected shape of the input tensors.
     activation : torch.nn.Module or callable
-        Activation class used inside each gated block (default: ``GeLU``).
+        Activation class used inside each gated block (default: ``torch.nn.GELU``).
     blocks : int
         Number of stacked gated blocks.
     neurons : int
@@ -116,7 +116,7 @@ class GatedNN(sb.nnet.containers.Sequential):
     def __init__(
         self,
         input_shape,
-        activation=sb.nnet.activations.GeLU,
+        activation=torch.nn.GELU,
         blocks=2,
         neurons=512,
         bias=False,
