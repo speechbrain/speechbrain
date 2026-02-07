@@ -64,7 +64,9 @@ class CachedHDF5DynamicItem(CachedDynamicItem):
 
     def _cache(self, result, uid):
         """Save the result to the cache"""
-        self.hdf5file.create_dataset(uid, data=result, compression=self.compression)
+        self.hdf5file.create_dataset(
+            uid, data=result, compression=self.compression
+        )
 
     @property
     def hdf5_path(self):
