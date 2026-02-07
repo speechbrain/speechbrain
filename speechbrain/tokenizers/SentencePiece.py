@@ -65,9 +65,9 @@ class SentencePiece:
     bos_id : int
         If -1 the bos_id = unk_id = 0. otherwise, bos_id = int. (default: -1)
     eos_id : int
-        If -1 the bos_id = unk_id = 0. otherwise, bos_id = int. (default: -1)
+        If -1 the eos_id = unk_id = 0. otherwise, eos_id = int. (default: -1)
     pad_id : int
-        If -1 the pad_id = unk_id = 0. otherwise, bos_id = int. (default: -1)
+        If -1 the pad_id = unk_id = 0. otherwise, pad_id = int. (default: -1)
     unk_id : int
         The token corresponding to an unknown symbol (not in token set).
     split_by_whitespace : bool
@@ -163,7 +163,7 @@ class SentencePiece:
                         ext, ".txt"
                     ),
                 )
-            self.text_file = text_file
+        self.text_file = str(text_file)
 
         self.prefix_model_file = os.path.join(
             model_dir, str(vocab_size) + "_" + model_type

@@ -128,6 +128,22 @@ These changes are applied in a standardized location, [`quirks.py`](https://gith
 
 The `SB_DISABLE_QUIRKS` environment variable lets you disable quirks easily. For instance, to disable TensorFloat32 and re-enable JIT profiling, you would use `SB_DISABLE_QUIRKS=allow_tf32,disable_jit_profiling`.
 
+## Parallel processing and SLURM
+
+SpeechBrain's data preparation scripts often use `parallel_map` from `speechbrain.utils.parallel` to speed up processing. By default, this function automatically detects the number of available CPUs by checking CPU affinity (via `os.sched_getaffinity` on Unix systems), which respects SLURM allocations and cgroup limits.
+
+The `SB_NUM_PROC` environment variable allows you to manually override the number of parallel processes:
+
+```bash
+# Limit parallel processing to 4 processes
+SB_NUM_PROC=4 python prepare_data.py params.yaml
+```
+
+This is useful when:
+- You want to limit CPU usage on shared systems
+- The automatic detection doesn't work correctly in your environment
+- You need reproducible behavior across different machines
+
 ## Reproducibility
 
 To improve reproducibility across experiments, SpeechBrain supports its own seeding function located in `speechbrain.utils.seed.seed_everything`. This function sets the seed for various generators such as NumPy, PyTorch, and Python, following the [PyTorch recommendations](https://pytorch.org/docs/stable/notes/randomness.html).
