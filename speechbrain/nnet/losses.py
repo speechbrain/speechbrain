@@ -84,7 +84,9 @@ def transducer_loss(
         )
     else:
         try:
-            from speechbrain.integrations.numba.transducer_loss import Transducer
+            from speechbrain.integrations.numba.transducer_loss import (
+                Transducer,
+            )
         except ImportError as exc:  # pragma: no cover
             err_msg = (
                 "The Numba-based Transducer loss implementation could not be imported.\n"
