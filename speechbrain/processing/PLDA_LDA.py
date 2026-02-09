@@ -223,6 +223,19 @@ class StatObject_SB:
             session_per_model[idx] += self.get_model_stat1(model).shape[0]
         return sts_per_model, session_per_model
 
+    def mean_stat_per_model(self):
+        """Average the zero- and first-order statistics per model and store
+        them in a new StatObject_SB.
+
+        Returns
+        -------
+        a StatObject_SB object with the statistics averaged per model.
+        """
+        sts_per_model, session_per_model = self.sum_stat_per_model()
+        sts_per_model.stat0 = sts_per_model.stat0 / session_per_model[:, None]
+        sts_per_model.stat1 = sts_per_model.stat1 / session_per_model[:, None]
+        return sts_per_model
+
     def center_stat1(self, mu):
         """Center first order statistics.
 
