@@ -22,6 +22,7 @@ from hyperpyyaml import load_hyperpyyaml
 
 import speechbrain as sb
 from speechbrain.utils.distributed import if_main_process, run_on_main
+from speechbrain.decoders.utils import filter_seq2seq_output
 from speechbrain.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -92,7 +93,11 @@ class SLU(sb.Brain):
         if (stage != sb.Stage.TRAIN) or (self.step % show_results_every == 0):
             # Decode token terms to words
             predicted_semantics = [
-                tokenizer.decode_ids(utt_seq).split(" ")
+                tokenizer.decode_ids(
+                    filter_seq2seq_output(
+                        utt_seq, eos_id=self.hparams.eos_index
+                    )
+                ).split(" ")
                 for utt_seq in predicted_tokens
             ]
 
