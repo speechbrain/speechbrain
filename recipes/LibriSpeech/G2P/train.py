@@ -22,6 +22,7 @@ import numpy as np
 from hyperpyyaml import load_hyperpyyaml
 
 import speechbrain as sb
+from speechbrain.decoders.utils import filter_seq2seq_output
 from speechbrain.dataio.dataset import (
     DynamicItemDataset,
     FilteredSortedDynamicItemDataset,
@@ -311,9 +312,15 @@ class G2PBrain(sb.Brain):
         self.seq_metrics.append(
             batch.sample_id, predictions.p_seq, phns_eos, phn_lens
         )
+        # Filter out eos tokens from predictions to avoid inflated PER
+        # due to eos being counted as insertions
+        filtered_hyps = [
+            filter_seq2seq_output(hyp, eos_id=self.hparams.eos_index)
+            for hyp in predictions.hyps
+        ] if predictions.hyps is not None else None
         self.per_metrics.append(
             batch.sample_id,
-            predictions.hyps,
+            filtered_hyps,
             phns,
             None,
             phn_lens,

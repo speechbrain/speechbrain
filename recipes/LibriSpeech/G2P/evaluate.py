@@ -19,6 +19,7 @@ from tqdm.auto import tqdm
 from train import dataio_prep, load_dependencies
 
 import speechbrain as sb
+from speechbrain.decoders.utils import filter_seq2seq_output
 from speechbrain.dataio.batch import PaddedBatch
 from speechbrain.integrations.huggingface.wordemb.util import expand_to_chars
 from speechbrain.lobes.models.g2p.dataio import get_sequence_key
@@ -125,8 +126,13 @@ class G2PEvaluator:
 
         phns, phn_lens = batch.phn_encoded
 
+        # Filter out eos tokens from predictions to avoid inflated PER
+        filtered_hyps = [
+            filter_seq2seq_output(hyp, eos_id=self.hparams.eos_index)
+            for hyp in hyps
+        ] if hyps is not None else None
         self.per_metrics.append(
-            ids, hyps, phns, None, phn_lens, self.hparams.out_phoneme_decoder
+            ids, filtered_hyps, phns, None, phn_lens, self.hparams.out_phoneme_decoder
         )
 
     def _get_phonemes(self, grapheme_encoded, phn_encoded=None, char=None):
