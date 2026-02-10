@@ -734,10 +734,13 @@ def fast_PLDA_scoring(
     enroll_ctr = copy.deepcopy(enroll)
     test_ctr = copy.deepcopy(test)
 
-    # If models are not unique, compute the mean per model, display a warning
+    # If models are not unique, require the user to average them first
     if not numpy.unique(enroll_ctr.modelset).shape == enroll_ctr.modelset.shape:
-        # logging.warning("Enrollment models are not unique, average i-vectors")
-        enroll_ctr = enroll_ctr.mean_stat_per_model()
+        raise ValueError(
+            "Enrollment models are not unique. Call "
+            "enroll.mean_stat_per_model() before passing to "
+            "fast_PLDA_scoring() to average statistics per model."
+        )
 
     # Remove missing models and test segments
     if check_missing:
@@ -748,11 +751,6 @@ def fast_PLDA_scoring(
     # Center the i-vectors around the PLDA mean
     enroll_ctr.center_stat1(mu)
     test_ctr.center_stat1(mu)
-
-    # If models are not unique, compute the mean per model, display a warning
-    if not numpy.unique(enroll_ctr.modelset).shape == enroll_ctr.modelset.shape:
-        # logging.warning("Enrollment models are not unique, average i-vectors")
-        enroll_ctr = enroll_ctr.mean_stat_per_model()
 
     # Compute constant component of the PLDA distribution
     invSigma = linalg.inv(Sigma)
