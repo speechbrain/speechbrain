@@ -276,12 +276,8 @@ DEFAULT_SAVE_HOOKS = {
     torch.optim.Optimizer: torch_save,
     torch.optim.lr_scheduler.ReduceLROnPlateau: torch_save,
 }
-if version.parse(torch.__version__) < version.parse("2.0.0"):
-    DEFAULT_LOAD_HOOKS[torch.optim.lr_scheduler._LRScheduler] = torch_recovery
-    DEFAULT_SAVE_HOOKS[torch.optim.lr_scheduler._LRScheduler] = torch_save
-else:
-    DEFAULT_LOAD_HOOKS[torch.optim.lr_scheduler.LRScheduler] = torch_recovery
-    DEFAULT_SAVE_HOOKS[torch.optim.lr_scheduler.LRScheduler] = torch_save
+DEFAULT_LOAD_HOOKS[torch.optim.lr_scheduler.LRScheduler] = torch_recovery
+DEFAULT_SAVE_HOOKS[torch.optim.lr_scheduler.LRScheduler] = torch_save
 
 if version.parse(torch.__version__) < version.parse("2.4.0"):
     DEFAULT_LOAD_HOOKS[torch.cuda.amp.grad_scaler.GradScaler] = torch_recovery

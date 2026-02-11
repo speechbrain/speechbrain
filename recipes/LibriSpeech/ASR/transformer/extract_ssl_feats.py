@@ -58,7 +58,9 @@ def dataio_prepare(hparams):
     def compute_feats(uid, sig):
         sig = sig.to(hparams["device"]).unsqueeze(0)
         length = torch.ones(1, device=hparams["device"])
-        with torch.no_grad(), torch.cuda.amp.autocast(dtype=hparams["dtype"]):
+        with torch.no_grad(), torch.amp.autocast(
+            hparams["device"].type, dtype=hparams["dtype"]
+        ):
             feats = normalizer(sig, length)
             feats = ssl_encoder(feats, length)
         return feats.squeeze(0).cpu()
