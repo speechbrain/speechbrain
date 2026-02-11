@@ -341,7 +341,7 @@ class SentencePiece:
         # Train tokenizer
         spm.SentencePieceTrainer.train(query)
 
-    def _check_coverage_from_bpe(self, list_annotation_files=[]):
+    def _check_coverage_from_bpe(self, list_annotation_files=None):
         """Logging the accuracy of the BPE model to recover words from the training text.
 
         Arguments
@@ -349,6 +349,8 @@ class SentencePiece:
         list_annotation_files : list,
             List of the annotation file which is used for checking the accuracy of recovering words from the tokenizer.
         """
+        if list_annotation_files is None:
+            list_annotation_files = []
         for annotation_file in list_annotation_files:
             if os.path.isfile(os.path.abspath(annotation_file)):
                 logger.info(
