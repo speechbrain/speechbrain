@@ -8,18 +8,18 @@ Author
 Samuele Cornell, 2020
 """
 
-import os
 import argparse
-from pathlib import Path
-import tqdm
-import torchaudio
 import glob
+import os
+from pathlib import Path
+
+import numpy as np
+import torch
+import torchaudio
+import tqdm
 
 # from oct2py import octave
 from scipy import signal
-import numpy as np
-import torch
-
 
 parser = argparse.ArgumentParser(
     "utility for resampling all audio files in a folder recursively"
@@ -72,8 +72,7 @@ def resample_folder(input_folder, output_folder, fs, regex):
 
         relative_path = os.path.join(
             Path(f).relative_to(Path(input_folder)).parent,
-            Path(f).relative_to(Path(input_folder)).stem
-            + "_peak_{}.wav".format(peak),
+            Path(f).relative_to(Path(input_folder)).stem + f"_peak_{peak}.wav",
         )
 
         os.makedirs(
@@ -93,7 +92,6 @@ def resample_folder(input_folder, output_folder, fs, regex):
 
 
 if __name__ == "__main__":
-
     args = parser.parse_args()
     resample_folder(
         args.input_folder, args.output_folder, int(args.fs), args.regex

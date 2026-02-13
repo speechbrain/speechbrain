@@ -21,20 +21,21 @@ Authors
  * Jianyuan Zhong 2020
 """
 
-import os
 import csv
-import sys
-import torch
-import torchaudio
-import numpy as np
-from tqdm import tqdm
-import speechbrain as sb
-import torch.nn.functional as F
-from torch.cuda.amp import autocast
-import speechbrain.nnet.schedulers as schedulers
-from speechbrain.utils.distributed import run_on_main
-from hyperpyyaml import load_hyperpyyaml
 import logging
+import os
+import sys
+
+import numpy as np
+import torch
+import torch.nn.functional as F
+import torchaudio
+from hyperpyyaml import load_hyperpyyaml
+from torch.cuda.amp import autocast
+from tqdm import tqdm
+
+import speechbrain as sb
+import speechbrain.nnet.schedulers as schedulers
 
 
 # from: recipes/LibriMix/separation/train.py
@@ -143,16 +144,15 @@ class Separation(sb.Brain):
                 if self.hparams.clip_grad_norm >= 0:
                     self.scaler.unscale_(self.optimizer)
                     torch.nn.utils.clip_grad_norm_(
-                        self.modules.parameters(), self.hparams.clip_grad_norm,
+                        self.modules.parameters(),
+                        self.hparams.clip_grad_norm,
                     )
                 self.scaler.step(self.optimizer)
                 self.scaler.update()
             else:
                 self.nonfinite_count += 1
                 logger.info(
-                    "infinite loss or empty loss! it happened {} times so far - skipping this batch".format(
-                        self.nonfinite_count
-                    )
+                    f"infinite loss or empty loss! it happened {self.nonfinite_count} times so far - skipping this batch"
                 )
                 loss.data = torch.tensor(0).to(self.device)
         else:
@@ -181,9 +181,7 @@ class Separation(sb.Brain):
             else:
                 self.nonfinite_count += 1
                 logger.info(
-                    "infinite loss or empty loss! it happened {} times so far - skipping this batch".format(
-                        self.nonfinite_count
-                    )
+                    f"infinite loss or empty loss! it happened {self.nonfinite_count} times so far - skipping this batch"
                 )
                 loss.data = torch.tensor(0).to(self.device)
         self.optimizer.zero_grad()
@@ -222,7 +220,6 @@ class Separation(sb.Brain):
 
         # Perform end-of-iteration things, like annealing, logging, etc.
         if stage == sb.Stage.VALID:
-
             # Learning rate annealing
             if isinstance(
                 self.hparams.lr_scheduler, schedulers.ReduceLROnPlateau
@@ -241,7 +238,8 @@ class Separation(sb.Brain):
                 valid_stats=stage_stats,
             )
             self.checkpointer.save_and_keep_only(
-                meta={"si-snr": stage_stats["si-snr"]}, min_keys=["si-snr"],
+                meta={"si-snr": stage_stats["si-snr"]},
+                min_keys=["si-snr"],
             )
         elif stage == sb.Stage.TEST:
             self.hparams.train_logger.log_stats(
@@ -300,7 +298,7 @@ class Separation(sb.Brain):
         return mix, targets
 
     def cut_signals(self, mixture, targets):
-        """This function selects a random segment of a given length withing the mixture.
+        """This function selects a random segment of a given length within the mixture.
         The corresponding targets are selected accordingly"""
         randstart = torch.randint(
             0,
@@ -351,7 +349,6 @@ class Separation(sb.Brain):
             # Loop over all test sentence
             with tqdm(test_loader, dynamic_ncols=True) as t:
                 for i, batch in enumerate(t):
-
                     # Apply Separation
                     mixture, mix_len = batch.mix_sig
                     snt_id = batch.id
@@ -415,26 +412,25 @@ class Separation(sb.Brain):
                 }
                 writer.writerow(row)
 
-        logger.info("Mean SISNR is {}".format(np.array(all_sisnrs).mean()))
-        logger.info("Mean SISNRi is {}".format(np.array(all_sisnrs_i).mean()))
-        logger.info("Mean SDR is {}".format(np.array(all_sdrs).mean()))
-        logger.info("Mean SDRi is {}".format(np.array(all_sdrs_i).mean()))
+        logger.info(f"Mean SISNR is {np.array(all_sisnrs).mean()}")
+        logger.info(f"Mean SISNRi is {np.array(all_sisnrs_i).mean()}")
+        logger.info(f"Mean SDR is {np.array(all_sdrs).mean()}")
+        logger.info(f"Mean SDRi is {np.array(all_sdrs_i).mean()}")
 
     def save_audio(self, snt_id, mixture, targets, predictions):
         "saves the test audio (mixture, targets, and estimated sources) on disk"
 
-        # Create outout folder
+        # Create output folder
         save_path = os.path.join(self.hparams.save_folder, "audio_results")
         if not os.path.exists(save_path):
             os.mkdir(save_path)
 
         for ns in range(self.hparams.num_spks):
-
             # Estimated source
             signal = predictions[0, :, ns]
             signal = signal / signal.abs().max()
             save_file = os.path.join(
-                save_path, "item{}_source{}hat.wav".format(snt_id, ns + 1)
+                save_path, f"item{snt_id}_source{ns + 1}hat.wav"
             )
             torchaudio.save(
                 save_file, signal.unsqueeze(0).cpu(), self.hparams.sample_rate
@@ -444,7 +440,7 @@ class Separation(sb.Brain):
             signal = targets[0, :, ns]
             signal = signal / signal.abs().max()
             save_file = os.path.join(
-                save_path, "item{}_source{}.wav".format(snt_id, ns + 1)
+                save_path, f"item{snt_id}_source{ns + 1}.wav"
             )
             torchaudio.save(
                 save_file, signal.unsqueeze(0).cpu(), self.hparams.sample_rate
@@ -453,7 +449,7 @@ class Separation(sb.Brain):
         # Mixture
         signal = mixture[0][0, :]
         signal = signal / signal.abs().max()
-        save_file = os.path.join(save_path, "item{}_mix.wav".format(snt_id))
+        save_file = os.path.join(save_path, f"item{snt_id}_mix.wav")
         torchaudio.save(
             save_file, signal.unsqueeze(0).cpu(), self.hparams.sample_rate
         )
@@ -549,7 +545,6 @@ def dataio_prep(hparams):
 
 
 if __name__ == "__main__":
-
     # Load hyperparameters file with command-line overrides
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
     with open(hparams_file) as fin:

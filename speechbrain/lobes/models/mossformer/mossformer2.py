@@ -1,33 +1,45 @@
-'''Library to support Mossformer2
+"""Library to support Mossformer2
 
 Authors
 * Shengkui Zhao 2024
 * Jia Qi Yip 2024
-'''
+"""
+
 import os
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torchaudio
 from huggingface_hub import PyTorchModelHubMixin
 
-from .utils.one_path_flash_fsmn import Encoder, Decoder, Dual_Path_Model, SBFLASHBlock_DualA
+from .utils.one_path_flash_fsmn import (
+    Decoder,
+    Dual_Path_Model,
+    Encoder,
+    SBFLASHBlock_DualA,
+)
+
 
 def getCheckpoints(config_name):
-    
     from huggingface_hub import hf_hub_download
 
-    for file in ['encoder','decoder','masknet']:
-        if not os.path.exists(f'./model_weights/{config_name}/{file}.ckpt'):
-            print(f'downloading {file}.cpkt')
-            hf_hub_download(repo_id=f'alibabasglab/{config_name}', filename=f'{file}.ckpt', local_dir=f'./model_weights/{config_name}')
-            print(f'{file}.cpkt downloaded')
+    for file in ["encoder", "decoder", "masknet"]:
+        if not os.path.exists(f"./model_weights/{config_name}/{file}.ckpt"):
+            print(f"downloading {file}.cpkt")
+            hf_hub_download(
+                repo_id=f"alibabasglab/{config_name}",
+                filename=f"{file}.ckpt",
+                local_dir=f"./model_weights/{config_name}",
+            )
+            print(f"{file}.cpkt downloaded")
         else:
-            print(f'{file}.cpkt already downloaded')
+            print(f"{file}.cpkt already downloaded")
+
 
 class Mossformer2Wrapper(nn.Module, PyTorchModelHubMixin):
     """The wrapper for the Mossformer2 model which combines the Encoder, Masknet and the Encoder
-    https://arxiv.org/pdf/2312.11825v1.pdf 
+    https://arxiv.org/pdf/2312.11825v1.pdf
 
     Example
     -----
@@ -38,89 +50,102 @@ class Mossformer2Wrapper(nn.Module, PyTorchModelHubMixin):
     torch.Size([1, 160, 2])
     """
 
-    def __init__(
-        self,
-        config: dict
-    ):
-
+    def __init__(self, config: dict):
         super(Mossformer2Wrapper, self).__init__()
-        
+
         self.config_name = config["config_name"]
-        print(f'{self.config_name} config loaded')
+        print(f"{self.config_name} config loaded")
 
         self.encoder = Encoder(
-            kernel_size=config['encoder_kernel_size'],
-            out_channels=config['encoder_out_nchannels'],
-            in_channels=config['encoder_in_nchannels'],
+            kernel_size=config["encoder_kernel_size"],
+            out_channels=config["encoder_out_nchannels"],
+            in_channels=config["encoder_in_nchannels"],
         )
 
         intra_model = SBFLASHBlock_DualA(
-            num_layers=config['intra_numlayers'],
-            d_model=config['encoder_out_nchannels'],
-            nhead=config['intra_nhead'],
-            d_ffn=config['intra_dffn'],
-            dropout=config['intra_dropout'],
-            use_positional_encoding=config['intra_use_positional'],
-            norm_before=config['intra_norm_before'],
+            num_layers=config["intra_numlayers"],
+            d_model=config["encoder_out_nchannels"],
+            nhead=config["intra_nhead"],
+            d_ffn=config["intra_dffn"],
+            dropout=config["intra_dropout"],
+            use_positional_encoding=config["intra_use_positional"],
+            norm_before=config["intra_norm_before"],
         )
 
         self.masknet = Dual_Path_Model(
-            in_channels=config['encoder_out_nchannels'],
-            out_channels=config['encoder_out_nchannels'],
+            in_channels=config["encoder_out_nchannels"],
+            out_channels=config["encoder_out_nchannels"],
             intra_model=intra_model,
-            num_layers=config['masknet_numlayers'],
-            norm=config['masknet_norm'],
-            K=config['masknet_chunksize'],
-            num_spks=config['masknet_numspks'],
-            skip_around_intra=config['masknet_extraskipconnection'],
-            linear_layer_after_inter_intra=config['masknet_useextralinearlayer'],
+            num_layers=config["masknet_numlayers"],
+            norm=config["masknet_norm"],
+            K=config["masknet_chunksize"],
+            num_spks=config["masknet_numspks"],
+            skip_around_intra=config["masknet_extraskipconnection"],
+            linear_layer_after_inter_intra=config[
+                "masknet_useextralinearlayer"
+            ],
         )
         self.decoder = Decoder(
-            in_channels=config['encoder_out_nchannels'],
-            out_channels=config['encoder_in_nchannels'],
-            kernel_size=config['encoder_kernel_size'],
-            stride=config['encoder_kernel_size'] // 2,
+            in_channels=config["encoder_out_nchannels"],
+            out_channels=config["encoder_in_nchannels"],
+            kernel_size=config["encoder_kernel_size"],
+            stride=config["encoder_kernel_size"] // 2,
             bias=False,
         )
-        self.num_spks = config['masknet_numspks']
-        self.sample_rate = config['sample_rate']
+        self.num_spks = config["masknet_numspks"]
+        self.sample_rate = config["sample_rate"]
 
         # Set device to gpu if available
-        device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        device = "cuda" if torch.cuda.is_available() else "cpu"
         self.to(device)
-        print(f'model initialised on {self.device}')
-    
+        print(f"model initialised on {self.device}")
+
     @property
     def device(self):
         return next(self.parameters()).device
 
     def loadPretrained(self):
-        if not os.path.isdir(f'./model_weights/{self.config_name}'):
+        if not os.path.isdir(f"./model_weights/{self.config_name}"):
             print("no checkpoints have been cached, getting them now...")
             getCheckpoints(self.config_name)
 
-        #load the model checkpoints
-        self.encoder.load_state_dict(torch.load(f'model_weights/{self.config_name}/encoder.ckpt', map_location=torch.device(self.device)))
-        self.decoder.load_state_dict(torch.load(f'model_weights/{self.config_name}/decoder.ckpt', map_location=torch.device(self.device)))
-        self.masknet.load_state_dict(torch.load(f'model_weights/{self.config_name}/masknet.ckpt', map_location=torch.device(self.device)))
-    
+        # load the model checkpoints
+        self.encoder.load_state_dict(
+            torch.load(
+                f"model_weights/{self.config_name}/encoder.ckpt",
+                map_location=torch.device(self.device),
+            )
+        )
+        self.decoder.load_state_dict(
+            torch.load(
+                f"model_weights/{self.config_name}/decoder.ckpt",
+                map_location=torch.device(self.device),
+            )
+        )
+        self.masknet.load_state_dict(
+            torch.load(
+                f"model_weights/{self.config_name}/masknet.ckpt",
+                map_location=torch.device(self.device),
+            )
+        )
+
     def inference(self, mix_file, output_dir):
-        '''
+        """
         This is a helper function for inference on a single mixture file
-        '''
-        
+        """
+
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
 
         test_mix, sample_rate = torchaudio.load(mix_file)
-        
+
         if sample_rate != self.sample_rate:
-            raise Exception(f'Sampling rate must be {self.sample_rate}')
-        
+            raise Exception(f"Sampling rate must be {self.sample_rate}")
+
         with torch.no_grad():
             est_source = self.forward(test_mix.to(self.device))
 
-        #Normalization to prevent clipping during conversion to .wav file        
+        # Normalization to prevent clipping during conversion to .wav file
         est_source_norm = []
         for ns in range(self.num_spks):
             signal = est_source[0, :, ns]
@@ -130,12 +155,14 @@ class Mossformer2Wrapper(nn.Module, PyTorchModelHubMixin):
 
         for ns in range(self.num_spks):
             torchaudio.save(
-                f'{output_dir}/index{ns+1}.wav', est_source[..., ns].detach().cpu(), sample_rate
+                f"{output_dir}/index{ns + 1}.wav",
+                est_source[..., ns].detach().cpu(),
+                sample_rate,
             )
         return "done"
 
     def forward(self, mix):
-        """ Processes the input tensor x and returns an output tensor."""
+        """Processes the input tensor x and returns an output tensor."""
         mix_w = self.encoder(mix)
         if self.config_name == "mossformer2-whamr-2spk":
             est_mask = self.masknet(mix_w)

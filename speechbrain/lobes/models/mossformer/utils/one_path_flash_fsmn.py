@@ -1,28 +1,33 @@
 import copy
-import math
-import torch
 
+import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
 from torch import einsum
+
 from ..utils.Transformer import TransformerEncoder_FLASH_DualA_FSMN
 
 EPS = 1e-8
 
+
 class ScaledSinuEmbedding(nn.Module):
     def __init__(self, dim):
         super().__init__()
-        self.scale = nn.Parameter(torch.ones(1,))
-        inv_freq = 1. / (10000 ** (torch.arange(0, dim, 2).float() / dim))
-        self.register_buffer('inv_freq', inv_freq)
+        self.scale = nn.Parameter(
+            torch.ones(
+                1,
+            )
+        )
+        inv_freq = 1.0 / (10000 ** (torch.arange(0, dim, 2).float() / dim))
+        self.register_buffer("inv_freq", inv_freq)
 
     def forward(self, x):
         n, device = x.shape[1], x.device
-        t = torch.arange(n, device = device).type_as(self.inv_freq)
-        sinu = einsum('i , j -> i j', t, self.inv_freq)
-        emb = torch.cat((sinu.sin(), sinu.cos()), dim = -1)
+        t = torch.arange(n, device=device).type_as(self.inv_freq)
+        sinu = einsum("i , j -> i j", t, self.inv_freq)
+        emb = torch.cat((sinu.sin(), sinu.cos()), dim=-1)
         return emb * self.scale
+
 
 class Linear(torch.nn.Module):
     """Computes a linear transformation y = wx + b.
@@ -86,6 +91,7 @@ class Linear(torch.nn.Module):
         wx = self.w(x)
 
         return wx
+
 
 class GlobalLayerNorm(nn.Module):
     """Calculate Global Layer Normalization.
@@ -209,8 +215,7 @@ class CumulativeLayerNorm(nn.LayerNorm):
 
 
 def select_norm(norm, dim, shape):
-    """Just a wrapper to select the normalization type.
-    """
+    """Just a wrapper to select the normalization type."""
 
     if norm == "gln":
         return GlobalLayerNorm(dim, shape, elementwise_affine=True)
@@ -220,6 +225,7 @@ def select_norm(norm, dim, shape):
         return nn.GroupNorm(1, dim, eps=1e-8)
     else:
         return nn.BatchNorm1d(dim)
+
 
 class Encoder(nn.Module):
     """Convolutional Encoder Layer.
@@ -279,7 +285,8 @@ class Encoder(nn.Module):
         x = F.relu(x)
 
         return x
-        
+
+
 class Decoder(nn.ConvTranspose1d):
     """A decoder layer that consists of ConvTranspose1d.
 
@@ -318,9 +325,7 @@ class Decoder(nn.ConvTranspose1d):
         """
 
         if x.dim() not in [2, 3]:
-            raise RuntimeError(
-                "{} accept 3/4D tensor as input".format(self.__name__)
-            )
+            raise RuntimeError(f"{self.__name__} accept 3/4D tensor as input")
         x = super().forward(x if x.dim() == 3 else torch.unsqueeze(x, 1))
 
         if torch.squeeze(x).dim() == 1:
@@ -328,6 +333,7 @@ class Decoder(nn.ConvTranspose1d):
         else:
             x = torch.squeeze(x)
         return x
+
 
 class SBFLASHBlock_DualA(nn.Module):
     """A wrapper for the SpeechBrain implementation of the transformer encoder.
@@ -381,7 +387,6 @@ class SBFLASHBlock_DualA(nn.Module):
         norm_before=False,
         attention_type="regularMHA",
     ):
-
         super(SBFLASHBlock_DualA, self).__init__()
         self.use_positional_encoding = use_positional_encoding
 
@@ -391,7 +396,6 @@ class SBFLASHBlock_DualA(nn.Module):
             activation = nn.GELU
         else:
             raise ValueError("unknown activation")
-
 
         self.mdl = TransformerEncoder_FLASH_DualA_FSMN(
             num_layers=num_layers,
@@ -425,8 +429,7 @@ class SBFLASHBlock_DualA(nn.Module):
 
 
 def _get_activation_fn(activation):
-    """Just a wrapper to get the activation functions.
-    """
+    """Just a wrapper to get the activation functions."""
 
     if activation == "relu":
         return F.relu
@@ -456,7 +459,9 @@ class Dual_Computation_Block(nn.Module):
     ---------
         >>> intra_block = SBTransformerBlock(1, 64, 8)
         >>> inter_block = SBTransformerBlock(1, 64, 8)
-        >>> dual_comp_block = Dual_Computation_Block(intra_block, inter_block, 64)
+        >>> dual_comp_block = Dual_Computation_Block(
+        ...     intra_block, inter_block, 64
+        ... )
         >>> x = torch.randn(10, 64, 100, 10)
         >>> x = dual_comp_block(x)
         >>> x.shape
@@ -484,9 +489,7 @@ class Dual_Computation_Block(nn.Module):
 
         # Linear
         if linear_layer_after_inter_intra:
-            self.intra_linear = Linear(
-                    out_channels, input_size=out_channels
-            )
+            self.intra_linear = Linear(out_channels, input_size=out_channels)
 
     def forward(self, x):
         """Returns the output tensor.
@@ -509,7 +512,7 @@ class Dual_Computation_Block(nn.Module):
         B, N, S = x.shape
         # intra RNN
         # [B, S, N]
-        intra = x.permute(0, 2, 1).contiguous() #.view(B, S, N)
+        intra = x.permute(0, 2, 1).contiguous()  # .view(B, S, N)
 
         intra = self.intra_mdl(intra)
 
@@ -528,7 +531,7 @@ class Dual_Computation_Block(nn.Module):
 
         # inter RNN
         # [B, S, N]
-        '''
+        """
         inter = intra.permute(0, 2, 1).contiguous() #.view(B, S, N)
         # [BK, S, H]
         inter = self.inter_mdl(inter)
@@ -543,7 +546,7 @@ class Dual_Computation_Block(nn.Module):
             inter = self.inter_norm(inter)
         # [B, N, K, S]
         out = inter + intra
-        '''
+        """
         out = intra
         return out
 
@@ -582,7 +585,9 @@ class Dual_Path_Model(nn.Module):
     ---------
     >>> intra_block = SBTransformerBlock(1, 64, 8)
     >>> inter_block = SBTransformerBlock(1, 64, 8)
-    >>> dual_path_model = Dual_Path_Model(64, 64, intra_block, inter_block, num_spks=2)
+    >>> dual_path_model = Dual_Path_Model(
+    ...     64, 64, intra_block, inter_block, num_spks=2
+    ... )
     >>> x = torch.randn(10, 64, 2000)
     >>> x = dual_path_model(x)
     >>> x.shape
@@ -594,7 +599,7 @@ class Dual_Path_Model(nn.Module):
         in_channels,
         out_channels,
         intra_model,
-        #inter_model,
+        # inter_model,
         num_layers=1,
         norm="ln",
         K=200,
@@ -609,7 +614,9 @@ class Dual_Path_Model(nn.Module):
         self.num_spks = num_spks
         self.num_layers = num_layers
         self.norm = select_norm(norm, in_channels, 3)
-        self.conv1d_encoder = nn.Conv1d(in_channels, out_channels, 1, bias=False)
+        self.conv1d_encoder = nn.Conv1d(
+            in_channels, out_channels, 1, bias=False
+        )
         self.use_global_pos_enc = use_global_pos_enc
 
         if self.use_global_pos_enc:
@@ -621,7 +628,7 @@ class Dual_Path_Model(nn.Module):
                 copy.deepcopy(
                     Dual_Computation_Block(
                         intra_model,
-                        #inter_model,
+                        # inter_model,
                         out_channels,
                         norm,
                         skip_around_intra=skip_around_intra,
@@ -669,14 +676,14 @@ class Dual_Path_Model(nn.Module):
 
         # [B, N, L]
         x = self.conv1d_encoder(x)
-         
+
         if self.use_global_pos_enc:
             base = x
             x = x.transpose(1, -1)
             emb = self.pos_enc(x)
-            emb = emb.transpose(0, -1) 
+            emb = emb.transpose(0, -1)
             x = base + emb
-        
+
         # [B, N, S]
         for i in range(self.num_layers):
             x = self.dual_mdl[i](x)
