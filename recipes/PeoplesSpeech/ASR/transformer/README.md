@@ -13,6 +13,10 @@ not want a recipe script, potentially run on GPUs nodes, to take hours downloadi
 
 **One must download the wanted train subset as well as the validation and test splits.**
 
+## Data Preparation
+
+For data preparation, it is recommended to use fewer CPU cores than the maximum available to avoid memory issues. You can control this by setting the `SB_NUM_PROC` environment variable.
+
 ## Important note on the data
 
 [People's speech](https://arxiv.org/pdf/2111.09344) is a very challenging dataset containing two main sets 'clean' and 'dirty' totalising 28,000 hours of error-prone transcribed speech. From our experience, it is most likely that this dataset should not be utilised alone, as the training material is very hard. It mostly contains spontaneous speech, with a few errors in transcription alignments and a lot of transcription inconsistency e.g. sometimes transcribing filler words, sometimes not - sometimes transcribing repetition, sometimes not. This makes the models trained on this data fairly hard to evaluate... The provided validation and test sets seem to be also a bit out of domain.

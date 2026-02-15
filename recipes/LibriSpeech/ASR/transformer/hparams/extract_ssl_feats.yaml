@@ -1,0 +1,42 @@
+# ############################################################################
+# Task : Extraction of self-supervised (SSL) speech features from LibriSpeech
+# Usage: Precompute and cache SSL representations for downstream SpeechLLM ASR
+# Authors:
+#  * Adel Moumen, 2025
+# ############################################################################
+# Seed needs to be set at top of yaml, before objects with parameters are made
+seed: 3407
+__set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
+experiment_name: ssl_feats_extraction
+output_folder: !ref results/<experiment_name>/<seed>
+save_folder: !ref <output_folder>/save
+feats_cache_dir: !ref <output_folder>/feats_cache
+
+# Data files
+data_folder: !PLACEHOLDER
+train_splits: ["train-clean-100", "train-clean-360", "train-other-500"]
+dev_splits: ["dev-clean"]
+test_splits: ["test-clean", "test-other"]
+skip_prep: False
+train_csv: !ref <output_folder>/train.csv
+valid_csv: !ref <output_folder>/dev-clean.csv
+test_csv:
+    - !ref <output_folder>/test-clean.csv
+    - !ref <output_folder>/test-other.csv
+dtype: !name:torch.bfloat16
+device: cuda
+
+####################### Training Parameters ####################################
+ssl_hub: !PLACEHOLDER
+ssl_folder: !ref <save_folder>/ssl_checkpoint
+ssl_frozen: True
+
+####################### Model Components ####################################
+normalize: !new:speechbrain.processing.features.InputNormalization
+    norm_type: sentence
+ssl: !new:speechbrain.integrations.huggingface.wav2vec2.Wav2Vec2
+    source: !ref <ssl_hub>
+    output_norm: True
+    freeze: !ref <ssl_frozen>
+    save_path: !ref <ssl_folder>
+    device_map: !ref <device>

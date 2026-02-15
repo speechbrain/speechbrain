@@ -1252,10 +1252,11 @@ class ScorerBuilder:
             score, new_memory[k] = impl.score(inp_tokens, memory[k], None, attn)
             log_probs += score * self.weights[k]
 
-        # select candidates from the results of full scorers for partial scorers
-        _, candidates = log_probs.topk(
-            int(beam_size * self.scorer_beam_scale), dim=-1
-        )
+        # Select candidates from the results of full scorers for partial scorers
+        # clamp number of candidates to [1, vocab_size] to avoid invalid topk size
+        num_candidates = int(beam_size * self.scorer_beam_scale)
+        num_candidates = max(1, min(num_candidates, log_probs.shape[-1]))
+        candidates = log_probs.topk(num_candidates, dim=-1).indices
 
         # score pruned tokens candidates
         for k, impl in self.partial_scorers.items():
@@ -1934,9 +1935,7 @@ class HuggingFaceLMRescorer(BaseRescorerInterface):
                 "Please install transformers with: pip install transformers"
             )
 
-        self.lm = AutoModelForCausalLM.from_pretrained(
-            self.model_name, is_decoder=True
-        ).eval()
+        self.lm = AutoModelForCausalLM.from_pretrained(self.model_name).eval()
 
         self.tokenizer = AutoTokenizer.from_pretrained(
             self.model_name, use_fast=True
@@ -2027,7 +2026,7 @@ class HuggingFaceLMRescorer(BaseRescorerInterface):
         text_augmented_with_tokens = list(
             map(self._add_special_tokens, normalized_hyps)
         )
-        encoding = self.tokenizer.batch_encode_plus(
+        encoding = self.tokenizer(
             text_augmented_with_tokens, return_tensors="pt", padding=True
         )
         return encoding

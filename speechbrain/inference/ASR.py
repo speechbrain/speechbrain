@@ -10,7 +10,7 @@ Authors:
  * Andreas Nautsch 2022, 2023
  * Pooneh Mousavi 2023
  * Sylvain de Langen 2023, 2024
- * Adel Moumen 2023, 2024
+ * Adel Moumen 2023, 2024, 2025
  * Pradnya Kandarkar 2023
 """
 
@@ -1361,3 +1361,186 @@ class StreamingASR(Pretrained):
         words, _ = self.decode_chunk(context, x)
 
         return words
+
+
+class SpeechLLMASR(Pretrained):
+    """A ready-to-use SpeechLLM ASR model interface.
+
+    The class can be used to run the entire speechllm model.
+    First, the audio is encoded into a sequence of hidden states using the `speech_encoder`.
+    Then, the hidden states are downsampled using the `feat_downsampler` and projected using the `proj` module.
+    The projected features are concatenated with the text embeddings and passed to the `searcher` module.
+    The `searcher` module returns the predicted tokens and the predicted words using an LLM decoder.
+
+    The given YAML must contains the fields specified in the HPARAMS_NEEDED list.
+
+    Arguments
+    ---------
+    *args : tuple
+    **kwargs : dict
+        Arguments are forwarded to ``Pretrained`` parent class.
+
+    Example
+    -------
+    >>> from speechbrain.inference.ASR import SpeechLLMASR
+    >>> tmpdir = getfixture("tmpdir")
+    >>> asr_model = SpeechLLMASR.from_hparams(
+    ...     source="speechbrain/asr-speechllm-librispeech",
+    ...     savedir=tmpdir,
+    ... )  # doctest: +SKIP
+    >>> hyp = asr_model.transcribe_file(
+    ...     "speechbrain/asr-speechllm-librispeech/example-en.wav"
+    ... )  # doctest: +SKIP
+    >>> hyp  # doctest: +SKIP
+    THE BIRCH CANOE SLID ON THE SMOOTH PLANKS
+    """
+
+    HPARAMS_NEEDED = ["bos_index", "eos_index", "prompt"]
+    MODULES_NEEDED = [
+        "speech_encoder",
+        "feat_downsampler",
+        "proj",
+        "llm",
+        "normalize",
+        "searcher",
+    ]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.tokenizer = self.mods.llm.tokenizer
+        self.txt_embedding = self.mods.llm.model.get_input_embeddings()
+
+    def build_multimodal_embds(self, audio_feats):
+        """Builds the multimodal embeddings for the audio features."""
+        prompt_ids = (
+            self.tokenizer(
+                self.hparams.prompt,
+                return_tensors="pt",
+                add_special_tokens=False,
+            )
+            .input_ids.view(-1)
+            .tolist()
+        )
+        start_of_audio_token = "<|start_of_audio|>"
+        end_of_audio_token = "<|end_of_audio|>"
+        start_of_audio_index = self.tokenizer.convert_tokens_to_ids(
+            start_of_audio_token
+        )
+        end_of_audio_index = self.tokenizer.convert_tokens_to_ids(
+            end_of_audio_token
+        )
+        prompt_ids = torch.LongTensor(
+            [start_of_audio_index]
+            + [end_of_audio_index]
+            + prompt_ids
+            + [self.hparams.bos_index]
+        ).to(audio_feats.device)
+        prompt_embds = (
+            self.txt_embedding(prompt_ids)
+            .unsqueeze(0)
+            .repeat(audio_feats.size(0), 1, 1)
+        )
+        multimodal_embds = torch.cat(
+            [
+                prompt_embds[:, 0].unsqueeze(1),  # B, D -> B, 1, D
+                audio_feats,
+                prompt_embds[:, 1:],
+            ],
+            dim=1,
+        )
+        attention_mask = torch.ones(
+            multimodal_embds.size(0),
+            multimodal_embds.size(1),
+            dtype=torch.bool,
+            device=multimodal_embds.device,
+        )
+        return multimodal_embds, attention_mask
+
+    @torch.no_grad()
+    def encode_batch(self, wavs, wav_lens):
+        """Encodes the audio waveforms into a sequence of hidden states.
+        By default, the `self.inference_ctx` is used to run the forward pass.
+        Can be overridden by passing a custom `--precision` argument.
+
+        Arguments
+        ---------
+        wavs : torch.Tensor
+            The audio waveforms of shape (batch_size, time).
+        wav_lens : torch.Tensor
+            The lengths of the audio waveforms of shape (batch_size,).
+
+        Returns
+        -------
+        audio_feats : torch.Tensor
+            The encoded audio features of shape (batch_size, time, feat_dim).
+        """
+        with self.inference_ctx:
+            wavs, wav_lens = wavs.to(self.device), wav_lens.to(self.device)
+            wavs = self.mods.normalize(wavs, wav_lens)
+            audio_feats = self.mods.speech_encoder(wavs, wav_lens)
+        return audio_feats
+
+    @torch.no_grad()
+    def transcribe_batch(self, wavs, wav_lens):
+        """Transcribes the input audio into a sequence of words.
+
+        Arguments
+        ---------
+        wavs : torch.Tensor
+            The audio waveforms of shape (batch_size, time).
+        wav_lens : torch.Tensor
+            The lengths of the audio waveforms of shape (batch_size,).
+
+        Returns
+        -------
+        predicted_words : list
+            The predicted words of shape (batch_size,).
+        predicted_tokens : list
+            The predicted tokens of shape (batch_size,).
+        """
+        with self.inference_ctx:
+            encoder_out = self.encode_batch(wavs, wav_lens)
+            audio_down_feats = self.mods.feat_downsampler(encoder_out)
+            audio_feats = self.mods.proj(audio_down_feats)
+            multimodal_embds, attention_mask = self.build_multimodal_embds(
+                audio_feats
+            )
+            # Use the precision configured in self.inference_ctx, defaulting to float32 if not set
+            target_precision = getattr(
+                self.inference_ctx, "precision", torch.float32
+            )
+            hyps = self.mods.searcher(
+                multimodal_embds.to(target_precision), wav_lens, attention_mask
+            )
+            predicted_tokens = hyps[0]
+            predicted_words = self.tokenizer.batch_decode(
+                predicted_tokens, skip_special_tokens=True
+            )
+        return predicted_words, predicted_tokens
+
+    def transcribe_file(self, path, **kwargs):
+        """Transcribe the given audio file into a sequence of words.
+
+        Arguments
+        ---------
+        path : str
+            The path to the audio file.
+        **kwargs : dict
+            Arguments forwarded to `self.load_audio`.
+
+        Returns
+        -------
+        predicted_words : str
+            The predicted words of the audio file.
+        """
+        waveform = self.load_audio(path, **kwargs)
+        batch = waveform.unsqueeze(0)
+        rel_length = torch.tensor([1.0])
+        predicted_words, predicted_tokens = self.transcribe_batch(
+            batch, rel_length
+        )
+        return predicted_words[0]
+
+    def forward(self, wavs, wav_lens):
+        """Runs full batch decoding"""
+        return self.transcribe_batch(wavs, wav_lens)

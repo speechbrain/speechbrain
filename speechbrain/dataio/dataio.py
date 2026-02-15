@@ -37,7 +37,7 @@ check_torchaudio_backend()
 logger = get_logger(__name__)
 
 
-def load_data_json(json_path, replacements={}):
+def load_data_json(json_path, replacements=None):
     """Loads JSON and recursively formats string values.
 
     Arguments
@@ -70,6 +70,8 @@ def load_data_json(json_path, replacements={}):
     '/home/ex2.wav'
 
     """
+    if replacements is None:
+        replacements = {}
     with open(json_path, encoding="utf-8") as f:
         out_json = json.load(f)
     _recursive_format(out_json, replacements)
@@ -97,7 +99,7 @@ def _recursive_format(data, replacements):
             # If not dict, list or str, do nothing
 
 
-def load_data_csv(csv_path, replacements={}):
+def load_data_csv(csv_path, replacements=None):
     """Loads CSV and formats string values.
 
     Uses the SpeechBrain legacy CSV data format, where the CSV must have an
@@ -135,6 +137,8 @@ def load_data_csv(csv_path, replacements={}):
     '/home/utt1.wav'
     """
 
+    if replacements is None:
+        replacements = {}
     with open(csv_path, newline="", encoding="utf-8") as csvfile:
         result = {}
         reader = csv.DictReader(csvfile, skipinitialspace=True)
@@ -633,7 +637,9 @@ class IterativeCSVWriter:
     UTT4,,bb aa rr,string,
     """
 
-    def __init__(self, outstream, data_fields, defaults={}):
+    def __init__(self, outstream, data_fields, defaults=None):
+        if defaults is None:
+            defaults = {}
         self._outstream = outstream
         self.fields = ["ID", "duration"] + self._expand_data_fields(data_fields)
         self.defaults = defaults

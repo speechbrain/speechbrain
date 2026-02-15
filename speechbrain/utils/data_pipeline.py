@@ -68,10 +68,10 @@ class DynamicItem:
         The keys that this provides.
     """
 
-    def __init__(self, takes=[], func=None, provides=[]):
-        self.takes = takes
+    def __init__(self, takes=None, func=None, provides=None):
+        self.takes = takes if takes is not None else []
         self.func = func
-        self.provides = provides
+        self.provides = provides if provides is not None else []
 
     def __call__(self, *args):
         return self.func(*args)
@@ -470,7 +470,11 @@ class DataPipeline:
     {'bar': 'tset'}
     """
 
-    def __init__(self, static_data_keys, dynamic_items=[], output_keys=[]):
+    def __init__(self, static_data_keys, dynamic_items=None, output_keys=None):
+        if dynamic_items is None:
+            dynamic_items = []
+        if output_keys is None:
+            output_keys = []
         self.dg = DependencyGraph()
         self._exec_order = None
         self.key_to_node = {}

@@ -6,13 +6,81 @@ Authors
 """
 
 import itertools
-import multiprocessing
+import os
+import sys
 from collections import deque
 from concurrent.futures import Executor, ProcessPoolExecutor
 from threading import Condition
 from typing import Any, Callable, Iterable, Optional
 
 from tqdm.auto import tqdm
+
+
+def get_available_cpu_count() -> int:
+    """Return the number of CPUs available to the current process.
+
+    This function provides a reliable way to determine CPU count that respects:
+    1. User override via SB_NUM_PROC environment variable
+    2. CPU affinity limits (e.g., SLURM allocations)
+    3. System CPU count as fallback
+
+    The fallback hierarchy is:
+    1. SB_NUM_PROC environment variable (if set and valid)
+    2. os.process_cpu_count() (Python 3.13+, respects affinity)
+    3. len(os.sched_getaffinity(0)) (Unix, respects SLURM/cgroups)
+    4. os.cpu_count() (fallback for Windows or when above fail)
+
+    Returns
+    -------
+    int
+        The number of CPUs available. Falls back to 1 if detection fails.
+
+    Examples
+    --------
+    >>> # With environment variable override:
+    >>> import os
+    >>> os.environ["SB_NUM_PROC"] = "2"
+    >>> get_available_cpu_count()
+    2
+    """
+    # Priority 1: Environment variable override
+    env_override = os.environ.get("SB_NUM_PROC")
+    if env_override is not None:
+        try:
+            count = int(env_override)
+            if count > 0:
+                return count
+        except ValueError:
+            pass  # Invalid value, fall through to auto-detection
+
+    # Priority 2: os.process_cpu_count() (Python 3.13+)
+    if sys.version_info >= (3, 13):
+        try:
+            count = os.process_cpu_count()
+            if count is not None and count > 0:
+                return count
+        except AttributeError:
+            # os.process_cpu_count may be unavailable in some Python builds
+            # Fall through to the next detection method
+            pass
+
+    # Priority 3: os.sched_getaffinity() (Unix systems)
+    try:
+        count = len(os.sched_getaffinity(0))
+        if count > 0:
+            return count
+    except (AttributeError, OSError):
+        # AttributeError: sched_getaffinity not available (Windows)
+        # OSError: might occur in some containerized environments
+        pass
+
+    # Priority 4: os.cpu_count() (universal fallback)
+    count = os.cpu_count()
+    if count is not None and count > 0:
+        return count
+
+    # Ultimate fallback
+    return 1
 
 
 def _chunk_process_wrapper(fn, chunk):
@@ -202,7 +270,7 @@ class _ParallelMapper:
 def parallel_map(
     fn: Callable[[Any], Any],
     source: Iterable[Any],
-    process_count: int = multiprocessing.cpu_count(),
+    process_count: Optional[int] = None,
     chunk_size: int = 8,
     queue_size: int = 128,
     executor: Optional[Executor] = None,
@@ -224,9 +292,10 @@ def parallel_map(
     source: Iterable
         Iterator whose elements are passed through the mapping function.
 
-    process_count: int
+    process_count: int, optional
         The number of processes to spawn. Ignored if a custom executor is
-        provided.
+        provided. If None (the default), uses `get_available_cpu_count()` which
+        respects SLURM allocations, CPU affinity, and SB_NUM_PROC env var.
         For CPU-bound tasks, it is generally not useful to exceed logical core
         count.
         For IO-bound tasks, it may make sense to as to limit the amount of time
@@ -261,6 +330,9 @@ def parallel_map(
     ------
     The items from source processed by fn
     """
+    if process_count is None:
+        process_count = get_available_cpu_count()
+
     mapper = _ParallelMapper(
         fn,
         source,

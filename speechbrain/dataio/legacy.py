@@ -113,7 +113,7 @@ class ExtendedCSVDataset(DynamicItemDataset):
             self.set_output_keys(data_names)
 
 
-def load_sb_extended_csv(csv_path, replacements={}):
+def load_sb_extended_csv(csv_path, replacements=None):
     """Loads SB Extended CSV and formats string values.
 
     Uses the SpeechBrain Extended CSV data format, where the
@@ -148,6 +148,8 @@ def load_sb_extended_csv(csv_path, replacements={}):
         List of DynamicItems to add in DynamicItemDataset.
 
     """
+    if replacements is None:
+        replacements = {}
     with open(csv_path, newline="", encoding="utf-8") as csvfile:
         result = {}
         reader = csv.DictReader(csvfile, skipinitialspace=True)
@@ -250,7 +252,7 @@ def _parse_csv_item_opts(entry):
     return opts
 
 
-def read_pkl(file, data_options={}, lab2ind=None):
+def read_pkl(file, data_options=None, lab2ind=None):
     """This function reads tensors store in pkl format.
 
     Arguments
@@ -268,6 +270,8 @@ def read_pkl(file, data_options={}, lab2ind=None):
         The array containing the read signal.
     """
 
+    if data_options is None:
+        data_options = {}
     # Trying to read data
     try:
         with open(file, "rb") as f:

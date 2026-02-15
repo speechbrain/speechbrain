@@ -7,10 +7,10 @@ Authors
  * Titouan Parcollet, 2024
 """
 
-import multiprocessing
 import os
 
 from speechbrain.utils.logger import get_logger
+from speechbrain.utils.parallel import get_available_cpu_count
 
 logger = get_logger(__name__)
 
@@ -43,7 +43,7 @@ def load_datasets(subset, hf_download_folder, hf_caching_dir):
     # Managing the download dir as HF can be capricious with this.
     logger.info("Loading dataset from: " + str(hf_download_folder))
 
-    nproc = multiprocessing.cpu_count()
+    nproc = get_available_cpu_count()
     os.environ["HF_DATASETS_OFFLINE"] = "1"
     datasets.disable_progress_bars()
     hf_data = load_dataset(

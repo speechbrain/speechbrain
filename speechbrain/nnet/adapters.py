@@ -162,7 +162,7 @@ class AdaptedModel(nn.Module):
     def loader(self, path, end_of_epoch):
         """Loads the base model plus trained params."""
         del end_of_epoch
-        state_dict = torch.load(path, map_location="cpu")
+        state_dict = torch.load(path, map_location="cpu", weights_only=True)
         self.load_state_dict(state_dict, strict=False)
 
     @checkpoints.mark_as_transfer

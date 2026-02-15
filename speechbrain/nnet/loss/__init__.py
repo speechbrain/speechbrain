@@ -1,1 +1,1 @@
-"""Package containing specific losses (transducer, stoi ...)"""
+"""Package containing specific losses (stoi ...)"""

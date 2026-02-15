@@ -6,12 +6,13 @@ Authors
  * Titouan Parcollet 2023
 """
 
-import importlib.util
 import logging
 import math
 import warnings
 
 import torch
+from numba import cuda
+from numba.core.errors import NumbaPerformanceWarning
 from torch.autograd import Function
 from torch.nn import Module
 
@@ -21,39 +22,19 @@ NUMBA_VERBOSE = 0
 
 logger = get_logger(__name__)
 
-try:
-    from numba import cuda
+# Numba is extra verbose and this may lead to log.txt file of multiple gigabytes... we deactivate
+if not NUMBA_VERBOSE:
+    logger.info(
+        "Numba verbose is deactivated. To enable it, set NUMBA_VERBOSE to 1."
+    )
 
-    # Numba is extra verbose and this may lead to log.txt file of multiple gigabytes... we deactivate
-    if not NUMBA_VERBOSE:
-        logger.info(
-            "Numba verbose is deactivated. To enable it, set NUMBA_VERBOSE to 1."
-        )
-
-        nb_logger = logging.getLogger("numba")
-        nb_logger.setLevel(logging.ERROR)  # only show error
-
-        from numba.core.errors import NumbaPerformanceWarning
-
-        warnings.simplefilter("ignore", category=NumbaPerformanceWarning)
-    else:
-        logger.info(
-            "Numba verbose is enabled. To deactivate it, set NUMBA_VERBOSE to 0."
-        )
-
-except ImportError:
-    err_msg = "The optional dependency Numba is needed to use this module\n"
-    err_msg += "Cannot import numba. To use Transducer loss\n"
-    err_msg += "Please follow the instructions below\n"
-    err_msg += "=============================\n"
-    err_msg += "If you use your localhost:\n"
-    err_msg += "pip install numba\n"
-    err_msg += "export NUMBAPRO_LIBDEVICE='/usr/local/cuda/nvvm/libdevice/' \n"
-    err_msg += "export NUMBAPRO_NVVM='/usr/local/cuda/nvvm/lib64/libnvvm.so' \n"
-    err_msg += "================================ \n"
-    err_msg += "If you use conda:\n"
-    err_msg += "conda install numba cudatoolkit"
-    raise ImportError(err_msg)
+    nb_logger = logging.getLogger("numba")
+    nb_logger.setLevel(logging.ERROR)  # only show error
+    warnings.simplefilter("ignore", category=NumbaPerformanceWarning)
+else:
+    logger.info(
+        "Numba verbose is enabled. To deactivate it, set NUMBA_VERBOSE to 0."
+    )
 
 
 @cuda.jit()
@@ -358,21 +339,6 @@ class TransducerLoss(Module):
         self.blank = blank
         self.reduction = reduction
         self.loss = Transducer.apply
-        try:
-            importlib.util.find_spec("numba")
-        except ImportError:
-            err_msg = "cannot import numba. To use Transducer loss\n"
-            err_msg += "=============================\n"
-            err_msg += "If you use your localhost:\n"
-            err_msg += "pip install numba\n"
-            err_msg += (
-                "export NUMBAPRO_LIBDEVICE='/usr/local/cuda/nvvm/libdevice/' \n"
-            )
-            err_msg += "export NUMBAPRO_NVVM='/usr/local/cuda/nvvm/lib64/libnvvm.so' \n"
-            err_msg += "================================ \n"
-            err_msg += "If you use conda:\n"
-            err_msg += "conda install numba cudatoolkit=XX (XX is your cuda toolkit version)"
-            raise ImportError(err_msg)
 
     def forward(self, logits, labels, T, U):
         """Computes the transducer loss."""

@@ -36,7 +36,7 @@ def transducer_loss(
     reduction="mean",
     use_torchaudio=True,
 ):
-    """Transducer loss, see `speechbrain/nnet/loss/transducer_loss.py`.
+    """Transducer loss, see `speechbrain/integrations/numba/transducer_loss.py`.
 
     Arguments
     ---------
@@ -83,7 +83,18 @@ def transducer_loss(
             reduction=reduction,
         )
     else:
-        from speechbrain.nnet.loss.transducer_loss import Transducer
+        try:
+            from speechbrain.integrations.numba.transducer_loss import (
+                Transducer,
+            )
+        except ImportError as exc:  # pragma: no cover
+            err_msg = (
+                "The Numba-based Transducer loss implementation could not be imported.\n"
+                "This path requires the optional dependency 'numba' and a working CUDA setup.\n"
+                "Please install numba (e.g., `pip install numba`) and ensure that CUDA is available,\n"
+                "or set `use_torchaudio=True` to use the torchaudio implementation instead.\n"
+            )
+            raise ImportError(err_msg) from exc
 
         # Transducer.apply function take log_probs tensor.
         log_probs = logits.log_softmax(-1)

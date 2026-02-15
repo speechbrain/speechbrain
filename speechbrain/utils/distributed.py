@@ -67,7 +67,7 @@ def get_local_rank() -> Optional[int]:
     int or None
         The local rank of the current process, or None if the local rank could not be determined.
     """
-    rank_keys = ("LOCAL_RANK", "SLURM_LOCALID")
+    rank_keys = ["LOCAL_RANK"]
     for key in rank_keys:
         rank = os.environ.get(key)
         if rank is not None:

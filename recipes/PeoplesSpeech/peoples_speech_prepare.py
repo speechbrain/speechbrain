@@ -28,7 +28,7 @@ import os
 import re
 from dataclasses import dataclass
 
-from speechbrain.utils.parallel import parallel_map
+from speechbrain.utils.parallel import get_available_cpu_count, parallel_map
 
 logger = logging.getLogger(__name__)
 
@@ -186,11 +186,7 @@ def load_and_concatenate_datasets(subsets, hf_download_folder):
 
     logger.info("Loading dataset from: " + str(hf_caching_dir))
 
-    import multiprocessing
-
-    nproc = (
-        multiprocessing.cpu_count() // 2 + 1
-    )  # we don't want to use all cores
+    nproc = get_available_cpu_count()
 
     # Setting no download mode for HuggingFace. Only cache.
     # We remove progress bars as they repeat for each DDP process.

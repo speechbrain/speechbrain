@@ -162,7 +162,11 @@ class DynamicItemDataset(Dataset):
         and value is the internal key.
     """
 
-    def __init__(self, data, dynamic_items=[], output_keys=[]):
+    def __init__(self, data, dynamic_items=None, output_keys=None):
+        if dynamic_items is None:
+            dynamic_items = []
+        if output_keys is None:
+            output_keys = []
         self.data = data
         self.data_ids = list(self.data.keys())
         static_keys = list(self.data[self.data_ids[0]].keys())
