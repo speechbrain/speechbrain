@@ -872,7 +872,7 @@ def minDCF(
     systems. The min_DCF is the minimum of the following C_det function computed
     within the defined threshold range:
 
-    C_det =  c_miss * p_miss * p_target + c_fa * p_fa * (1 -p_target)
+    C_det =  c_miss * p_miss * p_target + c_fa * p_fa * (1 - p_target)
 
     where p_miss is the missing probability and p_fa is the probability of having
     a false alarm.
@@ -905,31 +905,22 @@ def minDCF(
     >>> val_minDCF
     0.0
     """
-    # Computing candidate thresholds
-    thresholds, _ = torch.sort(torch.cat([positive_scores, negative_scores]))
-    thresholds = torch.unique(thresholds)
+    # Sort scores for binary search
+    pos, _ = torch.sort(positive_scores.flatten())
+    neg, _ = torch.sort(negative_scores.flatten())
 
-    # Adding intermediate thresholds
-    intermediate_thresholds = (thresholds[0:-1] + thresholds[1:]) / 2
-    thresholds, _ = torch.sort(torch.cat([thresholds, intermediate_thresholds]))
+    # Computing candidate thresholds (torch.unique sorts automatically)
+    thresholds = torch.unique(torch.cat([pos, neg]))
 
     # Computing False Rejection Rate (miss detection)
-    positive_scores = torch.cat(
-        len(thresholds) * [positive_scores.unsqueeze(0)]
+    p_miss = torch.searchsorted(pos, thresholds, side="right").float() / len(
+        pos
     )
-    pos_scores_threshold = positive_scores.transpose(0, 1) <= thresholds
-    p_miss = (pos_scores_threshold.sum(0)).float() / positive_scores.shape[1]
-    del positive_scores
-    del pos_scores_threshold
 
     # Computing False Acceptance Rate (false alarm)
-    negative_scores = torch.cat(
-        len(thresholds) * [negative_scores.unsqueeze(0)]
-    )
-    neg_scores_threshold = negative_scores.transpose(0, 1) > thresholds
-    p_fa = (neg_scores_threshold.sum(0)).float() / negative_scores.shape[1]
-    del negative_scores
-    del neg_scores_threshold
+    p_fa = (
+        len(neg) - torch.searchsorted(neg, thresholds, side="right")
+    ).float() / len(neg)
 
     c_det = c_miss * p_miss * p_target + c_fa * p_fa * (1 - p_target)
     c_min, min_index = torch.min(c_det, dim=0)
