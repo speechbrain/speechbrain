@@ -3,7 +3,7 @@ Neural network modules for the Zero-Shot Multi-Speaker Tacotron2 end-to-end neur
 Text-to-Speech (TTS) model
 
 Authors
-* Georges Abous-Rjeili 2021
+* Georges Abou-Rjeili 2021
 * Artem Ploujnikov 2021
 * Pradnya Kandarkar 2023
 """

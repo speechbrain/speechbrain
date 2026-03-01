@@ -12,7 +12,7 @@ were text_Sequence is the output of the text_to_sequence function from
 textToSequence.py (from textToSequence import text_to_sequence)
 
 Authors
-* Georges Abous-Rjeili 2021
+* Georges Abou-Rjeili 2021
 * Artem Ploujnikov 2021
 * Yingzhi Wang 2022
 """
