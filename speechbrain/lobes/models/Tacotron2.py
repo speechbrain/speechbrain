@@ -3,7 +3,7 @@ Neural network modules for the Tacotron2 end-to-end neural
 Text-to-Speech (TTS) model
 
 Authors
-* Georges Abous-Rjeili 2021
+* Georges Abou-Rjeili 2021
 * Artem Ploujnikov 2021
 """
 
