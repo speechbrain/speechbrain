@@ -6,7 +6,7 @@ To run this recipe, do the following:
 # python train.py --device=cuda:0 --max_grad_norm=1.0 --data_folder=/path_to_data_folder hparams/train.yaml
 
 Authors
-* Georges Abous-Rjeili 2021
+* Georges Abou-Rjeili 2021
 * Artem Ploujnikov 2021
 * Yingzhi Wang 2022
 * Pradnya Kandarkar 2023
