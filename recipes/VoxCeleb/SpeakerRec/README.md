@@ -151,6 +151,4 @@ Please, cite SpeechBrain if you use it for your research or business.
 }
 ```
 
-## Acknowledgments
 
-The source code for the ECAPA2 implementation is derived from the Kiwano toolkit.

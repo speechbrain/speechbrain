@@ -3,7 +3,7 @@
 This module implements the ECAPA2 model and Sub-Center ArcFace Classifier.
 
 Acknowledgment:
-The source code for this implementation is derived from the Kiwano toolkit.
+The source code is derived from the Kiwano toolkit.
 """
 
 import torch
