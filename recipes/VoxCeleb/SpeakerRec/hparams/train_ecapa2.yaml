@@ -1,5 +1,6 @@
 # ################################
 # Model: Speaker identification with ECAPA2
+# Acknowledgment: The architecture implementation is derived from the Kiwano toolkit.
 # ################################
 
 # Basic parameters

@@ -1,5 +1,6 @@
 # ################################
 # Model: Speaker Verification Baseline for ECAPA2
+# Acknowledgment: The architecture implementation is derived from the Kiwano toolkit.
 # ################################
 
 seed: 1234

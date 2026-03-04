@@ -1,6 +1,9 @@
 """A PyTorch implementation of the ECAPA2 architecture.
 
 This module implements the ECAPA2 model and Sub-Center ArcFace Classifier.
+
+Acknowledgment:
+The source code for this implementation is derived from the Kiwano toolkit.
 """
 
 import torch
