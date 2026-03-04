@@ -1,0 +1,96 @@
+# ################################
+# Model: Speaker Verification Baseline for ECAPA2
+# ################################
+
+seed: 1234
+__set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
+
+# Folders and train_log file
+data_folder: !PLACEHOLDER # e.g., /path/to/voxceleb
+output_folder: results/voxceleb_verification_ecapa2/<seed>
+save_folder: !ref <output_folder>/save/
+
+# Use the following links for the official voxceleb splits:
+# VoxCeleb1 (cleaned): https://www.robots.ox.ac.uk/~vgg/data/voxceleb/meta/veri_test2.txt
+# VoxCeleb1-H (cleaned): https://www.robots.ox.ac.uk/~vgg/data/voxceleb/meta/list_test_hard2.txt
+# VoxCeleb1-E (cleaned): https://www.robots.ox.ac.uk/~vgg/data/voxceleb/meta/list_test_all2.txt.
+# VoxCeleb1-E and VoxCeleb1-H lists are drawn from the VoxCeleb1 training set.
+# Therefore you cannot use any files in VoxCeleb1 for training if you are using these lists for testing.
+verification_file: https://www.robots.ox.ac.uk/~vgg/data/voxceleb/meta/veri_test2.txt
+
+# Here, the pretrained embedding model trained with train_speaker_embeddings.py
+# can be specified. Point this to the specific CKPT folder from your ECAPA2 training
+# e.g., results/ecapa2/1986/save/CKPT+2024-01-01+...
+pretrain_path: !PLACEHOLDER
+
+# csv files
+train_data: !ref <save_folder>/train.csv
+enrol_data: !ref <save_folder>/enrol.csv
+test_data: !ref <save_folder>/test.csv
+split_ratio: [90, 10]
+skip_prep: False
+
+batch_size: 8
+#score_norm: s-norm  # z-norm t-norm s-norm (uncomment to enable it)
+cohort_size: 20000 # amount of imposter utterances in normalization cohort
+n_train_snts: 400000 # used for normalization stats
+
+# Feature parameters
+sample_rate: 16000
+hop_length: 256
+win_length: 1024
+n_fft: 1024
+n_mel_channels: 80
+mel_fmin: 0.0
+mel_fmax: 8000.0
+power: 1
+norm: "slaney"
+mel_scale: "slaney"
+dynamic_range_compression: True
+use_tacotron2_mel_spec: True
+
+# Model Hyperparameters
+ecapa2_channels: [164, 192, 1024, 1536]
+attention_channels: 128
+emb_dim: 256
+
+# Dataloader options
+train_dataloader_opts:
+    batch_size: !ref <batch_size>
+
+enrol_dataloader_opts:
+    batch_size: !ref <batch_size>
+
+test_dataloader_opts:
+    batch_size: !ref <batch_size>
+
+compute_features: !name:speechbrain.lobes.models.Tacotron2.mel_spectogram
+    sample_rate: !ref <sample_rate>
+    hop_length: !ref <hop_length>
+    win_length: !ref <win_length>
+    n_fft: !ref <n_fft>
+    n_mels: !ref <n_mel_channels>
+    f_min: !ref <mel_fmin>
+    f_max: !ref <mel_fmax>
+    power: !ref <power>
+    normalized: False
+    norm: !ref <norm>
+    mel_scale: !ref <mel_scale>
+    compression: !ref <dynamic_range_compression>
+
+mean_var_norm: !new:speechbrain.processing.features.InputNormalization
+    norm_type: sentence
+    std_norm: False
+
+embedding_model: !new:speechbrain.lobes.models.ECAPA2.ECAPA2
+    input_size: !ref <n_mel_channels>
+    lin_neurons: !ref <emb_dim>
+    channels: !ref <ecapa2_channels>
+    attention_channels: !ref <attention_channels>
+
+pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
+    collect_in: !ref <save_folder>
+    loadables:
+        embedding_model: !ref <embedding_model>
+    paths:
+        embedding_model: !ref <pretrain_path>/embedding_model.ckpt
