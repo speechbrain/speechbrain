@@ -25,7 +25,7 @@ data_folder: !PLACEHOLDER # e,g./path/to/Myst/data
 train_splits: ["train"]
 dev_splits: ["development"]
 test_splits: ["test"]
-skip_prep: False
+skip_prep: True
 train_csv: !ref <output_folder>/train.csv
 valid_csv: !ref <output_folder>/development.csv
 test_csv: !ref <output_folder>/test.csv
@@ -38,7 +38,7 @@ asr_model: "openai/whisper-large-v3"
 ckpt_interval_minutes: 1 # save checkpoint every N min
 
 ############################## Training Parameters #############################
-freeze_encoder: True
+freeze_encoder: False
 number_of_epochs: 1
 weight_decay: 0.01
 lr_whisper: 1e-5

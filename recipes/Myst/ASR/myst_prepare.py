@@ -2,9 +2,10 @@
 """
 Myst data preparation (SpeechBrain-style).
 
-This mirrors the API of `librispeech_prepare.py` while adding zero-shot
-WER filtering across all splits (train/valid/test).This step makes it
-possible to remove utterances with incorrect transcriptions present in the dataset.
+This mirrors the API of `librispeech_prepare.py` while optionally applying
+zero-shot WER filtering across all splits (train/valid/test). When enabled,
+this step removes utterances whose transcript is too far from a Whisper decode.
+This step is use to remove wrong transcription from the dataset.
 
 Outputs CSVs with columns:
     ID,duration,wav,spk_id,wrd
@@ -84,7 +85,6 @@ def _normalize_text(
     str
         Normalized text.
     """
-    print(normalizer)
     if not text:
         return text
     if normalizer is not None and callable(normalizer):
@@ -239,11 +239,10 @@ def _process_line(
         return None
 
     snt_id, spk_id = _derive_ids(audio_file, split_root)
-    print(txt)
     wrds = _normalize_text(txt, normalizer=normalizer)
-    print(wrds)
-    if "$" in wrds: # We have one utterance with $ that will raises errors later if we don't remove it now
-        wrds =  re.sub(r'\$(\d+)', r'\1 dollars', wrds)
+    if "$" in wrds:
+        # Replace the lone dollar pattern currently present in the corpus.
+        wrds = re.sub(r"\$(\d+)", r"\1 dollars", wrds)
     duration = _compute_duration(audio_file)
 
     # Skip files longer than 30s or shorter than a second
@@ -500,7 +499,6 @@ def prepare_myst(
         return
 
     resolved_normalizer = normalizer
-    shared_asr_for_norm: Optional[object] = None
     if resolved_normalizer is None:
         try:
             processor = AutoProcessor.from_pretrained(asr_model)
@@ -560,9 +558,14 @@ def prepare_myst(
                 asr_model,
                 device,
                 normalizer=resolved_normalizer,
-                asr_instance=shared_asr_for_norm,
             )
-        logger.info(f"After WER filtering {len(rows)} audio files for split '{split_name}'")
+            logger.info(
+                f"After WER filtering {len(rows)} audio files for split '{split_name}'"
+            )
+        else:
+            logger.info(
+                f"Collected {len(rows)} audio files for split '{split_name}'"
+            )
 
         # Deterministic order
         rows.sort(key=lambda r: (r.spk_id, r.snt_id))

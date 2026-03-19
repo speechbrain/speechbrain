@@ -31,6 +31,8 @@ installed in your environment (see extra-requirements.txt)**
 
 In accordance with the methodology presented in [1], we offer an optional WER filtering mechanism. This filters out all utterances that exceed a specified threshold, which may result in a longer data preparation time, as every file must be decoded using a pre-trained Whisper model. We highly recommend running the data preparation process only once and saving the resulting CSV files for future use.
 
+Set `enable_wer_filter: False` in the recipe YAML to skip this step while keeping the same preparation script and config file.
+
 Note that this data filtering will take couple of hours to run.
 
 [1] A. A. Attia et al., “Kid-whisper: Towards bridging the performance gap in automatic speech recognition for children vs. adults,” in *Proceedings of the AAAI/ACM Conference on AI, Ethics, and Society*, vol. 7, 2024, pp. 74–80.

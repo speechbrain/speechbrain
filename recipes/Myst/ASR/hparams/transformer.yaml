@@ -41,7 +41,9 @@ test_csv: !ref <output_folder>/test.csv
 
 ckpt_interval_minutes: 30 # save checkpoint every N min
 
-#Data preparation
+# Data preparation
+enable_wer_filter: False
+wer_threshold: 30.0
 asr_model: "openai/whisper-large-v3"
 ####################### Training Parameters ####################################
 

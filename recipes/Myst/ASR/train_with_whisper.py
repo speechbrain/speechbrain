@@ -275,42 +275,24 @@ if __name__ == "__main__":
     )
     # Defining tokenizer and loading it
     tokenizer = hparams["whisper"].tokenizer
-    # Dataset prep (parsing Myst) depeding on if we have WER filtering or not
-    try:
-        from myst_prepare import prepare_myst  # noqa
+    from myst_prepare import prepare_myst  # noqa
 
-        # multi-gpu (ddp) save data preparation
-        run_on_main(
-            prepare_myst,
-            kwargs={
-                "data_folder": hparams["data_folder"],
-                "save_folder": hparams["output_folder"],
-                "tr_splits": hparams["train_splits"],
-                "dev_splits": hparams["dev_splits"],
-                "te_splits": hparams["test_splits"],
-                "enable_wer_filter": hparams["enable_wer_filter"],
-                "wer_threshold": hparams["wer_threshold"],
-                "asr_model": hparams["asr_model"],
-                "normalizer": tokenizer.normalize,
-                "skip_prep": hparams["skip_prep"],
-            },
-        )
-    except:
-        from myst_prepare_no_filtering import prepare_myst_no_filtering  # noqa
-        # multi-gpu (ddp) save data preparation
-        run_on_main(
-            prepare_myst_no_filtering,
-            kwargs={
-                "data_folder": hparams["data_folder"],
-                "save_folder": hparams["output_folder"],
-                "tr_splits": hparams["train_splits"],
-                "dev_splits": hparams["dev_splits"],
-                "te_splits": hparams["test_splits"],
-                "asr_model": hparams["asr_model"],
-                "normalizer": tokenizer.normalize,
-                "skip_prep": hparams["skip_prep"],
-            },
-        )
+    # multi-gpu (ddp) safe data preparation
+    run_on_main(
+        prepare_myst,
+        kwargs={
+            "data_folder": hparams["data_folder"],
+            "save_folder": hparams["output_folder"],
+            "tr_splits": hparams["train_splits"],
+            "dev_splits": hparams["dev_splits"],
+            "te_splits": hparams["test_splits"],
+            "enable_wer_filter": hparams["enable_wer_filter"],
+            "wer_threshold": hparams["wer_threshold"],
+            "asr_model": hparams["asr_model"],
+            "normalizer": tokenizer.normalize,
+            "skip_prep": hparams["skip_prep"],
+        },
+    )
 
 
     # here we create the datasets objects as well as tokenization and encoding

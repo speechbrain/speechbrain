@@ -388,57 +388,30 @@ if __name__ == "__main__":
     # create ddp_group with the right communication protocol
     sb.utils.distributed.ddp_init_group(run_opts)
 
-    # 1.  # Dataset prep (parsing Myst)
-    try:
+    from myst_prepare import prepare_myst  # noqa
 
-        from myst_prepare import prepare_myst  # noqa
+    # Create experiment directory
+    sb.create_experiment_directory(
+        experiment_directory=hparams["output_folder"],
+        hyperparams_to_save=hparams_file,
+        overrides=overrides,
+    )
 
-        # Create experiment directory
-        sb.create_experiment_directory(
-            experiment_directory=hparams["output_folder"],
-            hyperparams_to_save=hparams_file,
-            overrides=overrides,
-        )
-
-        # multi-gpu (ddp) save data preparation
-        run_on_main(
-            prepare_myst,
-            kwargs={
-                "data_folder": hparams["data_folder"],
-                "save_folder": hparams["output_folder"],
-                "tr_splits": hparams["train_splits"],
-                "dev_splits": hparams["dev_splits"],
-                "te_splits": hparams["test_splits"],
-                "enable_wer_filter": hparams["enable_wer_filter"],
-                "wer_threshold": hparams["wer_threshold"],
-                "asr_model": hparams["asr_model"],
-                "skip_prep": hparams["skip_prep"],
-            },
-        )
-    except:
-
-        from myst_prepare_no_filtering import prepare_myst_no_filtering  # noqa
-
-        # Create experiment directory
-        sb.create_experiment_directory(
-            experiment_directory=hparams["output_folder"],
-            hyperparams_to_save=hparams_file,
-            overrides=overrides,
-        )
-
-        # multi-gpu (ddp) save data preparation
-        run_on_main(
-            prepare_myst_no_filtering,
-            kwargs={
-                "data_folder": hparams["data_folder"],
-                "save_folder": hparams["output_folder"],
-                "tr_splits": hparams["train_splits"],
-                "dev_splits": hparams["dev_splits"],
-                "te_splits": hparams["test_splits"],
-                "asr_model": hparams["asr_model"],
-                "skip_prep": hparams["skip_prep"],
-            },
-        )
+    # multi-gpu (ddp) safe data preparation
+    run_on_main(
+        prepare_myst,
+        kwargs={
+            "data_folder": hparams["data_folder"],
+            "save_folder": hparams["output_folder"],
+            "tr_splits": hparams["train_splits"],
+            "dev_splits": hparams["dev_splits"],
+            "te_splits": hparams["test_splits"],
+            "enable_wer_filter": hparams["enable_wer_filter"],
+            "wer_threshold": hparams["wer_threshold"],
+            "asr_model": hparams["asr_model"],
+            "skip_prep": hparams["skip_prep"],
+        },
+    )
 
     # here we create the datasets objects as well as tokenization and encoding
     (
