@@ -1,0 +1,220 @@
+# ############################################################################
+# Model: SpeechLLM-based E2E ASR using pre-extracted SSL features
+# Task : Large-scale ASR on LibriSpeech 960h with an LLM decoder
+# Authors:
+# * Adel Moumen, 2025
+# ############################################################################
+
+# Seed must be set at the top before objects with parameters are created
+seed: 3407
+__set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
+
+####################### Experiment Configuration ###########################
+
+experiment_name: speechllm_ssl_feats
+output_folder: !ref results/<experiment_name>/<seed>
+output_wer_folder: !ref <output_folder>/wer_results
+save_folder: !ref <output_folder>/save
+train_log: !ref <output_folder>/train_log.txt
+feats_cache_dir: !PLACEHOLDER
+use_feats: True  # Use pre-extracted SSL features from `feats_cache_dir`
+ckpt_interval_minutes: 15
+
+####################### Data Configuration #################################
+
+data_folder: !PLACEHOLDER  # e.g., /path/to/LibriSpeech
+train_splits: ["train-clean-100", "train-clean-360", "train-other-500"]
+dev_splits: ["dev-clean"]
+test_splits: ["test-clean", "test-other"]
+skip_prep: False
+csv_folder: !ref <output_folder>
+train_csv: !ref <csv_folder>/train.csv
+valid_csv: !ref <csv_folder>/dev-clean.csv
+test_csv:
+    - !ref <csv_folder>/test-clean.csv
+    - !ref <csv_folder>/test-other.csv
+
+####################### Model Paths & Configuration ########################
+
+# LLM Configuration
+llm_path: !PLACEHOLDER  # e.g., /path/to/meta-llama/Llama-3.2-1B
+llm_emb_size: 2048
+
+####################### Training Hyperparameters ###########################
+
+number_of_epochs: 1
+batch_size: 32  # Only used if dynamic batching is off
+grad_accumulation_factor: 5
+sorting: random
+num_workers: 0
+precision: bf16  # Options: bf16, fp16, fp32
+eval_precision: bf16
+max_grad_norm: 1.0
+
+####################### Learning Rate & Optimization ######################
+
+initial_lr: 0.0005
+final_lr: 0.00001
+weight_decay: 0.0
+
+####################### Feature & Audio Parameters #########################
+
+downsampling_factor: 5  # Used to downsample frames before LLM projection
+
+####################### Dynamic Batching Configuration ######################
+
+# This setup works well for A100 80GB GPU; adapt to your needs
+# Turn off dynamic batching if needed (training speed will decrease)
+dynamic_batching: True
+max_batch_length_train: 400
+max_batch_length_val: 100  # Reduced for validation due to wider beam (VRAM)
+num_bucket: 200
+shuffle: True  # Re-creates batches at each epoch by shuffling examples
+batch_ordering: random
+max_batch_ex: 256
+
+dynamic_batch_sampler_train:
+    max_batch_length: !ref <max_batch_length_train>
+    num_buckets: !ref <num_bucket>
+    shuffle: !ref <shuffle>
+    batch_ordering: !ref <batch_ordering>
+    max_batch_ex: !ref <max_batch_ex>
+
+dynamic_batch_sampler_valid:
+    max_batch_length: !ref <max_batch_length_val>
+    num_buckets: !ref <num_bucket>
+    shuffle: !ref <shuffle>
+    batch_ordering: !ref <batch_ordering>
+    max_batch_ex: !ref <max_batch_ex>
+
+####################### DataLoader Configuration ##########################
+ignore_index: -100
+test_batch_size: 1
+
+# Dataloader options
+train_dataloader_opts:
+    batch_size: !ref <batch_size>
+    shuffle: True
+    num_workers: !ref <num_workers>
+    collate_fn: !name:speechbrain.dataio.batch.PaddedBatch
+        per_key_padding_kwargs:
+            sig:
+                value: 0
+            tokens_eos:
+                value: !ref <ignore_index>
+
+valid_dataloader_opts:
+    batch_size: !ref <test_batch_size>
+    num_workers: 0
+    collate_fn: !name:speechbrain.dataio.batch.PaddedBatch
+        per_key_padding_kwargs:
+            sig:
+                value: 0
+            tokens_eos:
+                value: !ref <ignore_index>
+
+test_dataloader_opts:
+    batch_size: !ref <test_batch_size>
+    num_workers: 0
+    collate_fn: !name:speechbrain.dataio.batch.PaddedBatch
+        per_key_padding_kwargs:
+            sig:
+                value: 0
+            tokens_eos:
+                value: !ref <ignore_index>
+
+####################### Model Architecture Parameters #######################
+lora_rank: 16
+
+# Output & Decoding Parameters
+# The user needs to set the bos_index, eos_index and pad_token.
+# If a value is None, we won't use the corresponding token.
+# Current template is:
+# <|start_of_audio|> audio_feats <|end_of_audio|> <prompt> <bos_index> txt tokens <eos_index>
+bos_index: !PLACEHOLDER # 0
+eos_index: !PLACEHOLDER # 0
+pad_token: !PLACEHOLDER # 128256
+prompt: "Transcribe speech to text."
+
+####################### Model Components ####################################
+
+activation: !name:speechbrain.nnet.activations.ReLU
+dnn_layers: 2
+dnn_neurons: !ref <llm_emb_size>
+proj: !new:speechbrain.lobes.models.VanillaNN.VanillaNN
+    input_shape: [null, null, 5120] # 1024 * downsampling_factor
+    activation: !ref <activation>
+    dnn_blocks: !ref <dnn_layers>
+    dnn_neurons: !ref <dnn_neurons>
+
+backbone_llm: !new:speechbrain.integrations.huggingface.llama.LLaMA
+    source: !ref <llm_path>
+    save_path: !ref <save_folder>
+    freeze: True
+    attn_implementation: flash_attention_2
+    device: cuda
+    torch_dtype: !name:torch.bfloat16
+    additional_special_tokens:
+        - "<|start_of_audio|>"
+        - "<|end_of_audio|>"
+    output_hidden_states: False
+
+llm: !new:speechbrain.nnet.adapters.AdaptedModel
+    model_to_adapt: !ref <backbone_llm>
+    adapter_class: !name:speechbrain.nnet.adapters.LoRA
+    all_linear: True
+    adapter_kwargs:
+        rank: !ref <lora_rank>
+
+feat_downsampler: !new:speechbrain.lobes.downsampling.ConcatDownsampler
+    downsampling_factor: !ref <downsampling_factor>
+
+searcher: !new:speechbrain.decoders.seq2seq.S2SHuggingFaceLLMGreedySearcher
+    llm_model: !ref <llm>
+    temperature: 0.0  # 0.0 => true greedy (deterministic). >0 => stochastic sampling
+    min_decode_ratio: 0.0
+    max_decode_ratio: 1.0
+    bos_index: !ref <bos_index>
+    eos_index: !ref <eos_index>
+
+modules:
+    feat_downsampler: !ref <feat_downsampler>
+    llm: !ref <llm>
+    proj: !ref <proj>
+    searcher: !ref <searcher>
+
+model: !new:torch.nn.ModuleList
+    - [!ref <llm>, !ref <proj>]
+
+####################### Optimizers & Schedulers ############################
+
+opt: !name:torch.optim.AdamW
+    lr: !ref <initial_lr>
+    weight_decay: !ref <weight_decay>
+
+scheduler: !new:speechbrain.nnet.schedulers.LinearScheduler
+    initial_value: !ref <initial_lr>
+    final_value: !ref <final_lr>
+    epoch_count: !ref <number_of_epochs>
+
+####################### Checkpointing & Logging #############################
+
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+    checkpoints_dir: !ref <save_folder>
+    recoverables:
+        llm: !ref <llm>
+        proj: !ref <proj>
+        counter: !ref <epoch_counter>
+
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+    limit: !ref <number_of_epochs>
+
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+    save_file: !ref <train_log>
+
+####################### Metrics #############################################
+
+cer_computer: !name:speechbrain.utils.metric_stats.ErrorRateStats
+    split_tokens: True
+
+error_rate_computer: !name:speechbrain.utils.metric_stats.ErrorRateStats

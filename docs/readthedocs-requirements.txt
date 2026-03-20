@@ -4,4 +4,4 @@
 
 -r ../requirements.txt
 -r docs-requirements.txt
-torch==2.8.0
+torch==2.9.0

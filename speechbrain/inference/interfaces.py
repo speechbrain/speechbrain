@@ -19,7 +19,6 @@ import warnings
 from types import SimpleNamespace
 
 import torch
-import torchaudio
 from hyperpyyaml import load_hyperpyyaml
 from torch.nn import (
     DataParallel as DP,
@@ -27,8 +26,10 @@ from torch.nn import (
 )
 from torch.nn.parallel import DistributedDataParallel as DDP
 
+from speechbrain.dataio import audio_io
 from speechbrain.dataio.batch import PaddedBatch, PaddedData
 from speechbrain.dataio.preprocess import AudioNormalizer
+from speechbrain.utils.autocast import AMPConfig, TorchAutocast
 from speechbrain.utils.data_pipeline import DataPipeline
 from speechbrain.utils.data_utils import split_path
 from speechbrain.utils.distributed import infer_device
@@ -276,6 +277,26 @@ class Pretrained(torch.nn.Module):
         if self.device is None:
             self.device = infer_device()
 
+        # Set device type based on device string
+        if self.device == "cpu":
+            self.device_type = "cpu"
+        elif "cuda" in self.device:
+            self.device_type = "cuda"
+            # Set cuda device based on device string
+            try:
+                _, device_index = self.device.split(":")
+                torch.cuda.set_device(int(device_index))
+            except (ValueError, IndexError, TypeError) as e:
+                logger.warning(
+                    f"Could not parse CUDA device string '{self.device}': {e}. Falling back to device 0."
+                )
+                torch.cuda.set_device(0)
+
+        precision_dtype = AMPConfig.from_name(self.precision).dtype
+        self.inference_ctx = TorchAutocast(
+            device_type=self.device_type, dtype=precision_dtype
+        )
+
         # Put modules on the right device, accessible with dot notation
         self.mods = torch.nn.ModuleDict(modules)
         for module in self.mods.values():
@@ -332,7 +353,7 @@ class Pretrained(torch.nn.Module):
         """
         source, fl = split_path(path)
         path = fetch(fl, source=source, savedir=savedir)
-        signal, sr = torchaudio.load(str(path), channels_first=False)
+        signal, sr = audio_io.load(str(path), channels_first=False)
         signal = signal.to(self.device)
         return self.audio_normalizer(signal, sr)
 

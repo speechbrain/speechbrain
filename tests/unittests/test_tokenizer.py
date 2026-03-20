@@ -143,3 +143,14 @@ def test_tokenizer():
     ]
     words_seq = spm(hyps_list, task="decode_from_list")
     assert words_seq == gt, "output not the same"
+
+
+def test_tokenizer_textfile(tmpdir):
+    """Test that the tokenizer can be initialized from a raw text file."""
+    from speechbrain.tokenizers.SentencePiece import SentencePiece
+
+    textpath = tmpdir / "test.txt"
+    textpath.write("Custom text file.\nTwo lines long.\n")
+
+    spm = SentencePiece(tmpdir, 19, text_file=textpath)
+    assert spm.sp.vocab_size() == 19

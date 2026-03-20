@@ -5,7 +5,9 @@ Authors
  * Mirco Ravanelli 2020
  * Peter Plantinga 2020
  * Loren Lugosch 2020
+ * Ge Li 2022
  * Shucong Zhang 2023
+ * Adel Moumen 2026
 """
 
 import math
@@ -300,7 +302,6 @@ class LinearWarmupScheduler:
     from the initial lr set in the optimizer to 0, after
     a warmup period during which it increases linearly
     from 0 to the initial lr set in the optimizer.
-    * Ge Li 2022
 
     Arguments
     ---------
@@ -309,22 +310,22 @@ class LinearWarmupScheduler:
     num_warmup_steps : int
         Number of warmup steps. The learning rate reaches lr0 at
         ``num_warmup_steps + 1`` step.
-    num_training_steps : int
+    num_training_steps: int
         The total number of training steps.
 
     Example
     -------
-    >>> scheduler = LinearWarmupScheduler(1.0, 2, 4)
-    >>> scheduler.get_next_value()
+    >>> scheduler = LinearWarmupScheduler(1.0, 2, 10)
+    >>> scheduler.calculate_lr(0)
     0.0
-    >>> scheduler.get_next_value()
+    >>> scheduler.calculate_lr(1)
     0.5
-    >>> scheduler.get_next_value()
+    >>> scheduler.calculate_lr(2)
     1.0
-    >>> scheduler.get_next_value()
-    0.5
-    >>> scheduler.get_next_value()
-    0.0
+    >>> scheduler.calculate_lr(3)
+    0.875
+    >>> scheduler.calculate_lr(4)
+    0.75
     """
 
     def __init__(self, initial_value, num_warmup_steps, num_training_steps):
@@ -332,6 +333,7 @@ class LinearWarmupScheduler:
         self.num_warmup_steps = num_warmup_steps
         self.num_training_steps = num_training_steps
         self.current_step = 0
+        self.current_lr = initial_value
 
     def calculate_lr(self, current_step):
         """Returns the current and new value for the hyperparameter.
@@ -357,11 +359,31 @@ class LinearWarmupScheduler:
             / float(max(1, self.num_training_steps - self.num_warmup_steps)),
         )
 
-    def get_next_value(self):
-        """Returns the next learning rate value for the hyperparameter."""
-        new_value = self.calculate_lr(self.current_step)
+    def __call__(self, opt):
+        """
+        Arguments
+        ---------
+        opt : optimizer
+            The optimizer to update using this scheduler.
+
+        Returns
+        -------
+        current_lr : float
+            The learning rate before the update.
+        lr : float
+            The learning rate after the update.
+        """
         self.current_step += 1
-        return new_value
+        current_lr = opt.param_groups[0]["lr"]
+
+        lr = self.calculate_lr(self.current_step)
+
+        # Changing the learning rate within the optimizer
+        for param_group in opt.param_groups:
+            param_group["lr"] = lr
+
+        self.current_lr = current_lr
+        return current_lr, lr
 
     @checkpoints.mark_as_saver
     def save(self, path):

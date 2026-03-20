@@ -1,8 +1,7 @@
 import os
 
-import torchaudio
-
 import speechbrain as sb
+from speechbrain.dataio import audio_io
 from speechbrain.utils.data_utils import get_all_files
 from speechbrain.utils.logger import get_logger
 
@@ -55,12 +54,12 @@ def _prepare_csv(folder, filelist, csv_file, max_length=None):
                 for line in filelist:
                     # Read file for duration/channel info
                     filename = os.path.join(folder, line.split()[-1])
-                    signal, rate = torchaudio.load(filename)
+                    signal, rate = audio_io.load(filename)
 
                     # Ensure only one channel
                     if signal.shape[0] > 1:
                         signal = signal[0].unsqueeze(0)
-                        torchaudio.save(filename, signal, rate)
+                        audio_io.save(filename, signal, rate)
 
                     ID, ext = os.path.basename(filename).split(".")
                     duration = signal.shape[1] / rate
@@ -77,7 +76,7 @@ def _prepare_csv(folder, filelist, csv_file, max_length=None):
                             new_filename = (
                                 filename[: -len(f".{ext}")] + f"_{i}.{ext}"
                             )
-                            torchaudio.save(
+                            audio_io.save(
                                 new_filename, signal[:, start:stop], rate
                             )
                             csv_row = (

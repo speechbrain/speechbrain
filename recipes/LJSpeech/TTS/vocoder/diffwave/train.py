@@ -10,10 +10,10 @@ import os
 import sys
 
 import torch
-import torchaudio
 from hyperpyyaml import load_hyperpyyaml
 
 import speechbrain as sb
+from speechbrain.dataio import audio_io
 from speechbrain.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -217,7 +217,7 @@ class DiffWaveBrain(sb.Brain):
             os.makedirs(target_path)
         file_name = f"{name}.wav"
         effective_file_name = os.path.join(target_path, file_name)
-        torchaudio.save(effective_file_name, data.cpu(), 22050)
+        audio_io.save(effective_file_name, data.cpu(), 22050)
 
 
 def dataio_prepare(hparams):

@@ -457,6 +457,12 @@ class Brain:
                 self.hparams.output_folder,
             )
 
+        self.raw_modules = (
+            self.modules.module
+            if hasattr(self.modules, "module")
+            else self.modules
+        )
+
     def print_trainable_parameters(self):
         """Prints the number of trainable parameters in the model."""
         total_trainable_params = 0

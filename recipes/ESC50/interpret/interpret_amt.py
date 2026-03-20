@@ -22,6 +22,7 @@ from hyperpyyaml import load_hyperpyyaml
 from torch.nn import functional as F
 
 import speechbrain as sb
+from speechbrain.dataio import audio_io
 from speechbrain.processing.NMF import spectral_phase
 from speechbrain.utils.distributed import run_on_main
 from speechbrain.utils.metric_stats import MetricStats
@@ -180,7 +181,7 @@ class InterpreterESC50Brain(sb.core.Brain):
             predicted_class_name = self.hparams.label_encoder.ind2lab[
                 pred_cl.item()
             ]
-            torchaudio.save(
+            audio_io.save(
                 os.path.join(
                     self.hparams.output_folder,
                     "audios_from_interpretation",
@@ -190,7 +191,7 @@ class InterpreterESC50Brain(sb.core.Brain):
                 self.hparams.sample_rate,
             )
 
-            torchaudio.save(
+            audio_io.save(
                 os.path.join(
                     self.hparams.output_folder,
                     "audios_from_interpretation",
@@ -267,25 +268,25 @@ class InterpreterESC50Brain(sb.core.Brain):
             exist_ok=True,
         )
 
-        torchaudio.save(
+        audio_io.save(
             os.path.join(out_folder, "mixture.wav"),
             mix.data.cpu(),
             self.hparams.sample_rate,
         )
 
-        torchaudio.save(
+        audio_io.save(
             os.path.join(out_folder, "source.wav"),
             s1.unsqueeze(0).data.cpu(),
             self.hparams.sample_rate,
         )
 
-        torchaudio.save(
+        audio_io.save(
             os.path.join(out_folder, "noise.wav"),
             s2.unsqueeze(0).data.cpu(),
             self.hparams.sample_rate,
         )
 
-        torchaudio.save(
+        audio_io.save(
             os.path.join(out_folder, "interpretation.wav"),
             x_int_sb.data.cpu(),
             self.hparams.sample_rate,
@@ -418,19 +419,19 @@ class InterpreterESC50Brain(sb.core.Brain):
         )
         plt.close()
 
-        torchaudio.save(
+        audio_io.save(
             os.path.join(out_folder, "reconstruction.wav"),
             xhat_tm.data.cpu(),
             self.hparams.sample_rate,
         )
 
-        torchaudio.save(
+        audio_io.save(
             os.path.join(out_folder, "reconstruction_masked.wav"),
             xhat_tm_masked.data.cpu(),
             self.hparams.sample_rate,
         )
 
-        torchaudio.save(
+        audio_io.save(
             os.path.join(out_folder, "true.wav"),
             wavs[0:1].data.cpu(),
             self.hparams.sample_rate,
@@ -590,7 +591,7 @@ def dataio_prep(hparams):
 
         wave_file = data_audio_folder + f"/{wav}"
 
-        sig, read_sr = torchaudio.load(wave_file)
+        sig, read_sr = audio_io.load(wave_file)
 
         # If multi-channels, downmix it to a mono channel
         sig = torch.squeeze(sig)

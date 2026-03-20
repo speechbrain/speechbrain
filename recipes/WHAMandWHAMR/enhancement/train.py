@@ -25,13 +25,13 @@ import sys
 import numpy as np
 import torch
 import torch.nn.functional as F
-import torchaudio
 from hyperpyyaml import load_hyperpyyaml
 from pesq import pesq
 from tqdm import tqdm
 
 import speechbrain as sb
 import speechbrain.nnet.schedulers as schedulers
+from speechbrain.dataio import audio_io
 from speechbrain.processing.features import spectral_magnitude
 from speechbrain.utils.distributed import run_on_main
 from speechbrain.utils.logger import get_logger
@@ -484,7 +484,7 @@ class Separation(sb.Brain):
         signal = predictions[0, :]
         signal = signal / signal.abs().max()
         save_file = os.path.join(save_path, f"item{snt_id}_sourcehat.wav")
-        torchaudio.save(
+        audio_io.save(
             save_file, signal.unsqueeze(0).cpu(), self.hparams.sample_rate
         )
 
@@ -492,7 +492,7 @@ class Separation(sb.Brain):
         signal = targets[0, :]
         signal = signal / signal.abs().max()
         save_file = os.path.join(save_path, f"item{snt_id}_source.wav")
-        torchaudio.save(
+        audio_io.save(
             save_file, signal.unsqueeze(0).cpu(), self.hparams.sample_rate
         )
 
@@ -500,7 +500,7 @@ class Separation(sb.Brain):
         signal = mixture[0][0, :]
         signal = signal / signal.abs().max()
         save_file = os.path.join(save_path, f"item{snt_id}_mix.wav")
-        torchaudio.save(
+        audio_io.save(
             save_file, signal.unsqueeze(0).cpu(), self.hparams.sample_rate
         )
 

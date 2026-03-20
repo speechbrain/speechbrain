@@ -34,7 +34,7 @@ our tests cover one PyTorch version only, _the latest_.
 
 ### [pre-commit.yml](https://github.com/speechbrain/speechbrain/blob/develop/.github/workflows/pre-commit.yml)
    > SpeechBrain pre-commit / pre-commit (pull_request)
-* python-version: '3.8'
+* python-version: '3.12'
 * run pre-commit action, configured in [.pre-commit-config.yaml](https://github.com/speechbrain/speechbrain/blob/develop/.pre-commit-config.yaml)
   * hook: https://github.com/pre-commit/pre-commit-hooks
     <br/> trailing-whitespace
@@ -51,10 +51,9 @@ our tests cover one PyTorch version only, _the latest_.
     <br/> yamllint; see: [.yamllint.yaml](https://github.com/speechbrain/speechbrain/blob/develop/.yamllint.yaml)
 
 ### [pythonapp.yml](https://github.com/speechbrain/speechbrain/blob/develop/.github/workflows/pythonapp.yml)
-   > SpeechBrain toolkit CI / Tests (3.7) (pull_request)<br/>
-   > SpeechBrain toolkit CI / Tests (3.8) (pull_request)<br/>
-   > SpeechBrain toolkit CI / Tests (3.9) (pull_request)
-* python-version: [3.7, 3.8, 3.9]
+   > SpeechBrain toolkit CI / Tests (3.10) (pull_request)<br/>
+   > SpeechBrain toolkit CI / Tests (3.13) (pull_request)
+* python-version: ["3.10", 3.13]
 * create fresh environment
   ```shell
   sudo apt-get install -y libsndfile1
@@ -69,11 +68,6 @@ our tests cover one PyTorch version only, _the latest_.
   # excerpts
   parser.addoption("--device", action="store", default="cpu")
   ...
-  try:
-    import numba  # noqa: F401
-  except ModuleNotFoundError:
-    collect_ignore.append("speechbrain/nnet/loss/transducer_loss.py")
-  ...
   ```
   * a. hook: Consistency tests with pytest
     <br/> `pytest tests/consistency`
@@ -86,7 +80,7 @@ our tests cover one PyTorch version only, _the latest_.
 
 ### [verify-docs-gen.yml](https://github.com/speechbrain/speechbrain/blob/develop/.github/workflows/verify-docs-gen.yml) [I.2.a]
    > Verify docs generation / docs (pull_request)
-* python-version: '3.8'
+* python-version: '3.12'
 * create fresh environment
   ```shell
   pip install -r requirements.txt
@@ -120,7 +114,7 @@ our tests cover one PyTorch version only, _the latest_.
 
 ### [release.yml](https://github.com/speechbrain/speechbrain/blob/develop/.github/workflows/release.yml)
    > Publish to PyPI
-* python-version: 3.8
+* python-version: 3.12
 * action: checkout to `main` branch
 * creates: `pypa/build` for binary wheel and source tarball
 * action: Publish to PyPI via `pypa/gh-action-pypi-publish@master`
@@ -148,8 +142,6 @@ our tests cover one PyTorch version only, _the latest_.
 The versions of tools used/hooked in these checks are controlled via [lint-requirements.txt](https://github.com/speechbrain/speechbrain/blob/develop/lint-requirements.txt), a nested dependency in [requirements.txt](https://github.com/speechbrain/speechbrain/blob/develop/requirements.txt).
 With major version releases of SpeechBrain, the versions of each hook should be updated—alongside requirement consistency in source, testing & builds incl. running spell-checking.
 
-_Note: [PyTorch statement](https://pytorch.org/get-started/locally/) on Python versions (as of 2022-11-09)_
-> _It is recommended that you use Python 3.6, 3.7 or 3.8_
 
 ## PyTest for reporting code coverage rates
 
@@ -164,7 +156,7 @@ pip install ctc_segmentation
 pip install pytest-cov
 
 # run the test (w/ duration reporting)
-pytest --durations=0 --cov=speechbrain --cov-context=test --doctest-modules speechbrain tests --ignore=speechbrain/nnet/loss/transducer_loss.py
+pytest --durations=0 --cov=speechbrain --cov-context=test --doctest-modules speechbrain tests
 ```
 Example: _After collecting 459 testing items, 4481/16782 statements are reported "missing" (73% coverage)._
 
@@ -178,7 +170,7 @@ Further reading:
 ---
 
 ```
-pytest --durations=0 --cov=speechbrain --cov-context=test --doctest-modules speechbrain tests --ignore=speechbrain/nnet/loss/transducer_loss.py
+pytest --durations=0 --cov=speechbrain --cov-context=test --doctest-modules speechbrain tests
 
 ---------- coverage: platform linux, python 3.9.12-final-0 -----------
 Name                                                      Stmts   Miss  Cover
@@ -224,7 +216,6 @@ speechbrain/nnet/containers.py                              139     14    90%
 speechbrain/nnet/linear.py                                   27      1    96%
 speechbrain/nnet/loss/si_snr_loss.py                         20     16    20% <== < 80%
 speechbrain/nnet/loss/stoi_loss.py                           81      1    99%
-speechbrain/nnet/loss/transducer_loss.py                    136    136     0% <== < 80%
 speechbrain/nnet/losses.py                                  323    112    65% <== < 80%
 speechbrain/nnet/normalization.py                           142      6    96%
 speechbrain/nnet/pooling.py                                 156     31    80%

@@ -34,10 +34,10 @@ import sys
 
 import numpy as np
 import torch
-import torchaudio
 from hyperpyyaml import load_hyperpyyaml
 
 import speechbrain as sb
+from speechbrain.dataio import audio_io
 from speechbrain.utils.data_utils import download_file
 from speechbrain.utils.distributed import run_on_main
 from speechbrain.utils.logger import get_logger
@@ -86,7 +86,7 @@ def compute_embeddings(params, wav_scp, outdir):
             for line in wavscp:
                 utt, wav_path = line.split()
                 out_file = f"{outdir}/{utt}.npy"
-                wav, _ = torchaudio.load(wav_path)
+                wav, _ = audio_io.load(wav_path)
                 data = wav.transpose(0, 1).squeeze(1).unsqueeze(0)
                 lens = torch.Tensor([data.shape[1]])
                 data, lens = (

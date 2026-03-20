@@ -8,6 +8,7 @@ All classes are implemented as `torch.nn.Module`, enabling end-to-end differenti
 Authors:
 - Peter Plantinga (2020)
 - Mirco Ravanelli (2023)
+- Gianfranco Dumoulin Bertucci (2025)
 """
 
 # Importing libraries
@@ -477,7 +478,7 @@ class SpeedPerturb(torch.nn.Module):
     >>> clean.shape
     torch.Size([1, 52173])
     >>> perturbed.shape
-    torch.Size([1, 46956])
+    torch.Size([1, 57971])
     """
 
     def __init__(self, orig_freq, speeds=[90, 100, 110], device="cpu"):
@@ -493,7 +494,7 @@ class SpeedPerturb(torch.nn.Module):
         for speed in self.speeds:
             config = {
                 "orig_freq": self.orig_freq,
-                "new_freq": self.orig_freq * speed // 100,
+                "new_freq": round(self.orig_freq * 100 / speed),
             }
             self.resamplers.append(Resample(**config))
 

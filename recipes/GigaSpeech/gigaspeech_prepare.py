@@ -18,9 +18,8 @@ import logging
 import os
 from dataclasses import dataclass
 
-import torchaudio
-
-from speechbrain.utils.parallel import parallel_map
+from speechbrain.dataio import audio_io
+from speechbrain.utils.parallel import get_available_cpu_count, parallel_map
 
 logger = logging.getLogger(__name__)
 FILLERS = [
@@ -223,9 +222,7 @@ def prepare_gigaspeech(
 
         nproc = 1
         if hf_multiprocess_load:
-            import multiprocessing
-
-            nproc = multiprocessing.cpu_count()
+            nproc = get_available_cpu_count()
 
         hf_dataset = load_dataset(
             "dataset.py",
@@ -528,7 +525,7 @@ def HF_process_line(row: dict, punctuation: bool, stopwords: list) -> list:
 
     # check reading the audio file ; HF may have some corrupted files
     try:
-        _ = torchaudio.info(audio_path)
+        _ = audio_io.info(audio_path)
     except Exception as e:
         logger.error(f"Failed reading {audio_path}: {e}")
         return None

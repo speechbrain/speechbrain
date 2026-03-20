@@ -171,15 +171,6 @@ This document provides an overview of the performance achieved on key datasets a
  | [`recipes/IWSLT22_lowresource/AST/transformer/hparams/train_samu_nllb_st.yaml`](recipes/IWSLT22_lowresource/AST/transformer/hparams/train_samu_nllb_st.yaml) | [here](https://www.dropbox.com/sh/ekkpl9c3kxsgllj/AABa0q2LrJe_o7JF-TTbfxZ-a?dl=0) | - | 11.32 |
 
 
-## KsponSpeech Dataset
-
-### ASR
-
-| Model | Checkpoints | HuggingFace | clean-WER | others-WER |
-| --------| --------| --------| --------| --------|
- | [`recipes/KsponSpeech/ASR/transformer/hparams/conformer_medium.yaml`](recipes/KsponSpeech/ASR/transformer/hparams/conformer_medium.yaml) | [here](https://www.dropbox.com/sh/uibokbz83o8ybv3/AACtO5U7mUbu_XhtcoOphAjza?dl=0) | [here](https://huggingface.co/speechbrain/asr-conformer-transformerlm-ksponspeech) | 20.78% | 25.73% |
-
-
 ## LibriMix Dataset
 
 ### Separation

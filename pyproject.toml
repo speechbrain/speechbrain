@@ -21,8 +21,10 @@ dependencies = [
     "joblib>=0.14.1",
     "numpy>=1.17.0",
     "packaging",
+    "requests>=2.20.0",
     "scipy>=1.4.1",
     "sentencepiece>=0.1.91",
+    "soundfile>=0.12.1",
     "torch>=2.1.0",
     "torchaudio>=2.1.0",
     "tqdm>=4.42.0",
@@ -112,7 +114,7 @@ ignore = [
 combine-as-imports = true
 force-wrap-aliases = true
 known-first-party = ["speechbrain"]
-known-third-party = ["torch", "torchaudio", "numpy", "scipy", "hyperpyyaml", "joblib", "packaging", "sentencepiece", "tqdm", "huggingface_hub"]
+known-third-party = ["torch", "torchaudio", "numpy", "scipy", "hyperpyyaml", "joblib", "packaging", "requests", "sentencepiece", "tqdm", "huggingface_hub"]
 split-on-trailing-comma = false
 
 [tool.ruff.lint.per-file-ignores]

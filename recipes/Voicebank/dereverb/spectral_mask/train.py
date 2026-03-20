@@ -12,11 +12,11 @@ import os
 import sys
 
 import torch
-import torchaudio
 from hyperpyyaml import load_hyperpyyaml
 from pesq import pesq
 
 import speechbrain as sb
+from speechbrain.dataio import audio_io
 from speechbrain.nnet.loss.stoi_loss import stoi_loss
 from speechbrain.processing.features import spectral_magnitude
 from speechbrain.utils.distributed import run_on_main
@@ -84,7 +84,7 @@ class SEBrain(sb.Brain):
                     enhance_path = os.path.join(
                         self.hparams.enhanced_folder, name
                     )
-                    torchaudio.save(
+                    audio_io.save(
                         enhance_path,
                         torch.unsqueeze(pred_wav[: int(length)].cpu(), 0),
                         16000,
