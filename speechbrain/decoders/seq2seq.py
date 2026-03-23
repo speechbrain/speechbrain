@@ -477,7 +477,10 @@ class S2SWhisperGreedySearcher(S2SGreedySearcher):
         self.prefix = prefix
         self.prompt = prompt
 
-        self.max_attn_tokens = self.model.model.decoder.config.max_length
+        config = self.model.model.decoder.config
+        self.max_attn_tokens = getattr(
+            config, "max_length", getattr(config, "max_target_positions", 448)
+        )
         self.sample_len = sample_len or self.max_attn_tokens // 2
 
         self.initial_tokens = self._get_initial_tokens()
@@ -1998,7 +2001,10 @@ class S2SWhisperBeamSearcher(S2SBeamSearcher):
         self.prefix = prefix
         self.prompt = prompt
 
-        self.max_attn_tokens = self.model.model.decoder.config.max_length
+        config = self.model.model.decoder.config
+        self.max_attn_tokens = getattr(
+            config, "max_length", getattr(config, "max_target_positions", 448)
+        )
         self.sample_len = sample_len or self.max_attn_tokens // 2
 
         self.initial_tokens = self._get_initial_tokens()
