@@ -70,12 +70,27 @@ class InterpreterESC50Brain(sb.core.Brain):
         # Expand to have 3 channels
         net_input = net_input[:, None, ...].expand(-1, 3, -1, -1)
         if config.model_type == "focalnet":
+            # Register hooks to capture modulators from each stage
+            captured_modulators = []
+            hooks = []
+            for encoder_stage in self.hparams.embedding_model.focalnet.encoder.stages:
+                modulation = encoder_stage.layers[-1].modulation
+
+                def _proj_hook(module, input, output, store=captured_modulators):
+                    store.append(output)
+
+                hooks.append(
+                    modulation.projection_context.register_forward_hook(_proj_hook)
+                )
+
             hcat = self.hparams.embedding_model(net_input).feature_maps[-1]
             embeddings = hcat.mean(dim=(-1, -2))
-            modulators = [
-                encoder_stage.layers[-1].modulation.modulator
-                for encoder_stage in self.hparams.embedding_model.focalnet.encoder.stages
-            ]
+
+            # Remove hooks
+            for h in hooks:
+                h.remove()
+
+            modulators = captured_modulators
             modulators = [x.norm(dim=-3, p=2, keepdim=True) for x in modulators]
             # Upsample spatial dimensions
             modulators = [

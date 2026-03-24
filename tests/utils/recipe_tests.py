@@ -596,8 +596,9 @@ def run_recipe_tests(
         if not spec_outfold:
             cmd = cmd + " --output_folder=" + output_fold
 
-        # add --debug if no do_checks to save testing time
-        if not do_checks:
+        # add --debug when there is no performance criterion to save testing time
+        has_performance_check = "performance_check" in check_str
+        if not do_checks or not has_performance_check:
             cmd += " --debug --debug_persistently"
 
         # Print message (if any)
