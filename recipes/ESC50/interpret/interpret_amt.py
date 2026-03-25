@@ -137,9 +137,9 @@ class InterpreterESC50Brain(sb.core.Brain):
         predictions = self.hparams.classifier(embeddings).squeeze(1)
         class_pred = predictions.argmax(1)
 
-        threshold = xhat.reshape(len(xhat), -1).quantile(
+        threshold = xhat.reshape(len(xhat), -1).float().quantile(
             self.hparams.quantile, dim=-1
-        )[:, None, None, None]
+        )[:, None, None, None].to(xhat.dtype)
         xhat[xhat < threshold] = -float("inf")
         xhat[xhat >= threshold] = float("inf")
 

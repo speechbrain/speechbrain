@@ -170,9 +170,9 @@ def save(path, src, sample_rate, channels_first=True, subtype=None):
     try:
         # Convert to numpy if needed
         if isinstance(src, torch.Tensor):
-            audio_np = src.detach().cpu().numpy()
+            audio_np = src.detach().cpu().float().numpy()
         else:
-            audio_np = np.asarray(src)
+            audio_np = np.asarray(src, dtype=np.float32)
 
         # Convert to (frames, channels) if channels_first is True
         if audio_np.ndim == 2 and channels_first:
