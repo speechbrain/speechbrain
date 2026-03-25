@@ -73,14 +73,20 @@ class InterpreterESC50Brain(sb.core.Brain):
             # Register hooks to capture modulators from each stage
             captured_modulators = []
             hooks = []
-            for encoder_stage in self.hparams.embedding_model.focalnet.encoder.stages:
+            for (
+                encoder_stage
+            ) in self.hparams.embedding_model.focalnet.encoder.stages:
                 modulation = encoder_stage.layers[-1].modulation
 
-                def _proj_hook(module, input, output, store=captured_modulators):
+                def _proj_hook(
+                    module, input, output, store=captured_modulators
+                ):
                     store.append(output)
 
                 hooks.append(
-                    modulation.projection_context.register_forward_hook(_proj_hook)
+                    modulation.projection_context.register_forward_hook(
+                        _proj_hook
+                    )
                 )
 
             hcat = self.hparams.embedding_model(net_input).feature_maps[-1]
@@ -137,9 +143,12 @@ class InterpreterESC50Brain(sb.core.Brain):
         predictions = self.hparams.classifier(embeddings).squeeze(1)
         class_pred = predictions.argmax(1)
 
-        threshold = xhat.reshape(len(xhat), -1).float().quantile(
-            self.hparams.quantile, dim=-1
-        )[:, None, None, None].to(xhat.dtype)
+        threshold = (
+            xhat.reshape(len(xhat), -1)
+            .float()
+            .quantile(self.hparams.quantile, dim=-1)[:, None, None, None]
+            .to(xhat.dtype)
+        )
         xhat[xhat < threshold] = -float("inf")
         xhat[xhat >= threshold] = float("inf")
 

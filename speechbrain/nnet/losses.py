@@ -60,9 +60,7 @@ def transducer_loss(
     target_lens = (target_lens * targets.shape[1]).round().int()
 
     try:
-        from speechbrain.integrations.numba.transducer_loss import (
-            Transducer,
-        )
+        from speechbrain.integrations.numba.transducer_loss import Transducer
     except ImportError as exc:  # pragma: no cover
         err_msg = (
             "The Numba-based Transducer loss implementation could not be imported.\n"
