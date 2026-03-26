@@ -2126,8 +2126,8 @@ class S2SWhisperBeamSearcher(S2SBeamSearcher):
 
         Arguments
         ---------
-        past_key_values : tuple or DynamicCache
-            The key-value cache.
+        past_key_values : tuple
+            The key-value cache (tuple or DynamicCache object from transformers).
         beam_idx : torch.Tensor
             The index of the previous path.
 
