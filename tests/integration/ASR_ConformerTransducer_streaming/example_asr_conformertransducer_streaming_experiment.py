@@ -9,10 +9,13 @@ Given the tiny dataset, the expected behavior is to overfit the training dataset
 
 import pathlib
 
+import pytest
 import torch
 from hyperpyyaml import load_hyperpyyaml
 
 import speechbrain as sb
+
+pytest.importorskip("numba")
 
 
 class ConformerTransducerBrain(sb.Brain):
