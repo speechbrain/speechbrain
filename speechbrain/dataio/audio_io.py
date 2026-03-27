@@ -21,7 +21,9 @@ Example
 1.0
 
 Authors
- * Peter Plantinga 2025
+-------
+ * Peter Plantinga, 2025
+ * Adel Moumen, 2026
 """
 
 import dataclasses
@@ -29,6 +31,71 @@ import dataclasses
 import numpy as np
 import soundfile as sf
 import torch
+
+
+def _convert_integer_numpy_for_save(audio_np):
+    """Convert integer arrays to a soundfile-supported integer dtype.
+
+    Using float32 for integer waveforms changes libsndfile write semantics for
+    PCM subtypes, because float writes are normalized to [-1.0, 1.0].
+    """
+
+    if audio_np.size == 0:
+        return audio_np.astype(np.int16)
+
+    min_value = audio_np.min()
+    max_value = audio_np.max()
+
+    if (
+        np.iinfo(np.int16).min <= min_value
+        and max_value <= np.iinfo(np.int16).max
+    ):
+        return audio_np.astype(np.int16)
+
+    if (
+        np.iinfo(np.int32).min <= min_value
+        and max_value <= np.iinfo(np.int32).max
+    ):
+        return audio_np.astype(np.int32)
+
+    raise ValueError(
+        "Integer audio values must fit in int16 or int32 for soundfile.write."
+    )
+
+
+def _to_soundfile_write_array(src):
+    """Convert tensors/arrays to a soundfile-supported numpy dtype."""
+
+    if isinstance(src, torch.Tensor):
+        src = src.detach().cpu()
+
+        if src.dtype in (
+            torch.float32,
+            torch.float64,
+            torch.int16,
+            torch.int32,
+        ):
+            return src.numpy()
+
+        if torch.is_floating_point(src):
+            return src.to(torch.float32).numpy()
+
+        return _convert_integer_numpy_for_save(src.numpy())
+
+    audio_np = np.asarray(src)
+
+    if audio_np.dtype in (np.float32, np.float64, np.int16, np.int32):
+        return audio_np
+
+    if np.issubdtype(audio_np.dtype, np.floating):
+        return audio_np.astype(np.float32)
+
+    if np.issubdtype(audio_np.dtype, np.integer) or np.issubdtype(
+        audio_np.dtype, np.bool_
+    ):
+        return _convert_integer_numpy_for_save(audio_np)
+
+    return np.asarray(src, dtype=np.float32)
 
 
 @dataclasses.dataclass
@@ -168,11 +235,7 @@ def save(path, src, sample_rate, channels_first=True, subtype=None):
         Default: None.
     """
     try:
-        # Convert to numpy if needed
-        if isinstance(src, torch.Tensor):
-            audio_np = src.detach().cpu().float().numpy()
-        else:
-            audio_np = np.asarray(src, dtype=np.float32)
+        audio_np = _to_soundfile_write_array(src)
 
         # Convert to (frames, channels) if channels_first is True
         if audio_np.ndim == 2 and channels_first:
