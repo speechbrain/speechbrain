@@ -429,6 +429,7 @@ def run_recipe_tests(
     do_checks=True,
     download_only=False,
     run_tests_with_checks_only=False,
+    skip_passed=False,
 ):
     """Runs the recipes tests.
 
@@ -463,6 +464,10 @@ def run_recipe_tests(
         If True skips running/checking tests after downloading relevant pre-trained data (prepare for offline testing).
     run_tests_with_checks_only: bool (default: False)
         If True skips all tests that do not have performance check criteria defined.
+    skip_passed: bool (default: False)
+        If True, skips recipes that have already passed in a previous run.
+        A `.passed` marker file is written in each recipe's output folder
+        upon success. Recipes with this marker are skipped on subsequent runs.
 
     Returns
     -------
@@ -535,6 +540,17 @@ def run_recipe_tests(
         stdout_file = os.path.join(output_fold, "stdout.txt")
         stderr_file = os.path.join(output_fold, "stderr.txt")
 
+        # Skip already passed recipes
+        passed_flag = os.path.join(output_fold, ".passed")
+        if skip_passed and os.path.exists(passed_flag):
+            logger.info(
+                "(%i/%i) Skipping %s (already passed).",
+                i + 1,
+                len(test_script.keys()),
+                recipe_id,
+            )
+            continue
+
         # If we are interested in performance checks only, skip
         check_str = test_check[recipe_id].strip()
         if run_tests_with_checks_only:
@@ -580,8 +596,9 @@ def run_recipe_tests(
         if not spec_outfold:
             cmd = cmd + " --output_folder=" + output_fold
 
-        # add --debug if no do_checks to save testing time
-        if not do_checks:
+        # add --debug when there is no performance criterion to save testing time
+        has_performance_check = "performance_check" in check_str
+        if not do_checks or not has_performance_check:
             cmd += " --debug --debug_persistently"
 
         # Print message (if any)
@@ -600,7 +617,8 @@ def run_recipe_tests(
             os.system(td_script)
 
         # Check return code
-        if return_code != 0:
+        recipe_passed = return_code == 0
+        if not recipe_passed:
             logger.error(
                 "    Error in %s (%s). Check %s and %s for more info.",
                 recipe_id,
@@ -608,15 +626,27 @@ def run_recipe_tests(
                 stderr_file,
                 stdout_file,
             )
-            check = False
 
         # Checks
         if do_checks and len(check_str) > 0:
             logger.info("    ...checking files & performance...")
 
             # Check if the expected files exist
-            check &= check_files(check_str, output_fold, recipe_id)
-            check &= check_performance(check_str, output_fold, recipe_id)
+            recipe_passed &= check_files(check_str, output_fold, recipe_id)
+            recipe_passed &= check_performance(
+                check_str, output_fold, recipe_id
+            )
+
+        # Mark recipe as passed for future skip_passed runs
+        if recipe_passed:
+            with open(passed_flag, "w") as f:
+                f.write("")
+        else:
+            # Remove stale marker if the recipe now fails
+            if os.path.exists(passed_flag):
+                os.remove(passed_flag)
+
+        check &= recipe_passed
 
     return check
 

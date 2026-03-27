@@ -138,11 +138,12 @@ prompt: "Transcribe speech to text."
 
 ####################### Model Components ####################################
 
-activation: !name:speechbrain.nnet.activations.ReLU
+activation: !name:torch.nn.ReLU
 dnn_layers: 2
 dnn_neurons: !ref <llm_emb_size>
+ssl_feat_dims: 768
 proj: !new:speechbrain.lobes.models.VanillaNN.VanillaNN
-    input_shape: [null, null, 5120] # 1024 * downsampling_factor
+    input_shape: [null, null, !ref <ssl_feat_dims> * <downsampling_factor>] # 1024 * downsampling_factor
     activation: !ref <activation>
     dnn_blocks: !ref <dnn_layers>
     dnn_neurons: !ref <dnn_neurons>
@@ -151,7 +152,7 @@ backbone_llm: !new:speechbrain.integrations.huggingface.llama.LLaMA
     source: !ref <llm_path>
     save_path: !ref <save_folder>
     freeze: True
-    attn_implementation: flash_attention_2
+    attn_implementation: sdpa
     device: cuda
     torch_dtype: !name:torch.bfloat16
     additional_special_tokens:

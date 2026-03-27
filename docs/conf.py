@@ -102,6 +102,7 @@ autodoc_mock_imports = [
     "fairseq",
     "spacy",
     "ctc_segmentation",
+    "torchaudio",
 ]
 
 # Order of API items:

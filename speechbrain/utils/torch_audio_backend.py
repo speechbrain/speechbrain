@@ -16,12 +16,13 @@ from speechbrain.utils.logger import get_logger
 logger = get_logger(__name__)
 
 
-def try_parse_torchaudio_major_version() -> Optional[int]:
-    """Tries parsing the torchaudio major version.
+def try_parse_torchaudio_major_version() -> Optional[tuple]:
+    """Tries parsing the torchaudio major and minor version.
 
     Returns
     -------
-    The parsed major version, otherwise ``None``.
+    tuple or None
+        A (major, minor) tuple, otherwise ``None``.
     """
     if not hasattr(torchaudio, "__version__"):
         return None
@@ -47,13 +48,16 @@ def check_torchaudio_backend():
     """Checks the torchaudio backend and sets it to soundfile if
     windows is detected.
     """
-    torchaudio_major, torchaudio_minor = try_parse_torchaudio_major_version()
+    result = try_parse_torchaudio_major_version()
 
-    if torchaudio_major is None:
+    if result is None:
         logger.warning(
             "Failed to detect torchaudio major version; unsure how to check your setup. We recommend that you keep torchaudio up-to-date."
         )
-    elif torchaudio_major >= 2 and torchaudio_minor >= 1:
+        return
+    torchaudio_major, torchaudio_minor = result
+
+    if torchaudio_major >= 2 and torchaudio_minor >= 1:
         # list_audio_backends() was removed in torchaudio 2.9+
         # In 2.9+, audio loading is handled by torchcodec
         if hasattr(torchaudio, "list_audio_backends"):

@@ -281,8 +281,17 @@ def convolve1d(
         # Multiply in frequency domain to convolve in time domain
         import torch.fft as fft
 
+        # cuFFT does not support half precision for non-power-of-2 sizes
+        orig_dtype = waveform.dtype
+        if orig_dtype == torch.float16 or orig_dtype == torch.bfloat16:
+            waveform = waveform.float()
+            kernel = kernel.float()
+
         result = fft.rfft(waveform) * fft.rfft(kernel)
         convolved = fft.irfft(result, n=waveform.size(-1))
+
+        if convolved.dtype != orig_dtype:
+            convolved = convolved.to(orig_dtype)
 
     # Use the implementation given by torch, which should be efficient on GPU
     else:

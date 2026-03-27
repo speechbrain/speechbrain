@@ -34,7 +34,6 @@ def transducer_loss(
     target_lens,
     blank_index,
     reduction="mean",
-    use_torchaudio=True,
 ):
     """Transducer loss, see `speechbrain/integrations/numba/transducer_loss.py`.
 
@@ -52,9 +51,6 @@ def transducer_loss(
         The location of the blank symbol among the label indices.
     reduction : str
         Specifies the reduction to apply to the output: 'mean' | 'batchmean' | 'sum'.
-    use_torchaudio: bool
-        If True, use Transducer loss implementation from torchaudio, otherwise,
-        use Speechbrain Numba implementation.
 
     Returns
     -------
@@ -63,44 +59,21 @@ def transducer_loss(
     input_lens = (input_lens * logits.shape[1]).round().int()
     target_lens = (target_lens * targets.shape[1]).round().int()
 
-    if use_torchaudio:
-        try:
-            from torchaudio.functional import rnnt_loss
-        except ImportError:
-            err_msg = "The dependency torchaudio >= 0.10.0 is needed to use Transducer Loss\n"
-            err_msg += "Cannot import torchaudio.functional.rnnt_loss.\n"
-            err_msg += "To use it, please install torchaudio >= 0.10.0\n"
-            err_msg += "==================\n"
-            err_msg += "Otherwise, you can use our numba implementation, set `use_torchaudio=False`.\n"
-            raise ImportError(err_msg)
-
-        return rnnt_loss(
-            logits,
-            targets.int(),
-            input_lens,
-            target_lens,
-            blank=blank_index,
-            reduction=reduction,
+    try:
+        from speechbrain.integrations.numba.transducer_loss import Transducer
+    except ImportError as exc:  # pragma: no cover
+        err_msg = (
+            "The Numba-based Transducer loss implementation could not be imported.\n"
+            "This path requires the optional dependency 'numba' and a working CUDA setup.\n"
+            "Please install numba (e.g., `pip install numba`) and ensure that CUDA is available.\n"
         )
-    else:
-        try:
-            from speechbrain.integrations.numba.transducer_loss import (
-                Transducer,
-            )
-        except ImportError as exc:  # pragma: no cover
-            err_msg = (
-                "The Numba-based Transducer loss implementation could not be imported.\n"
-                "This path requires the optional dependency 'numba' and a working CUDA setup.\n"
-                "Please install numba (e.g., `pip install numba`) and ensure that CUDA is available,\n"
-                "or set `use_torchaudio=True` to use the torchaudio implementation instead.\n"
-            )
-            raise ImportError(err_msg) from exc
+        raise ImportError(err_msg) from exc
 
-        # Transducer.apply function take log_probs tensor.
-        log_probs = logits.log_softmax(-1)
-        return Transducer.apply(
-            log_probs, targets, input_lens, target_lens, blank_index, reduction
-        )
+    # Transducer.apply function take log_probs tensor.
+    log_probs = logits.log_softmax(-1)
+    return Transducer.apply(
+        log_probs, targets, input_lens, target_lens, blank_index, reduction
+    )
 
 
 class PitWrapper(nn.Module):
