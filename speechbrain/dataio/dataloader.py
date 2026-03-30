@@ -10,22 +10,22 @@ Example
 >>> from speechbrain.utils.checkpoints import Checkpointer
 >>> # An example "dataset" and its loader
 >>> dataset = torch.randn(10, 1)
->>> dataloader = SaveableDataLoader(dataset, num_workers = 3)
+>>> dataloader = SaveableDataLoader(dataset, num_workers=3)
 >>> # Setup the checkpointer:
->>> tmpdir = getfixture('tmpdir')
+>>> tmpdir = getfixture("tmpdir")
 >>> checkpointer = Checkpointer(tmpdir, {"dataloader": dataloader})
 >>> # Iterate:
 >>> for i, data_point in enumerate(dataloader):
 ...     # Here you would process the data:
-...     rainfall_amount_prediction = data_point * 4.
+...     rainfall_amount_prediction = data_point * 4.0
 ...     # Now, imagine the experiment gets killed on the fifth batch:
 ...     if i == 4:
 ...         break
 ...     # Luckily, you had just saved a checkpoint:
 ...     if i == 3:
-...         _ = checkpointer.save_checkpoint(end_of_epoch = False)
+...         _ = checkpointer.save_checkpoint(end_of_epoch=False)
 >>> # So when you restart the experiment:
->>> new_dataloader = SaveableDataLoader(dataset, num_workers = 3)
+>>> new_dataloader = SaveableDataLoader(dataset, num_workers=3)
 >>> new_checkpointer = Checkpointer(tmpdir, {"dataloader": new_dataloader})
 >>> _ = new_checkpointer.recover_if_possible()
 >>> # The dataloader fast-forwards to the position where we left off:
@@ -187,7 +187,7 @@ def make_dataloader(dataset, looped_nominal_epoch=None, **loader_kwargs):
                 "Cannot specify both shuffle=True and a "
                 "sampler in loader_kwargs"
             )
-        seed = os.environ.get("SB_GLOBAL_SEED", 563375142)
+        seed = int(os.environ.get("SB_GLOBAL_SEED", 563375142))
         sampler = ReproducibleRandomSampler(dataset, seed=seed)
         loader_kwargs["sampler"] = sampler
         # Should delete shuffle because you can't set both Sampler and

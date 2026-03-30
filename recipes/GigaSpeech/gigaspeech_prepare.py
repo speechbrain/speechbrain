@@ -18,9 +18,8 @@ import logging
 import os
 from dataclasses import dataclass
 
-import torchaudio
-
-from speechbrain.utils.parallel import parallel_map
+from speechbrain.dataio import audio_io
+from speechbrain.utils.parallel import get_available_cpu_count, parallel_map
 
 logger = logging.getLogger(__name__)
 FILLERS = [
@@ -161,9 +160,9 @@ def prepare_gigaspeech(
 
     # check that `splits` input is valid
     for split in splits:
-        assert (
-            split in SPLITS + TRAIN_SUBSET
-        ), f"Split {split} not recognized. Valid splits are {SPLITS + TRAIN_SUBSET}."
+        assert split in SPLITS + TRAIN_SUBSET, (
+            f"Split {split} not recognized. Valid splits are {SPLITS + TRAIN_SUBSET}."
+        )
 
     # check that we are not using multiple train subsets
     if len(set(splits).intersection(TRAIN_SUBSET)) > 1:
@@ -223,9 +222,7 @@ def prepare_gigaspeech(
 
         nproc = 1
         if hf_multiprocess_load:
-            import multiprocessing
-
-            nproc = multiprocessing.cpu_count()
+            nproc = get_available_cpu_count()
 
         hf_dataset = load_dataset(
             "dataset.py",
@@ -243,7 +240,7 @@ def prepare_gigaspeech(
         check_gigaspeech_folders(data_folder, json_file)
 
         logger.info(f"Starting reading {json_file}.")
-        with open(json_file, "r", encoding="utf-8") as f:
+        with open(json_file, encoding="utf-8") as f:
             info = json.load(f)
         logger.info(f"Reading {json_file} done.")
 
@@ -293,7 +290,6 @@ def process_line(
         The list of utterances for the given split.
     """
     if ("{" + split + "}") in audio["subsets"]:
-
         audio_path = os.path.join(data_folder, audio["path"])
         assert os.path.isfile(audio_path), f"File not found: {audio_path}"
 
@@ -529,7 +525,7 @@ def HF_process_line(row: dict, punctuation: bool, stopwords: list) -> list:
 
     # check reading the audio file ; HF may have some corrupted files
     try:
-        _ = torchaudio.info(audio_path)
+        _ = audio_io.info(audio_path)
     except Exception as e:
         logger.error(f"Failed reading {audio_path}: {e}")
         return None
@@ -619,7 +615,9 @@ def preprocess_text(text: str, punctuation: bool, stopwords) -> str:
     Examples
     --------
     >>> text = " DOUGLAS MCGRAY IS GOING TO BE OUR GUIDE YOU WALK THROUGH THE DOOR <COMMA> YOU SEE THE RED CARPETING <COMMA> YOU SEE SOMEONE IN A SUIT <PERIOD> THEY MAY BE GREETING YOU <PERIOD>"
-    >>> preprocess_text(text, punctuation=True, stopwords=GARBAGE_UTTERANCE_TAGS)
+    >>> preprocess_text(
+    ...     text, punctuation=True, stopwords=GARBAGE_UTTERANCE_TAGS
+    ... )
     "DOUGLAS MCGRAY IS GOING TO BE OUR GUIDE YOU WALK THROUGH THE DOOR, YOU SEE THE RED CARPETING, YOU SEE SOMEONE IN A SUIT. THEY MAY BE GREETING YOU."
     """
 

@@ -326,7 +326,7 @@ def create_csv(
         raise FileNotFoundError(msg)
 
     # We load and skip the header
-    csv_lines = open(orig_tsv_file, "r", encoding="utf-8").readlines()
+    csv_lines = open(orig_tsv_file, encoding="utf-8").readlines()
     header_line = csv_lines[0]
     csv_data_lines = csv_lines[1:]
     nb_samples = len(csv_data_lines)
@@ -429,7 +429,7 @@ def language_specific_preprocess(language, words):
 
     if language in ["en", "fr", "it", "rw"]:
         words = re.sub(
-            "[^’'A-Za-z0-9À-ÖØ-öø-ÿЀ-ӿéæœâçèàûî]+", " ", words
+            "[^’'A-Za-z0-9À-ÖØ-öø-ÿЀ-ӿéæœâçèàûî]+", " ", words
         ).upper()
 
     if language == "de":
@@ -445,17 +445,17 @@ def language_specific_preprocess(language, words):
         )  # replace 0000SS0000 back to ß as its initial presence in the corpus
 
     elif language == "fr":  # SM
-        words = re.sub("[^’'A-Za-z0-9À-ÖØ-öø-ÿЀ-ӿéæœâçèàûî]+", " ", words)
+        words = re.sub("[^’'A-Za-z0-9À-ÖØ-öø-ÿЀ-ӿéæœâçèàûî]+", " ", words)
         words = words.replace("’", "'")
-        words = words.replace("é", "é")
+        words = words.replace("é", "é")
         words = words.replace("æ", "ae")
         words = words.replace("œ", "oe")
-        words = words.replace("â", "â")
-        words = words.replace("ç", "ç")
-        words = words.replace("è", "è")
-        words = words.replace("à", "à")
-        words = words.replace("û", "û")
-        words = words.replace("î", "î")
+        words = words.replace("â", "â")
+        words = words.replace("ç", "ç")
+        words = words.replace("è", "è")
+        words = words.replace("à", "à")
+        words = words.replace("û", "û")
+        words = words.replace("î", "î")
         words = words.upper()
 
         # Case of apostrophe collés
@@ -491,7 +491,8 @@ def language_specific_preprocess(language, words):
         words = words.replace("O'", "O")
         words = words.replace("X'", "X")
         words = words.replace(
-            "AUJOURD' HUI", "AUJOURD'HUI"  # cspell:disable-line
+            "AUJOURD' HUI",
+            "AUJOURD'HUI",  # cspell:disable-line
         )
     elif language == "ar":
         HAMZA = "\u0621"

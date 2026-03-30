@@ -66,7 +66,9 @@ class DynChunkTrainConfigRandomSampler:
     -------
     >>> from speechbrain.core import Stage
     >>> from speechbrain.utils.dynamic_chunk_training import DynChunkTrainConfig
-    >>> from speechbrain.utils.dynamic_chunk_training import DynChunkTrainConfigRandomSampler
+    >>> from speechbrain.utils.dynamic_chunk_training import (
+    ...     DynChunkTrainConfigRandomSampler,
+    ... )
     >>> # for the purpose of this example, we test a scenario with a 100%
     >>> # chance of the (24, None) scenario to occur
     >>> sampler = DynChunkTrainConfigRandomSampler(
@@ -77,7 +79,7 @@ class DynChunkTrainConfigRandomSampler:
     ...     left_context_chunks_min=16,
     ...     left_context_chunks_max=16,
     ...     test_config=DynChunkTrainConfig(32, 16),
-    ...     valid_config=None
+    ...     valid_config=None,
     ... )
     >>> one_train_config = sampler(Stage.TRAIN)
     >>> one_train_config

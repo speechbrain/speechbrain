@@ -46,7 +46,7 @@ def compute_mask(shape, sample_lens, mask_prob, mask_length):
 
     Example
     -------
-    >>> compute_mask((2,50,60), [40, 50], 0.15, 2).shape
+    >>> compute_mask((2, 50, 60), [40, 50], 0.15, 2).shape
     torch.Size([12])
     """
     min_sample_len = min(sample_lens)
@@ -118,7 +118,6 @@ def brq_mask_collate_fn(
     wavs_padded, wav_lens = batch_pad_right(wav_lst)
 
     batch_time_len = max(latent_length_lst)
-    batch_time_len
     mask = compute_mask(
         (bs, batch_time_len, n_mels), latent_length_lst, mask_prob, mask_length
     )

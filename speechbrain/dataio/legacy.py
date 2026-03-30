@@ -6,8 +6,8 @@ import pickle
 import re
 
 import torch
-import torchaudio
 
+from speechbrain.dataio import audio_io
 from speechbrain.dataio.dataset import DynamicItemDataset
 from speechbrain.utils.logger import get_logger
 
@@ -113,7 +113,7 @@ class ExtendedCSVDataset(DynamicItemDataset):
             self.set_output_keys(data_names)
 
 
-def load_sb_extended_csv(csv_path, replacements={}):
+def load_sb_extended_csv(csv_path, replacements=None):
     """Loads SB Extended CSV and formats string values.
 
     Uses the SpeechBrain Extended CSV data format, where the
@@ -148,6 +148,8 @@ def load_sb_extended_csv(csv_path, replacements={}):
         List of DynamicItems to add in DynamicItemDataset.
 
     """
+    if replacements is None:
+        replacements = {}
     with open(csv_path, newline="", encoding="utf-8") as csvfile:
         result = {}
         reader = csv.DictReader(csvfile, skipinitialspace=True)
@@ -216,7 +218,7 @@ def _read_csv_item(item):
     """
     opts = _parse_csv_item_opts(item.opts)
     if item.format in TORCHAUDIO_FORMATS:
-        audio, _ = torchaudio.load(item.data)
+        audio, _ = audio_io.load(item.data)
         return audio.squeeze(0)
     elif item.format == "pkl":
         return read_pkl(item.data, opts)
@@ -250,7 +252,7 @@ def _parse_csv_item_opts(entry):
     return opts
 
 
-def read_pkl(file, data_options={}, lab2ind=None):
+def read_pkl(file, data_options=None, lab2ind=None):
     """This function reads tensors store in pkl format.
 
     Arguments
@@ -268,6 +270,8 @@ def read_pkl(file, data_options={}, lab2ind=None):
         The array containing the read signal.
     """
 
+    if data_options is None:
+        data_options = {}
     # Trying to read data
     try:
         with open(file, "rb") as f:
@@ -279,7 +283,6 @@ def read_pkl(file, data_options={}, lab2ind=None):
     type_ok = False
 
     if isinstance(pkl_element, list):
-
         if isinstance(pkl_element[0], float):
             tensor = torch.FloatTensor(pkl_element)
             type_ok = True
@@ -289,7 +292,6 @@ def read_pkl(file, data_options={}, lab2ind=None):
             type_ok = True
 
         if isinstance(pkl_element[0], str):
-
             # convert string to integer as specified in self.label_dict
             if lab2ind is not None:
                 for index, val in enumerate(pkl_element):
@@ -310,10 +312,10 @@ def read_pkl(file, data_options={}, lab2ind=None):
     tensor_type = tensor.dtype
 
     # Conversion to 32 bit (if needed)
-    if tensor_type == "float64":
-        tensor = tensor.astype("float32")
+    if tensor_type == torch.float64:
+        tensor = tensor.to(torch.float32)
 
-    if tensor_type == "int64":
-        tensor = tensor.astype("int32")
+    if tensor_type == torch.int64:
+        tensor = tensor.to(torch.int32)
 
     return tensor

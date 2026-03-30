@@ -65,9 +65,9 @@ class SentencePiece:
     bos_id : int
         If -1 the bos_id = unk_id = 0. otherwise, bos_id = int. (default: -1)
     eos_id : int
-        If -1 the bos_id = unk_id = 0. otherwise, bos_id = int. (default: -1)
+        If -1 the eos_id = unk_id = 0. otherwise, eos_id = int. (default: -1)
     pad_id : int
-        If -1 the pad_id = unk_id = 0. otherwise, bos_id = int. (default: -1)
+        If -1 the pad_id = unk_id = 0. otherwise, pad_id = int. (default: -1)
     unk_id : int
         The token corresponding to an unknown symbol (not in token set).
     split_by_whitespace : bool
@@ -92,13 +92,15 @@ class SentencePiece:
     -------
     >>> import torch
     >>> dict_int2lab = {1: "HELLO", 2: "MORNING"}
-    >>> model_dir = getfixture('tmpdir') / "tokenizer_data"
+    >>> model_dir = getfixture("tmpdir") / "tokenizer_data"
     >>> # Example with csv
     >>> annotation_train = "tests/samples/annotation/dev-clean.csv"
     >>> annotation_read = "wrd"
     >>> model_type = "bpe"
-    >>> bpe = SentencePiece(str(model_dir), 100, annotation_train, annotation_read, model_type)
-    >>> batch_seq = torch.Tensor([[1, 2, 2, 1],[1, 2, 1, 0]])
+    >>> bpe = SentencePiece(
+    ...     str(model_dir), 100, annotation_train, annotation_read, model_type
+    ... )
+    >>> batch_seq = torch.Tensor([[1, 2, 2, 1], [1, 2, 1, 0]])
     >>> batch_lens = torch.Tensor([1.0, 0.75])
     >>> encoded_seq_ids, encoded_seq_pieces = bpe(
     ...     batch_seq, batch_lens, dict_int2lab, task="encode"
@@ -106,7 +108,14 @@ class SentencePiece:
     >>> # Example using JSON
     >>> annotation_train = str(model_dir + "/dev-clean.json")
     >>> annotation_read = "wrd"
-    >>> bpe = SentencePiece(model_dir, 100, annotation_train, annotation_read, model_type, annotation_format = 'json')
+    >>> bpe = SentencePiece(
+    ...     model_dir,
+    ...     100,
+    ...     annotation_train,
+    ...     annotation_read,
+    ...     model_type,
+    ...     annotation_format="json",
+    ... )
     >>> encoded_seq_ids, encoded_seq_pieces = bpe(
     ...     batch_seq, batch_lens, dict_int2lab, task="encode"
     ... )
@@ -154,7 +163,7 @@ class SentencePiece:
                         ext, ".txt"
                     ),
                 )
-            self.text_file = text_file
+        self.text_file = str(text_file)
 
         self.prefix_model_file = os.path.join(
             model_dir, str(vocab_size) + "_" + model_type
@@ -215,7 +224,7 @@ class SentencePiece:
             + " sequences from:"
             + self.annotation_train
         )
-        annotation_file = open(self.annotation_train, "r", encoding="utf-8")
+        annotation_file = open(self.annotation_train, encoding="utf-8")
         reader = csv.reader(annotation_file)
         headers = next(reader, None)
         if self.annotation_read not in headers:
@@ -257,7 +266,7 @@ class SentencePiece:
         )
 
         # Read JSON
-        with open(self.annotation_train, "r", encoding="utf-8") as f:
+        with open(self.annotation_train, encoding="utf-8") as f:
             out_json = json.load(f)
 
         # Save text file
@@ -332,7 +341,7 @@ class SentencePiece:
         # Train tokenizer
         spm.SentencePieceTrainer.train(query)
 
-    def _check_coverage_from_bpe(self, list_annotation_files=[]):
+    def _check_coverage_from_bpe(self, list_annotation_files=None):
         """Logging the accuracy of the BPE model to recover words from the training text.
 
         Arguments
@@ -340,6 +349,8 @@ class SentencePiece:
         list_annotation_files : list,
             List of the annotation file which is used for checking the accuracy of recovering words from the tokenizer.
         """
+        if list_annotation_files is None:
+            list_annotation_files = []
         for annotation_file in list_annotation_files:
             if os.path.isfile(os.path.abspath(annotation_file)):
                 logger.info(
@@ -347,9 +358,7 @@ class SentencePiece:
                 )
                 # csv reading
                 if self.annotation_format == "csv":
-                    fannotation_file = open(
-                        annotation_file, "r", encoding="utf-8"
-                    )
+                    fannotation_file = open(annotation_file, encoding="utf-8")
                     reader = csv.reader(fannotation_file)
                     headers = next(reader, None)
                     if self.annotation_read not in headers:
@@ -361,9 +370,7 @@ class SentencePiece:
                     index_label = headers.index(self.annotation_read)
                 # json reading
                 else:
-                    with open(
-                        self.annotation_train, "r", encoding="utf-8"
-                    ) as f:
+                    with open(self.annotation_train, encoding="utf-8") as f:
                         reader = json.load(f)
                         index_label = self.annotation_read
 

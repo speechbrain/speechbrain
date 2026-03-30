@@ -480,7 +480,7 @@ def get_wav_files(tgt_split_path):
         a list of file names
     """
     wavs_pattern = os.path.join(tgt_split_path, "**", "*.wav")
-    return list(sorted(glob(wavs_pattern)))
+    return sorted(glob(wavs_pattern))
 
 
 def process_files(wav_files, process_audio, sample_rate):

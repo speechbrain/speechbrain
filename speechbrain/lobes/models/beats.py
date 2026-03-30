@@ -102,9 +102,9 @@ class BEATs(nn.Module):
         self.dropout_input = nn.Dropout(self.cfg.dropout_input)
 
         # Configuration checks
-        assert not (
-            self.cfg.deep_norm and self.cfg.layer_norm_first
-        ), "Configuration error: 'deep_norm' and 'layer_norm_first' cannot both be True."
+        assert not (self.cfg.deep_norm and self.cfg.layer_norm_first), (
+            "Configuration error: 'deep_norm' and 'layer_norm_first' cannot both be True."
+        )
 
         # Initialize encoder and layer normalization
         self.encoder = TransformerEncoder(self.cfg)
@@ -380,7 +380,7 @@ def get_activation_fn(activation: str):
     elif activation == "gelu":
         return gelu
     elif activation == "gelu_fast":
-        logger.warn(
+        logger.warning(
             "--activation-fn=gelu_fast has been renamed to gelu_accurate"
         )
         return gelu_accurate
@@ -393,9 +393,7 @@ def get_activation_fn(activation: str):
     elif activation == "glu":
         return lambda x: x
     else:
-        raise RuntimeError(
-            "--activation-fn {} not supported".format(activation)
-        )
+        raise RuntimeError(f"--activation-fn {activation} not supported")
 
 
 class SamePad(nn.Module):
@@ -614,23 +612,23 @@ def quant_noise(module, p, block_size):
 
     # 2D matrix
     if not is_conv:
-        assert (
-            module.weight.size(1) % block_size == 0
-        ), "Input features must be a multiple of block sizes"
+        assert module.weight.size(1) % block_size == 0, (
+            "Input features must be a multiple of block sizes"
+        )
 
     # 4D matrix
     else:
         # 1x1 convolutions
         if module.kernel_size == (1, 1):
-            assert (
-                module.in_channels % block_size == 0
-            ), "Input channels must be a multiple of block sizes"
+            assert module.in_channels % block_size == 0, (
+                "Input channels must be a multiple of block sizes"
+            )
         # regular convolutions
         else:
             k = module.kernel_size[0] * module.kernel_size[1]
-            assert (
-                k % block_size == 0
-            ), "Kernel size must be a multiple of block size"
+            assert k % block_size == 0, (
+                "Kernel size must be a multiple of block size"
+            )
 
 
 class TransformerEncoder(nn.Module):
@@ -896,7 +894,6 @@ class TransformerSentenceEncoderLayer(nn.Module):
         gru_rel_pos: bool = False,
         encoder_layers: int = 0,
     ) -> None:
-
         super().__init__()
         self.embedding_dim = embedding_dim
         self.dropout = dropout
@@ -1115,18 +1112,18 @@ class MultiheadAttention(nn.Module):
         self.q_head_dim = self.head_dim
         self.k_head_dim = self.head_dim
 
-        assert (
-            self.head_dim * num_heads == self.embed_dim
-        ), "embed_dim must be divisible by num_heads"
+        assert self.head_dim * num_heads == self.embed_dim, (
+            "embed_dim must be divisible by num_heads"
+        )
         self.scaling = self.head_dim**-0.5
 
         # Self-attention and encoder-decoder attention flags
         self.self_attention = self_attention
         self.encoder_decoder_attention = encoder_decoder_attention
 
-        assert (
-            not self.self_attention or self.qkv_same_dim
-        ), "Self-attention requires query, key, and value to be of the same size."
+        assert not self.self_attention or self.qkv_same_dim, (
+            "Self-attention requires query, key, and value to be of the same size."
+        )
 
         # Initialize projection layers with optional quantization noise
         self.k_proj = quant_noise(
@@ -1706,9 +1703,9 @@ class MultiheadAttention(nn.Module):
             attention mask, and key padding mask.
         """
         if self.bias_k is not None:
-            assert (
-                self.bias_v is not None
-            ), "bias_k and bias_v must both be provided."
+            assert self.bias_v is not None, (
+                "bias_k and bias_v must both be provided."
+            )
 
             # Apply biases to key and value
             k = torch.cat([k, self.bias_k.repeat(1, bsz, 1)], dim=0)

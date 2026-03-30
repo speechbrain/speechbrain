@@ -2,11 +2,11 @@
 import os
 import sys
 
-import torchaudio
 from common_language_prepare import prepare_common_language
 from hyperpyyaml import load_hyperpyyaml
 
 import speechbrain as sb
+from speechbrain.dataio import audio_io
 from speechbrain.utils.logger import get_logger
 
 """Recipe for training a LID system with CommonLanguage.
@@ -211,7 +211,7 @@ def dataio_prep(hparams):
     def audio_pipeline(wav):
         """Load the signal, and pass it and its length to the corruption class.
         This is done on the CPU in the `collate_fn`."""
-        sig, _ = torchaudio.load(wav)
+        sig, _ = audio_io.load(wav)
         sig = sig.transpose(0, 1).squeeze(1)
 
         return sig

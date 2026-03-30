@@ -23,13 +23,18 @@ class DiscreteSSLTokenizer:
     Example
     -------
     >>> import torch
-    >>> inputs = torch.randint(0,1000,(3, 6, 2))
-    >>> ssl_layer_num = [7,23]
-    >>> deduplicate =[False, True]
-    >>> bpe_tokenizers=[None, None]
-    >>> num_clusters = [1000,2000]
+    >>> inputs = torch.randint(0, 1000, (3, 6, 2))
+    >>> ssl_layer_num = [7, 23]
+    >>> deduplicate = [False, True]
+    >>> bpe_tokenizers = [None, None]
+    >>> num_clusters = [1000, 2000]
     >>> tokenizer = DiscreteSSLTokenizer(num_clusters=num_clusters)
-    >>> tokens= tokenizer.encode(inputs,SSL_layers=ssl_layer_num, deduplicates=deduplicate, bpe_tokenizers=bpe_tokenizers)
+    >>> tokens = tokenizer.encode(
+    ...     inputs,
+    ...     SSL_layers=ssl_layer_num,
+    ...     deduplicates=deduplicate,
+    ...     bpe_tokenizers=bpe_tokenizers,
+    ... )
     >>> print(tokens.shape)
     torch.Size([3, 6, 2])
     """
@@ -77,9 +82,9 @@ class DiscreteSSLTokenizer:
         processed_tokens : torch.Tensor
             A (Batch x Seq x num_SSL_layers) tensor of audio tokens after applying deduplication and subwording if necessary.
         """
-        assert input.shape[2] == len(
-            SSL_layers
-        ), f"input shape:{input.shape} has conflicts with the length of provided SSL_layers: {len(SSL_layers)}. The second dimension of input should be the same  as number of layers!!!"
+        assert input.shape[2] == len(SSL_layers), (
+            f"input shape:{input.shape} has conflicts with the length of provided SSL_layers: {len(SSL_layers)}. The second dimension of input should be the same  as number of layers!!!"
+        )
         token_ids = []
         for i, duplicate in enumerate(deduplicates):
             tokens = []

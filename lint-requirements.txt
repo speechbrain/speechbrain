@@ -1,8 +1,4 @@
-black==24.3.0
-click==8.1.7
-flake8==7.0.0
-isort==5.13.2
-pycodestyle==2.11.0
-pydoclint==0.4.1
+codespell>=2.3.0
 pytest==7.4.0
+ruff==v0.12.4
 yamllint==1.35.1

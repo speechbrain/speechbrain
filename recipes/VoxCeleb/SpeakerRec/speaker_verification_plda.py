@@ -17,11 +17,11 @@ import sys
 
 import numpy
 import torch
-import torchaudio
 from hyperpyyaml import load_hyperpyyaml
-from tqdm.contrib import tqdm
+from tqdm import tqdm
 
 import speechbrain as sb
+from speechbrain.dataio import audio_io
 from speechbrain.processing.PLDA_LDA import (
     Ndx,
     StatObject_SB,
@@ -194,9 +194,7 @@ def dataio_prep(params):
         start = int(start)
         stop = int(stop)
         num_frames = stop - start
-        sig, fs = torchaudio.load(
-            wav, num_frames=num_frames, frame_offset=start
-        )
+        sig, fs = audio_io.load(wav, num_frames=num_frames, frame_offset=start)
         sig = sig.transpose(0, 1).squeeze(1)
         return sig
 
@@ -226,7 +224,7 @@ if __name__ == "__main__":
     sys.path.append(os.path.dirname(current_dir))
 
     # Load hyperparameters file with command-line overrides
-    params_file, run_opts, overrides = sb.core.parse_arguments(sys.argv[1:])
+    params_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
     with open(params_file, encoding="utf-8") as fin:
         params = load_hyperpyyaml(fin, overrides)
 

@@ -49,7 +49,7 @@ def find_urls_in_file(path, line_exclude_regex):
         return False
 
     # Read the file
-    with open(path, "r", encoding="utf-8") as file:
+    with open(path, encoding="utf-8") as file:
         text = file.read()
 
     lines = text.split("\n")
@@ -212,7 +212,6 @@ def check_links(
             check_url, list(all_urls.keys()), chunk_size=1, process_count=8
         ),
     ):
-
         if err is not None:
             print(f"WARNING: {url} is DOWN! got {err}")
             for path in all_urls[url]:

@@ -18,6 +18,7 @@ Based on VoxCeleb By:
     * Hwidong Na 2020
     * Nauman Dawalatabad 2020
 """
+
 import os
 import sys
 
@@ -30,6 +31,7 @@ from sklearn.metrics import confusion_matrix
 from urbansound8k_prepare import prepare_urban_sound_8k
 
 import speechbrain as sb
+from speechbrain.dataio import audio_io
 from speechbrain.utils.distributed import run_on_main
 
 
@@ -233,9 +235,7 @@ class UrbanSound8kBrain(sb.core.Brain):
                 self.valid_confusion_matrix, axis=1
             )
             per_class_acc_arr_str = "\n" + "\n".join(
-                "{:}: {:.3f}".format(
-                    self.hparams.label_encoder.decode_ndim(class_id), class_acc
-                )
+                f"{self.hparams.label_encoder.decode_ndim(class_id)}: {class_acc:.3f}"
                 for class_id, class_acc in enumerate(per_class_acc_arr)
             )
 
@@ -257,7 +257,7 @@ class UrbanSound8kBrain(sb.core.Brain):
                 self.test_confusion_matrix, axis=1
             )
             per_class_acc_arr_str = "\n" + "\n".join(
-                "{:}: {:.3f}".format(class_id, class_acc)
+                f"{class_id}: {class_acc:.3f}"
                 for class_id, class_acc in enumerate(per_class_acc_arr)
             )
 
@@ -265,9 +265,7 @@ class UrbanSound8kBrain(sb.core.Brain):
                 {
                     "Epoch loaded": self.hparams.epoch_counter.current,
                     "\n Per Class Accuracy": per_class_acc_arr_str,
-                    "\n Confusion Matrix": "\n{:}\n".format(
-                        self.test_confusion_matrix
-                    ),
+                    "\n Confusion Matrix": f"\n{self.test_confusion_matrix}\n",
                 },
                 test_stats=test_stats,
             )
@@ -292,9 +290,9 @@ def dataio_prep(hparams):
         """Load the signal, and pass it and its length to the corruption class.
         This is done on the CPU in the `collate_fn`."""
 
-        wave_file = data_audio_folder + "/fold{:}/{:}".format(fold, wav)
+        wave_file = data_audio_folder + f"/fold{fold}/{wav}"
 
-        sig, read_sr = torchaudio.load(wave_file)
+        sig, read_sr = audio_io.load(wave_file)
 
         # If multi-channels, downmix it to a mono channel
         sig = torch.squeeze(sig)

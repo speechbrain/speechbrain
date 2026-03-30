@@ -40,7 +40,7 @@ class Xvector(torch.nn.Module):
 
     Example
     -------
-    >>> compute_xvect = Xvector('cpu')
+    >>> compute_xvect = Xvector("cpu")
     >>> input_feats = torch.rand([5, 10, 40])
     >>> outputs = compute_xvect(input_feats)
     >>> outputs.shape

@@ -15,6 +15,7 @@ import torchaudio
 from tqdm import tqdm
 
 import speechbrain as sb
+from speechbrain.dataio import audio_io
 from speechbrain.dataio.dataio import load_pkl, save_pkl
 from speechbrain.inference.encoders import MelSpectrogramEncoder
 from speechbrain.utils.logger import get_logger
@@ -37,8 +38,8 @@ def get_device(use_cuda):
     """Determine and return the appropriate device for computation."""
     use_cuda = use_cuda and torch.cuda.is_available()
     print("\n" + "=" * 30)
-    print("USE_CUDA SET TO: {}".format(use_cuda))
-    print("CUDA AVAILABLE?: {}".format(torch.cuda.is_available()))
+    print(f"USE_CUDA SET TO: {use_cuda}")
+    print(f"CUDA AVAILABLE?: {torch.cuda.is_available()}")
     print("=" * 30 + "\n")
     return torch.device("cuda" if use_cuda else "cpu")
 
@@ -132,12 +133,16 @@ def extract_libritts_embeddings(
 
     Example
     -------
-    >>> from recipes.LibriTTS.vocoder.hifigan_unit.extract_speaker_embeddings import extract_libritts_embeddings
-    >>> data_folder = 'data/libritts/'
-    >>> splits = ['train', 'valid']
-    >>> encoder_source = facebook/hubert-base-ls960
-    >>> save_folder = 'save/'
-    >>> extract_libritts_embeddings(data_folder, splits, encoder_source, save_folder)
+    >>> from recipes.LibriTTS.vocoder.hifigan_unit.extract_speaker_embeddings import (
+    ...     extract_libritts_embeddings,
+    ... )
+    >>> data_folder = "data/libritts/"
+    >>> splits = ["train", "valid"]
+    >>> encoder_source = facebook / hubert - base - ls960
+    >>> save_folder = "save/"
+    >>> extract_libritts_embeddings(
+    ...     data_folder, splits, encoder_source, save_folder
+    ... )
     """
     logger = setup_logger()
 
@@ -183,7 +188,7 @@ def extract_libritts_embeddings(
             item = meta_json[key]
             wav = item["wav"]
             with torch.no_grad():
-                info = torchaudio.info(wav)
+                info = audio_io.info(wav)
                 audio = sb.dataio.dataio.read_audio(wav)
                 audio = torchaudio.transforms.Resample(
                     info.sample_rate,

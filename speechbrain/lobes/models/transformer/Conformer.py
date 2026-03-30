@@ -190,13 +190,13 @@ class ConvolutionModule(nn.Module):
         if dynchunktrain_config is not None:
             # chances are chunking+causal is unintended; i don't know where it
             # may make sense, but if it does to you, feel free to implement it.
-            assert (
-                not self.causal
-            ), "Chunked convolution not supported with causal padding"
+            assert not self.causal, (
+                "Chunked convolution not supported with causal padding"
+            )
 
-            assert (
-                self.dilation == 1
-            ), "Current DynChunkTrain logic does not support dilation != 1"
+            assert self.dilation == 1, (
+                "Current DynChunkTrain logic does not support dilation != 1"
+            )
 
             # in a causal convolution, which is not the case here, an output
             # frame would never be able to depend on a input frame from any
@@ -362,8 +362,10 @@ class ConformerEncoderLayer(nn.Module):
     -------
     >>> import torch
     >>> x = torch.rand((8, 60, 512))
-    >>> pos_embs = torch.rand((1, 2*60-1, 512))
-    >>> net = ConformerEncoderLayer(d_ffn=512, nhead=8, d_model=512, kernel_size=3)
+    >>> pos_embs = torch.rand((1, 2 * 60 - 1, 512))
+    >>> net = ConformerEncoderLayer(
+    ...     d_ffn=512, nhead=8, d_model=512, kernel_size=3
+    ... )
     >>> output = net(x, pos_embs=pos_embs)
     >>> output[0].shape
     torch.Size([8, 60, 512])
@@ -451,7 +453,7 @@ class ConformerEncoderLayer(nn.Module):
         x,
         src_mask: Optional[torch.Tensor] = None,
         src_key_padding_mask: Optional[torch.Tensor] = None,
-        pos_embs: torch.Tensor = None,
+        pos_embs: Optional[torch.Tensor] = None,
         dynchunktrain_config: Optional[DynChunkTrainConfig] = None,
     ):
         """
@@ -500,7 +502,7 @@ class ConformerEncoderLayer(nn.Module):
         self,
         x,
         context: ConformerEncoderLayerStreamingContext,
-        pos_embs: torch.Tensor = None,
+        pos_embs: Optional[torch.Tensor] = None,
     ):
         """Conformer layer streaming forward (typically for
         DynamicChunkTraining-trained models), which is to be used at inference
@@ -639,15 +641,18 @@ class ConformerEncoder(nn.Module):
     -------
     >>> import torch
     >>> x = torch.rand((8, 60, 512))
-    >>> pos_emb = torch.rand((1, 2*60-1, 512))
+    >>> pos_emb = torch.rand((1, 2 * 60 - 1, 512))
     >>> net = ConformerEncoder(1, 512, 512, 8)
     >>> output, _ = net(x, pos_embs=pos_emb)
     >>> output.shape
     torch.Size([8, 60, 512])
 
     >>> import torch
-    >>> from speechbrain.lobes.models.transformer.Conformer import ConformerEncoder
-    >>> x = torch.rand((8, 60, 512)); pos_emb = torch.rand((1, 2*60-1, 512));
+    >>> from speechbrain.lobes.models.transformer.Conformer import (
+    ...     ConformerEncoder,
+    ... )
+    >>> x = torch.rand((8, 60, 512))
+    >>> pos_emb = torch.rand((1, 2 * 60 - 1, 512))
     >>> net = ConformerEncoder(4, 512, 512, 8, output_hidden_states=True)
     >>> output, _, hs = net(x, pos_embs=pos_emb)
     >>> hs[0].shape
@@ -802,10 +807,7 @@ class ConformerEncoder(nn.Module):
             The attention values.
         """
 
-        if (
-            self.attention_type == "RelPosMHAXL"
-            or self.attention_type == "RoPEMHA"
-        ):
+        if self.attention_type == "RelPosMHAXL":
             if pos_embs is None:
                 raise ValueError(
                     f"The chosen attention type for the Conformer is {self.attention_type}. For this attention type, the positional embeddings are mandatory"
@@ -877,8 +879,10 @@ class ConformerDecoderLayer(nn.Module):
     -------
     >>> import torch
     >>> x = torch.rand((8, 60, 512))
-    >>> pos_embs = torch.rand((1, 2*60-1, 512))
-    >>> net = ConformerEncoderLayer(d_ffn=512, nhead=8, d_model=512, kernel_size=3)
+    >>> pos_embs = torch.rand((1, 2 * 60 - 1, 512))
+    >>> net = ConformerEncoderLayer(
+    ...     d_ffn=512, nhead=8, d_model=512, kernel_size=3
+    ... )
     >>> output = net(x, pos_embs=pos_embs)
     >>> output[0].shape
     torch.Size([8, 60, 512])

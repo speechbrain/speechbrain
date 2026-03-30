@@ -69,7 +69,7 @@ class SynonymDictionary:
             Synonym dictionary frm the parsed JSON file with all synonym sets
             added.
         """
-        with open(path, "r", encoding="utf8") as f:
+        with open(path, encoding="utf8") as f:
             return SynonymDictionary.from_json_file(f)
 
     def add_synonym_set(self, words: Iterable[str]) -> None:

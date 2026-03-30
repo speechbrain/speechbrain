@@ -43,8 +43,14 @@ class PaddedBatch:
     padding_func : callable, optional
         Called with a list of tensors to be padded together. Needs to return
         two tensors: the padded data, and another tensor for the data lengths.
-    padding_kwargs : dict
+    padding_kwargs : dict, None
         (Optional) Extra kwargs to pass to padding_func. E.G. mode, value
+        This is used as the default padding configuration for all keys.
+    per_key_padding_kwargs : dict, None
+        (Optional) Per-key padding configuration. Keys in this dict should match
+        the keys in the examples. Each value should be a dict with padding parameters
+        (e.g., {'value': -100, 'mode': 'constant'}). If a key is not in this dict,
+        the global padding_kwargs will be used.
     apply_default_convert : bool
         Whether to apply PyTorch default_convert (numpy to torch recursively,
         etc.) on all data. Default:True, usually does the right thing.
@@ -55,9 +61,12 @@ class PaddedBatch:
 
     Example
     -------
-    >>> batch = PaddedBatch([
-    ...     {"id": "ex1", "foo": torch.Tensor([1.])},
-    ...     {"id": "ex2", "foo": torch.Tensor([2., 1.])}])
+    >>> batch = PaddedBatch(
+    ...     [
+    ...         {"id": "ex1", "foo": torch.Tensor([1.0])},
+    ...         {"id": "ex2", "foo": torch.Tensor([2.0, 1.0])},
+    ...     ]
+    ... )
     >>> # Attribute or key-based access:
     >>> batch.id
     ['ex1', 'ex2']
@@ -80,25 +89,54 @@ class PaddedBatch:
     tensor([0.5000, 1.0000], dtype=torch.float16)
     >>> # Numpy tensors get converted to torch and padded as well:
     >>> import numpy as np
-    >>> batch = PaddedBatch([
-    ...     {"wav": np.asarray([1,2,3,4])},
-    ...     {"wav": np.asarray([1,2,3])}])
+    >>> batch = PaddedBatch(
+    ...     [{"wav": np.asarray([1, 2, 3, 4])}, {"wav": np.asarray([1, 2, 3])}]
+    ... )
     >>> batch.wav  # +ELLIPSIS
     PaddedData(data=tensor([[1, 2,...
     >>> # Basic stacking collation deals with non padded data:
-    >>> batch = PaddedBatch([
-    ...     {"spk_id": torch.tensor([1]), "wav": torch.tensor([.1,.0,.3])},
-    ...     {"spk_id": torch.tensor([2]), "wav": torch.tensor([.2,.3,-.1])}],
-    ...     padded_keys=["wav"])
+    >>> batch = PaddedBatch(
+    ...     [
+    ...         {
+    ...             "spk_id": torch.tensor([1]),
+    ...             "wav": torch.tensor([0.1, 0.0, 0.3]),
+    ...         },
+    ...         {
+    ...             "spk_id": torch.tensor([2]),
+    ...             "wav": torch.tensor([0.2, 0.3, -0.1]),
+    ...         },
+    ...     ],
+    ...     padded_keys=["wav"],
+    ... )
     >>> batch.spk_id
     tensor([[1],
             [2]])
     >>> # And some data is left alone:
-    >>> batch = PaddedBatch([
-    ...     {"text": ["Hello"]},
-    ...     {"text": ["How", "are", "you?"]}])
+    >>> batch = PaddedBatch(
+    ...     [{"text": ["Hello"]}, {"text": ["How", "are", "you?"]}]
+    ... )
     >>> batch.text
     [['Hello'], ['How', 'are', 'you?']]
+    >>> # Per-key padding configuration:
+    >>> batch = PaddedBatch(
+    ...     [
+    ...         {
+    ...             "wav": torch.tensor([1, 2, 3]),
+    ...             "labels": torch.tensor([1, 2]),
+    ...         },
+    ...         {"wav": torch.tensor([4, 5]), "labels": torch.tensor([3])},
+    ...     ],
+    ...     per_key_padding_kwargs={
+    ...         "wav": {"value": 0},
+    ...         "labels": {"value": -100},
+    ...     },
+    ... )
+    >>> batch.wav.data
+    tensor([[1, 2, 3],
+            [4, 5, 0]])
+    >>> batch.labels.data
+    tensor([[   1,    2],
+            [   3, -100]])
 
     """
 
@@ -108,10 +146,15 @@ class PaddedBatch:
         padded_keys=None,
         device_prep_keys=None,
         padding_func=batch_pad_right,
-        padding_kwargs={},
+        padding_kwargs=None,
+        per_key_padding_kwargs=None,
         apply_default_convert=True,
         nonpadded_stack=True,
     ):
+        padding_kwargs = padding_kwargs if padding_kwargs is not None else {}
+        per_key_padding_kwargs = (
+            per_key_padding_kwargs if per_key_padding_kwargs is not None else {}
+        )
         self.__length = len(examples)
         self.__keys = list(examples[0].keys())
         self.__padded_keys = []
@@ -126,7 +169,13 @@ class PaddedBatch:
             ):
                 # Padding and PaddedData
                 self.__padded_keys.append(key)
-                padded = PaddedData(*padding_func(values, **padding_kwargs))
+
+                # Use per-key padding config if available, otherwise fall back to global padding_kwargs
+                if key in per_key_padding_kwargs:
+                    key_padding_kwargs = per_key_padding_kwargs[key]
+                else:
+                    key_padding_kwargs = padding_kwargs
+                padded = PaddedData(*padding_func(values, **key_padding_kwargs))
                 setattr(self, key, padded)
             else:
                 # Default PyTorch collate usually does the right thing
@@ -157,14 +206,17 @@ class PaddedBatch:
 
         Example
         -------
-        >>> batch = PaddedBatch([
-        ...     {"id": "ex1", "val": torch.Tensor([1.])},
-        ...     {"id": "ex2", "val": torch.Tensor([2., 1.])}])
+        >>> batch = PaddedBatch(
+        ...     [
+        ...         {"id": "ex1", "val": torch.Tensor([1.0])},
+        ...         {"id": "ex2", "val": torch.Tensor([2.0, 1.0])},
+        ...     ]
+        ... )
         >>> ids, vals = batch
         >>> ids
         ['ex1', 'ex2']
         """
-        return iter((getattr(self, key) for key in self.__keys))
+        return iter(getattr(self, key) for key in self.__keys)
 
     def pin_memory(self):
         """In-place, moves relevant elements to pinned memory."""
@@ -205,13 +257,15 @@ class BatchsizeGuesser:
     -------
     >>> guesser = BatchsizeGuesser()
     >>> # Works with simple tensors:
-    >>> guesser(torch.randn((2,3)))
+    >>> guesser(torch.randn((2, 3)))
     2
     >>> # Works with sequences of tensors:
-    >>> guesser((torch.randn((2,3)), torch.randint(high=5, size=(2,))))
+    >>> guesser((torch.randn((2, 3)), torch.randint(high=5, size=(2,))))
     2
     >>> # Works with PaddedBatch:
-    >>> guesser(PaddedBatch([{"wav": [1.,2.,3.]}, {"wav": [4.,5.,6.]}]))
+    >>> guesser(
+    ...     PaddedBatch([{"wav": [1.0, 2.0, 3.0]}, {"wav": [4.0, 5.0, 6.0]}])
+    ... )
     2
     >>> guesser("Even weird non-batches have a fallback")
     1

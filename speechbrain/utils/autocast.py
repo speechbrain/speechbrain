@@ -131,13 +131,46 @@ class TorchAutocast:
         return self.context.__exit__(exc_type, exc_val, exc_tb)
 
 
+def _infer_device_type(*args, **kwargs):
+    """Infer device type from the input tensors.
+
+    This function returns the device type of the first tensor found in the
+    arguments or keyword arguments. It assumes all tensors are on the same
+    device, which is typically the case in PyTorch operations.
+
+    Arguments
+    ---------
+    *args: tuple
+        Arguments that may contain tensors
+    **kwargs: dict
+        Keyword arguments that may contain tensors
+
+    Returns
+    -------
+    str
+        Device type ('cuda', 'cpu', 'mps', etc.)
+    """
+    # Check args for tensors
+    for arg in args:
+        if isinstance(arg, torch.Tensor):
+            return arg.device.type
+
+    # Check kwargs for tensors
+    for value in kwargs.values():
+        if isinstance(value, torch.Tensor):
+            return value.device.type
+
+    # Default to cpu if no tensors found
+    return "cpu"
+
+
 def fwd_default_precision(
     fwd: Optional[Callable] = None,
     cast_inputs: Optional[torch.dtype] = torch.float32,
 ):
     """Decorator for forward methods which, by default, *disables* autocast
     and casts any floating-point tensor parameters into the specified dtype
-    (much like `torch.cuda.amp.custom_fwd`).
+    (much like `torch.amp.custom_fwd`).
 
     The *wrapped forward* will gain an additional `force_allow_autocast` keyword
     parameter.
@@ -146,9 +179,8 @@ def fwd_default_precision(
     (Thus, modules can specify a default recommended precision, and users can
     override that behavior when desired.)
 
-    Note that as of PyTorch 2.1.1, this will **only** affect **CUDA** AMP.
-    Non-CUDA AMP will be unaffected and no input tensors will be cast!
-    This usecase may be supported by this function in the future.
+    This decorator now supports both CPU and CUDA by using `torch.amp.custom_fwd`
+    with the device_type inferred from input tensors at runtime.
 
     When autocast is *not* active, this decorator does not change any behavior.
 
@@ -180,12 +212,16 @@ def fwd_default_precision(
     if fwd is None:
         return functools.partial(fwd_default_precision, cast_inputs=cast_inputs)
 
-    # NOTE: torch.cuda.amp.custom_fwd is written with the assumption of CUDA
-    # autocast. There does not seem to be a generic equivalent.
-    # Detecting CUDA AMP specifically also seems difficult or impossible, so we
-    # cannot even reliably warn about the issue. For now, we just document the
-    # problem.
-    wrapped_fwd = torch.cuda.amp.custom_fwd(fwd, cast_inputs=cast_inputs)
+    # Cache for wrapped functions by device type (lazy initialization)
+    wrapped_cache = {}
+
+    def get_wrapped_fwd(device_type):
+        """Get or create a wrapped function for the given device type."""
+        if device_type not in wrapped_cache:
+            wrapped_cache[device_type] = torch.amp.custom_fwd(
+                fwd, device_type=device_type, cast_inputs=cast_inputs
+            )
+        return wrapped_cache[device_type]
 
     @functools.wraps(fwd)
     def wrapper(*args, force_allow_autocast: bool = False, **kwargs):
@@ -208,6 +244,9 @@ def fwd_default_precision(
         if force_allow_autocast:
             return fwd(*args, **kwargs)
         else:
+            # Infer device type from input tensors
+            device_type = _infer_device_type(*args, **kwargs)
+            wrapped_fwd = get_wrapped_fwd(device_type)
             return wrapped_fwd(*args, **kwargs)
 
     return wrapper

@@ -10,11 +10,11 @@ import os
 
 import pandas as pd
 import torch
-import torchaudio
 from scipy.signal import resample_poly
 from tqdm import tqdm
 from wham_room import WhamRoom
 
+from speechbrain.dataio import audio_io
 from speechbrain.utils.fetching import fetch
 
 
@@ -114,10 +114,8 @@ def create_rirs(output_dir, sr=8000):
                     h = resample_poly(source, sr, 16000)
                     h_torch = torch.from_numpy(h).float().unsqueeze(0)
 
-                    torchaudio.save(
-                        os.path.join(
-                            output_dir, "{}_{}_".format(i, j) + output_name
-                        ),
+                    audio_io.save(
+                        os.path.join(output_dir, f"{i}_{j}_" + output_name),
                         h_torch,
                         sr,
                     )

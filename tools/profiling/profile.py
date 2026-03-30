@@ -280,9 +280,7 @@ def profile_pretrained(
         memory_peaks_row = []
         for b, bs in enumerate(batch_sizes):
             # skip expected heavy-loads
-            if (
-                triangle_only
-            ):  # this is a protection mechanism, since configs might explore exponentially
+            if triangle_only:  # this is a protection mechanism, since configs might explore exponentially
                 if (
                     (b + d >= (len(audio_mockup_secs) + len(batch_sizes)) / 2)
                     and (d > 0)

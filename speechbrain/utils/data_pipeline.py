@@ -16,15 +16,19 @@ Example
 ...     output_keys: ["foo", "bar"]
 ... '''
 >>> hparams = load_hyperpyyaml(yamlstring)
->>> hparams["pipeline"]({"a":1, "b":2})
+>>> hparams["pipeline"]({"a": 1, "b": 2})
 {'foo': 3, 'bar': 1}
 
 Author:
-    * Aku Rouhe
+ * Aku Rouhe
+ * Peter Plantinga
 """
 
 import inspect
+import pathlib
 from dataclasses import dataclass
+
+import torch
 
 from speechbrain.utils.depgraph import DependencyGraph
 
@@ -64,10 +68,10 @@ class DynamicItem:
         The keys that this provides.
     """
 
-    def __init__(self, takes=[], func=None, provides=[]):
-        self.takes = takes
+    def __init__(self, takes=None, func=None, provides=None):
+        self.takes = takes if takes is not None else []
         self.func = func
-        self.provides = provides
+        self.provides = provides if provides is not None else []
 
     def __call__(self, *args):
         return self.func(*args)
@@ -134,9 +138,10 @@ class GeneratorDynamicItem(DynamicItem):
     ...     encoded = [lab2ind[word] for word in words]
     ...     yield encoded
     >>> item = GeneratorDynamicItem(
-    ...         func=text_pipeline,
-    ...         takes=["text"],
-    ...         provides=["words", "words_encoded"])
+    ...     func=text_pipeline,
+    ...     takes=["text"],
+    ...     provides=["words", "words_encoded"],
+    ... )
     >>> # First create the integer-encoding:
     >>> ind = 1
     >>> for token in item("Is this it? - This is it."):
@@ -207,6 +212,119 @@ class GeneratorDynamicItem(DynamicItem):
         self.num_provided_items = 0
 
 
+class CachedDynamicItem(DynamicItem):
+    """Caches the result of a data transform to the filesystem, so that
+    expensive data transforms can be done only once.
+
+    NOTE: Uses each item's unique "id" to determine location on disk. This
+    means that the id must be a valid filename on your system, and that
+    only one item can be stored per id -- so each cached item must have
+    its own storage location.
+
+    PyTorch save() and load() are used for caching. File storage tree
+    after caching:
+
+        cache_location/
+            <id_1>.pt
+            <id_2>.pt
+            ...
+
+    Arguments
+    ---------
+    cache_location : os.PathLike
+        Storage folder for containing each item's cached output.
+    *args
+    **kwargs
+        Forwarded to DynamicItem constructor
+    """
+
+    def __init__(self, cache_location, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        if not self.takes:
+            raise ValueError(
+                "Expected 'takes' list to have at least one item, but 'takes' is empty"
+            )
+        if not self.takes[0] == "id":
+            raise ValueError("First item in 'takes' list must be 'id'")
+
+        self.cache_location = pathlib.Path(cache_location)
+        self.cache_location.mkdir(parents=True, exist_ok=True)
+
+    def __call__(self, *args):
+        """If cached, return cached result. Otherwise, compute, cache, and return."""
+
+        # If its already in the cache, load and return
+        if self._is_cached(args[0]):
+            return self._load(args[0])
+
+        # Not cached, compute and save to cache
+        result = self.func(*args)
+        self._cache(result, args[0])
+
+        return result
+
+    def _is_cached(self, uid):
+        """Test whether uid is cached."""
+        return self._uid2path(uid).exists()
+
+    def _load(self, uid):
+        """Load result from cache"""
+        return torch.load(self._uid2path(uid))
+
+    def _cache(self, result, uid):
+        """Save the result to the cache"""
+        torch.save(result, self._uid2path(uid))
+
+    def _uid2path(self, uid):
+        """Convert a uid to a cache location"""
+        return self.cache_location / (uid + ".pt")
+
+    @classmethod
+    def cache(cls, save_dir):
+        """Decorator which takes a DynamicItem and creates a CachedDynamicItem
+
+        Arguments
+        ---------
+        save_dir : os.PathLike
+            Path to the directory where the cache should be stored.
+
+        Example
+        -------
+        >>> import os
+        >>> tempdir = getfixture("tmpdir")
+        >>> @CachedDynamicItem.cache(tempdir)
+        ... @takes("id", "text")
+        ... @provides("tokenized")
+        ... def tokenize(id, text):
+        ...     return text.strip().lower().split()
+        >>> os.listdir(tempdir)
+        []
+        >>> tokenize("utt_id", "\tThis Example gets tokenized")
+        ['this', 'example', 'gets', 'tokenized']
+        >>> os.listdir(tempdir)
+        ['utt_id.pt']
+        >>> torch.load(tempdir / "utt_id.pt")
+        ['this', 'example', 'gets', 'tokenized']
+        >>> # The output shouldn't change on the second call
+        >>> tokenize("utt_id", "\tThis Example gets tokenized")
+        ['this', 'example', 'gets', 'tokenized']
+        >>> # NOTE: NO INVALID CACHE DETECTION
+        >>> tokenize("utt_id", "Different sentence but same result")
+        ['this', 'example', 'gets', 'tokenized']
+        """
+
+        def decorator(obj):
+            """Decorator definition."""
+            if not isinstance(obj, DynamicItem):
+                raise ValueError("Can only cache a DynamicItem")
+            return cls(
+                save_dir, takes=obj.takes, func=obj.func, provides=obj.provides
+            )
+
+        return decorator
+
+
 def takes(*argkeys):
     """Decorator which makes a DynamicItem and specifies its argkeys.
 
@@ -236,7 +354,7 @@ def takes(*argkeys):
     ... def tokenize(text):
     ...     return text.strip().lower().split()
     >>> tokenize.provides = ["tokenized"]
-    >>> tokenize('\tThis Example gets tokenized')
+    >>> tokenize("\tThis Example gets tokenized")
     ['this', 'example', 'gets', 'tokenized']
     """
 
@@ -284,12 +402,12 @@ def provides(*output_keys):
 
     >>> @provides("signal", "feat")
     ... def read_feat():
-    ...     wav = [.1,.2,-.1]
+    ...     wav = [0.1, 0.2, -0.1]
     ...     feat = [s**2 for s in wav]
     ...     return wav, feat
     >>> @provides("signal", "feat")
     ... def read_feat():
-    ...     wav = [.1,.2,-.1]
+    ...     wav = [0.1, 0.2, -0.1]
     ...     yield wav
     ...     feat = [s**2 for s in wav]
     ...     yield feat
@@ -298,7 +416,7 @@ def provides(*output_keys):
 
     >>> @provides("wav_read", ["left_channel", "right_channel"])
     ... def read_multi_channel():
-    ...     wav = [[.1,.2,-.1],[.2,.1,-.1]]
+    ...     wav = [[0.1, 0.2, -0.1], [0.2, 0.1, -0.1]]
     ...     yield wav
     ...     yield wav[0], wav[1]
 
@@ -339,8 +457,12 @@ class DataPipeline:
     >>> pipeline = DataPipeline(
     ...     static_data_keys=["text"],
     ...     dynamic_items=[
-    ...     {"func": lambda x: x.lower(), "takes": "text", "provides": "foo"},
-    ...     {"func": lambda x: x[::-1], "takes": "foo", "provides": "bar"},
+    ...         {
+    ...             "func": lambda x: x.lower(),
+    ...             "takes": "text",
+    ...             "provides": "foo",
+    ...         },
+    ...         {"func": lambda x: x[::-1], "takes": "foo", "provides": "bar"},
     ...     ],
     ...     output_keys=["bar"],
     ... )
@@ -348,7 +470,11 @@ class DataPipeline:
     {'bar': 'tset'}
     """
 
-    def __init__(self, static_data_keys, dynamic_items=[], output_keys=[]):
+    def __init__(self, static_data_keys, dynamic_items=None, output_keys=None):
+        if dynamic_items is None:
+            dynamic_items = []
+        if output_keys is None:
+            output_keys = []
         self.dg = DependencyGraph()
         self._exec_order = None
         self.key_to_node = {}

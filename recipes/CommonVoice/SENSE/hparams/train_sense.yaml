@@ -1,0 +1,226 @@
+# ###############################################
+# Model: w2v-BERT + attention pooling
+# Training: Multilingual SENSE
+# Loss: cosine similarity
+# Authors: Maryem Bouziane 2025, Salima Mdhaffar 2025,
+#          Haroun Elleuch 2025, Yannick Estève 2025
+# ###############################################
+
+# Seed must be set before any object with parameters is instantiated.
+seed: 2422
+__set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
+
+############################## Data ####################################
+
+# Root folder containing the multilingual Common Voice data tree.
+data_folder: !PLACEHOLDER # e.g. /localscratch/common_voice_langs/
+output_folder: !ref results/SENSE_training/<seed>
+save_folder: !ref <output_folder>/save
+train_log: !ref <output_folder>/train_log.txt
+# Exponent used in the language sampling formula for SENSE.
+# Small alpha oversamples low-resource languages
+# and undersamples high-resource ones.
+sampling_alpha: 0.05
+
+# Paths for the multilingual CSV manifests produced by prepare_sense().
+language_ratios_file: !ref <output_folder>/language_ratios.json
+train_csv: !ref <output_folder>/train.csv
+valid_csv: !ref <output_folder>/dev.csv
+
+# If True, data preparation (TSV → CSV) is skipped.
+skip_prep: False
+
+# If True, Common Voice .mp3 clips are converted to .wav before training.
+convert_to_wav: True
+
+# Languages included in the multilingual SENSE training.
+languages:
+  - "af"
+  - "am"
+  - "ar"
+  - "as"
+  - "ast"
+  - "az"
+  - "ba"
+  - "be"
+  - "bg"
+  - "bn"
+  - "br"
+  - "ca"
+  - "ckb"
+  - "cs"
+  - "cv"
+  - "cy"
+  - "da"
+  - "de"
+  - "dv"
+  - "el"
+  - "en"
+  - "eo"
+  - "es"
+  - "et"
+  - "fa"
+  - "fi"
+  - "fr"
+  - "fy-NL"
+  - "ga-IE"
+  - "gl"
+  - "gn"
+  - "he"
+  - "hi"
+  - "hsb"
+  - "ht"
+  - "hu"
+  - "ia"
+  - "id"
+  - "is"
+  - "it"
+  - "ja"
+  - "ka"
+  - "kab"
+  - "kk"
+  - "ko"
+  - "ky"
+  - "lt"
+  - "lo"
+  - "lv"
+  - "ml"
+  - "mn"
+  - "mhr"
+  - "mk"
+  - "mr"
+  - "mt"
+  - "ne-NP"
+  - "nl"
+  - "nn-NO"
+  - "oc"
+  - "or"
+  - "os"
+  - "pa-IN"
+  - "pl"
+  - "ps"
+  - "pt"
+  - "ro"
+  - "ru"
+  - "sah"
+  - "sc"
+  - "sk"
+  - "sl"
+  - "sr"
+  - "sv-SE"
+  - "sw"
+  - "ta"
+  - "te" # codespell:ignore te
+  - "th"
+  - "ti"
+  - "tk"
+  - "tr"
+  - "tt"
+  - "ug"
+  - "uk"
+  - "ur"
+  - "uz"
+  - "vi"
+  - "yi"
+  - "yo"
+  - "zh-HK"
+  - "zu"
+
+############################## Text encoder: BGE-M3 ####################
+
+bge_path: "BAAI/bge-m3"
+
+bge_model: !new:speechbrain.integrations.nlp.bgeM3_embeddings.BGEM3SentenceEmbeddings
+  source: !ref <bge_path>
+  use_fp16: True
+  return_dense: True
+
+############################## Speech encoder: w2v-BERT ################
+
+# Hugging Face model name for the w2v-BERT encoder.
+wav2vec2_hub: facebook/w2v-bert-2.0
+
+# If True, the w2v-BERT encoder is kept frozen during training.
+wav2vec2_frozen: False
+
+############################## Training ################################
+
+number_of_epochs: 100
+
+# Learning rates for the attention head and the w2v-BERT encoder.
+lr: 1.5
+lr_wav2vec: 0.00001
+
+batch_size: 2
+
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+  limit: !ref <number_of_epochs>
+
+dataloader_options:
+  batch_size: !ref <batch_size>
+  num_workers: 8
+
+############################## Architecture ############################
+
+# Dimensionality of the w2v-BERT hidden representations (input to attention).
+d_model: 1024
+
+# Global scaling factor applied to the cosine loss .
+loss_scale: 50
+
+wav2vec2: !new:speechbrain.integrations.huggingface.w2v_bert.W2VBert
+  source: !ref <wav2vec2_hub>
+  save_path: !ref <save_folder>/wav2vec2_checkpoint
+  freeze: !ref <wav2vec2_frozen>
+
+attn_pooling: !new:speechbrain.nnet.pooling.AttentionPooling
+  input_dim: !ref <d_model>
+
+modules:
+  wav2vec2: !ref <wav2vec2>
+  attn_pooling: !ref <attn_pooling>
+  bge_model: !ref <bge_model>
+
+# Only the attention pooling head
+# is grouped under "model" for the main optimizer.
+model: !new:torch.nn.ModuleList
+  modules: [!ref <attn_pooling>]
+
+############################## Optimizers & schedulers #################
+
+# Optimizer for the attention pooling head.
+adam_opt_class: !name:torch.optim.Adadelta
+  lr: !ref <lr>
+  rho: 0.95
+  eps: 0.00000001
+
+# Optimizer for the w2v-BERT encoder.
+wav2vec_opt_class: !name:torch.optim.Adam
+  lr: !ref <lr_wav2vec>
+
+# Learning-rate scheduler for the attention pooling head.
+lr_annealing_adam: !new:speechbrain.nnet.schedulers.NewBobScheduler
+  initial_value: !ref <lr>
+  improvement_threshold: 0.0025
+  annealing_factor: 0.5
+  patient: 2
+
+# Learning-rate scheduler for the w2v-BERT encoder.
+lr_annealing_wav2vec: !new:speechbrain.nnet.schedulers.NewBobScheduler
+  initial_value: !ref <lr_wav2vec>
+  improvement_threshold: 0.0025
+  annealing_factor: 0.9
+
+############################## Checkpointer & logger ###################
+
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+  checkpoints_dir: !ref <save_folder>
+  recoverables:
+    model: !ref <model>
+    wav2vec2: !ref <wav2vec2>
+    lr_annealing_adam: !ref <lr_annealing_adam>
+    lr_annealing_wav2vec: !ref <lr_annealing_wav2vec>
+    counter: !ref <epoch_counter>
+
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+  save_file: !ref <train_log>

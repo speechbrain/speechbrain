@@ -11,19 +11,20 @@ import json
 from pathlib import Path
 
 import numpy as np
-import torchaudio
 from tqdm import tqdm
+
+from speechbrain.dataio import audio_io
 
 
 def _read_metadata(file_path, configs):
-    meta = torchaudio.info(file_path)
+    meta = audio_io.info(file_path)
     if meta.num_channels > 1:
         channel = np.random.randint(0, meta.num_channels - 1)
     else:
         channel = 0
-    assert (
-        meta.sample_rate == configs["samplerate"]
-    ), "file samplerate is different from the one specified"
+    assert meta.sample_rate == configs["samplerate"], (
+        "file samplerate is different from the one specified"
+    )
 
     return meta, channel
 
@@ -198,7 +199,7 @@ def create_metadata(
                 "channel": None,
             }
 
-        dataset_metadata["session_{}".format(n_sess)] = activity
+        dataset_metadata[f"session_{n_sess}"] = activity
 
     with open(output_filename + ".json", "w", encoding="utf-8") as f:
         json.dump(dataset_metadata, f, indent=4)

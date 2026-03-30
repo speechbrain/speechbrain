@@ -14,10 +14,10 @@ from typing import Optional
 
 logging.basicConfig(level=logging.INFO)
 
-with open("tutorials/notebook-header.md", "r", encoding="utf-8") as header_file:
+with open("tutorials/notebook-header.md", encoding="utf-8") as header_file:
     HEADER_CONTENTS = header_file.read()
 
-with open("tutorials/notebook-footer.md", "r", encoding="utf-8") as footer_file:
+with open("tutorials/notebook-footer.md", encoding="utf-8") as footer_file:
     FOOTER_CONTENTS = footer_file.read()
 
 

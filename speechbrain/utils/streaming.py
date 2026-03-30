@@ -83,7 +83,10 @@ def split_wav_lens(chunk_lens, wav_lens):
     Example
     -------
     >>> import torch
-    >>> from speechbrain.utils.streaming import split_wav_lens, split_fixed_chunks
+    >>> from speechbrain.utils.streaming import (
+    ...     split_wav_lens,
+    ...     split_fixed_chunks,
+    ... )
     >>> x = torch.zeros((3, 20, 80))
     >>> chunks = split_fixed_chunks(x, 8, dim=1)
     >>> len(chunks)

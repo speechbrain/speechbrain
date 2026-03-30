@@ -30,7 +30,7 @@ import torch
 from hyperpyyaml import load_hyperpyyaml
 
 import speechbrain as sb
-import speechbrain.k2_integration as sbk2
+import speechbrain.integrations.k2_fsa as sbk2
 from speechbrain.utils.distributed import if_main_process, run_on_main
 from speechbrain.utils.logger import get_logger
 
@@ -468,9 +468,9 @@ if __name__ == "__main__":
     )
 
     # Add attributes to asr_brain
-    setattr(asr_brain, "lexicon", lexicon)
-    setattr(asr_brain, "graph_compiler", graph_compiler)
-    setattr(asr_brain, "decoder", decoder)
+    asr_brain.lexicon = lexicon
+    asr_brain.graph_compiler = graph_compiler
+    asr_brain.decoder = decoder
 
     # We load the pretrained wav2vec2 model
     if "pretrainer" in hparams.keys():

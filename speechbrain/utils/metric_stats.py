@@ -55,17 +55,17 @@ class MetricStats:
     >>> from speechbrain.nnet.losses import l1_loss
     >>> loss_stats = MetricStats(metric=l1_loss)
     >>> loss_stats.append(
-    ...      ids=["utterance1", "utterance2"],
-    ...      predictions=torch.tensor([[0.1, 0.2], [0.2, 0.3]]),
-    ...      targets=torch.tensor([[0.1, 0.2], [0.1, 0.2]]),
-    ...      reduction="batch",
+    ...     ids=["utterance1", "utterance2"],
+    ...     predictions=torch.tensor([[0.1, 0.2], [0.2, 0.3]]),
+    ...     targets=torch.tensor([[0.1, 0.2], [0.1, 0.2]]),
+    ...     reduction="batch",
     ... )
     >>> stats = loss_stats.summarize()
-    >>> stats['average']
+    >>> stats["average"]
     0.050...
-    >>> stats['max_score']
+    >>> stats["max_score"]
     0.100...
-    >>> stats['max_id']
+    >>> stats["max_id"]
     'utterance2'
     """
 
@@ -235,22 +235,22 @@ class ErrorRateStats(MetricStats):
     Example
     -------
     >>> cer_stats = ErrorRateStats()
-    >>> i2l = {0: 'a', 1: 'b'}
+    >>> i2l = {0: "a", 1: "b"}
     >>> cer_stats.append(
-    ...     ids=['utterance1'],
+    ...     ids=["utterance1"],
     ...     predict=torch.tensor([[0, 1, 1]]),
     ...     target=torch.tensor([[0, 1, 0]]),
     ...     target_len=torch.ones(1),
     ...     ind2lab=lambda batch: [[i2l[int(x)] for x in seq] for seq in batch],
     ... )
     >>> stats = cer_stats.summarize()
-    >>> stats['WER']
+    >>> stats["WER"]
     33.33...
-    >>> stats['insertions']
+    >>> stats["insertions"]
     0
-    >>> stats['deletions']
+    >>> stats["deletions"]
     0
-    >>> stats['substitutions']
+    >>> stats["substitutions"]
     1
     """
 
@@ -960,12 +960,7 @@ class ClassificationStats(MetricStats):
     ...         "B AE D",
     ...         "M EY K",
     ...     ],
-    ...     categories=[
-    ...         "make",
-    ...         "take",
-    ...         "bad",
-    ...         "make"
-    ...     ]
+    ...     categories=["make", "take", "bad", "make"],
     ... )
     >>> cs.write_stats(sys.stdout)
     Overall Accuracy: 75%
@@ -986,21 +981,21 @@ class ClassificationStats(MetricStats):
     Target: take -> T EY K
       -> T EY K   : 1 / 1 (100.00%)
     >>> summary = cs.summarize()
-    >>> summary['accuracy']
+    >>> summary["accuracy"]
     0.75
-    >>> summary['classwise_stats'][('bad', 'B AE D')]
+    >>> summary["classwise_stats"][("bad", "B AE D")]
     {'total': 1.0, 'correct': 1.0, 'accuracy': 1.0}
-    >>> summary['classwise_stats'][('make', 'M EY K')]
+    >>> summary["classwise_stats"][("make", "M EY K")]
     {'total': 2.0, 'correct': 1.0, 'accuracy': 0.5}
-    >>> summary['keys']
+    >>> summary["keys"]
     [('bad', 'B AE D'), ('make', 'M EY K'), ('take', 'T EY K')]
-    >>> summary['predictions']
+    >>> summary["predictions"]
     ['B AE D', 'M EY K', 'M EY K AH', 'T EY K']
-    >>> summary['classwise_total']
+    >>> summary["classwise_total"]
     {('bad', 'B AE D'): 1.0, ('make', 'M EY K'): 2.0, ('take', 'T EY K'): 1.0}
-    >>> summary['classwise_correct']
+    >>> summary["classwise_correct"]
     {('bad', 'B AE D'): 1.0, ('make', 'M EY K'): 1.0, ('take', 'T EY K'): 1.0}
-    >>> summary['classwise_accuracy']
+    >>> summary["classwise_accuracy"]
     {('bad', 'B AE D'): 1.0, ('make', 'M EY K'): 0.5, ('take', 'T EY K'): 1.0}
     """
 
@@ -1090,8 +1085,8 @@ class ClassificationStats(MetricStats):
 
     def _build_lookups(self):
         self._available_keys = self._get_keys()
-        self._available_predictions = list(
-            sorted(set(prediction for prediction in self.predictions))
+        self._available_predictions = sorted(
+            set(prediction for prediction in self.predictions)
         )
         self._keys_lookup = self._index_lookup(self._available_keys)
         self._predictions_lookup = self._index_lookup(
@@ -1147,7 +1142,7 @@ class ClassificationStats(MetricStats):
             keys = zip(self.categories, self.targets)
         else:
             keys = self.targets
-        return list(sorted(set(keys)))
+        return sorted(set(keys))
 
     def _get_confusion_entries(self):
         if self.categories:
@@ -1271,17 +1266,21 @@ class MultiMetricStats:
     Example
     -------
     >>> def metric(a, b):
-    ...    return {
-    ...        "sum": a + b,
-    ...        "diff": a - b,
-    ...        "sum_sq": a**2 + b**2
-    ...    }
+    ...     return {"sum": a + b, "diff": a - b, "sum_sq": a**2 + b**2}
     >>> multi_metric = MultiMetricStats(metric, batch_eval=True)
-    >>> multi_metric.append([1, 2], a=torch.tensor([2.0, 1.0]), b=torch.tensor([1.0, 2.0]))
-    >>> multi_metric.append([3, 4], a=torch.tensor([4.0, 5.0]), b=torch.tensor([0.0, 1.0]))
-    >>> multi_metric.append([5, 6], a=torch.tensor([2.0, 4.0]), b=torch.tensor([4.0, 2.0]))
-    >>> multi_metric.append([7, 8], a=torch.tensor([2.0, 4.0]), b=torch.tensor([4.0, 2.0]))
-    >>> multi_metric.summarize() #doctest: +NORMALIZE_WHITESPACE
+    >>> multi_metric.append(
+    ...     [1, 2], a=torch.tensor([2.0, 1.0]), b=torch.tensor([1.0, 2.0])
+    ... )
+    >>> multi_metric.append(
+    ...     [3, 4], a=torch.tensor([4.0, 5.0]), b=torch.tensor([0.0, 1.0])
+    ... )
+    >>> multi_metric.append(
+    ...     [5, 6], a=torch.tensor([2.0, 4.0]), b=torch.tensor([4.0, 2.0])
+    ... )
+    >>> multi_metric.append(
+    ...     [7, 8], a=torch.tensor([2.0, 4.0]), b=torch.tensor([4.0, 2.0])
+    ... )
+    >>> multi_metric.summarize()  # doctest: +NORMALIZE_WHITESPACE
     {'sum': {'average': 5.0,
       'min_score': 3.0,
       'min_id': 1,
@@ -1297,7 +1296,7 @@ class MultiMetricStats:
       'min_id': 1,
       'max_score': 26.0,
       'max_id': 4}}
-    >>> multi_metric.summarize(flat=True) #doctest: +NORMALIZE_WHITESPACE
+    >>> multi_metric.summarize(flat=True)  # doctest: +NORMALIZE_WHITESPACE
     {'sum_average': 5.0,
      'sum_min_score': 3.0,
      'sum_min_id': 1,

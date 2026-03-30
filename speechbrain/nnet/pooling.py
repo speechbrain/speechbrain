@@ -43,9 +43,9 @@ class Pooling1d(nn.Module):
 
     Example
     -------
-    >>> pool = Pooling1d('max',3)
+    >>> pool = Pooling1d("max", 3)
     >>> inputs = torch.rand(10, 12, 40)
-    >>> output=pool(inputs)
+    >>> output = pool(inputs)
     >>> output.shape
     torch.Size([10, 4, 40])
     """
@@ -157,9 +157,9 @@ class Pooling2d(nn.Module):
 
     Example
     -------
-    >>> pool = Pooling2d('max',(5,3))
+    >>> pool = Pooling2d("max", (5, 3))
     >>> inputs = torch.rand(10, 15, 12)
-    >>> output=pool(inputs)
+    >>> output = pool(inputs)
     >>> output.shape
     torch.Size([10, 3, 4])
     """
@@ -394,9 +394,9 @@ class AdaptivePool(nn.Module):
         assert condition, "output size must be int, list or tuple"
 
         if isinstance(output_size, tuple) or isinstance(output_size, list):
-            assert (
-                len(output_size) == 2
-            ), "len of output size must not be greater than 2"
+            assert len(output_size) == 2, (
+                "len of output size must not be greater than 2"
+            )
 
         if isinstance(output_size, int):
             self.pool = nn.AdaptiveAvgPool1d(output_size)
@@ -457,7 +457,9 @@ class GaussianLowpassPooling(nn.Module):
     -------
     >>> inp_tensor = torch.rand([10, 8000, 40])
     >>> low_pass_pooling = GaussianLowpassPooling(
-    ...     40, kernel_size=401, stride=160,
+    ...     40,
+    ...     kernel_size=401,
+    ...     stride=160,
     ... )
     >>> # parameters corresponding to a window of 25 ms and stride 10 ms at 16000 kHz
     >>> out_tensor = low_pass_pooling(inp_tensor)

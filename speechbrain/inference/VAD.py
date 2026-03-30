@@ -1,4 +1,4 @@
-""" Specifies the inference interfaces for Voice Activity Detection (VAD) modules.
+"""Specifies the inference interfaces for Voice Activity Detection (VAD) modules.
 
 Authors:
  * Aku Rouhe 2021
@@ -15,8 +15,8 @@ Authors:
 """
 
 import torch
-import torchaudio
 
+from speechbrain.dataio import audio_io
 from speechbrain.inference.interfaces import Pretrained
 from speechbrain.utils.data_utils import split_path
 from speechbrain.utils.fetching import fetch
@@ -44,7 +44,9 @@ class VAD(Pretrained):
     ... )
 
     >>> # Perform VAD
-    >>> boundaries = VAD.get_speech_segments("tests/samples/single-mic/example1.wav")
+    >>> boundaries = VAD.get_speech_segments(
+    ...     "tests/samples/single-mic/example1.wav"
+    ... )
     """
 
     HPARAMS_NEEDED = ["sample_rate", "time_resolution", "device"]
@@ -122,7 +124,7 @@ class VAD(Pretrained):
                 last_chunk = True
 
             # Reading the big chunk
-            large_chunk, fs = torchaudio.load(
+            large_chunk, fs = audio_io.load(
                 str(audio_file),
                 frame_offset=begin_sample,
                 num_frames=long_chunk_len,
@@ -577,7 +579,7 @@ class VAD(Pretrained):
             seg_len = end_sample - begin_sample
 
             # Reading the speech segment
-            segment, _ = torchaudio.load(
+            segment, _ = audio_io.load(
                 audio_file, frame_offset=begin_sample, num_frames=seg_len
             )
             segment = segment.to(self.device)
@@ -646,7 +648,7 @@ class VAD(Pretrained):
         """Returns the sample rate and the length of the input audio file"""
 
         # Getting the total size of the input file
-        metadata = torchaudio.info(str(audio_file))
+        metadata = audio_io.info(str(audio_file))
         sample_rate = metadata.sample_rate
         audio_len = metadata.num_frames
         return sample_rate, audio_len
@@ -768,7 +770,7 @@ class VAD(Pretrained):
             len_seg = end_sample - beg_sample
 
             # Read the candidate speech segment
-            segment, fs = torchaudio.load(
+            segment, fs = audio_io.load(
                 str(audio_file), frame_offset=beg_sample, num_frames=len_seg
             )
             speech_prob = self.get_speech_prob_chunk(segment)
@@ -819,7 +821,7 @@ class VAD(Pretrained):
             )
 
             len_seg = end_sample - beg_sample
-            vad_segment, fs = torchaudio.load(
+            vad_segment, fs = audio_io.load(
                 audio_file, frame_offset=beg_sample, num_frames=len_seg
             )
             segments.append(vad_segment)

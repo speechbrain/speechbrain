@@ -1,8 +1,8 @@
 """This file implements the necessary classes and functions to implement Listen-to-Interpret (L2I) interpretation method from https://arxiv.org/abs/2202.11479v2
 
- Authors
- * Cem Subakan 2022
- * Francesco Paissan 2022
+Authors
+* Cem Subakan 2022
+* Francesco Paissan 2022
 """
 
 import torch
@@ -28,7 +28,11 @@ class Psi(nn.Module):
 
     Example
     -------
-    >>> inp = [torch.ones(2, 150, 6, 2), torch.ones(2, 100, 6, 2), torch.ones(2, 50, 12, 5)]
+    >>> inp = [
+    ...     torch.ones(2, 150, 6, 2),
+    ...     torch.ones(2, 100, 6, 2),
+    ...     torch.ones(2, 50, 12, 5),
+    ... ]
     >>> psi = Psi(n_comp=100, T=120, in_emb_dims=[150, 100, 50])
     >>> h = psi(inp)
     >>> print(h.shape)
@@ -99,7 +103,7 @@ class Psi(nn.Module):
         # for compatibility with cnn14 fixed frequency dimension
         x1 = F.pad(x1, (0, 1, 0, 0))
         x2 = F.pad(x2, (0, 1, 0, 0))
-        x = torch.cat((x1, x2, x3), axis=1)
+        x = torch.cat((x1, x2, x3), dim=1)
 
         # upsample time axis and collapse freq
         x = self.upsamp_time(x)
@@ -124,7 +128,7 @@ class NMFDecoderAudio(nn.Module):
 
     Example
     -------
-    >>> NMF_dec = NMFDecoderAudio(20, 210, device='cpu')
+    >>> NMF_dec = NMFDecoderAudio(20, 210, device="cpu")
     >>> H = torch.rand(1, 20, 150)
     >>> Xhat = NMF_dec.forward(H)
     >>> print(Xhat.shape)
@@ -206,8 +210,10 @@ class PsiOptimized(nn.Module):
     Example
     -------
     >>> inp = torch.randn(1, 256, 26, 32)
-    >>> psi = PsiOptimized(dim=256, K=100, use_adapter=False, adapter_reduce_dim=False)
-    >>> h, inp_ad= psi(inp)
+    >>> psi = PsiOptimized(
+    ...     dim=256, K=100, use_adapter=False, adapter_reduce_dim=False
+    ... )
+    >>> h, inp_ad = psi(inp)
     >>> print(h.shape, inp_ad.shape)
     torch.Size([1, 1, 417, 100]) torch.Size([1, 256, 26, 32])
     """

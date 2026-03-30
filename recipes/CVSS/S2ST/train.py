@@ -1,12 +1,12 @@
 """
- Recipe for training the speech-to-unit translation (S2UT) model, the implementation is based on the following papers:
- - Direct speech-to-speech translation with discrete units: (https://arxiv.org/abs/2006.04558)
- - Enhanced Direct Speech-to-Speech Translation Using Self-supervised Pre-training and Data Augmentation: (https://arxiv.org/abs/2204.02967)
- To run this recipe, do the following:
- # python train.py hparams/train_fr-en.yaml --src_data_folder=/corpus/CommonVoice/fr --tgt_data_folder=/corpus/CVSS/fr
+Recipe for training the speech-to-unit translation (S2UT) model, the implementation is based on the following papers:
+- Direct speech-to-speech translation with discrete units: (https://arxiv.org/abs/2006.04558)
+- Enhanced Direct Speech-to-Speech Translation Using Self-supervised Pre-training and Data Augmentation: (https://arxiv.org/abs/2204.02967)
+To run this recipe, do the following:
+# python train.py hparams/train_fr-en.yaml --src_data_folder=/corpus/CommonVoice/fr --tgt_data_folder=/corpus/CVSS/fr
 
- Authors
- * Jarod Duret 2023
+Authors
+* Jarod Duret 2023
 """
 
 import pathlib as pl
@@ -20,6 +20,7 @@ from hyperpyyaml import load_hyperpyyaml
 from torch.nn.parallel import DistributedDataParallel
 
 import speechbrain as sb
+from speechbrain.dataio import audio_io
 from speechbrain.inference.ASR import EncoderDecoderASR
 from speechbrain.inference.vocoders import UnitHIFIGAN
 from speechbrain.utils.logger import get_logger
@@ -97,7 +98,7 @@ class S2UT(sb.core.Brain):
                         wav = self.test_vocoder.decode_unit(code.unsqueeze(-1))
                         wavs.append(wav.squeeze(0))
                     else:
-                        logger.warn(
+                        logger.warning(
                             f"Encountered hyp {hyp} too short for decoding, using fake blank audio for testing"
                         )
                         wavs.append(torch.zeros(40000))  # on cpu device
@@ -441,7 +442,7 @@ def dataio_prepare(hparams):
         """Load the source language audio signal.
         This is done on the CPU in the `collate_fn`
         """
-        info = torchaudio.info(wav)
+        info = audio_io.info(wav)
         sig = sb.dataio.dataio.read_audio(wav)
         sig = torchaudio.transforms.Resample(
             info.sample_rate, hparams["sample_rate"]
@@ -454,7 +455,7 @@ def dataio_prepare(hparams):
         """Load the target language audio signal.
         This is done on the CPU in the `collate_fn`.
         """
-        info = torchaudio.info(wav)
+        info = audio_io.info(wav)
         sig = sb.dataio.dataio.read_audio(wav)
         sig = torchaudio.transforms.Resample(
             info.sample_rate,

@@ -1,4 +1,4 @@
-""" Specifies the inference interfaces for diarization modules.
+"""Specifies the inference interfaces for diarization modules.
 
 Authors:
  * Aku Rouhe 2021
@@ -30,8 +30,13 @@ class Speech_Emotion_Diarization(Pretrained):
     -------
     >>> from speechbrain.inference.diarization import Speech_Emotion_Diarization
     >>> tmpdir = getfixture("tmpdir")
-    >>> sed_model = Speech_Emotion_Diarization.from_hparams(source="speechbrain/emotion-diarization-wavlm-large", savedir=tmpdir,) # doctest: +SKIP
-    >>> sed_model.diarize_file("speechbrain/emotion-diarization-wavlm-large/example.wav") # doctest: +SKIP
+    >>> sed_model = Speech_Emotion_Diarization.from_hparams(
+    ...     source="speechbrain/emotion-diarization-wavlm-large",
+    ...     savedir=tmpdir,
+    ... )  # doctest: +SKIP
+    >>> sed_model.diarize_file(
+    ...     "speechbrain/emotion-diarization-wavlm-large/example.wav"
+    ... )  # doctest: +SKIP
     """
 
     MODULES_NEEDED = ["input_norm", "wav2vec", "output_mlp"]
@@ -174,37 +179,38 @@ class Speech_Emotion_Diarization(Pretrained):
 
         Example
         -------
-        >>> from speechbrain.processing import diarization as diar
-        >>> diar.is_overlapped(5.5, 3.4)
+        >>> Speech_Emotion_Diarization.is_overlapped(None, 5.5, 3.4)
         True
-        >>> diar.is_overlapped(5.5, 6.4)
+        >>> Speech_Emotion_Diarization.is_overlapped(None, 5.5, 6.4)
         False
         """
 
-        if start2 > end1:
-            return False
-        else:
-            return True
+        return start2 <= end1
 
     def merge_ssegs_same_emotion_adjacent(self, lol):
         """Merge adjacent sub-segs if they are the same emotion.
+
         Arguments
         ---------
         lol : list of list
             Each list contains [utt_id, sseg_start, sseg_end, emo_label].
+
         Returns
         -------
         new_lol : list of list
             new_lol contains adjacent segments merged from the same emotion ID.
+
         Example
         -------
         >>> from speechbrain.utils.EDER import merge_ssegs_same_emotion_adjacent
-        >>> lol=[['u1', 0.0, 7.0, 'a'],
-        ... ['u1', 7.0, 9.0, 'a'],
-        ... ['u1', 9.0, 11.0, 'n'],
-        ... ['u1', 11.0, 13.0, 'n'],
-        ... ['u1', 13.0, 15.0, 'n'],
-        ... ['u1', 15.0, 16.0, 'a']]
+        >>> lol = [
+        ...     ["u1", 0.0, 7.0, "a"],
+        ...     ["u1", 7.0, 9.0, "a"],
+        ...     ["u1", 9.0, 11.0, "n"],
+        ...     ["u1", 11.0, 13.0, "n"],
+        ...     ["u1", 13.0, 15.0, "n"],
+        ...     ["u1", 15.0, 16.0, "a"],
+        ... ]
         >>> merge_ssegs_same_emotion_adjacent(lol)
         [['u1', 0.0, 9.0, 'a'], ['u1', 9.0, 15.0, 'n'], ['u1', 15.0, 16.0, 'a']]
         """

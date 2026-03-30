@@ -28,11 +28,11 @@ import sys
 import numpy as np
 import torch
 from hyperpyyaml import load_hyperpyyaml
-from tqdm.contrib import tqdm
+from tqdm import tqdm
 
 import speechbrain as sb
 from speechbrain.dataio.dataio import read_audio, read_audio_multichannel
-from speechbrain.processing import diarization as diar
+from speechbrain.integrations.alignment import diarization as diar
 from speechbrain.processing.PLDA_LDA import StatObject_SB
 from speechbrain.utils.DER import DER
 from speechbrain.utils.distributed import run_on_main
@@ -64,6 +64,7 @@ def compute_embeddings(wavs, lens):
     """Definition of the steps for computation of embeddings from the waveforms."""
     with torch.no_grad():
         wavs = wavs.to(run_opts["device"])
+        lens = lens.to(run_opts["device"])
         feats = params["compute_features"](wavs)
         feats = params["mean_var_norm"](feats, lens)
         emb = params["embedding_model"](feats, lens)
@@ -306,7 +307,7 @@ def diarize_dataset(full_meta, split_type, n_lambdas, pval, n_neighbors=10):
         for f in glob.glob(out_rttm_dir + "/*.rttm"):
             if f == concate_rttm_file:
                 continue
-            with open(f, "r", encoding="utf-8") as indi_rttm_file:
+            with open(f, encoding="utf-8") as indi_rttm_file:
                 shutil.copyfileobj(indi_rttm_file, cat_file)
 
     msg = "The system generated RTTM file for %s set : %s" % (
@@ -505,7 +506,7 @@ def dataio_prep(hparams, json_file):
 # Begin experiment!
 if __name__ == "__main__":  # noqa: C901
     # Load hyperparameters file with command-line overrides.
-    params_file, run_opts, overrides = sb.core.parse_arguments(sys.argv[1:])
+    params_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
 
     with open(params_file, encoding="utf-8") as fin:
         params = load_hyperpyyaml(fin, overrides)
@@ -558,7 +559,7 @@ if __name__ == "__main__":  # noqa: C901
     # AMI Dev Set: Tune hyperparams on dev set.
     # Read the meta-data file for dev set generated during data_prep
     dev_meta_file = params["dev_meta_file"]
-    with open(dev_meta_file, "r", encoding="utf-8") as f:
+    with open(dev_meta_file, encoding="utf-8") as f:
         meta_dev = json.load(f)
 
     full_meta = meta_dev
@@ -600,7 +601,7 @@ if __name__ == "__main__":  # noqa: C901
     # Load 'dev' and 'eval' metadata files.
     full_meta_dev = full_meta  # current full_meta is for 'dev'
     eval_meta_file = params["eval_meta_file"]
-    with open(eval_meta_file, "r", encoding="utf-8") as f:
+    with open(eval_meta_file, encoding="utf-8") as f:
         full_meta_eval = json.load(f)
 
     # Tag to be appended to final output DER files. Writing DER for individual files.

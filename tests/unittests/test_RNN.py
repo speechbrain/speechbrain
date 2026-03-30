@@ -5,7 +5,6 @@ import torch.nn
 
 
 def test_RNN(device):
-
     from speechbrain.nnet.RNN import GRU, LSTM, RNN, LiGRU, QuasiRNN, RNNCell
 
     # Check RNN
@@ -24,12 +23,12 @@ def test_RNN(device):
         output_l.append(out_t.squeeze(1))
 
     out_steps = torch.stack(output_l, dim=1)
-    assert torch.all(
-        torch.lt(torch.add(out_steps, -output), 1e-3)
-    ), "GRU output mismatch"
-    assert torch.all(
-        torch.lt(torch.add(hn_t, -hn), 1e-3)
-    ), "GRU hidden states mismatch"
+    assert torch.all(torch.lt(torch.add(out_steps, -output), 1e-3)), (
+        "GRU output mismatch"
+    )
+    assert torch.all(torch.lt(torch.add(hn_t, -hn), 1e-3)), (
+        "GRU hidden states mismatch"
+    )
     assert torch.jit.trace(net, inputs)
 
     # Check GRU
@@ -48,12 +47,12 @@ def test_RNN(device):
         output_l.append(out_t.squeeze(1))
 
     out_steps = torch.stack(output_l, dim=1)
-    assert torch.all(
-        torch.lt(torch.add(out_steps, -output), 1e-3)
-    ), "GRU output mismatch"
-    assert torch.all(
-        torch.lt(torch.add(hn_t, -hn), 1e-3)
-    ), "GRU hidden states mismatch"
+    assert torch.all(torch.lt(torch.add(out_steps, -output), 1e-3)), (
+        "GRU output mismatch"
+    )
+    assert torch.all(torch.lt(torch.add(hn_t, -hn), 1e-3)), (
+        "GRU hidden states mismatch"
+    )
     assert torch.jit.trace(net, inputs)
 
     # Check LSTM
@@ -72,9 +71,9 @@ def test_RNN(device):
         output_l.append(out_t.squeeze(1))
 
     out_steps = torch.stack(output_l, dim=1)
-    assert torch.all(
-        torch.lt(torch.add(out_steps, -output), 1e-3)
-    ), "LSTM output mismatch"
+    assert torch.all(torch.lt(torch.add(out_steps, -output), 1e-3)), (
+        "LSTM output mismatch"
+    )
     assert torch.all(torch.lt(torch.add(hn_t[0], -hn[0]), 1e-3)) and torch.all(
         torch.lt(torch.add(hn_t[1], -hn[1]), 1e-3)
     ), "LSTM hidden states mismatch"
@@ -99,9 +98,9 @@ def test_RNN(device):
 
     out_steps = torch.stack(output_l, dim=1)
 
-    assert torch.all(
-        torch.lt(torch.add(out_steps, -output), 1e-3)
-    ), "LiGRU output mismatch"
+    assert torch.all(torch.lt(torch.add(out_steps, -output), 1e-3)), (
+        "LiGRU output mismatch"
+    )
     assert torch.all(torch.lt(torch.add(hn_t[0], -hn[0]), 1e-3)) and torch.all(
         torch.lt(torch.add(hn_t[1], -hn[1]), 1e-3)
     ), "LiGRU hidden states mismatch"
@@ -124,14 +123,14 @@ def test_RNN(device):
 
     out_steps = torch.stack(output_l, dim=1)
 
-    assert torch.all(
-        torch.lt(torch.add(out_steps, -output), 1e-3)
-    ), "QuasiRNN output mismatch"
+    assert torch.all(torch.lt(torch.add(out_steps, -output), 1e-3)), (
+        "QuasiRNN output mismatch"
+    )
     assert torch.all(
         torch.lt(torch.add(hn_t[0], -hn[0][1]), 1e-3)
-    ) and torch.all(
-        torch.lt(torch.add(hn_t[1], -hn[1][1]), 1e-3)
-    ), "QuasiRNN hidden states mismatch"
+    ) and torch.all(torch.lt(torch.add(hn_t[1], -hn[1][1]), 1e-3)), (
+        "QuasiRNN hidden states mismatch"
+    )
     assert torch.jit.trace(net, inputs)
 
     # Check RNNCell
@@ -160,9 +159,9 @@ def test_RNN(device):
     rnn.load_state_dict(new_state)
     output, hn = rnn(inputs)
 
-    assert torch.all(
-        torch.lt(torch.add(out_steps, -output), 1e-3)
-    ), "RNNCell output mismatch"
+    assert torch.all(torch.lt(torch.add(out_steps, -output), 1e-3)), (
+        "RNNCell output mismatch"
+    )
     assert torch.all(torch.lt(torch.add(hn_t[0], -hn[0]), 1e-3)) and torch.all(
         torch.lt(torch.add(hn_t[1], -hn[1]), 1e-3)
     ), "RNNCell hidden states mismatch"

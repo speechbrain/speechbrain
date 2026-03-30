@@ -1,0 +1,20 @@
+"""Package with interfaces to HuggingFace Transformer models."""
+
+# Transformers is required for this package.
+try:
+    import transformers  # noqa
+except ImportError:
+    MSG = "Please install transformers from HuggingFace.\n"
+    MSG += "E.G. run: pip install transformers \n"
+    MSG += "For more information, visit: https://huggingface.co/docs/transformers/installation"
+    raise ImportError(MSG)
+
+from .encodec import *  # noqa
+from .gpt import *  # noqa
+from .hubert import *  # noqa
+from .huggingface import *  # noqa
+from .textencoder import *  # noqa
+from .wav2vec2 import *  # noqa
+from .wavlm import *  # noqa
+from .weighted_ssl import *  # noqa
+from .whisper import *  # noqa

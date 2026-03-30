@@ -212,7 +212,6 @@ class ASR(sb.Brain):
 
         # Perform end-of-iteration things, like annealing, logging, etc.
         if stage == sb.Stage.VALID:
-
             lr = self.hparams.lr_annealing.current_lr
             steps = self.optimizer_step
             optimizer = self.optimizer.__class__.__name__
@@ -382,16 +381,8 @@ def dataio_prepare(hparams):
 
 
 if __name__ == "__main__":
-
     # CLI:
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
-
-    # Use torchaudio if the device is CPU
-    if run_opts.get("device") == "cpu":
-        if "use_torchaudio: True" in overrides:
-            overrides.replace("use_torchaudio: True", "use_torchaudio: False")
-        else:
-            overrides += "\nuse_torchaudio: True"
 
     # create ddp_group with the right communication protocol
     sb.utils.distributed.ddp_init_group(run_opts)

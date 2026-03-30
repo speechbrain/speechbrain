@@ -3,7 +3,7 @@ Neural network modules for the Zero-Shot Multi-Speaker Tacotron2 end-to-end neur
 Text-to-Speech (TTS) model
 
 Authors
-* Georges Abous-Rjeili 2021
+* Georges Abou-Rjeili 2021
 * Artem Ploujnikov 2021
 * Pradnya Kandarkar 2023
 """
@@ -452,8 +452,14 @@ class Loss(nn.Module):
     >>> alignments = torch.randn(2, 861, 173)
     >>> pred_mel_lens = torch.randn(2)
     >>> targets = mel_target, gate_target
-    >>> model_outputs = mel_out, mel_out_postnet, gate_out, alignments, pred_mel_lens
-    >>> input_lengths = torch.tensor([173,  91])
+    >>> model_outputs = (
+    ...     mel_out,
+    ...     mel_out_postnet,
+    ...     gate_out,
+    ...     alignments,
+    ...     pred_mel_lens,
+    ... )
+    >>> input_lengths = torch.tensor([173, 91])
     >>> target_lengths = torch.tensor([861, 438])
     >>> spk_embs = None
     >>> loss(model_outputs, targets, input_lengths, target_lengths, spk_embs, 1)

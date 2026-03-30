@@ -68,7 +68,7 @@ napoleon_use_rtype = True
 # Intersphinx mapping:
 intersphinx_mapping = {
     "python": ("https://docs.python.org/", None),
-    "numpy": ("http://docs.scipy.org/doc/numpy/", None),
+    "numpy": ("https://numpy.org/doc/stable/", None),
     "torch": ("https://pytorch.org/docs/master/", None),
     "torchaudio": ("https://pytorch.org/audio/stable/", None),
 }
@@ -102,6 +102,7 @@ autodoc_mock_imports = [
     "fairseq",
     "spacy",
     "ctc_segmentation",
+    "torchaudio",
 ]
 
 # Order of API items:

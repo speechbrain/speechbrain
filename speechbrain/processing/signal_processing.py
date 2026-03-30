@@ -12,7 +12,6 @@ Authors
 import math
 
 import torch
-from packaging import version
 
 
 def compute_amplitude(waveforms, lengths=None, amp_type="avg", scale="linear"):
@@ -243,7 +242,7 @@ def convolve1d(
     Example
     -------
     >>> from speechbrain.dataio.dataio import read_audio
-    >>> signal = read_audio('tests/samples/single-mic/example1.wav')
+    >>> signal = read_audio("tests/samples/single-mic/example1.wav")
     >>> signal = signal.unsqueeze(0).unsqueeze(2)
     >>> kernel = torch.rand(1, 10, 1)
     >>> signal = convolve1d(signal, kernel, padding=(9, 0))
@@ -263,7 +262,6 @@ def convolve1d(
 
     # This approach uses FFT, which is more efficient if the kernel is large
     if use_fft:
-
         # Pad kernel to same length as signal, ensuring correct alignment
         zero_length = waveform.size(-1) - kernel.size(-1)
 
@@ -281,26 +279,19 @@ def convolve1d(
         kernel = torch.cat((after_index, zeros, before_index), dim=-1)
 
         # Multiply in frequency domain to convolve in time domain
-        if version.parse(torch.__version__) > version.parse("1.6.0"):
-            import torch.fft as fft
+        import torch.fft as fft
 
-            result = fft.rfft(waveform) * fft.rfft(kernel)
-            convolved = fft.irfft(result, n=waveform.size(-1))
-        else:
-            f_signal = torch.rfft(waveform, 1)
-            f_kernel = torch.rfft(kernel, 1)
-            sig_real, sig_imag = f_signal.unbind(-1)
-            ker_real, ker_imag = f_kernel.unbind(-1)
-            f_result = torch.stack(
-                [
-                    sig_real * ker_real - sig_imag * ker_imag,
-                    sig_real * ker_imag + sig_imag * ker_real,
-                ],
-                dim=-1,
-            )
-            convolved = torch.irfft(
-                f_result, 1, signal_sizes=[waveform.size(-1)]
-            )
+        # cuFFT does not support half precision for non-power-of-2 sizes
+        orig_dtype = waveform.dtype
+        if orig_dtype == torch.float16 or orig_dtype == torch.bfloat16:
+            waveform = waveform.float()
+            kernel = kernel.float()
+
+        result = fft.rfft(waveform) * fft.rfft(kernel)
+        convolved = fft.irfft(result, n=waveform.size(-1))
+
+        if convolved.dtype != orig_dtype:
+            convolved = convolved.to(orig_dtype)
 
     # Use the implementation given by torch, which should be efficient on GPU
     else:
@@ -330,8 +321,8 @@ def reverberate(waveforms, rir_waveform, rescale_amp="avg"):
         Shape should be `[batch, time]` or `[batch, time, channels]`.
     rir_waveform : tensor
         RIR tensor, shape should be [time, channels].
-    rescale_amp : str
-        Whether reverberated signal is rescaled (None) and with respect either
+    rescale_amp : str or None
+        Whether reverberated signal is rescaled (None to avoid) and with respect either
         to original signal "peak" amplitude or "avg" average amplitude.
         Choose between [None, "avg", "peak"].
 
@@ -356,10 +347,11 @@ def reverberate(waveforms, rir_waveform, rescale_amp="avg"):
     elif len(rir_waveform.shape) == 2:
         rir_waveform = rir_waveform.unsqueeze(-1)
 
-    # Compute the average amplitude of the clean
-    orig_amplitude = compute_amplitude(
-        waveforms, waveforms.size(1), rescale_amp
-    )
+    if rescale_amp is not None:
+        # Compute the average amplitude of the clean
+        orig_amplitude = compute_amplitude(
+            waveforms, waveforms.size(1), rescale_amp
+        )
 
     # Compute index of the direct signal, so we can preserve alignment
     value_max, direct_index = rir_waveform.abs().max(axis=1, keepdim=True)
@@ -376,10 +368,11 @@ def reverberate(waveforms, rir_waveform, rescale_amp="avg"):
         rotation_index=direct_index,
     )
 
-    # Rescale to the peak amplitude of the clean waveform
-    waveforms = rescale(
-        waveforms, waveforms.size(1), orig_amplitude, rescale_amp
-    )
+    if rescale_amp is not None:
+        # Rescale to the peak amplitude of the clean waveform
+        waveforms = rescale(
+            waveforms, waveforms.size(1), orig_amplitude, rescale_amp
+        )
 
     if len(orig_shape) == 1:
         waveforms = waveforms.squeeze(0).squeeze(-1)
@@ -435,7 +428,7 @@ def notch_filter(notch_freq, filter_width=101, notch_width=0.05):
     Example
     -------
     >>> from speechbrain.dataio.dataio import read_audio
-    >>> signal = read_audio('tests/samples/single-mic/example1.wav')
+    >>> signal = read_audio("tests/samples/single-mic/example1.wav")
     >>> signal = signal.unsqueeze(0).unsqueeze(2)
     >>> kernel = notch_filter(0.25)
     >>> notched_signal = convolve1d(signal, kernel)
@@ -494,7 +487,8 @@ def overlap_and_add(signal, frame_step):
     -------
     A Tensor with shape [..., output_size] containing the overlap-added frames of signal's inner-most two dimensions.
         output_size = (frames - 1) * frame_step + frame_length
-    Based on https://github.com/tensorflow/tensorflow/blob/r1.12/tensorflow/contrib/signal/python/ops/reconstruction_ops.py
+    Based on
+        https://github.com/tensorflow/tensorflow/blob/r1.12/tensorflow/contrib/signal/python/ops/reconstruction_ops.py
 
     Example
     -------

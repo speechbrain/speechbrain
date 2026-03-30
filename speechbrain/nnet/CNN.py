@@ -66,7 +66,9 @@ class SincConv(nn.Module):
     Example
     -------
     >>> inp_tensor = torch.rand([10, 16000])
-    >>> conv = SincConv(input_shape=inp_tensor.shape, out_channels=25, kernel_size=11)
+    >>> conv = SincConv(
+    ...     input_shape=inp_tensor.shape, out_channels=25, kernel_size=11
+    ... )
     >>> out_tensor = conv(inp_tensor)
     >>> out_tensor.shape
     torch.Size([10, 16000, 25])
@@ -257,7 +259,7 @@ class SincConv(nn.Module):
 
         # Hamming window
         n_lin = torch.linspace(
-            0, (self.kernel_size / 2) - 1, steps=int((self.kernel_size / 2))
+            0, (self.kernel_size / 2) - 1, steps=int(self.kernel_size / 2)
         )
         self.window_ = 0.54 - 0.46 * torch.cos(
             2 * math.pi * n_lin / self.kernel_size
@@ -759,7 +761,7 @@ class Conv2d(nn.Module):
             in_channels = shape[3]
 
         else:
-            raise ValueError("Expected 3d or 4d inputs. Got " + len(shape))
+            raise ValueError(f"Expected 3d or 4d inputs. Got {len(shape)}")
 
         # Kernel size must be odd
         if not self.padding == "valid" and (
@@ -828,9 +830,12 @@ class ConvTranspose1d(nn.Module):
     Example
     -------
     >>> from speechbrain.nnet.CNN import Conv1d, ConvTranspose1d
-    >>> inp_tensor = torch.rand([10, 12, 40]) #[batch, time, fea]
+    >>> inp_tensor = torch.rand([10, 12, 40])  # [batch, time, fea]
     >>> convtranspose_1d = ConvTranspose1d(
-    ...     input_shape=inp_tensor.shape, out_channels=8, kernel_size=3, stride=2
+    ...     input_shape=inp_tensor.shape,
+    ...     out_channels=8,
+    ...     kernel_size=3,
+    ...     stride=2,
     ... )
     >>> out_tensor = convtranspose_1d(inp_tensor)
     >>> out_tensor.shape
@@ -838,35 +843,67 @@ class ConvTranspose1d(nn.Module):
 
     >>> # Combination of Conv1d and ConvTranspose1d
     >>> from speechbrain.nnet.CNN import Conv1d, ConvTranspose1d
-    >>> signal = torch.tensor([1,100])
-    >>> signal = torch.rand([1,100]) #[batch, time]
-    >>> conv1d = Conv1d(input_shape=signal.shape, out_channels=1, kernel_size=3, stride=2)
+    >>> signal = torch.tensor([1, 100])
+    >>> signal = torch.rand([1, 100])  # [batch, time]
+    >>> conv1d = Conv1d(
+    ...     input_shape=signal.shape, out_channels=1, kernel_size=3, stride=2
+    ... )
     >>> conv_out = conv1d(signal)
-    >>> conv_t = ConvTranspose1d(input_shape=conv_out.shape, out_channels=1, kernel_size=3, stride=2, padding=1)
+    >>> conv_t = ConvTranspose1d(
+    ...     input_shape=conv_out.shape,
+    ...     out_channels=1,
+    ...     kernel_size=3,
+    ...     stride=2,
+    ...     padding=1,
+    ... )
     >>> signal_rec = conv_t(conv_out, output_size=[100])
     >>> signal_rec.shape
     torch.Size([1, 100])
 
-    >>> signal = torch.rand([1,115]) #[batch, time]
-    >>> conv_t = ConvTranspose1d(input_shape=signal.shape, out_channels=1, kernel_size=3, stride=2, padding='same')
+    >>> signal = torch.rand([1, 115])  # [batch, time]
+    >>> conv_t = ConvTranspose1d(
+    ...     input_shape=signal.shape,
+    ...     out_channels=1,
+    ...     kernel_size=3,
+    ...     stride=2,
+    ...     padding="same",
+    ... )
     >>> signal_rec = conv_t(signal)
     >>> signal_rec.shape
     torch.Size([1, 115])
 
-    >>> signal = torch.rand([1,115]) #[batch, time]
-    >>> conv_t = ConvTranspose1d(input_shape=signal.shape, out_channels=1, kernel_size=7, stride=2, padding='valid')
+    >>> signal = torch.rand([1, 115])  # [batch, time]
+    >>> conv_t = ConvTranspose1d(
+    ...     input_shape=signal.shape,
+    ...     out_channels=1,
+    ...     kernel_size=7,
+    ...     stride=2,
+    ...     padding="valid",
+    ... )
     >>> signal_rec = conv_t(signal)
     >>> signal_rec.shape
     torch.Size([1, 235])
 
-    >>> signal = torch.rand([1,115]) #[batch, time]
-    >>> conv_t = ConvTranspose1d(input_shape=signal.shape, out_channels=1, kernel_size=7, stride=2, padding='factor')
+    >>> signal = torch.rand([1, 115])  # [batch, time]
+    >>> conv_t = ConvTranspose1d(
+    ...     input_shape=signal.shape,
+    ...     out_channels=1,
+    ...     kernel_size=7,
+    ...     stride=2,
+    ...     padding="factor",
+    ... )
     >>> signal_rec = conv_t(signal)
     >>> signal_rec.shape
     torch.Size([1, 231])
 
-    >>> signal = torch.rand([1,115]) #[batch, time]
-    >>> conv_t = ConvTranspose1d(input_shape=signal.shape, out_channels=1, kernel_size=3, stride=2, padding=10)
+    >>> signal = torch.rand([1, 115])  # [batch, time]
+    >>> conv_t = ConvTranspose1d(
+    ...     input_shape=signal.shape,
+    ...     out_channels=1,
+    ...     kernel_size=3,
+    ...     stride=2,
+    ...     padding=10,
+    ... )
     >>> signal_rec = conv_t(signal)
     >>> signal_rec.shape
     torch.Size([1, 211])
@@ -1232,9 +1269,7 @@ class GaborConv1d(nn.Module):
     -------
     >>> inp_tensor = torch.rand([10, 8000])
     >>> # 401 corresponds to a window of 25 ms at 16000 kHz
-    >>> gabor_conv = GaborConv1d(
-    ...     40, kernel_size=401, stride=1, in_channels=1
-    ... )
+    >>> gabor_conv = GaborConv1d(40, kernel_size=401, stride=1, in_channels=1)
     >>> #
     >>> out_tensor = gabor_conv(inp_tensor)
     >>> out_tensor.shape

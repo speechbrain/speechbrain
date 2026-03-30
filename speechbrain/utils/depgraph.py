@@ -5,16 +5,16 @@ Example
 >>> # The basic use case is that you have a bunch of keys
 >>> # and some of them depend on each other:
 >>> database = []
->>> functions = {'read': {'func': lambda: (0,1,2),
-...                       'needs': []},
-...              'process': {'func': lambda X: [x**2 for x in X],
-...                          'needs': ['read']},
-...              'save': {'func': lambda x: database.append(x),
-...                       'needs': ['process']},
-...              'print': {'func': lambda x,y: print(x, "became", y),
-...                        'needs': ['read', 'process']},
-...              'auxiliary': {'func': lambda: (1,2,3),
-...                            'needs': []}}
+>>> functions = {
+...     "read": {"func": lambda: (0, 1, 2), "needs": []},
+...     "process": {"func": lambda X: [x**2 for x in X], "needs": ["read"]},
+...     "save": {"func": lambda x: database.append(x), "needs": ["process"]},
+...     "print": {
+...         "func": lambda x, y: print(x, "became", y),
+...         "needs": ["read", "process"],
+...     },
+...     "auxiliary": {"func": lambda: (1, 2, 3), "needs": []},
+... }
 >>> # If this is user supplied info, so you can't just hardcode the order,
 >>> # a dependency graph may be needed.
 >>> dg = DependencyGraph()
@@ -25,18 +25,18 @@ Example
 >>> # Now we can evaluate:
 >>> outputs = {}
 >>> for node in dg.get_evaluation_order():
-...     f = functions[node.key]['func']
-...     args = [outputs[needed] for needed in functions[node.key]['needs']]
+...     f = functions[node.key]["func"]
+...     args = [outputs[needed] for needed in functions[node.key]["needs"]]
 ...     outputs[node.key] = f(*args)
 (0, 1, 2) became [0, 1, 4]
 >>> # This added nodes implicitly.
 >>> # However, since 'auxiliary' didn't depend on anything,
 >>> # it didn't get added!
->>> assert 'auxiliary' not in outputs
+>>> assert "auxiliary" not in outputs
 >>> # So to be careful, we should also manually add nodes for any thing that
 >>> # is not an intermediate step.
->>> _ = dg.add_node('auxiliary')
->>> assert 'auxiliary' in (node.key for node in dg.get_evaluation_order())
+>>> _ = dg.add_node("auxiliary")
+>>> assert "auxiliary" in (node.key for node in dg.get_evaluation_order())
 >>> # Arbitrary data can be added to nodes:
 >>> dg2 = DependencyGraph()
 >>> for key, conf in functions.items():
@@ -46,8 +46,8 @@ Example
 >>> # Now we get access to the data in evaluation:
 >>> outputs2 = {}
 >>> for key, _, conf in dg2.get_evaluation_order():
-...     f = conf['func']
-...     args = [outputs[needed] for needed in conf['needs']]
+...     f = conf["func"]
+...     args = [outputs[needed] for needed in conf["needs"]]
 ...     outputs[key] = f(*args)
 (0, 1, 2) became [0, 1, 4]
 
@@ -127,7 +127,7 @@ class DependencyGraph:
         if key is None:
             key = self.get_unique_key()
         elif key in self._manually_added_keys:
-            raise ValueError("Adding duplicate node: {key}".format(key=key))
+            raise ValueError(f"Adding duplicate node: {key}")
         else:
             self._manually_added_keys.append(key)
         if key in self.key2ind:  # Implicitly added already; don't add again.

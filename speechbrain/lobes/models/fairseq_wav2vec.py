@@ -9,6 +9,8 @@ Authors
  * Salima Mdhaffar 2021
 """
 
+import warnings
+
 import torch
 import torch.nn.functional as F
 from torch import nn
@@ -26,6 +28,11 @@ except ImportError:
     raise ImportError(MSG)
 
 logger = get_logger(__name__)
+
+warnings.warn(
+    "Fairseq integration will be removed from SpeechBrain in a future release.",
+    DeprecationWarning,
+)
 
 
 class FairseqWav2Vec2(nn.Module):
@@ -75,7 +82,9 @@ class FairseqWav2Vec2(nn.Module):
     Example
     -------
     >>> inputs = torch.rand([10, 600])
-    >>> model_url = "https://dl.fbaipublicfiles.com/fairseq/wav2vec/wav2vec_small.pt"
+    >>> model_url = (
+    ...     "https://dl.fbaipublicfiles.com/fairseq/wav2vec/wav2vec_small.pt"
+    ... )
     >>> save_path = "models_checkpoints/wav2vec2.pt"
     >>> model = FairseqWav2Vec2(model_url, save_path)
     >>> outputs = model(inputs)

@@ -32,6 +32,7 @@ Authors
  * Titouan Parcollet 2021, 2022
  * Dominik Wagner 2022
 """
+
 import functools
 import os
 import sys
@@ -42,6 +43,7 @@ import torchaudio
 from hyperpyyaml import load_hyperpyyaml
 
 import speechbrain as sb
+from speechbrain.dataio import audio_io
 from speechbrain.utils.distributed import if_main_process, run_on_main
 from speechbrain.utils.logger import get_logger
 
@@ -338,10 +340,8 @@ def dataio_prepare(hparams):
         start = int(start)
         stop = int(stop)
         num_frames = stop - start
-        sig, fs = torchaudio.load(
-            wav, num_frames=num_frames, frame_offset=start
-        )
-        info = torchaudio.info(wav)
+        sig, fs = audio_io.load(wav, num_frames=num_frames, frame_offset=start)
+        info = audio_io.info(wav)
 
         resampled = sig
         # Maybe resample to 16kHz
@@ -374,10 +374,8 @@ def dataio_prepare(hparams):
         start = int(start)
         stop = int(stop)
         num_frames = stop - start
-        sig, fs = torchaudio.load(
-            wav, num_frames=num_frames, frame_offset=start
-        )
-        info = torchaudio.info(wav)
+        sig, fs = audio_io.load(wav, num_frames=num_frames, frame_offset=start)
+        info = audio_io.info(wav)
 
         resampled = sig
         # Maybe resample to 16kHz

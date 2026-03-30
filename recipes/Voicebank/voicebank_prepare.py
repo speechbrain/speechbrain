@@ -1,9 +1,8 @@
-# -*- coding: utf-8 -*-
 """
 Data preparation.
 
 Download and resample, use ``download_vctk`` below.
-https://datashare.is.ed.ac.uk/handle/10283/2791
+https://datashare.ed.ac.uk/handle/10283/2791
 
 Authors:
  * Szu-Wei Fu, 2020
@@ -17,9 +16,9 @@ import string
 import tempfile
 import urllib
 
-import torchaudio
 from torchaudio.transforms import Resample
 
+from speechbrain.dataio import audio_io
 from speechbrain.dataio.dataio import read_audio
 from speechbrain.utils.data_utils import download_file, get_all_files
 from speechbrain.utils.logger import get_logger
@@ -182,8 +181,8 @@ def prepare_voicebank(
 
     Example
     -------
-    >>> data_folder = '/path/to/datasets/Voicebank'
-    >>> save_folder = 'exp/Voicebank_exp'
+    >>> data_folder = "/path/to/datasets/Voicebank"
+    >>> save_folder = "exp/Voicebank_exp"
     >>> prepare_voicebank(data_folder, save_folder)
     """
     if skip_prep:
@@ -414,7 +413,7 @@ def download_vctk(destination, tmp_dir=None, device="cpu"):
     if not os.path.isdir(final_dir):
         os.mkdir(final_dir)
 
-    prefix = "https://datashare.is.ed.ac.uk/bitstream/handle/10283/2791/"
+    prefix = "https://datashare.ed.ac.uk/bitstream/handle/10283/2791/"
     noisy_vctk_urls = [
         prefix + "clean_testset_wav.zip",
         prefix + "noisy_testset_wav.zip",
@@ -466,11 +465,11 @@ def download_vctk(destination, tmp_dir=None, device="cpu"):
 
         # Load files and downsample
         for filename in get_all_files(dirname, match_and=[".wav"]):
-            signal, rate = torchaudio.load(filename)
+            signal, rate = audio_io.load(filename)
             downsampled_signal = downsampler(signal.view(1, -1).to(device))
 
             # Save downsampled file
-            torchaudio.save(
+            audio_io.save(
                 os.path.join(dirname_16k, filename[-12:]),
                 downsampled_signal.cpu(),
                 sample_rate=16000,

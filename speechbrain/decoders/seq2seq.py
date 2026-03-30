@@ -102,7 +102,9 @@ class S2SBaseSearcher(torch.nn.Module):
         raise NotImplementedError
         return
 
-    def forward_step(self, inp_tokens, memory, enc_states, enc_lens):
+    def forward_step(
+        self, inp_tokens, memory, enc_states, enc_lens, attention_mask=None
+    ):
         """This method should implement one step of
         forwarding operation in the autoregressive model.
 
@@ -177,7 +179,7 @@ class S2SGreedySearcher(S2SBaseSearcher):
     """
 
     @torch.no_grad()
-    def forward(self, enc_states, wav_len):
+    def forward(self, enc_states, wav_len, attention_mask=None):
         """This method performs a greedy search.
 
         Arguments
@@ -187,6 +189,8 @@ class S2SGreedySearcher(S2SBaseSearcher):
             (ex. the encoded speech representation to be attended).
         wav_len : torch.Tensor
             The speechbrain-style relative length.
+        attention_mask : torch.Tensor
+            The attention mask to be used when decoding.
 
         Returns
         -------
@@ -220,8 +224,20 @@ class S2SGreedySearcher(S2SBaseSearcher):
 
         has_ended = enc_states.new_zeros(batch_size).bool()
         for step in range(min_decode_steps, max_decode_steps):
+            if attention_mask is not None:
+                attention_mask = torch.cat(
+                    [
+                        attention_mask,
+                        torch.ones(
+                            batch_size, 1, device=device, dtype=torch.bool
+                        ),
+                    ],
+                    dim=1,
+                )
+                attention_mask[has_ended, -1] = False
+
             logits, memory, _ = self.forward_step(
-                inp_tokens, memory, enc_states, enc_lens
+                inp_tokens, memory, enc_states, enc_lens, attention_mask
             )
 
             if self.temperature == 0:
@@ -341,12 +357,65 @@ class S2STransformerGreedySearcher(S2SGreedySearcher):
         """Needed to reset the memory during greedy search."""
         return None
 
-    def forward_step(self, inp_tokens, memory, enc_states, enc_lens):
+    def forward_step(
+        self, inp_tokens, memory, enc_states, enc_lens, attention_mask=None
+    ):
         """Performs a step in the implemented greedy searcher."""
         memory = _update_mem(inp_tokens, memory)
         pred, attn = self.model.decode(memory, enc_states, enc_lens)
         logits = self.fc(pred)
         return logits[:, -1, :], memory, attn
+
+
+class S2SHuggingFaceLLMGreedySearcher(S2SGreedySearcher):
+    """This class implements the greedy decoding
+    for HuggingFace LLM.
+
+    Arguments
+    ---------
+    llm_model : torch.nn.Module
+        A HuggingFace LLM model.
+    temperature : float
+        Temperature to use during decoding.
+    **kwargs
+        Arguments to pass to S2SGreedySearcher
+    """
+
+    def __init__(self, llm_model, temperature=0.6, **kwargs):
+        super().__init__(**kwargs)
+
+        self.llm_model = llm_model
+        self.temperature = temperature
+        self.txt_embedding = llm_model.model.get_input_embeddings()
+
+    def reset_mem(self, batch_size, device):
+        """Needed to reset the memory during greedy search."""
+        return None
+
+    def _update_mem_embeddings(self, inp_tokens, memory):
+        """This method updates the memory during greedy search."""
+        inp_embds = self.txt_embedding(inp_tokens.long())
+        if memory is None:
+            return inp_embds
+        return torch.cat([memory, inp_embds], dim=1)
+
+    def forward_step(
+        self, inp_tokens, memory, enc_states, enc_lens, attention_mask
+    ):
+        """Performs a step in the implemented greedy searcher."""
+        memory = self._update_mem_embeddings(inp_tokens.unsqueeze(-1), memory)
+        multimodal_embds = torch.cat(
+            [
+                enc_states,
+                memory,
+            ],
+            dim=1,
+        )
+        logits = self.llm_model(
+            inputs_embeds=multimodal_embds,
+            attention_mask=attention_mask,
+        ).logits
+        return logits[:, -1, :], memory, None
 
 
 class S2SWhisperGreedySearcher(S2SGreedySearcher):
@@ -408,7 +477,10 @@ class S2SWhisperGreedySearcher(S2SGreedySearcher):
         self.prefix = prefix
         self.prompt = prompt
 
-        self.max_attn_tokens = self.model.model.decoder.config.max_length
+        config = self.model.model.decoder.config
+        self.max_attn_tokens = getattr(
+            config, "max_length", getattr(config, "max_target_positions", 448)
+        )
         self.sample_len = sample_len or self.max_attn_tokens // 2
 
         self.initial_tokens = self._get_initial_tokens()
@@ -451,9 +523,9 @@ class S2SWhisperGreedySearcher(S2SGreedySearcher):
         elif suppress_tokens is None or len(suppress_tokens) == 0:
             suppress_tokens = []  # interpret empty string as an empty list
         else:
-            assert isinstance(
-                suppress_tokens, list
-            ), "suppress_tokens must be a list"
+            assert isinstance(suppress_tokens, list), (
+                "suppress_tokens must be a list"
+            )
 
         suppress_tokens.extend(
             [
@@ -519,7 +591,9 @@ class S2SWhisperGreedySearcher(S2SGreedySearcher):
             self.lang_token = None
         return mem
 
-    def forward_step(self, inp_tokens, memory, enc_states, enc_lens):
+    def forward_step(
+        self, inp_tokens, memory, enc_states, enc_lens, attention_mask=None
+    ):
         """Performs a step in the implemented beamsearcher."""
         tokens = _update_mem(inp_tokens, memory)
 
@@ -551,10 +625,7 @@ class S2SWhisperGreedySearcher(S2SGreedySearcher):
                 ] = -torch.inf
 
         if self.suppress_tokens:
-            if self.model.config.suppress_tokens is None:
-                tokens_to_suppress = self.get_tokens_to_suppress
-            else:
-                tokens_to_suppress = self.model.get_suppress_tokens
+            tokens_to_suppress = self.get_tokens_to_suppress
             logits[:, list(tokens_to_suppress)] = -torch.inf
 
         return logits, tokens, attn
@@ -624,7 +695,9 @@ class S2SRNNGreedySearcher(S2SGreedySearcher):
         c = torch.zeros(batch_size, self.dec.attn_dim, device=device)
         return hs, c
 
-    def forward_step(self, inp_tokens, memory, enc_states, enc_lens):
+    def forward_step(
+        self, inp_tokens, memory, enc_states, enc_lens, attention_mask=None
+    ):
         """Performs a step in the implemented beamsearcher."""
         hs, c = memory
         e = self.emb(inp_tokens)
@@ -1707,9 +1780,9 @@ class S2SRNNBeamSearcher(S2SBeamSearcher):
     >>> lin = sb.nnet.linear.Linear(n_neurons=vocab_size, input_size=3)
     >>> coverage_scorer = sb.decoders.scorer.CoverageScorer(vocab_size)
     >>> scorer = sb.decoders.scorer.ScorerBuilder(
-    ...     full_scorers = [coverage_scorer],
-    ...     partial_scorers = [],
-    ...     weights= dict(coverage=1.5)
+    ...     full_scorers=[coverage_scorer],
+    ...     partial_scorers=[],
+    ...     weights=dict(coverage=1.5),
     ... )
     >>> searcher = S2SRNNBeamSearcher(
     ...     embedding=emb,
@@ -1798,17 +1871,26 @@ class S2STransformerBeamSearcher(S2SBeamSearcher):
     Example
     -------
     >>> from speechbrain.nnet.linear import Linear
-    >>> from speechbrain.lobes.models.transformer.TransformerASR import TransformerASR
+    >>> from speechbrain.lobes.models.transformer.TransformerASR import (
+    ...     TransformerASR,
+    ... )
     >>> from speechbrain.decoders import S2STransformerBeamSearcher
-    >>> batch_size=8
-    >>> n_channels=6
-    >>> input_size=40
-    >>> d_model=128
-    >>> tgt_vocab=140
+    >>> batch_size = 8
+    >>> n_channels = 6
+    >>> input_size = 40
+    >>> d_model = 128
+    >>> tgt_vocab = 140
     >>> src = torch.rand([batch_size, n_channels, input_size])
     >>> tgt = torch.randint(0, tgt_vocab, [batch_size, n_channels])
     >>> net = TransformerASR(
-    ...    tgt_vocab, input_size, d_model, 8, 1, 1, 1024, activation=torch.nn.GELU
+    ...     tgt_vocab,
+    ...     input_size,
+    ...     d_model,
+    ...     8,
+    ...     1,
+    ...     1,
+    ...     1024,
+    ...     activation=torch.nn.GELU,
     ... )
     >>> ctc_lin = Linear(input_shape=(1, 40, d_model), n_neurons=tgt_vocab)
     >>> lin = Linear(input_shape=(1, 40, d_model), n_neurons=tgt_vocab)
@@ -1823,7 +1905,7 @@ class S2STransformerBeamSearcher(S2SBeamSearcher):
     ...     temperature=1.15,
     ... )
     >>> enc, dec = net.forward(src, tgt)
-    >>> hyps, _, _, _  = searcher(enc, torch.ones(batch_size))
+    >>> hyps, _, _, _ = searcher(enc, torch.ones(batch_size))
     """
 
     def __init__(self, modules, temperature=1.0, **kwargs):
@@ -1916,7 +1998,10 @@ class S2SWhisperBeamSearcher(S2SBeamSearcher):
         self.prefix = prefix
         self.prompt = prompt
 
-        self.max_attn_tokens = self.model.model.decoder.config.max_length
+        config = self.model.model.decoder.config
+        self.max_attn_tokens = getattr(
+            config, "max_length", getattr(config, "max_target_positions", 448)
+        )
         self.sample_len = sample_len or self.max_attn_tokens // 2
 
         self.initial_tokens = self._get_initial_tokens()
@@ -1959,9 +2044,9 @@ class S2SWhisperBeamSearcher(S2SBeamSearcher):
         elif suppress_tokens is None or len(suppress_tokens) == 0:
             suppress_tokens = []  # interpret empty string as an empty list
         else:
-            assert isinstance(
-                suppress_tokens, list
-            ), "suppress_tokens must be a list"
+            assert isinstance(suppress_tokens, list), (
+                "suppress_tokens must be a list"
+            )
 
         suppress_tokens.extend(
             [
@@ -2042,7 +2127,7 @@ class S2SWhisperBeamSearcher(S2SBeamSearcher):
         Arguments
         ---------
         past_key_values : tuple
-            The key-value cache.
+            The key-value cache (tuple or DynamicCache object from transformers).
         beam_idx : torch.Tensor
             The index of the previous path.
 
@@ -2050,11 +2135,18 @@ class S2SWhisperBeamSearcher(S2SBeamSearcher):
         -------
         The reordered key-value cache.
         """
+        # Newer transformers return a DynamicCache object with its own reorder method
+        if hasattr(past_key_values, "reorder_cache"):
+            past_key_values.reorder_cache(beam_idx)
+            return past_key_values
+
         reordered_past = ()
         for layer_past in past_key_values:
             reordered_past += (
                 tuple(
                     past_state.index_select(0, beam_idx)
+                    if past_state is not None
+                    else None
                     for past_state in layer_past
                 ),
             )
@@ -2096,10 +2188,7 @@ class S2SWhisperBeamSearcher(S2SBeamSearcher):
                 ] = -torch.inf
 
         if self.suppress_tokens:
-            if self.model.config.suppress_tokens is None:
-                tokens_to_suppress = self.get_tokens_to_suppress
-            else:
-                tokens_to_suppress = self.model.get_suppress_tokens
+            tokens_to_suppress = self.get_tokens_to_suppress
             logits[:, list(tokens_to_suppress)] = -torch.inf
 
         log_probs = (

@@ -26,7 +26,6 @@ def test_SincConv(device):
 
 
 def test_Conv1d(device):
-
     from speechbrain.nnet.CNN import Conv1d
 
     input = (
@@ -54,7 +53,6 @@ def test_Conv1d(device):
 
 
 def test_Conv2d(device):
-
     from speechbrain.nnet.CNN import Conv2d
 
     input = torch.rand([4, 11, 32, 1], device=device)

@@ -12,8 +12,8 @@ import os
 
 import numpy as np
 import torch
-import torchaudio
 
+from speechbrain.dataio import audio_io
 from speechbrain.processing.signal_processing import rescale, reverberate
 
 
@@ -38,7 +38,7 @@ def create_mixture(session_n, output_dir, params, metadata):
             wet = torch.zeros(tot_length)
 
         for utt in metadata[spk]:
-            c_audio, fs = torchaudio.load(
+            c_audio, fs = audio_io.load(
                 os.path.join(params["librispeech_root"], utt["file"])
             )
             assert fs == params["samplerate"]
@@ -58,7 +58,7 @@ def create_mixture(session_n, output_dir, params, metadata):
             if params["save_dry_sources"]:
                 dry[dry_start:dry_stop] += c_audio
             # we add now reverb and put it in wet
-            c_rir, fs = torchaudio.load(
+            c_rir, fs = audio_io.load(
                 os.path.join(params["rirs_noises_root"], utt["rir"])
             )
             assert fs == params["samplerate"]
@@ -90,29 +90,29 @@ def create_mixture(session_n, output_dir, params, metadata):
 
         # save per speaker clean sources
         if params["save_dry_sources"]:
-            torchaudio.save(
+            audio_io.save(
                 os.path.join(
                     output_dir,
                     session_n,
-                    "session_{}_spk_{}_dry.wav".format(session_n, spk),
+                    f"session_{session_n}_spk_{spk}_dry.wav",
                 ),
                 torch.clamp(dry, min=-1, max=1),
                 params["samplerate"],
             )
 
         if params["save_wet_sources"]:
-            torchaudio.save(
+            audio_io.save(
                 os.path.join(
                     output_dir,
                     session_n,
-                    "session_{}_spk_{}_wet.wav".format(session_n, spk),
+                    f"session_{session_n}_spk_{spk}_wet.wav",
                 ),
                 torch.clamp(wet, min=-1, max=1),
                 params["samplerate"],
             )
 
     with open(
-        os.path.join(output_dir, session_n, "{}.json".format(session_n)),
+        os.path.join(output_dir, session_n, f"{session_n}.json"),
         "w",
         encoding="utf-8",
     ) as f:
@@ -120,7 +120,7 @@ def create_mixture(session_n, output_dir, params, metadata):
 
     # add impulsive noises
     for noise_event in metadata["noises"]:
-        c_audio, fs = torchaudio.load(
+        c_audio, fs = audio_io.load(
             os.path.join(params["rirs_noises_root"], noise_event["file"])
         )
         assert fs == params["samplerate"]
@@ -139,7 +139,7 @@ def create_mixture(session_n, output_dir, params, metadata):
         dry_start = int(noise_event["start"] * params["samplerate"])
         # dry_stop = dry_start + c_audio.shape[-1]
         # we add now reverb and put it in wet
-        c_rir, fs = torchaudio.load(
+        c_rir, fs = audio_io.load(
             os.path.join(params["rirs_noises_root"], noise_event["rir"])
         )
         assert fs == params["samplerate"]
@@ -153,7 +153,7 @@ def create_mixture(session_n, output_dir, params, metadata):
 
     # add background
     if metadata["background"]["file"]:
-        c_audio, fs = torchaudio.load(
+        c_audio, fs = audio_io.load(
             os.path.join(
                 params["backgrounds_root"], metadata["background"]["file"]
             ),
@@ -185,8 +185,8 @@ def create_mixture(session_n, output_dir, params, metadata):
 
     # save total mixture
     mixture = torch.clamp(mixture, min=-1, max=1)
-    torchaudio.save(
-        os.path.join(output_dir, session_n, "{}_mixture.wav".format(session_n)),
+    audio_io.save(
+        os.path.join(output_dir, session_n, f"{session_n}_mixture.wav"),
         mixture.unsqueeze(0),
         params["samplerate"],
     )

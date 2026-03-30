@@ -6,11 +6,15 @@ top of the output probabilities.
 Given the tiny dataset, the expected behavior is to overfit the training dataset
 (with a validation performance that stays high).
 """
+
 import pathlib
 
+import pytest
 from hyperpyyaml import load_hyperpyyaml
 
 import speechbrain as sb
+
+pytest.importorskip("numba")
 
 
 class TransducerBrain(sb.Brain):

@@ -55,14 +55,15 @@ class BackoffNgramLM:
     Example
     -------
     >>> import math
-    >>> ngrams = {1: {tuple(): {'a': -0.6931, 'b': -0.6931}},
-    ...           2: {('a',): {'a': -0.6931, 'b': -0.6931},
-    ...               ('b',): {'a': -0.6931}}}
-    >>> backoffs = {1: {('b',): 0.}}
+    >>> ngrams = {
+    ...     1: {tuple(): {"a": -0.6931, "b": -0.6931}},
+    ...     2: {("a",): {"a": -0.6931, "b": -0.6931}, ("b",): {"a": -0.6931}},
+    ... }
+    >>> backoffs = {1: {("b",): 0.0}}
     >>> lm = BackoffNgramLM(ngrams, backoffs)
-    >>> round(math.exp(lm.logprob('a', ('b',))), 1)
+    >>> round(math.exp(lm.logprob("a", ("b",))), 1)
     0.5
-    >>> round(math.exp(lm.logprob('b', ('b',))), 1)
+    >>> round(math.exp(lm.logprob("b", ("b",))), 1)
     0.5
 
     """
@@ -139,22 +140,29 @@ def ngram_evaluation_details(data, LM):
     >>> class MockLM:
     ...     def __init__(self):
     ...         self.top_order = 3
+    ...
     ...     def logprob(self, token, context):
     ...         return -1.0
     >>> LM = MockLM()
-    >>> data = [[("S", ("<s>",)),
-    ...          ("p", ("<s>", "S")),
-    ...          ("e", ("S", "p")),
-    ...          ("e", ("p", "e")),
-    ...          ("c", ("e", "e")),
-    ...          ("h", ("e", "c")),
-    ...          ("</s>", ("c", "h"))],
-    ...         [("B", ("<s>",)),
-    ...          ("r", ("<s>", "B")),
-    ...          ("a", ("B", "r")),
-    ...          ("i", ("r", "a")),
-    ...          ("n", ("a", "i")),
-    ...          ("</s>", ("i", "n"))]]
+    >>> data = [
+    ...     [
+    ...         ("S", ("<s>",)),
+    ...         ("p", ("<s>", "S")),
+    ...         ("e", ("S", "p")),
+    ...         ("e", ("p", "e")),
+    ...         ("c", ("e", "e")),
+    ...         ("h", ("e", "c")),
+    ...         ("</s>", ("c", "h")),
+    ...     ],
+    ...     [
+    ...         ("B", ("<s>",)),
+    ...         ("r", ("<s>", "B")),
+    ...         ("a", ("B", "r")),
+    ...         ("i", ("r", "a")),
+    ...         ("n", ("a", "i")),
+    ...         ("</s>", ("i", "n")),
+    ...     ],
+    ... ]
     >>> sum(ngram_evaluation_details(data, LM), collections.Counter())
     Counter({'num_tokens': 13, 'neglogprob': 13.0})
 
@@ -190,7 +198,8 @@ def ngram_perplexity(eval_details, logbase=10.0):
     -------
     >>> eval_details = [
     ...     collections.Counter(neglogprob=5, num_tokens=5),
-    ...     collections.Counter(neglogprob=15, num_tokens=15)]
+    ...     collections.Counter(neglogprob=15, num_tokens=15),
+    ... ]
     >>> ngram_perplexity(eval_details)
     10.0
 

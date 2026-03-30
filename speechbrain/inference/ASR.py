@@ -1,4 +1,4 @@
-""" Specifies the inference interfaces for Automatic speech Recognition (ASR) modules.
+"""Specifies the inference interfaces for Automatic speech Recognition (ASR) modules.
 
 Authors:
  * Aku Rouhe 2021
@@ -10,7 +10,7 @@ Authors:
  * Andreas Nautsch 2022, 2023
  * Pooneh Mousavi 2023
  * Sylvain de Langen 2023, 2024
- * Adel Moumen 2023, 2024
+ * Adel Moumen 2023, 2024, 2025
  * Pradnya Kandarkar 2023
 """
 
@@ -54,7 +54,9 @@ class EncoderDecoderASR(Pretrained):
     ...     source="speechbrain/asr-crdnn-rnnlm-librispeech",
     ...     savedir=tmpdir,
     ... )  # doctest: +SKIP
-    >>> asr_model.transcribe_file("tests/samples/single-mic/example2.flac")  # doctest: +SKIP
+    >>> asr_model.transcribe_file(
+    ...     "tests/samples/single-mic/example2.flac"
+    ... )  # doctest: +SKIP
     "MY FATHER HAS REVEALED THE CULPRIT'S NAME"
     """
 
@@ -192,8 +194,10 @@ class EncoderASR(Pretrained):
     >>> asr_model = EncoderASR.from_hparams(
     ...     source="speechbrain/asr-wav2vec2-commonvoice-fr",
     ...     savedir=tmpdir,
-    ... ) # doctest: +SKIP
-    >>> asr_model.transcribe_file("samples/audio_samples/example_fr.wav") # doctest: +SKIP
+    ... )  # doctest: +SKIP
+    >>> asr_model.transcribe_file(
+    ...     "samples/audio_samples/example_fr.wav"
+    ... )  # doctest: +SKIP
     """
 
     HPARAMS_NEEDED = ["tokenizer", "decoding_function"]
@@ -441,12 +445,21 @@ class WhisperASR(Pretrained):
     -------
     >>> from speechbrain.inference.ASR import WhisperASR
     >>> tmpdir = getfixture("tmpdir")
-    >>> asr_model = WhisperASR.from_hparams(source="speechbrain/asr-whisper-medium-commonvoice-it", savedir=tmpdir,) # doctest: +SKIP
-    >>> hyp = asr_model.transcribe_file("speechbrain/asr-whisper-medium-commonvoice-it/example-it.wav")  # doctest: +SKIP
+    >>> asr_model = WhisperASR.from_hparams(
+    ...     source="speechbrain/asr-whisper-medium-commonvoice-it",
+    ...     savedir=tmpdir,
+    ... )  # doctest: +SKIP
+    >>> hyp = asr_model.transcribe_file(
+    ...     "speechbrain/asr-whisper-medium-commonvoice-it/example-it.wav"
+    ... )  # doctest: +SKIP
     >>> hyp  # doctest: +SKIP
     buongiorno a tutti e benvenuti a bordo
-    >>> _, probs = asr_model.detect_language_file("speechbrain/asr-whisper-medium-commonvoice-it/example-it.wav")  # doctest: +SKIP
-    >>> print(f"Detected language: {max(probs[0], key=probs[0].get)}")  # doctest: +SKIP
+    >>> _, probs = asr_model.detect_language_file(
+    ...     "speechbrain/asr-whisper-medium-commonvoice-it/example-it.wav"
+    ... )  # doctest: +SKIP
+    >>> print(
+    ...     f"Detected language: {max(probs[0], key=probs[0].get)}"
+    ... )  # doctest: +SKIP
     Detected language: it
     """
 
@@ -510,14 +523,16 @@ class WhisperASR(Pretrained):
         Example
         -------
         >>> from speechbrain.inference.ASR import WhisperASR
-        >>> import torchaudio
+        >>> from speechbrain.dataio import audio_io
         >>> tmpdir = getfixture("tmpdir")
         >>> asr_model = WhisperASR.from_hparams(
         ...     source="speechbrain/asr-whisper-medium-commonvoice-it",
         ...     savedir=tmpdir,
-        ... ) # doctest: +SKIP
-        >>> wav, _ = torchaudio.load("your_audio") # doctest: +SKIP
-        >>> language_tokens, language_probs = asr_model.detect_language(wav) # doctest: +SKIP
+        ... )  # doctest: +SKIP
+        >>> wav, _ = audio_io.load("your_audio")  # doctest: +SKIP
+        >>> language_tokens, language_probs = asr_model.detect_language(
+        ...     wav
+        ... )  # doctest: +SKIP
         """
         mel = self.mods.whisper._get_mel(wav)
         language_tokens, language_probs = self.mods.whisper.detect_language(mel)
@@ -597,6 +612,7 @@ class WhisperASR(Pretrained):
             sample_rate=self.audio_normalizer.sample_rate,
             format="fltp",  # torch.float32
             num_channels=1,
+            buffer_chunk_size=-1,  # avoiding the problem of dropping first chunks
         )
 
         for (chunk,) in streamer.stream():
@@ -615,7 +631,7 @@ class WhisperASR(Pretrained):
         condition_on_previous_text: bool = False,
         verbose: bool = False,
         use_torchaudio_streaming: bool = False,
-        chunk_size: Optional[int] = 30,
+        chunk_size: int = 30,
         **kwargs,
     ):
         """Transcribes the given audiofile into a sequence of words.
@@ -648,7 +664,7 @@ class WhisperASR(Pretrained):
             entire audio file is fetched and loaded at once.
             This skips the usual fetching method and instead resolves the URI
             using torchaudio (via ffmpeg).
-        chunk_size : Optional[int]
+        chunk_size : int
             The size of the chunks to split the audio into. The default
             chunk size is 30 seconds which corresponds to the maximal length
             that the model can process in one go.
@@ -973,8 +989,14 @@ class StreamingASR(Pretrained):
     >>> from speechbrain.inference.ASR import StreamingASR
     >>> from speechbrain.utils.dynamic_chunk_training import DynChunkTrainConfig
     >>> tmpdir = getfixture("tmpdir")
-    >>> asr_model = StreamingASR.from_hparams(source="speechbrain/asr-conformer-streaming-librispeech", savedir=tmpdir,) # doctest: +SKIP
-    >>> asr_model.transcribe_file("speechbrain/asr-conformer-streaming-librispeech/test-en.wav", DynChunkTrainConfig(24, 8)) # doctest: +SKIP
+    >>> asr_model = StreamingASR.from_hparams(
+    ...     source="speechbrain/asr-conformer-streaming-librispeech",
+    ...     savedir=tmpdir,
+    ... )  # doctest: +SKIP
+    >>> asr_model.transcribe_file(
+    ...     "speechbrain/asr-conformer-streaming-librispeech/test-en.wav",
+    ...     DynChunkTrainConfig(24, 8),
+    ... )  # doctest: +SKIP
     """
 
     HPARAMS_NEEDED = [
@@ -1097,10 +1119,11 @@ class StreamingASR(Pretrained):
         rel_length = torch.tensor([1.0])
         context = self.make_streaming_context(dynchunktrain_config)
 
-        final_chunks = [
-            torch.zeros((1, chunk_size), device=self.device)
-        ] * self.hparams.fea_streaming_extractor.get_recommended_final_chunk_count(
-            chunk_size
+        final_chunks = (
+            [torch.zeros((1, chunk_size), device=self.device)]
+            * self.hparams.fea_streaming_extractor.get_recommended_final_chunk_count(
+                chunk_size
+            )
         )
 
         for chunk in itertools.chain(chunks, final_chunks):
@@ -1338,3 +1361,186 @@ class StreamingASR(Pretrained):
         words, _ = self.decode_chunk(context, x)
 
         return words
+
+
+class SpeechLLMASR(Pretrained):
+    """A ready-to-use SpeechLLM ASR model interface.
+
+    The class can be used to run the entire speechllm model.
+    First, the audio is encoded into a sequence of hidden states using the `speech_encoder`.
+    Then, the hidden states are downsampled using the `feat_downsampler` and projected using the `proj` module.
+    The projected features are concatenated with the text embeddings and passed to the `searcher` module.
+    The `searcher` module returns the predicted tokens and the predicted words using an LLM decoder.
+
+    The given YAML must contains the fields specified in the HPARAMS_NEEDED list.
+
+    Arguments
+    ---------
+    *args : tuple
+    **kwargs : dict
+        Arguments are forwarded to ``Pretrained`` parent class.
+
+    Example
+    -------
+    >>> from speechbrain.inference.ASR import SpeechLLMASR
+    >>> tmpdir = getfixture("tmpdir")
+    >>> asr_model = SpeechLLMASR.from_hparams(
+    ...     source="speechbrain/asr-speechllm-librispeech",
+    ...     savedir=tmpdir,
+    ... )  # doctest: +SKIP
+    >>> hyp = asr_model.transcribe_file(
+    ...     "speechbrain/asr-speechllm-librispeech/example-en.wav"
+    ... )  # doctest: +SKIP
+    >>> hyp  # doctest: +SKIP
+    THE BIRCH CANOE SLID ON THE SMOOTH PLANKS
+    """
+
+    HPARAMS_NEEDED = ["bos_index", "eos_index", "prompt"]
+    MODULES_NEEDED = [
+        "speech_encoder",
+        "feat_downsampler",
+        "proj",
+        "llm",
+        "normalize",
+        "searcher",
+    ]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.tokenizer = self.mods.llm.tokenizer
+        self.txt_embedding = self.mods.llm.model.get_input_embeddings()
+
+    def build_multimodal_embds(self, audio_feats):
+        """Builds the multimodal embeddings for the audio features."""
+        prompt_ids = (
+            self.tokenizer(
+                self.hparams.prompt,
+                return_tensors="pt",
+                add_special_tokens=False,
+            )
+            .input_ids.view(-1)
+            .tolist()
+        )
+        start_of_audio_token = "<|start_of_audio|>"
+        end_of_audio_token = "<|end_of_audio|>"
+        start_of_audio_index = self.tokenizer.convert_tokens_to_ids(
+            start_of_audio_token
+        )
+        end_of_audio_index = self.tokenizer.convert_tokens_to_ids(
+            end_of_audio_token
+        )
+        prompt_ids = torch.LongTensor(
+            [start_of_audio_index]
+            + [end_of_audio_index]
+            + prompt_ids
+            + [self.hparams.bos_index]
+        ).to(audio_feats.device)
+        prompt_embds = (
+            self.txt_embedding(prompt_ids)
+            .unsqueeze(0)
+            .repeat(audio_feats.size(0), 1, 1)
+        )
+        multimodal_embds = torch.cat(
+            [
+                prompt_embds[:, 0].unsqueeze(1),  # B, D -> B, 1, D
+                audio_feats,
+                prompt_embds[:, 1:],
+            ],
+            dim=1,
+        )
+        attention_mask = torch.ones(
+            multimodal_embds.size(0),
+            multimodal_embds.size(1),
+            dtype=torch.bool,
+            device=multimodal_embds.device,
+        )
+        return multimodal_embds, attention_mask
+
+    @torch.no_grad()
+    def encode_batch(self, wavs, wav_lens):
+        """Encodes the audio waveforms into a sequence of hidden states.
+        By default, the `self.inference_ctx` is used to run the forward pass.
+        Can be overridden by passing a custom `--precision` argument.
+
+        Arguments
+        ---------
+        wavs : torch.Tensor
+            The audio waveforms of shape (batch_size, time).
+        wav_lens : torch.Tensor
+            The lengths of the audio waveforms of shape (batch_size,).
+
+        Returns
+        -------
+        audio_feats : torch.Tensor
+            The encoded audio features of shape (batch_size, time, feat_dim).
+        """
+        with self.inference_ctx:
+            wavs, wav_lens = wavs.to(self.device), wav_lens.to(self.device)
+            wavs = self.mods.normalize(wavs, wav_lens)
+            audio_feats = self.mods.speech_encoder(wavs, wav_lens)
+        return audio_feats
+
+    @torch.no_grad()
+    def transcribe_batch(self, wavs, wav_lens):
+        """Transcribes the input audio into a sequence of words.
+
+        Arguments
+        ---------
+        wavs : torch.Tensor
+            The audio waveforms of shape (batch_size, time).
+        wav_lens : torch.Tensor
+            The lengths of the audio waveforms of shape (batch_size,).
+
+        Returns
+        -------
+        predicted_words : list
+            The predicted words of shape (batch_size,).
+        predicted_tokens : list
+            The predicted tokens of shape (batch_size,).
+        """
+        with self.inference_ctx:
+            encoder_out = self.encode_batch(wavs, wav_lens)
+            audio_down_feats = self.mods.feat_downsampler(encoder_out)
+            audio_feats = self.mods.proj(audio_down_feats)
+            multimodal_embds, attention_mask = self.build_multimodal_embds(
+                audio_feats
+            )
+            # Use the precision configured in self.inference_ctx, defaulting to float32 if not set
+            target_precision = getattr(
+                self.inference_ctx, "precision", torch.float32
+            )
+            hyps = self.mods.searcher(
+                multimodal_embds.to(target_precision), wav_lens, attention_mask
+            )
+            predicted_tokens = hyps[0]
+            predicted_words = self.tokenizer.batch_decode(
+                predicted_tokens, skip_special_tokens=True
+            )
+        return predicted_words, predicted_tokens
+
+    def transcribe_file(self, path, **kwargs):
+        """Transcribe the given audio file into a sequence of words.
+
+        Arguments
+        ---------
+        path : str
+            The path to the audio file.
+        **kwargs : dict
+            Arguments forwarded to `self.load_audio`.
+
+        Returns
+        -------
+        predicted_words : str
+            The predicted words of the audio file.
+        """
+        waveform = self.load_audio(path, **kwargs)
+        batch = waveform.unsqueeze(0)
+        rel_length = torch.tensor([1.0])
+        predicted_words, predicted_tokens = self.transcribe_batch(
+            batch, rel_length
+        )
+        return predicted_words[0]
+
+    def forward(self, wavs, wav_lens):
+        """Runs full batch decoding"""
+        return self.transcribe_batch(wavs, wav_lens)

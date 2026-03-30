@@ -1,5 +1,4 @@
-""" Implementation of a popular speech separation model.
-"""
+"""Implementation of a popular speech separation model."""
 
 import torch
 import torch.nn as nn
@@ -148,7 +147,7 @@ class TemporalBlocksSequential(sb.nnet.containers.Sequential):
     >>> x = torch.randn(14, 100, 10)
     >>> H, P, R, X = 10, 5, 2, 3
     >>> TemporalBlocks = TemporalBlocksSequential(
-    ...     x.shape, H, P, R, X, 'gLN', False
+    ...     x.shape, H, P, R, X, "gLN", False
     ... )
     >>> y = TemporalBlocks(x)
     >>> y.shape
@@ -313,7 +312,7 @@ class TemporalBlock(torch.nn.Module):
     Example
     -------
     >>> x = torch.randn(14, 100, 10)
-    >>> TemporalBlock = TemporalBlock(x.shape, 10, 11, 1, 'same', 1)
+    >>> TemporalBlock = TemporalBlock(x.shape, 10, 11, 1, "same", 1)
     >>> y = TemporalBlock(x)
     >>> y.shape
     torch.Size([14, 100, 10])
@@ -404,7 +403,7 @@ class DepthwiseSeparableConv(sb.nnet.containers.Sequential):
     Example
     -------
     >>> x = torch.randn(14, 100, 10)
-    >>> DSconv = DepthwiseSeparableConv(x.shape, 10, 11, 1, 'same', 1)
+    >>> DSconv = DepthwiseSeparableConv(x.shape, 10, 11, 1, "same", 1)
     >>> y = DSconv(x)
     >>> y.shape
     torch.Size([14, 100, 10])
@@ -518,7 +517,7 @@ def choose_norm(norm_type, channel_size):
 
     Example
     -------
-    >>> choose_norm('gLN', 10)
+    >>> choose_norm("gLN", 10)
     GlobalLayerNorm()
     """
 

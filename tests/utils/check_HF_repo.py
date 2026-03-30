@@ -115,7 +115,7 @@ def check_repo(HF_repo):
     code = []
     flag = False
     check = True
-    with open(dest_file, "r", encoding="utf-8") as f:
+    with open(dest_file, encoding="utf-8") as f:
         for line in f:
             if "```python" in line:
                 flag = True

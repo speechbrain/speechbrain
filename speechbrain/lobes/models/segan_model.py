@@ -229,8 +229,8 @@ def g3_loss(
     discrimloss = 0.5 * ((d_outputs - 1) ** 2)
     l1norm = torch.nn.functional.l1_loss(predictions, targets, reduction="none")
 
-    if not (
-        z_mean is None
+    if (
+        z_mean is not None
     ):  # This will determine if model is being trained as a vae
         ZERO = torch.zeros_like(z_mean)
         distq = torch.distributions.normal.Normal(
@@ -240,7 +240,7 @@ def g3_loss(
             ZERO, torch.exp(ZERO) ** (1 / 2)
         )
         kl = torch.distributions.kl.kl_divergence(distq, distp)
-        kl = kl.sum(axis=1).sum(axis=1).mean()
+        kl = kl.sum(dim=1).sum(dim=1).mean()
     else:
         kl = 0
     if reduction == "mean":

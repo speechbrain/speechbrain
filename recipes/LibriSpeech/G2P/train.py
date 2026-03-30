@@ -8,6 +8,7 @@ Authors
  * Mirco Ravanelli 2020
  * Artem Ploujnikov 2021
 """
+
 import os
 import random
 import sys
@@ -27,6 +28,7 @@ from speechbrain.dataio.dataset import (
 )
 from speechbrain.dataio.sampler import BalancingDataSampler
 from speechbrain.dataio.wer import print_alignments
+from speechbrain.integrations.huggingface.wordemb.util import expand_to_chars
 from speechbrain.lobes.models.g2p.dataio import (
     add_bos_eos,
     enable_eos_bos,
@@ -41,7 +43,6 @@ from speechbrain.utils.data_utils import undo_padding
 from speechbrain.utils.distributed import run_on_main
 from speechbrain.utils.logger import get_logger
 from speechbrain.utils.pretrained import save_for_pretrained
-from speechbrain.wordemb.util import expand_to_chars
 
 logger = get_logger(__name__)
 

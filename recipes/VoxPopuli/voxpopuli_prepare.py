@@ -102,7 +102,6 @@ def prepare_voxpopuli(
 
     # If csv already exists, we skip the data preparation
     if skip(save_csv_train, save_csv_dev, save_csv_test):
-
         msg = "%s already exists, skipping data preparation!" % (save_csv_train)
         logger.info(msg)
 
@@ -254,7 +253,7 @@ def create_csv(
         raise FileNotFoundError(msg)
 
     # We load and skip the header
-    loaded_csv = open(orig_tsv_file, "r", encoding="utf-8").readlines()[1:]
+    loaded_csv = open(orig_tsv_file, encoding="utf-8").readlines()[1:]
     nb_samples = len(loaded_csv)
 
     msg = "Preparing CSV files for %s samples ..." % (str(nb_samples))

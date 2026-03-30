@@ -46,7 +46,8 @@ def test_categorical_encoder(device):
     encoder = CategoricalEncoder()
     encoder.expect_len(3)
     encoder.limited_labelset_from_iterable(
-        "aabbbcccd", n_most_common=3  # cspell:ignore aabbbcccd
+        "aabbbcccd",
+        n_most_common=3,  # cspell:ignore aabbbcccd
     )
     encoder.encode_sequence("abc")
     with pytest.raises(KeyError):
@@ -218,7 +219,8 @@ def test_ctc_encoder(tmpdir):
     encoder.insert_blank(blank_label="_", index=2)
     encoding_file = tmpdir / "ctc_encoding.txt"
     encoder.update_from_iterable(
-        ["abcd", "bcdef"], sequence_input=True  # cspell:disable-line
+        ["abcd", "bcdef"],
+        sequence_input=True,  # cspell:disable-line
     )
     encoded = encoder.encode_sequence(encoder.prepend_bos_label(["a", "b"]))
     assert encoded[0] == 0
@@ -240,13 +242,11 @@ def test_ctc_encoder(tmpdir):
         == "bbaaabbbbbbeeee"  # cspell:disable-line
     )
     assert encoder.decode_ndim(
-        (
-            encoder.collapse_indices_ndim(
-                [
-                    [0, 2, 4, 4, 2, 3, 3, 3, 2, 2, 2, 4, 2, 4, 2, 7, 2, 1],
-                    [[0, 2, 3, 4, 5, 6, 5, 4, 3, 2, 1]],
-                ]
-            )
+        encoder.collapse_indices_ndim(
+            [
+                [0, 2, 4, 4, 2, 3, 3, 3, 2, 2, 2, 4, 2, 4, 2, 7, 2, 1],
+                [[0, 2, 3, 4, 5, 6, 5, 4, 3, 2, 1]],
+            ]
         )
     ) == [
         ["<s>", "b", "a", "b", "b", "e", "</s>"],

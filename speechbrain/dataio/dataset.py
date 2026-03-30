@@ -10,6 +10,7 @@ import copy
 import math
 from types import MethodType
 
+import tqdm
 from torch.utils.data import Dataset
 
 from speechbrain.dataio.dataio import load_data_csv, load_data_json
@@ -47,16 +48,16 @@ class DynamicItemDataset(Dataset):
     Altogether the data collection could look like this:
 
     >>> data = {
-    ...  "spk1utt1": {
-    ...      "wav_file": "/path/to/spk1utt1.wav",
-    ...      "text": "hello world",
-    ...      "speaker": "spk1",
-    ...      },
-    ...  "spk1utt2": {
-    ...      "wav_file": "/path/to/spk1utt2.wav",
-    ...      "text": "how are you world",
-    ...      "speaker": "spk1",
-    ...      }
+    ...     "spk1utt1": {
+    ...         "wav_file": "/path/to/spk1utt1.wav",
+    ...         "text": "hello world",
+    ...         "speaker": "spk1",
+    ...     },
+    ...     "spk1utt2": {
+    ...         "wav_file": "/path/to/spk1utt2.wav",
+    ...         "text": "how are you world",
+    ...         "speaker": "spk1",
+    ...     },
     ... }
 
     NOTE
@@ -75,23 +76,33 @@ class DynamicItemDataset(Dataset):
 
     >>> import torch
     >>> dynamic_items = [
-    ...     {"func": lambda l: torch.Tensor(l),
-    ...     "takes": ["wav_loaded"],
-    ...     "provides": "wav"},
-    ...     {"func": lambda path: [ord(c)/100 for c in path],  # Fake "loading"
-    ...     "takes": ["wav_file"],
-    ...     "provides": "wav_loaded"},
-    ...     {"func": lambda t: t.split(),
-    ...     "takes": ["text"],
-    ...     "provides": "words"}]
+    ...     {
+    ...         "func": lambda l: torch.Tensor(l),
+    ...         "takes": ["wav_loaded"],
+    ...         "provides": "wav",
+    ...     },
+    ...     {
+    ...         "func": lambda path: [
+    ...             ord(c) / 100 for c in path
+    ...         ],  # Fake "loading"
+    ...         "takes": ["wav_file"],
+    ...         "provides": "wav_loaded",
+    ...     },
+    ...     {
+    ...         "func": lambda t: t.split(),
+    ...         "takes": ["text"],
+    ...         "provides": "words",
+    ...     },
+    ... ]
 
     With these, different views of the data can be loaded:
 
     >>> from speechbrain.dataio.dataloader import SaveableDataLoader
     >>> from speechbrain.dataio.batch import PaddedBatch
     >>> dataset = DynamicItemDataset(data, dynamic_items)
-    >>> dataloader = SaveableDataLoader(dataset, collate_fn=PaddedBatch,
-    ...     batch_size=2)
+    >>> dataloader = SaveableDataLoader(
+    ...     dataset, collate_fn=PaddedBatch, batch_size=2
+    ... )
     >>> # First, create encoding for words:
     >>> dataset.set_output_keys(["words"])
     >>> encoding = {}
@@ -104,10 +115,12 @@ class DynamicItemDataset(Dataset):
     ...                 next_id += 1
     >>> # Next, add an encoded words_tensor dynamic item:
     >>> dataset.add_dynamic_item(
-    ...     func = lambda ws: torch.tensor([encoding[w] for w in ws],
-    ...             dtype=torch.long),
-    ...     takes = ["words"],
-    ...     provides = "words_encoded")
+    ...     func=lambda ws: torch.tensor(
+    ...         [encoding[w] for w in ws], dtype=torch.long
+    ...     ),
+    ...     takes=["words"],
+    ...     provides="words_encoded",
+    ... )
     >>> # Now we can get word and audio tensors:
     >>> dataset.set_output_keys(["id", "wav", "words_encoded"])
     >>> batch = next(iter(dataloader))
@@ -121,7 +134,9 @@ class DynamicItemDataset(Dataset):
 
     Output keys can also be a map:
 
-    >>> dataset.set_output_keys({"id":"id", "signal": "wav", "words": "words_encoded"})
+    >>> dataset.set_output_keys(
+    ...     {"id": "id", "signal": "wav", "words": "words_encoded"}
+    ... )
     >>> batch = next(iter(dataloader))
     >>> batch.words
     PaddedData(data=tensor([[1, 2, 0, 0],
@@ -147,7 +162,11 @@ class DynamicItemDataset(Dataset):
         and value is the internal key.
     """
 
-    def __init__(self, data, dynamic_items=[], output_keys=[]):
+    def __init__(self, data, dynamic_items=None, output_keys=None):
+        if dynamic_items is None:
+            dynamic_items = []
+        if output_keys is None:
+            output_keys = []
         self.data = data
         self.data_ids = list(self.data.keys())
         static_keys = list(self.data[self.data_ids[0]].keys())
@@ -165,6 +184,27 @@ class DynamicItemDataset(Dataset):
         data_id = self.data_ids[index]
         data_point = self.data[data_id]
         return self.pipeline.compute_outputs({"id": data_id, **data_point})
+
+    def iterate_once(self, output_keys=None, progressbar=True):
+        """Iterates dataset once -- mainly used to warm up cache.
+
+        Arguments
+        ---------
+        output_keys : Optional[list[str]]
+            List of keys to use for the iteration, potentially useful for
+            speeding up iterations when warming the cache is only needed on
+            a subset of the slow keys and other slow keys should be ignored.
+        progressbar : bool
+            Whether to add a tqdm progressbar for monitoring iteration time.
+        """
+
+        # If output_keys is None, just use current output mapping
+        output_keys = output_keys or self.pipeline.output_mapping
+
+        # Iterate data but do nothing (e.g. to warm cache)
+        with self.output_keys_as(output_keys):
+            for item in tqdm.tqdm(self, disable=not progressbar):
+                pass
 
     def add_dynamic_item(self, func, takes=None, provides=None):
         """Makes a new dynamic item available on the dataset.
@@ -222,8 +262,10 @@ class DynamicItemDataset(Dataset):
 
         Example
         -------
-        >>> dataset = DynamicItemDataset({"a":{"x":1,"y":2},"b":{"x":3,"y":4}},
-        ...     output_keys = ["x"])
+        >>> dataset = DynamicItemDataset(
+        ...     {"a": {"x": 1, "y": 2}, "b": {"x": 3, "y": 4}},
+        ...     output_keys=["x"],
+        ... )
         >>> with dataset.output_keys_as(["y"]):
         ...     print(dataset[0])
         {'y': 2}

@@ -19,6 +19,7 @@ import torch
 import torchaudio
 
 import speechbrain as sb
+from speechbrain.dataio import audio_io
 from speechbrain.dataio.dataio import load_data_csv, read_audio
 from speechbrain.utils.fetching import LocalStrategy, fetch
 from speechbrain.utils.logger import get_logger
@@ -115,8 +116,16 @@ def prepare_esc50(
 
     Example
     -------
-    >>> data_folder = '/path/to/ESC-50-master'
-    >>> prepare_urban_sound_8k(data_folder, 'train.json', 'valid.json', 'test.json', [1,2,3], [4], [5])
+    >>> data_folder = "/path/to/ESC-50-master"
+    >>> prepare_urban_sound_8k(
+    ...     data_folder,
+    ...     "train.json",
+    ...     "valid.json",
+    ...     "test.json",
+    ...     [1, 2, 3],
+    ...     [4],
+    ...     [5],
+    ... )
     """
     download_esc50(data_folder)
 
@@ -235,13 +244,9 @@ def create_json(metadata, audio_data_folder, folds_list, json_file):
             )
             try:
                 signal = read_audio(wav_file)
-                file_info = torchaudio.info(wav_file)
+                file_info = audio_io.info(wav_file)
 
-                # If we're using sox/soundfile backend, file_info will have the old type
-                if isinstance(file_info, torchaudio.AudioMetaData):
-                    duration = signal.shape[0] / file_info.sample_rate
-                else:
-                    duration = signal.shape[0] / file_info[0].rate
+                duration = signal.shape[0] / file_info.sample_rate
 
                 # Create entry for this sample ONLY if we have successfully read-in the file using SpeechBrain/torchaudio
                 json_dict[ID] = {
@@ -409,9 +414,9 @@ def dataio_prep(hparams):
         """Load the signal, and pass it and its length to the corruption class.
         This is done on the CPU in the `collate_fn`."""
 
-        wave_file = data_audio_folder + "/{:}".format(wav)
+        wave_file = data_audio_folder + f"/{wav}"
 
-        sig, read_sr = torchaudio.load(wave_file)
+        sig, read_sr = audio_io.load(wave_file)
 
         # If multi-channels, downmix it to a mono channel
         sig = torch.squeeze(sig)

@@ -131,30 +131,40 @@ class CTCScorer(BaseScorerInterface):
     -------
     >>> import torch
     >>> from speechbrain.nnet.linear import Linear
-    >>> from speechbrain.lobes.models.transformer.TransformerASR import TransformerASR
-    >>> from speechbrain.decoders import S2STransformerBeamSearcher, CTCScorer, ScorerBuilder
-    >>> batch_size=8
-    >>> n_channels=6
-    >>> input_size=40
-    >>> d_model=128
-    >>> tgt_vocab=140
+    >>> from speechbrain.lobes.models.transformer.TransformerASR import (
+    ...     TransformerASR,
+    ... )
+    >>> from speechbrain.decoders import (
+    ...     S2STransformerBeamSearcher,
+    ...     CTCScorer,
+    ...     ScorerBuilder,
+    ... )
+    >>> batch_size = 8
+    >>> n_channels = 6
+    >>> input_size = 40
+    >>> d_model = 128
+    >>> tgt_vocab = 140
     >>> src = torch.rand([batch_size, n_channels, input_size])
     >>> tgt = torch.randint(0, tgt_vocab, [batch_size, n_channels])
     >>> net = TransformerASR(
-    ...    tgt_vocab, input_size, d_model, 8, 1, 1, 1024, activation=torch.nn.GELU
+    ...     tgt_vocab,
+    ...     input_size,
+    ...     d_model,
+    ...     8,
+    ...     1,
+    ...     1,
+    ...     1024,
+    ...     activation=torch.nn.GELU,
     ... )
     >>> ctc_lin = Linear(input_shape=(1, 40, d_model), n_neurons=tgt_vocab)
     >>> lin = Linear(input_shape=(1, 40, d_model), n_neurons=tgt_vocab)
     >>> eos_index = 2
     >>> ctc_scorer = CTCScorer(
-    ...    ctc_fc=ctc_lin,
-    ...    blank_index=0,
-    ...    eos_index=eos_index,
+    ...     ctc_fc=ctc_lin,
+    ...     blank_index=0,
+    ...     eos_index=eos_index,
     ... )
-    >>> scorer = ScorerBuilder(
-    ...     full_scorers=[ctc_scorer],
-    ...     weights={'ctc': 1.0}
-    ... )
+    >>> scorer = ScorerBuilder(full_scorers=[ctc_scorer], weights={"ctc": 1.0})
     >>> searcher = S2STransformerBeamSearcher(
     ...     modules=[net, lin],
     ...     bos_index=1,
@@ -164,7 +174,7 @@ class CTCScorer(BaseScorerInterface):
     ...     using_eos_threshold=False,
     ...     beam_size=7,
     ...     temperature=1.15,
-    ...     scorer=scorer
+    ...     scorer=scorer,
     ... )
     >>> enc, dec = net.forward(src, tgt)
     >>> hyps, _, _, _ = searcher(enc, torch.ones(batch_size))
@@ -264,14 +274,18 @@ class RNNLMScorer(BaseScorerInterface):
     >>> from speechbrain.nnet.linear import Linear
     >>> from speechbrain.lobes.models.RNNLM import RNNLM
     >>> from speechbrain.nnet.RNN import AttentionalRNNDecoder
-    >>> from speechbrain.decoders import S2SRNNBeamSearcher, RNNLMScorer, ScorerBuilder
-    >>> input_size=17
-    >>> vocab_size=11
+    >>> from speechbrain.decoders import (
+    ...     S2SRNNBeamSearcher,
+    ...     RNNLMScorer,
+    ...     ScorerBuilder,
+    ... )
+    >>> input_size = 17
+    >>> vocab_size = 11
     >>> emb = torch.nn.Embedding(
     ...     embedding_dim=input_size,
     ...     num_embeddings=vocab_size,
     ... )
-    >>> d_model=7
+    >>> d_model = 7
     >>> dec = AttentionalRNNDecoder(
     ...     rnn_type="gru",
     ...     attn_type="content",
@@ -281,8 +295,10 @@ class RNNLMScorer(BaseScorerInterface):
     ...     enc_dim=d_model,
     ...     input_size=input_size,
     ... )
-    >>> n_channels=3
-    >>> seq_lin = Linear(input_shape=[d_model, n_channels], n_neurons=vocab_size)
+    >>> n_channels = 3
+    >>> seq_lin = Linear(
+    ...     input_shape=[d_model, n_channels], n_neurons=vocab_size
+    ... )
     >>> lm_weight = 0.4
     >>> lm_model = RNNLM(
     ...     embedding_dim=d_model,
@@ -297,10 +313,9 @@ class RNNLMScorer(BaseScorerInterface):
     ...     temperature=1.25,
     ... )
     >>> scorer = ScorerBuilder(
-    ...     full_scorers=[rnnlm_scorer],
-    ...     weights={'rnnlm': lm_weight}
+    ...     full_scorers=[rnnlm_scorer], weights={"rnnlm": lm_weight}
     ... )
-    >>> beam_size=5
+    >>> beam_size = 5
     >>> searcher = S2SRNNBeamSearcher(
     ...     embedding=emb,
     ...     decoder=dec,
@@ -313,9 +328,9 @@ class RNNLMScorer(BaseScorerInterface):
     ...     using_eos_threshold=False,
     ...     beam_size=beam_size,
     ...     temperature=1.25,
-    ...     scorer=scorer
+    ...     scorer=scorer,
     ... )
-    >>> batch_size=2
+    >>> batch_size = 2
     >>> enc = torch.rand([batch_size, n_channels, d_model])
     >>> wav_len = torch.ones([batch_size])
     >>> hyps, _, _, _ = searcher(enc, wav_len)
@@ -413,12 +428,21 @@ class TransformerLMScorer(BaseScorerInterface):
     Example
     -------
     >>> from speechbrain.nnet.linear import Linear
-    >>> from speechbrain.lobes.models.transformer.TransformerASR import TransformerASR
-    >>> from speechbrain.lobes.models.transformer.TransformerLM import TransformerLM
-    >>> from speechbrain.decoders import S2STransformerBeamSearcher, TransformerLMScorer, CTCScorer, ScorerBuilder
-    >>> input_size=17
-    >>> vocab_size=11
-    >>> d_model=128
+    >>> from speechbrain.lobes.models.transformer.TransformerASR import (
+    ...     TransformerASR,
+    ... )
+    >>> from speechbrain.lobes.models.transformer.TransformerLM import (
+    ...     TransformerLM,
+    ... )
+    >>> from speechbrain.decoders import (
+    ...     S2STransformerBeamSearcher,
+    ...     TransformerLMScorer,
+    ...     CTCScorer,
+    ...     ScorerBuilder,
+    ... )
+    >>> input_size = 17
+    >>> vocab_size = 11
+    >>> d_model = 128
     >>> net = TransformerASR(
     ...     tgt_vocab=vocab_size,
     ...     input_size=input_size,
@@ -427,7 +451,7 @@ class TransformerLMScorer(BaseScorerInterface):
     ...     num_encoder_layers=1,
     ...     num_decoder_layers=1,
     ...     d_ffn=256,
-    ...     activation=torch.nn.GELU
+    ...     activation=torch.nn.GELU,
     ... )
     >>> lm_model = TransformerLM(
     ...     vocab=vocab_size,
@@ -438,7 +462,7 @@ class TransformerLMScorer(BaseScorerInterface):
     ...     d_ffn=256,
     ...     activation=torch.nn.GELU,
     ... )
-    >>> n_channels=6
+    >>> n_channels = 6
     >>> ctc_lin = Linear(input_size=d_model, n_neurons=vocab_size)
     >>> seq_lin = Linear(input_size=d_model, n_neurons=vocab_size)
     >>> eos_index = 2
@@ -451,13 +475,13 @@ class TransformerLMScorer(BaseScorerInterface):
     ...     language_model=lm_model,
     ...     temperature=1.15,
     ... )
-    >>> ctc_weight_decode=0.4
-    >>> lm_weight=0.6
+    >>> ctc_weight_decode = 0.4
+    >>> lm_weight = 0.6
     >>> scorer = ScorerBuilder(
     ...     full_scorers=[transformerlm_scorer, ctc_scorer],
-    ...     weights={'transformerlm': lm_weight, 'ctc': ctc_weight_decode}
+    ...     weights={"transformerlm": lm_weight, "ctc": ctc_weight_decode},
     ... )
-    >>> beam_size=5
+    >>> beam_size = 5
     >>> searcher = S2STransformerBeamSearcher(
     ...     modules=[net, seq_lin],
     ...     bos_index=1,
@@ -467,9 +491,9 @@ class TransformerLMScorer(BaseScorerInterface):
     ...     using_eos_threshold=False,
     ...     beam_size=beam_size,
     ...     temperature=1.15,
-    ...     scorer=scorer
+    ...     scorer=scorer,
     ... )
-    >>> batch_size=2
+    >>> batch_size = 2
     >>> wav_len = torch.ones([batch_size])
     >>> src = torch.rand([batch_size, n_channels, input_size])
     >>> tgt = torch.randint(0, vocab_size, [batch_size, n_channels])
@@ -780,14 +804,18 @@ class CoverageScorer(BaseScorerInterface):
     >>> from speechbrain.nnet.linear import Linear
     >>> from speechbrain.lobes.models.RNNLM import RNNLM
     >>> from speechbrain.nnet.RNN import AttentionalRNNDecoder
-    >>> from speechbrain.decoders import S2SRNNBeamSearcher, RNNLMScorer, CoverageScorer, ScorerBuilder
-    >>> input_size=17
-    >>> vocab_size=11
-    >>> emb = torch.nn.Embedding(
-    ...     num_embeddings=vocab_size,
-    ...     embedding_dim=input_size
+    >>> from speechbrain.decoders import (
+    ...     S2SRNNBeamSearcher,
+    ...     RNNLMScorer,
+    ...     CoverageScorer,
+    ...     ScorerBuilder,
     ... )
-    >>> d_model=7
+    >>> input_size = 17
+    >>> vocab_size = 11
+    >>> emb = torch.nn.Embedding(
+    ...     num_embeddings=vocab_size, embedding_dim=input_size
+    ... )
+    >>> d_model = 7
     >>> dec = AttentionalRNNDecoder(
     ...     rnn_type="gru",
     ...     attn_type="content",
@@ -797,8 +825,10 @@ class CoverageScorer(BaseScorerInterface):
     ...     enc_dim=d_model,
     ...     input_size=input_size,
     ... )
-    >>> n_channels=3
-    >>> seq_lin = Linear(input_shape=[d_model, n_channels], n_neurons=vocab_size)
+    >>> n_channels = 3
+    >>> seq_lin = Linear(
+    ...     input_shape=[d_model, n_channels], n_neurons=vocab_size
+    ... )
     >>> lm_weight = 0.4
     >>> coverage_penalty = 1.0
     >>> lm_model = RNNLM(
@@ -816,9 +846,9 @@ class CoverageScorer(BaseScorerInterface):
     >>> coverage_scorer = CoverageScorer(vocab_size=vocab_size)
     >>> scorer = ScorerBuilder(
     ...     full_scorers=[rnnlm_scorer, coverage_scorer],
-    ...     weights={'rnnlm': lm_weight, 'coverage': coverage_penalty}
+    ...     weights={"rnnlm": lm_weight, "coverage": coverage_penalty},
     ... )
-    >>> beam_size=5
+    >>> beam_size = 5
     >>> searcher = S2SRNNBeamSearcher(
     ...     embedding=emb,
     ...     decoder=dec,
@@ -831,9 +861,9 @@ class CoverageScorer(BaseScorerInterface):
     ...     using_eos_threshold=False,
     ...     beam_size=beam_size,
     ...     temperature=1.25,
-    ...     scorer=scorer
+    ...     scorer=scorer,
     ... )
-    >>> batch_size=2
+    >>> batch_size = 2
     >>> enc = torch.rand([batch_size, n_channels, d_model])
     >>> wav_len = torch.ones([batch_size])
     >>> hyps, _, _, _ = searcher(enc, wav_len)
@@ -942,14 +972,18 @@ class LengthScorer(BaseScorerInterface):
     >>> from speechbrain.nnet.linear import Linear
     >>> from speechbrain.lobes.models.RNNLM import RNNLM
     >>> from speechbrain.nnet.RNN import AttentionalRNNDecoder
-    >>> from speechbrain.decoders import S2SRNNBeamSearcher, RNNLMScorer, CoverageScorer, ScorerBuilder
-    >>> input_size=17
-    >>> vocab_size=11
-    >>> emb = torch.nn.Embedding(
-    ...     num_embeddings=vocab_size,
-    ...     embedding_dim=input_size
+    >>> from speechbrain.decoders import (
+    ...     S2SRNNBeamSearcher,
+    ...     RNNLMScorer,
+    ...     CoverageScorer,
+    ...     ScorerBuilder,
     ... )
-    >>> d_model=7
+    >>> input_size = 17
+    >>> vocab_size = 11
+    >>> emb = torch.nn.Embedding(
+    ...     num_embeddings=vocab_size, embedding_dim=input_size
+    ... )
+    >>> d_model = 7
     >>> dec = AttentionalRNNDecoder(
     ...     rnn_type="gru",
     ...     attn_type="content",
@@ -959,8 +993,10 @@ class LengthScorer(BaseScorerInterface):
     ...     enc_dim=d_model,
     ...     input_size=input_size,
     ... )
-    >>> n_channels=3
-    >>> seq_lin = Linear(input_shape=[d_model, n_channels], n_neurons=vocab_size)
+    >>> n_channels = 3
+    >>> seq_lin = Linear(
+    ...     input_shape=[d_model, n_channels], n_neurons=vocab_size
+    ... )
     >>> lm_weight = 0.4
     >>> length_weight = 1.0
     >>> lm_model = RNNLM(
@@ -978,9 +1014,9 @@ class LengthScorer(BaseScorerInterface):
     >>> length_scorer = LengthScorer(vocab_size=vocab_size)
     >>> scorer = ScorerBuilder(
     ...     full_scorers=[rnnlm_scorer, length_scorer],
-    ...     weights={'rnnlm': lm_weight, 'length': length_weight}
+    ...     weights={"rnnlm": lm_weight, "length": length_weight},
     ... )
-    >>> beam_size=5
+    >>> beam_size = 5
     >>> searcher = S2SRNNBeamSearcher(
     ...     embedding=emb,
     ...     decoder=dec,
@@ -994,9 +1030,9 @@ class LengthScorer(BaseScorerInterface):
     ...     beam_size=beam_size,
     ...     temperature=1.25,
     ...     length_normalization=False,
-    ...     scorer=scorer
+    ...     scorer=scorer,
     ... )
-    >>> batch_size=2
+    >>> batch_size = 2
     >>> enc = torch.rand([batch_size, n_channels, d_model])
     >>> wav_len = torch.ones([batch_size])
     >>> hyps, _, _, _ = searcher(enc, wav_len)
@@ -1065,12 +1101,22 @@ class ScorerBuilder:
     Example
     -------
     >>> from speechbrain.nnet.linear import Linear
-    >>> from speechbrain.lobes.models.transformer.TransformerASR import TransformerASR
-    >>> from speechbrain.lobes.models.transformer.TransformerLM import TransformerLM
-    >>> from speechbrain.decoders import S2STransformerBeamSearcher, TransformerLMScorer, CoverageScorer, CTCScorer, ScorerBuilder
-    >>> input_size=17
-    >>> vocab_size=11
-    >>> d_model=128
+    >>> from speechbrain.lobes.models.transformer.TransformerASR import (
+    ...     TransformerASR,
+    ... )
+    >>> from speechbrain.lobes.models.transformer.TransformerLM import (
+    ...     TransformerLM,
+    ... )
+    >>> from speechbrain.decoders import (
+    ...     S2STransformerBeamSearcher,
+    ...     TransformerLMScorer,
+    ...     CoverageScorer,
+    ...     CTCScorer,
+    ...     ScorerBuilder,
+    ... )
+    >>> input_size = 17
+    >>> vocab_size = 11
+    >>> d_model = 128
     >>> net = TransformerASR(
     ...     tgt_vocab=vocab_size,
     ...     input_size=input_size,
@@ -1079,7 +1125,7 @@ class ScorerBuilder:
     ...     num_encoder_layers=1,
     ...     num_decoder_layers=1,
     ...     d_ffn=256,
-    ...     activation=torch.nn.GELU
+    ...     activation=torch.nn.GELU,
     ... )
     >>> lm_model = TransformerLM(
     ...     vocab=vocab_size,
@@ -1090,7 +1136,7 @@ class ScorerBuilder:
     ...     d_ffn=256,
     ...     activation=torch.nn.GELU,
     ... )
-    >>> n_channels=6
+    >>> n_channels = 6
     >>> ctc_lin = Linear(input_size=d_model, n_neurons=vocab_size)
     >>> seq_lin = Linear(input_size=d_model, n_neurons=vocab_size)
     >>> eos_index = 2
@@ -1104,15 +1150,19 @@ class ScorerBuilder:
     ...     temperature=1.15,
     ... )
     >>> coverage_scorer = CoverageScorer(vocab_size=vocab_size)
-    >>> ctc_weight_decode=0.4
-    >>> lm_weight=0.6
+    >>> ctc_weight_decode = 0.4
+    >>> lm_weight = 0.6
     >>> coverage_penalty = 1.0
     >>> scorer = ScorerBuilder(
     ...     full_scorers=[transformerlm_scorer, coverage_scorer],
     ...     partial_scorers=[ctc_scorer],
-    ...     weights={'transformerlm': lm_weight, 'ctc': ctc_weight_decode, 'coverage': coverage_penalty}
+    ...     weights={
+    ...         "transformerlm": lm_weight,
+    ...         "ctc": ctc_weight_decode,
+    ...         "coverage": coverage_penalty,
+    ...     },
     ... )
-    >>> beam_size=5
+    >>> beam_size = 5
     >>> searcher = S2STransformerBeamSearcher(
     ...     modules=[net, seq_lin],
     ...     bos_index=1,
@@ -1123,14 +1173,14 @@ class ScorerBuilder:
     ...     beam_size=beam_size,
     ...     topk=3,
     ...     temperature=1.15,
-    ...     scorer=scorer
+    ...     scorer=scorer,
     ... )
-    >>> batch_size=2
+    >>> batch_size = 2
     >>> wav_len = torch.ones([batch_size])
     >>> src = torch.rand([batch_size, n_channels, input_size])
     >>> tgt = torch.randint(0, vocab_size, [batch_size, n_channels])
     >>> enc, dec = net.forward(src, tgt)
-    >>> hyps, _, _, _  = searcher(enc, wav_len)
+    >>> hyps, _, _, _ = searcher(enc, wav_len)
     """
 
     def __init__(
@@ -1140,9 +1190,9 @@ class ScorerBuilder:
         partial_scorers=list(),
         scorer_beam_scale=2,
     ):
-        assert len(weights) == len(full_scorers) + len(
-            partial_scorers
-        ), "Weights and scorers are not matched."
+        assert len(weights) == len(full_scorers) + len(partial_scorers), (
+            "Weights and scorers are not matched."
+        )
 
         self.scorer_beam_scale = scorer_beam_scale
         all_scorer_names = [
@@ -1160,7 +1210,7 @@ class ScorerBuilder:
         ]
 
         # Have a default 0.0 weight for scorer not specified
-        init_weights = {k: 0.0 for k in all_scorer_names}
+        init_weights = dict.fromkeys(all_scorer_names, 0.0)
         self.weights = {**init_weights, **weights}
         self.full_scorers = dict(zip(full_scorer_names, full_scorers))
         self.partial_scorers = dict(zip(partial_scorer_names, partial_scorers))
@@ -1202,10 +1252,11 @@ class ScorerBuilder:
             score, new_memory[k] = impl.score(inp_tokens, memory[k], None, attn)
             log_probs += score * self.weights[k]
 
-        # select candidates from the results of full scorers for partial scorers
-        _, candidates = log_probs.topk(
-            int(beam_size * self.scorer_beam_scale), dim=-1
-        )
+        # Select candidates from the results of full scorers for partial scorers
+        # clamp number of candidates to [1, vocab_size] to avoid invalid topk size
+        num_candidates = int(beam_size * self.scorer_beam_scale)
+        num_candidates = max(1, min(num_candidates, log_probs.shape[-1]))
+        candidates = log_probs.topk(num_candidates, dim=-1).indices
 
         # score pruned tokens candidates
         for k, impl in self.partial_scorers.items():
@@ -1273,7 +1324,7 @@ class ScorerBuilder:
         """
         if len(self.weights) > len(scorer_names):
             raise ValueError(
-                "The keys of weights should be named in {}".format(scorer_names)
+                f"The keys of weights should be named in {scorer_names}"
             )
 
         if not 0.0 <= self.weights["ctc"] <= 1.0:
@@ -1396,51 +1447,53 @@ class RNNLMRescorer(BaseRescorerInterface):
     >>> # define your tokenizer and RNNLM from the HF hub
     >>> tokenizer = SentencePieceProcessor()
     >>> lm_model = RNNLM(
-    ...    output_neurons = 1000,
-    ...    embedding_dim = 128,
-    ...    activation = torch.nn.LeakyReLU,
-    ...    dropout = 0.0,
-    ...    rnn_layers = 2,
-    ...    rnn_neurons = 2048,
-    ...    dnn_blocks = 1,
-    ...    dnn_neurons = 512,
-    ...    return_hidden = True,
+    ...     output_neurons=1000,
+    ...     embedding_dim=128,
+    ...     activation=torch.nn.LeakyReLU,
+    ...     dropout=0.0,
+    ...     rnn_layers=2,
+    ...     rnn_neurons=2048,
+    ...     dnn_blocks=1,
+    ...     dnn_neurons=512,
+    ...     return_hidden=True,
     ... )
     >>> pretrainer = Pretrainer(
-    ...     collect_in = getfixture("tmp_path"),
-    ...    loadables = {
-    ...     "lm" : lm_model,
-    ...     "tokenizer" : tokenizer,
+    ...     collect_in=getfixture("tmp_path"),
+    ...     loadables={
+    ...         "lm": lm_model,
+    ...         "tokenizer": tokenizer,
     ...     },
-    ...    paths = {
-    ...     "lm" : lm_model_path,
-    ...     "tokenizer" : tokenizer_path,
-    ... })
+    ...     paths={
+    ...         "lm": lm_model_path,
+    ...         "tokenizer": tokenizer_path,
+    ...     },
+    ... )
     >>> _ = pretrainer.collect_files()
     >>> pretrainer.load_collected()
     >>> from speechbrain.decoders.scorer import RNNLMRescorer, RescorerBuilder
     >>> rnnlm_rescorer = RNNLMRescorer(
-    ...    language_model = lm_model,
-    ...    tokenizer = tokenizer,
-    ...    temperature = 1.0,
-    ...    bos_index = 0,
-    ...    eos_index = 0,
-    ...    pad_index = 0,
+    ...     language_model=lm_model,
+    ...     tokenizer=tokenizer,
+    ...     temperature=1.0,
+    ...     bos_index=0,
+    ...     eos_index=0,
+    ...     pad_index=0,
     ... )
     >>> # Define a rescorer builder
     >>> rescorer = RescorerBuilder(
-    ...    rescorers=[rnnlm_rescorer],
-    ...    weights={"rnnlm":1.0}
+    ...     rescorers=[rnnlm_rescorer], weights={"rnnlm": 1.0}
     ... )
     >>> # topk hyps
     >>> topk_hyps = [["HELLO", "HE LLO", "H E L L O"]]
     >>> topk_scores = [[-2, -2, -2]]
-    >>> rescored_hyps, rescored_scores = rescorer.rescore(topk_hyps, topk_scores)
+    >>> rescored_hyps, rescored_scores = rescorer.rescore(
+    ...     topk_hyps, topk_scores
+    ... )
     >>> # NOTE: the returned hypotheses are already sorted by score.
-    >>> rescored_hyps # doctest: +SKIP
+    >>> rescored_hyps  # doctest: +SKIP
     [['HELLO', 'H E L L O', 'HE LLO']]
     >>> # NOTE: as we are returning log-probs, the more it is closer to 0, the better.
-    >>> rescored_scores # doctest: +SKIP
+    >>> rescored_scores  # doctest: +SKIP
     [[-17.863974571228027, -25.12890625, -26.075977325439453]]
     """
 
@@ -1618,7 +1671,9 @@ class TransformerLMRescorer(BaseRescorerInterface):
     -------
     >>> import torch
     >>> from sentencepiece import SentencePieceProcessor
-    >>> from speechbrain.lobes.models.transformer.TransformerLM import TransformerLM
+    >>> from speechbrain.lobes.models.transformer.TransformerLM import (
+    ...     TransformerLM,
+    ... )
     >>> from speechbrain.utils.parameter_transfer import Pretrainer
     >>> source = "speechbrain/asr-transformer-transformerlm-librispeech"
     >>> lm_model_path = source + "/lm.ckpt"
@@ -1636,7 +1691,7 @@ class TransformerLMRescorer(BaseRescorerInterface):
     ...     normalize_before=False,
     ... )
     >>> pretrainer = Pretrainer(
-    ...     collect_in = getfixture("tmp_path"),
+    ...     collect_in=getfixture("tmp_path"),
     ...     loadables={
     ...         "lm": lm_model,
     ...         "tokenizer": tokenizer,
@@ -1644,11 +1699,14 @@ class TransformerLMRescorer(BaseRescorerInterface):
     ...     paths={
     ...         "lm": lm_model_path,
     ...         "tokenizer": tokenizer_path,
-    ...     }
+    ...     },
     ... )
     >>> _ = pretrainer.collect_files()
     >>> pretrainer.load_collected()
-    >>> from speechbrain.decoders.scorer import TransformerLMRescorer, RescorerBuilder
+    >>> from speechbrain.decoders.scorer import (
+    ...     TransformerLMRescorer,
+    ...     RescorerBuilder,
+    ... )
     >>> transformerlm_rescorer = TransformerLMRescorer(
     ...     language_model=lm_model,
     ...     tokenizer=tokenizer,
@@ -1658,14 +1716,15 @@ class TransformerLMRescorer(BaseRescorerInterface):
     ...     pad_index=0,
     ... )
     >>> rescorer = RescorerBuilder(
-    ...     rescorers=[transformerlm_rescorer],
-    ...     weights={"transformerlm": 1.0}
+    ...     rescorers=[transformerlm_rescorer], weights={"transformerlm": 1.0}
     ... )
     >>> topk_hyps = [["HELLO", "HE LLO", "H E L L O"]]
     >>> topk_scores = [[-2, -2, -2]]
-    >>> rescored_hyps, rescored_scores = rescorer.rescore(topk_hyps, topk_scores)
+    >>> rescored_hyps, rescored_scores = rescorer.rescore(
+    ...     topk_hyps, topk_scores
+    ... )
     >>> # NOTE: the returned hypotheses are already sorted by score.
-    >>> rescored_hyps # doctest: +SKIP
+    >>> rescored_hyps  # doctest: +SKIP
     [["HELLO", "HE L L O", "HE LLO"]]
     >>> # NOTE: as we are returning log-probs, the more it is closer to 0, the better.
     >>> rescored_scores  # doctest: +SKIP
@@ -1835,23 +1894,29 @@ class HuggingFaceLMRescorer(BaseRescorerInterface):
 
     Example
     -------
-    >>> from speechbrain.decoders.scorer import HuggingFaceLMRescorer, RescorerBuilder
+    >>> from speechbrain.decoders.scorer import (
+    ...     HuggingFaceLMRescorer,
+    ...     RescorerBuilder,
+    ... )
     >>> source = "gpt2-medium"
     >>> huggingfacelm_rescorer = HuggingFaceLMRescorer(
     ...     model_name=source,
     ... )
     >>> rescorer = RescorerBuilder(
-    ...     rescorers=[huggingfacelm_rescorer],
-    ...     weights={"huggingfacelm": 1.0}
+    ...     rescorers=[huggingfacelm_rescorer], weights={"huggingfacelm": 1.0}
     ... )
-    >>> topk_hyps = [["Hello everyone.", "Hell o every one.", "Hello every one"]]
+    >>> topk_hyps = [
+    ...     ["Hello everyone.", "Hell o every one.", "Hello every one"]
+    ... ]
     >>> topk_scores = [[-2, -2, -2]]
-    >>> rescored_hyps, rescored_scores = rescorer.rescore(topk_hyps, topk_scores)
+    >>> rescored_hyps, rescored_scores = rescorer.rescore(
+    ...     topk_hyps, topk_scores
+    ... )
     >>> # NOTE: the returned hypotheses are already sorted by score.
-    >>> rescored_hyps # doctest: +SKIP
+    >>> rescored_hyps  # doctest: +SKIP
     [['Hello everyone.', 'Hello every one', 'Hell o every one.']]
     >>> # NOTE: as we are returning log-probs, the more it is closer to 0, the better.
-    >>> rescored_scores # doctest: +SKIP
+    >>> rescored_scores  # doctest: +SKIP
     [[-20.03631591796875, -27.615638732910156, -42.662353515625]]
     """
 
@@ -1870,9 +1935,7 @@ class HuggingFaceLMRescorer(BaseRescorerInterface):
                 "Please install transformers with: pip install transformers"
             )
 
-        self.lm = AutoModelForCausalLM.from_pretrained(
-            self.model_name, is_decoder=True
-        ).eval()
+        self.lm = AutoModelForCausalLM.from_pretrained(self.model_name).eval()
 
         self.tokenizer = AutoTokenizer.from_pretrained(
             self.model_name, use_fast=True
@@ -1963,7 +2026,7 @@ class HuggingFaceLMRescorer(BaseRescorerInterface):
         text_augmented_with_tokens = list(
             map(self._add_special_tokens, normalized_hyps)
         )
-        encoding = self.tokenizer.batch_encode_plus(
+        encoding = self.tokenizer(
             text_augmented_with_tokens, return_tensors="pt", padding=True
         )
         return encoding
@@ -2024,9 +2087,9 @@ class RescorerBuilder:
         weights=dict(),
         rescorers=list(),
     ):
-        assert len(weights) == len(
-            rescorers
-        ), "Weights and rescorers are not matched."
+        assert len(weights) == len(rescorers), (
+            "Weights and rescorers are not matched."
+        )
 
         self.weights = weights
 
@@ -2041,7 +2104,7 @@ class RescorerBuilder:
         ]
 
         # Have a default 0.0 weight for scorer not specified
-        init_weights = {k: 0.0 for k in all_rescorer_names}
+        init_weights = dict.fromkeys(all_rescorer_names, 0.0)
         self.weights = {**init_weights, **weights}
         self.rescorers = dict(zip(full_rescorer_names, rescorers))
 
@@ -2108,9 +2171,7 @@ class RescorerBuilder:
         """
         if len(self.weights) > len(rescorer_names):
             raise ValueError(
-                "The keys of weights should be named in {}".format(
-                    rescorer_names
-                )
+                f"The keys of weights should be named in {rescorer_names}"
             )
 
     def move_rescorers_to_device(self, device=None):

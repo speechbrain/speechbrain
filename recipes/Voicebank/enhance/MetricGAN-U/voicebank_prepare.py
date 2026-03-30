@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Data preparation.
 
@@ -17,9 +16,9 @@ import string
 import tempfile
 import urllib
 
-import torchaudio
 from torchaudio.transforms import Resample
 
+from speechbrain.dataio import audio_io
 from speechbrain.dataio.dataio import read_audio
 from speechbrain.utils.data_utils import download_file, get_all_files
 from speechbrain.utils.logger import get_logger
@@ -180,8 +179,8 @@ def prepare_voicebank(
 
     Example
     -------
-    >>> data_folder = '/path/to/datasets/Voicebank'
-    >>> save_folder = 'exp/Voicebank_exp'
+    >>> data_folder = "/path/to/datasets/Voicebank"
+    >>> save_folder = "exp/Voicebank_exp"
     >>> prepare_voicebank(data_folder, save_folder)
     """
 
@@ -470,11 +469,11 @@ def download_vctk(destination, tmp_dir=None, device="cpu"):
 
         # Load files and downsample
         for filename in get_all_files(dirname, match_and=[".wav"]):
-            signal, rate = torchaudio.load(filename)
+            signal, rate = audio_io.load(filename)
             downsampled_signal = downsampler(signal.view(1, -1).to(device))
 
             # Save downsampled file
-            torchaudio.save(
+            audio_io.save(
                 os.path.join(dirname_16k, filename[-12:]),
                 downsampled_signal[0].cpu(),
                 sample_rate=16000,

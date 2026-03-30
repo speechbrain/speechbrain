@@ -17,8 +17,9 @@ from huggingface_hub import hf_hub_download
 from tqdm import tqdm
 
 import speechbrain as sb
+from speechbrain.dataio import audio_io
 from speechbrain.dataio.dataio import load_pkl, save_pkl
-from speechbrain.lobes.models.huggingface_transformers.wav2vec2 import Wav2Vec2
+from speechbrain.integrations.huggingface.wav2vec2 import Wav2Vec2
 from speechbrain.utils.logger import get_logger
 
 OPT_FILE = "opt_cvss_extract.pkl"
@@ -40,8 +41,8 @@ def get_device(use_cuda):
     """Determine and return the appropriate device for computation."""
     use_cuda = use_cuda and torch.cuda.is_available()
     print("\n" + "=" * 30)
-    print("USE_CUDA SET TO: {}".format(use_cuda))
-    print("CUDA AVAILABLE?: {}".format(torch.cuda.is_available()))
+    print(f"USE_CUDA SET TO: {use_cuda}")
+    print(f"CUDA AVAILABLE?: {torch.cuda.is_available()}")
     print("=" * 30 + "\n")
     return torch.device("cuda" if use_cuda else "cpu")
 
@@ -144,13 +145,15 @@ def extract_cvss(
     Example
     -------
     >>> from recipes.CVSS.S2ST.extract_code import extract_cvss
-    >>> data_folder = 'data/CVSS/'
-    >>> splits = ['train', 'valid']
+    >>> data_folder = "data/CVSS/"
+    >>> splits = ["train", "valid"]
     >>> kmeans_folder = ./Quantization/results/kmeans/4321/save
-    >>> encoder = facebook/hubert-base-ls960
+    >>> encoder = facebook / hubert - base - ls960
     >>> layer = 6
-    >>> save_folder = 'save/'
-    >>> extract_cvss(data_folder, splits, kmeans_folder, encoder, layer, save_folder)
+    >>> save_folder = "save/"
+    >>> extract_cvss(
+    ...     data_folder, splits, kmeans_folder, encoder, layer, save_folder
+    ... )
     """
     logger = setup_logger()
 
@@ -219,7 +222,7 @@ def extract_cvss(
             item = meta_json[key]
             wav = item["tgt_audio"]
             with torch.no_grad():
-                info = torchaudio.info(wav)
+                info = audio_io.info(wav)
                 audio = sb.dataio.dataio.read_audio(wav)
                 audio = torchaudio.transforms.Resample(
                     info.sample_rate,

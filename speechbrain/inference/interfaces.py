@@ -19,19 +19,23 @@ import warnings
 from types import SimpleNamespace
 
 import torch
-import torchaudio
 from hyperpyyaml import load_hyperpyyaml
-from torch.nn import DataParallel as DP
-from torch.nn import SyncBatchNorm
+from torch.nn import (
+    DataParallel as DP,
+    SyncBatchNorm,
+)
 from torch.nn.parallel import DistributedDataParallel as DDP
 
+from speechbrain.dataio import audio_io
 from speechbrain.dataio.batch import PaddedBatch, PaddedData
 from speechbrain.dataio.preprocess import AudioNormalizer
+from speechbrain.utils.autocast import AMPConfig, TorchAutocast
 from speechbrain.utils.data_pipeline import DataPipeline
 from speechbrain.utils.data_utils import split_path
-from speechbrain.utils.distributed import run_on_main
-from speechbrain.utils.fetching import LocalStrategy, fetch
+from speechbrain.utils.distributed import infer_device
+from speechbrain.utils.fetching import FetchConfig, LocalStrategy, fetch
 from speechbrain.utils.logger import get_logger
+from speechbrain.utils.run_opts import RunOptions
 from speechbrain.utils.superpowers import import_from_path
 
 logger = get_logger(__name__)
@@ -42,18 +46,12 @@ def foreign_class(
     hparams_file="hyperparams.yaml",
     pymodule_file="custom.py",
     classname="CustomInterface",
-    overrides={},
-    overrides_must_match=True,
     savedir=None,
-    use_auth_token=False,
-    download_only=False,
-    huggingface_cache_dir=None,
     local_strategy: LocalStrategy = LocalStrategy.SYMLINK,
+    fetch_config: FetchConfig = FetchConfig(),
     **kwargs,
 ):
-    """Fetch and load an interface from an outside source
-
-    The source can be a location on the filesystem or online/huggingface
+    """Thin wrapper for `pretrained_from_hparams()` that fetches and loads a custom class.
 
     The pymodule file should contain a class with the given classname. An
     instance of that class is returned. The idea is to have a custom Pretrained
@@ -61,11 +59,10 @@ def foreign_class(
     before the Hyperparams YAML file is loaded, so it can contain any custom
     implementations that are needed.
 
-    The hyperparams file should contain a "modules" key, which is a
-    dictionary of torch modules used for computation.
-
-    The hyperparams file should contain a "pretrainer" key, which is a
-    speechbrain.utils.parameter_transfer.Pretrainer
+    .. warning::
+        Caution should be used with this function as it can download and run
+        arbitrary code onto the machine this function is used on. Only use
+        this function when the target module is from a highly trusted source!
 
     Arguments
     ---------
@@ -75,11 +72,92 @@ def foreign_class(
     hparams_file : str
         The name of the hyperparameters file to use for constructing
         the modules necessary for inference. Must contain two keys:
-        "modules" and "pretrainer", as described.
+        "modules" and "pretrainer", as described in `pretrained_from_hparams`.
     pymodule_file : str
-        The name of the Python file that should be fetched.
+        The name of the Python file containing the model's python class. The file
+        will be fetched from `source` and will be used to load the class code.
     classname : str
-        The name of the Class, of which an instance is created and returned
+        The name of the model's Python class, which should be present in the
+        code of the `pymodule_file`.
+    savedir : Optional[Union[str, Path]]
+        Where to put the pretraining material. If not given, just use cache.
+    local_strategy : LocalStrategy, default LocalStrategy.SYMLINK
+        Type of caching to use for keeping a local copy.
+    fetch_config : FetchConfig
+        Configuration options for caching and other fetch behavior.
+    **kwargs
+        Arguments to pass to `pretrained_from_hparams`
+
+    Returns
+    -------
+    object
+        An instance of a class with the given classname from the given pymodule file.
+    """
+    pymodule_local_path = fetch(
+        filename=pymodule_file,
+        source=source,
+        savedir=savedir,
+        save_filename=None,
+        local_strategy=local_strategy,
+        fetch_config=fetch_config,
+    )
+    sys.path.append(str(pymodule_local_path.parent))
+
+    # Dynamically import the specified Python module and retrieve the class by name.
+    # This allows users to define custom model interfaces outside of SpeechBrain.
+    # After importing, passes the class (not an instance) to pretrained_from_hparams,
+    # which will handle loading and instantiation with the appropriate hyperparameters.
+    module = import_from_path(pymodule_local_path)
+    cls = getattr(module, classname)
+    return pretrained_from_hparams(
+        cls=cls,
+        source=source,
+        hparams_file=hparams_file,
+        savedir=savedir,
+        local_strategy=local_strategy,
+        fetch_config=fetch_config,
+        **kwargs,
+    )
+
+
+def pretrained_from_hparams(
+    cls,
+    source,
+    hparams_file="hyperparams.yaml",
+    overrides={},
+    overrides_must_match=True,
+    savedir=None,
+    download_only=False,
+    local_strategy: LocalStrategy = LocalStrategy.SYMLINK,
+    fetch_config: FetchConfig = FetchConfig(),
+    **kwargs,
+):
+    """Fetch and load an interface from an outside source
+
+    The source can be a location on the filesystem or online/huggingface
+
+    The hyperparams file should contain a "modules" key, which is a
+    dictionary of torch modules used for computation.
+
+    The hyperparams file should contain a "pretrainer" key, which is a
+    speechbrain.utils.parameter_transfer.Pretrainer
+
+    .. warning::
+        Caution should be used with this function as it can download and run
+        arbitrary code onto the machine this function is used on. Only use
+        this function when the target hparams file is from a highly trusted source!
+
+    Arguments
+    ---------
+    cls : Type[Pretrained]
+        The class to construct an instance of, usually a sub-type of Pretrained
+    source : str or Path or FetchSource
+        The location to use for finding the model. See
+        ``speechbrain.utils.fetching.fetch`` for details.
+    hparams_file : str
+        The name of the hyperparameters file to use for constructing
+        the modules necessary for inference. Must contain two keys:
+        "modules" and "pretrainer", as described.
     overrides : dict
         Any changes to make to the hparams file when it is loaded.
     overrides_must_match : bool
@@ -87,48 +165,29 @@ def foreign_class(
         a corresponding key in the yaml_stream.
     savedir : str or Path
         Where to put the pretraining material. If not given, just use cache.
-    use_auth_token : bool (default: False)
-        If true Huggingface's auth_token will be used to load private models from the HuggingFace Hub,
-        default is False because the majority of models are public.
     download_only : bool (default: False)
         If true, class and instance creation is skipped.
-    huggingface_cache_dir : str
-        Path to HuggingFace cache; if None -> "~/.cache/huggingface" (default: None)
-    local_strategy : speechbrain.utils.fetching.LocalStrategy
-        The fetching strategy to use, which controls the behavior of remote file
-        fetching with regards to symlinking and copying.
-        See :func:`speechbrain.utils.fetching.fetch` for further details.
+    local_strategy : LocalStrategy, default LocalStrategy.SYMLINK
+        Type of caching to use for keeping a local copy.
+    fetch_config : FetchConfig
+        Configuration options for caching and other fetch behavior.
     **kwargs : dict
         Arguments to forward to class constructor.
 
     Returns
     -------
-    object
-        An instance of a class with the given classname from the given pymodule file.
+    object : Optional[Pretrained]
+        An instance of a Pretrained class, constructed from the hparams.
+        None is returned if the argument `download_only` is `True`.
     """
     hparams_local_path = fetch(
         filename=hparams_file,
         source=source,
         savedir=savedir,
-        overwrite=False,
         save_filename=None,
-        use_auth_token=use_auth_token,
-        revision=None,
-        huggingface_cache_dir=huggingface_cache_dir,
         local_strategy=local_strategy,
+        fetch_config=fetch_config,
     )
-    pymodule_local_path = fetch(
-        filename=pymodule_file,
-        source=source,
-        savedir=savedir,
-        overwrite=False,
-        save_filename=None,
-        use_auth_token=use_auth_token,
-        revision=None,
-        huggingface_cache_dir=huggingface_cache_dir,
-        local_strategy=local_strategy,
-    )
-    sys.path.append(str(pymodule_local_path.parent))
 
     # Load the modules:
     with open(hparams_local_path, encoding="utf-8") as fin:
@@ -138,24 +197,20 @@ def foreign_class(
     # Pretraining:
     pretrainer = hparams["pretrainer"]
     pretrainer.set_collect_in(savedir)
-    # For distributed setups, have this here:
-    run_on_main(
-        pretrainer.collect_files,
-        kwargs={
-            "default_source": source,
-            "use_auth_token": use_auth_token,
-            "local_strategy": local_strategy,
-        },
+    pretrainer.collect_files(
+        default_source=source,
+        local_strategy=local_strategy,
+        fetch_config=fetch_config,
     )
     # Load on the CPU. Later the params can be moved elsewhere by specifying
     if not download_only:
         # run_opts={"device": ...}
         pretrainer.load_collected()
-
-        # Import class and create instance
-        module = import_from_path(pymodule_local_path)
-        cls = getattr(module, classname)
         return cls(modules=hparams["modules"], hparams=hparams, **kwargs)
+
+    # Not strictly necessary, but let's be explicit here
+    else:
+        return None
 
 
 class Pretrained(torch.nn.Module):
@@ -185,21 +240,10 @@ class Pretrained(torch.nn.Module):
         that is used within the overridden methods. These will
         be accessible via an ``hparams`` attribute, using "dot" notation:
         e.g., self.hparams.model(x).
-    run_opts : dict
-        Options parsed from command line. See ``speechbrain.parse_arguments()``.
-        List that are supported here:
-         * device
-         * data_parallel_count
-         * data_parallel_backend
-         * distributed_launch
-         * distributed_backend
-         * jit
-         * jit_module_keys
-         * compule
-         * compile_module_keys
-         * compile_mode
-         * compile_using_fullgraph
-         * compile_using_dynamic_shape_tracing
+    run_opts : Optional[Union[RunOptions, dict]]
+        A set of options to change the runtime environment, see ``RunOptions`` for
+        a complete list. Some options are meant for training, and will not apply
+        for this instance intended for inference.
     freeze_params : bool
         To freeze (requires_grad=False) parameters or not. Normally in inference
         you want to freeze the params. Also calls .eval() on all modules.
@@ -212,32 +256,46 @@ class Pretrained(torch.nn.Module):
         self, modules=None, hparams=None, run_opts=None, freeze_params=True
     ):
         super().__init__()
-        # Arguments passed via the run opts dictionary. Set a limited
-        # number of these, since some don't apply to inference.
-        run_opt_defaults = {
-            "device": "cpu",
-            "data_parallel_count": -1,
-            "data_parallel_backend": False,
-            "distributed_launch": False,
-            "distributed_backend": "nccl",
-            "jit": False,
-            "jit_module_keys": None,
-            "compile": False,
-            "compile_module_keys": None,
-            "compile_mode": "reduce-overhead",
-            "compile_using_fullgraph": False,
-            "compile_using_dynamic_shape_tracing": False,
-        }
-        for arg, default in run_opt_defaults.items():
-            if run_opts is not None and arg in run_opts:
+
+        # Check which options have been overridden. Order of priority
+        # is lowest: default < hparams < run_opts: highest
+        if isinstance(run_opts, dict):
+            run_opts = RunOptions.from_dictionary(run_opts)
+        self.run_opt_defaults = RunOptions()
+        for arg, default in self.run_opt_defaults.as_dict().items():
+            if run_opts is not None and arg in run_opts.overridden_args:
                 setattr(self, arg, run_opts[arg])
+
+            # If any arg from run_opt_defaults exist in hparams and
+            # not in command line args "run_opts"
+            elif hparams is not None and arg in hparams:
+                setattr(self, arg, hparams[arg])
             else:
-                # If any arg from run_opt_defaults exist in hparams and
-                # not in command line args "run_opts"
-                if hparams is not None and arg in hparams:
-                    setattr(self, arg, hparams[arg])
-                else:
-                    setattr(self, arg, default)
+                setattr(self, arg, default)
+
+        # If device was not provided, make a best guess
+        if self.device is None:
+            self.device = infer_device()
+
+        # Set device type based on device string
+        if self.device == "cpu":
+            self.device_type = "cpu"
+        elif "cuda" in self.device:
+            self.device_type = "cuda"
+            # Set cuda device based on device string
+            try:
+                _, device_index = self.device.split(":")
+                torch.cuda.set_device(int(device_index))
+            except (ValueError, IndexError, TypeError) as e:
+                logger.warning(
+                    f"Could not parse CUDA device string '{self.device}': {e}. Falling back to device 0."
+                )
+                torch.cuda.set_device(0)
+
+        precision_dtype = AMPConfig.from_name(self.precision).dtype
+        self.inference_ctx = TorchAutocast(
+            device_type=self.device_type, dtype=precision_dtype
+        )
 
         # Put modules on the right device, accessible with dot notation
         self.mods = torch.nn.ModuleDict(modules)
@@ -294,13 +352,8 @@ class Pretrained(torch.nn.Module):
         The path can be a local path, a web url, or a link to a huggingface repo.
         """
         source, fl = split_path(path)
-        path = fetch(
-            fl,
-            source=source,
-            savedir=savedir,
-            local_strategy=LocalStrategy.SYMLINK,
-        )
-        signal, sr = torchaudio.load(str(path), channels_first=False)
+        path = fetch(fl, source=source, savedir=savedir)
+        signal, sr = audio_io.load(str(path), channels_first=False)
         signal = signal.to(self.device)
         return self.audio_normalizer(signal, sr)
 
@@ -399,35 +452,21 @@ class Pretrained(torch.nn.Module):
                     self.mods[name] = module
 
     @classmethod
-    def from_hparams(
-        cls,
-        source,
-        hparams_file="hyperparams.yaml",
-        pymodule_file="custom.py",
-        overrides={},
-        savedir=None,
-        use_auth_token=False,
-        revision=None,
-        download_only=False,
-        huggingface_cache_dir=None,
-        overrides_must_match=True,
-        local_strategy: LocalStrategy = LocalStrategy.SYMLINK,
-        **kwargs,
-    ):
+    def from_hparams(cls, source, hparams_file="hyperparams.yaml", **kwargs):
         """Fetch and load based from outside source based on HyperPyYAML file
 
         The source can be a location on the filesystem or online/huggingface
-
-        You can use the pymodule_file to include any custom implementations
-        that are needed: if that file exists, then its location is added to
-        sys.path before Hyperparams YAML is loaded, so it can be referenced
-        in the YAML.
 
         The hyperparams file should contain a "modules" key, which is a
         dictionary of torch modules used for computation.
 
         The hyperparams file should contain a "pretrainer" key, which is a
         speechbrain.utils.parameter_transfer.Pretrainer
+
+        .. warning::
+            Caution should be used with this function as it can download and run
+            arbitrary code onto the machine this function is used on. Only use
+            this function when the target hparams file is from a highly trusted source!
 
         Arguments
         ---------
@@ -438,107 +477,16 @@ class Pretrained(torch.nn.Module):
             The name of the hyperparameters file to use for constructing
             the modules necessary for inference. Must contain two keys:
             "modules" and "pretrainer", as described.
-        pymodule_file : str
-            A Python file can be fetched. This allows any custom
-            implementations to be included. The file's location is added to
-            sys.path before the hyperparams YAML file is loaded, so it can be
-            referenced in YAML.
-            This is optional, but has a default: "custom.py". If the default
-            file is not found, this is simply ignored, but if you give a
-            different filename, then this will raise in case the file is not
-            found.
-        overrides : dict
-            Any changes to make to the hparams file when it is loaded.
-        savedir : str or Path
-            Where to put the pretraining material. If not given, just use cache.
-        use_auth_token : bool (default: False)
-            If true Huggingface's auth_token will be used to load private models from the HuggingFace Hub,
-            default is False because the majority of models are public.
-        revision : str
-            The model revision corresponding to the HuggingFace Hub model revision.
-            This is particularly useful if you wish to pin your code to a particular
-            version of a model hosted at HuggingFace.
-        download_only : bool (default: False)
-            If true, class and instance creation is skipped.
-        huggingface_cache_dir : str
-            Path to HuggingFace cache; if None -> "~/.cache/huggingface" (default: None)
-        overrides_must_match : bool
-            Whether the overrides must match the parameters already in the file.
-        local_strategy : LocalStrategy, optional
-            Which strategy to use to deal with files locally. (default:
-            `LocalStrategy.SYMLINK`)
         **kwargs : dict
-            Arguments to forward to class constructor.
+            Arguments to forward to `pretrained_from_hparams`.
 
         Returns
         -------
         Instance of cls
         """
-        hparams_local_path = fetch(
-            filename=hparams_file,
-            source=source,
-            savedir=savedir,
-            overwrite=False,
-            save_filename=None,
-            use_auth_token=use_auth_token,
-            revision=revision,
-            huggingface_cache_dir=huggingface_cache_dir,
-            local_strategy=local_strategy,
+        return pretrained_from_hparams(
+            cls=cls, source=source, hparams_file=hparams_file, **kwargs
         )
-        try:
-            pymodule_local_path = fetch(
-                filename=pymodule_file,
-                source=source,
-                savedir=savedir,
-                overwrite=False,
-                save_filename=None,
-                use_auth_token=use_auth_token,
-                revision=revision,
-                huggingface_cache_dir=huggingface_cache_dir,
-                local_strategy=local_strategy,
-            )
-            sys.path.append(str(pymodule_local_path.parent))
-        except ValueError:
-            if pymodule_file == "custom.py":
-                # The optional custom Python module file did not exist
-                # and had the default name
-                pass
-            else:
-                # Custom Python module file not found, but some other
-                # filename than the default was given.
-                raise
-
-        # Load the modules:
-        with open(hparams_local_path, encoding="utf-8") as fin:
-            hparams = load_hyperpyyaml(
-                fin, overrides, overrides_must_match=overrides_must_match
-            )
-
-        # add savedir to hparams
-        hparams["savedir"] = savedir
-
-        # Pretraining:
-        pretrainer = hparams.get("pretrainer", None)
-        if pretrainer is not None:
-            pretrainer.set_collect_in(savedir)
-            # For distributed setups, have this here:
-            run_on_main(
-                pretrainer.collect_files,
-                kwargs={
-                    "default_source": source,
-                    "use_auth_token": use_auth_token,
-                    "local_strategy": local_strategy,
-                },
-            )
-            # Load on the CPU. Later the params can be moved elsewhere by specifying
-            if not download_only:
-                # run_opts={"device": ...}
-                pretrainer.load_collected()
-
-                # Now return the system
-                return cls(hparams["modules"], hparams, **kwargs)
-        else:
-            return cls(hparams["modules"], hparams, **kwargs)
 
 
 class EncodeDecodePipelineMixin:

@@ -29,6 +29,7 @@ Authors
  * Andreas Nautsch 2021
  * Dominik Wagner 2022
 """
+
 import functools
 import os
 import sys
@@ -39,6 +40,7 @@ import torchaudio
 from hyperpyyaml import load_hyperpyyaml
 
 import speechbrain as sb
+from speechbrain.dataio import audio_io
 from speechbrain.utils.distributed import if_main_process, run_on_main
 from speechbrain.utils.logger import get_logger
 
@@ -277,10 +279,8 @@ def dataio_prepare(hparams):
         start = int(start)
         stop = int(stop)
         num_frames = stop - start
-        sig, fs = torchaudio.load(
-            wav, num_frames=num_frames, frame_offset=start
-        )
-        info = torchaudio.info(wav)
+        sig, fs = audio_io.load(wav, num_frames=num_frames, frame_offset=start)
+        info = audio_io.info(wav)
 
         resampled = sig
         # Maybe resample to 16kHz
@@ -451,7 +451,7 @@ if __name__ == "__main__":
     # Testing
     for k in test_datasets.keys():  # keys are test_swbd and test_callhome
         asr_brain.hparams.test_wer_file = os.path.join(
-            hparams["output_wer_folder"], "wer_{}.txt".format(k)
+            hparams["output_wer_folder"], f"wer_{k}.txt"
         )
         asr_brain.evaluate(
             test_datasets[k],

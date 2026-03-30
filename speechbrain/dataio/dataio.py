@@ -25,8 +25,8 @@ from typing import Union
 
 import numpy as np
 import torch
-import torchaudio
 
+from speechbrain.dataio import audio_io
 from speechbrain.utils.logger import get_logger
 from speechbrain.utils.torch_audio_backend import (
     check_torchaudio_backend,
@@ -37,7 +37,7 @@ check_torchaudio_backend()
 logger = get_logger(__name__)
 
 
-def load_data_json(json_path, replacements={}):
+def load_data_json(json_path, replacements=None):
     """Loads JSON and recursively formats string values.
 
     Arguments
@@ -60,7 +60,7 @@ def load_data_json(json_path, replacements={}):
     ...   "ex2": {"files": [{"spk1": "{ROOT}/ex2.wav"}, {"spk2": "{ROOT}/ex2.wav"}], "id": 2}
     ... }
     ... '''
-    >>> tmpfile = getfixture('tmpdir') / "test.json"
+    >>> tmpfile = getfixture("tmpdir") / "test.json"
     >>> with open(tmpfile, "w", encoding="utf-8") as fo:
     ...     _ = fo.write(json_spec)
     >>> data = load_data_json(tmpfile, {"ROOT": "/home"})
@@ -70,7 +70,9 @@ def load_data_json(json_path, replacements={}):
     '/home/ex2.wav'
 
     """
-    with open(json_path, "r", encoding="utf-8") as f:
+    if replacements is None:
+        replacements = {}
+    with open(json_path, encoding="utf-8") as f:
         out_json = json.load(f)
     _recursive_format(out_json, replacements)
     return out_json
@@ -97,7 +99,7 @@ def _recursive_format(data, replacements):
             # If not dict, list or str, do nothing
 
 
-def load_data_csv(csv_path, replacements={}):
+def load_data_csv(csv_path, replacements=None):
     """Loads CSV and formats string values.
 
     Uses the SpeechBrain legacy CSV data format, where the CSV must have an
@@ -135,6 +137,8 @@ def load_data_csv(csv_path, replacements={}):
     '/home/utt1.wav'
     """
 
+    if replacements is None:
+        replacements = {}
     with open(csv_path, newline="", encoding="utf-8") as csvfile:
         result = {}
         reader = csv.DictReader(csvfile, skipinitialspace=True)
@@ -169,12 +173,9 @@ def load_data_csv(csv_path, replacements={}):
     return result
 
 
-def read_audio_info(
-    path, backend=None
-) -> "torchaudio.backend.common.AudioMetaData":
-    """Retrieves audio metadata from a file path. Behaves identically to
-    torchaudio.info, but attempts to fix metadata (such as frame count) that is
-    otherwise broken with certain torchaudio version and codec combinations.
+def read_audio_info(path, backend=None) -> "audio_io.AudioInfo":
+    """Retrieves audio metadata from a file path. Uses audio_io.info which is
+    based on soundfile.
 
     Note that this may cause full file traversal in certain cases!
 
@@ -183,20 +184,13 @@ def read_audio_info(
     path : str
         Path to the audio file to examine.
     backend : str, optional
-        Audio backend to use for loading the audio file. Must be one of
-        'ffmpeg', 'sox', 'soundfile' or None. If None, uses torchaudio's default backend.
-
-    Raises
-    ------
-    ValueError
-        If the `backend` is not one of the allowed values.
-        Must be one of [None, 'ffmpeg', 'sox', 'soundfile'].
+        Audio backend to use for loading the audio file. This parameter is
+        kept for compatibility but is currently ignored (soundfile is always used).
 
     Returns
     -------
-    torchaudio.backend.common.AudioMetaData
-        Same value as returned by `torchaudio.info`, but may eventually have
-        `num_frames` corrected if it otherwise would have been `== 0`.
+    audio_io.AudioInfo
+        Audio metadata with fields: sample_rate, num_frames, channels, etc.
 
     NOTE
     ----
@@ -205,38 +199,18 @@ def read_audio_info(
     In these cases, you may as well read the entire audio file to avoid doubling
     the processing time.
     """
-    validate_backend(backend)
+    if backend is not None:
+        validate_backend(backend)
 
-    _path_no_ext, path_ext = os.path.splitext(path)
+    # Use audio_io.info which is based on soundfile
+    info = audio_io.info(path)
 
-    if path_ext == ".mp3":
-        # Additionally, certain affected versions of torchaudio fail to
-        # autodetect mp3.
-        # HACK: here, we check for the file extension to force mp3 detection,
-        # which prevents an error from occurring in torchaudio.
-        info = torchaudio.info(path, format="mp3", backend=backend)
-    else:
-        info = torchaudio.info(path, backend=backend)
-
-    # Certain file formats, such as MP3, do not provide a reliable way to
-    # query file duration from metadata (when there is any).
-    # For MP3, certain versions of torchaudio began returning num_frames == 0.
-    #
-    # https://github.com/speechbrain/speechbrain/issues/1925
-    # https://github.com/pytorch/audio/issues/2524
-    #
-    # Accommodate for these cases here: if `num_frames == 0` then maybe something
-    # has gone wrong.
-    # If some file really had `num_frames == 0` then we are not doing harm
-    # double-checking anyway. If I am wrong and you are reading this comment
-    # because of it: sorry
+    # Soundfile generally provides reliable frame counts, but if for some
+    # reason num_frames is 0, we can fall back to loading the file
     if info.num_frames == 0:
-        channels_data, sample_rate = torchaudio.load(
-            path, normalize=False, backend=backend
-        )
-
-        info.num_frames = channels_data.size(1)
-        info.sample_rate = sample_rate  # because we might as well
+        channels_data, sample_rate = audio_io.load(path)
+        info.num_frames = channels_data.size(-1)  # frames dimension
+        info.sample_rate = sample_rate
 
     return info
 
@@ -253,15 +227,11 @@ def read_audio(waveforms_obj, backend=None):
     Alternatively, you can specify more options in a dict, e.g.:
     ```
     # load a file from sample 8000 through 15999
-    read_audio({
-        "file": "/path/to/wav2.wav",
-        "start": 8000,
-        "stop": 16000
-    })
+    read_audio({"file": "/path/to/wav2.wav", "start": 8000, "stop": 16000})
     ```
 
-    Which codecs are supported depends on your torchaudio backend.
-    Refer to `torchaudio.load` documentation for further details.
+    Which codecs are supported depends on the soundfile library.
+    Refer to `audio_io.load` documentation for further details.
 
     Arguments
     ---------
@@ -296,11 +266,13 @@ def read_audio(waveforms_obj, backend=None):
     -------
     >>> dummywav = torch.rand(16000)
     >>> import os
-    >>> tmpfile = str(getfixture('tmpdir') / "wave.wav")
+    >>> tmpfile = str(getfixture("tmpdir") / "wave.wav")
     >>> write_audio(tmpfile, dummywav, 16000)
-    >>> asr_example = { "wav": tmpfile, "spk_id": "foo", "words": "foo bar"}
+    >>> asr_example = {"wav": tmpfile, "spk_id": "foo", "words": "foo bar"}
     >>> loaded = read_audio(asr_example["wav"])
-    >>> loaded.allclose(dummywav.squeeze(0),atol=1e-4) # replace with eq with sox_io backend
+    >>> loaded.allclose(
+    ...     dummywav.squeeze(0), atol=1e-4
+    ... )  # replace with eq with sox_io backend
     True
     """
     validate_backend(backend)
@@ -315,7 +287,7 @@ def read_audio(waveforms_obj, backend=None):
         if isinstance(waveforms_obj, bytes):
             waveforms_obj = BytesIO(waveforms_obj)
             waveforms_obj.seek(0)
-        audio, _ = torchaudio.load(waveforms_obj, backend=backend)
+        audio, _ = audio_io.load(waveforms_obj)
     # Case 2: A dict with more options. Only works with file paths.
     else:
         path = waveforms_obj["file"]
@@ -341,14 +313,12 @@ def read_audio(waveforms_obj, backend=None):
         # Requested to load until a specific frame?
         if start != stop:
             num_frames = stop - start
-            audio, fs = torchaudio.load(
-                path, num_frames=num_frames, frame_offset=start, backend=backend
+            audio, fs = audio_io.load(
+                path, num_frames=num_frames, frame_offset=start
             )
         else:
             # Load to the end.
-            audio, fs = torchaudio.load(
-                path, frame_offset=start, backend=backend
-            )
+            audio, fs = audio_io.load(path, frame_offset=start)
 
     audio = audio.transpose(0, 1)
     return audio.squeeze(1)
@@ -409,11 +379,13 @@ def read_audio_multichannel(waveforms_obj, backend=None):
     -------
     >>> dummywav = torch.rand(16000, 2)
     >>> import os
-    >>> tmpfile = str(getfixture('tmpdir') / "wave.wav")
+    >>> tmpfile = str(getfixture("tmpdir") / "wave.wav")
     >>> write_audio(tmpfile, dummywav, 16000)
-    >>> asr_example = { "wav": tmpfile, "spk_id": "foo", "words": "foo bar"}
+    >>> asr_example = {"wav": tmpfile, "spk_id": "foo", "words": "foo bar"}
     >>> loaded = read_audio(asr_example["wav"])
-    >>> loaded.allclose(dummywav.squeeze(0),atol=1e-4) # replace with eq with sox_io backend
+    >>> loaded.allclose(
+    ...     dummywav.squeeze(0), atol=1e-4
+    ... )  # replace with eq with sox_io backend
     True
     """
     validate_backend(backend)
@@ -428,7 +400,7 @@ def read_audio_multichannel(waveforms_obj, backend=None):
         if isinstance(waveforms_obj, bytes):
             waveforms_obj = BytesIO(waveforms_obj)
             waveforms_obj.seek(0)
-        audio, _ = torchaudio.load(waveforms_obj, backend=backend)
+        audio, _ = audio_io.load(waveforms_obj)
         return audio.transpose(0, 1)
 
     # Case 2: A dict with more options. Only works with file paths.
@@ -443,9 +415,7 @@ def read_audio_multichannel(waveforms_obj, backend=None):
     stop = waveforms_obj.get("stop", start - 1)
     num_frames = stop - start
     for f in files:
-        audio, fs = torchaudio.load(
-            f, num_frames=num_frames, frame_offset=start, backend=backend
-        )
+        audio, fs = audio_io.load(f, num_frames=num_frames, frame_offset=start)
         waveforms.append(audio)
 
     out = torch.cat(waveforms, 0)
@@ -469,11 +439,13 @@ def write_audio(filepath, audio, samplerate):
     Example
     -------
     >>> import os
-    >>> tmpfile = str(getfixture('tmpdir') / "wave.wav")
+    >>> tmpfile = str(getfixture("tmpdir") / "wave.wav")
     >>> dummywav = torch.rand(16000, 2)
     >>> write_audio(tmpfile, dummywav, 16000)
     >>> loaded = read_audio(tmpfile)
-    >>> loaded.allclose(dummywav,atol=1e-4) # replace with eq with sox_io backend
+    >>> loaded.allclose(
+    ...     dummywav, atol=1e-4
+    ... )  # replace with eq with sox_io backend
     True
     """
     if len(audio.shape) == 2:
@@ -481,7 +453,7 @@ def write_audio(filepath, audio, samplerate):
     elif len(audio.shape) == 1:
         audio = audio.unsqueeze(0)
 
-    torchaudio.save(filepath, audio, samplerate)
+    audio_io.save(filepath, audio, samplerate)
 
 
 def load_pickle(pickle_path):
@@ -580,7 +552,7 @@ def convert_index_to_lab(batch, ind2lab):
     Example
     -------
     >>> ind2lab = {1: "h", 2: "e", 3: "l", 4: "o"}
-    >>> out = convert_index_to_lab([[4,1], [1,2,3,3,4]], ind2lab)
+    >>> out = convert_index_to_lab([[4, 1], [1, 2, 3, 3, 4]], ind2lab)
     >>> for seq in out:
     ...     print("".join(seq))
     oh
@@ -614,7 +586,7 @@ def relative_time_to_absolute(batch, relative_lens, rate):
     Example
     -------
     >>> batch = torch.ones(2, 16000)
-    >>> relative_lens = torch.tensor([3./4., 1.0])
+    >>> relative_lens = torch.tensor([3.0 / 4.0, 1.0])
     >>> rate = 16000
     >>> print(relative_time_to_absolute(batch, relative_lens, rate))
     tensor([0.7500, 1.0000])
@@ -644,17 +616,19 @@ class IterativeCSVWriter:
     >>> writer = IterativeCSVWriter(f, ["phn"])
     >>> print(f.getvalue())
     ID,duration,phn,phn_format,phn_opts
-    >>> writer.write("UTT1",2.5,"sil hh ee ll ll oo sil","string","")
+    >>> writer.write("UTT1", 2.5, "sil hh ee ll ll oo sil", "string", "")
     >>> print(f.getvalue())
     ID,duration,phn,phn_format,phn_opts
     UTT1,2.5,sil hh ee ll ll oo sil,string,
-    >>> writer.write(ID="UTT2",phn="sil ww oo rr ll dd sil",phn_format="string")
+    >>> writer.write(
+    ...     ID="UTT2", phn="sil ww oo rr ll dd sil", phn_format="string"
+    ... )
     >>> print(f.getvalue())
     ID,duration,phn,phn_format,phn_opts
     UTT1,2.5,sil hh ee ll ll oo sil,string,
     UTT2,,sil ww oo rr ll dd sil,string,
-    >>> writer.set_default('phn_format', 'string')
-    >>> writer.write_batch(ID=["UTT3","UTT4"],phn=["ff oo oo", "bb aa rr"])
+    >>> writer.set_default("phn_format", "string")
+    >>> writer.write_batch(ID=["UTT3", "UTT4"], phn=["ff oo oo", "bb aa rr"])
     >>> print(f.getvalue())
     ID,duration,phn,phn_format,phn_opts
     UTT1,2.5,sil hh ee ll ll oo sil,string,
@@ -663,7 +637,9 @@ class IterativeCSVWriter:
     UTT4,,bb aa rr,string,
     """
 
-    def __init__(self, outstream, data_fields, defaults={}):
+    def __init__(self, outstream, data_fields, defaults=None):
+        if defaults is None:
+            defaults = {}
         self._outstream = outstream
         self.fields = ["ID", "duration"] + self._expand_data_fields(data_fields)
         self.defaults = defaults
@@ -694,20 +670,28 @@ class IterativeCSVWriter:
             Supply certain fields by key. The ID field is mandatory for all
             lines, but others can be left empty.
         """
-        if args and kwargs:
-            raise ValueError(
-                "Use either positional fields or named fields, but not both."
-            )
         if args:
             if len(args) != len(self.fields):
                 raise ValueError("Need consistent fields")
             to_write = [str(arg) for arg in args]
-        if kwargs:
-            if "ID" not in kwargs:
-                raise ValueError("I'll need to see some ID")
-            full_vals = self.defaults.copy()
-            full_vals.update(kwargs)
-            to_write = [str(full_vals.get(field, "")) for field in self.fields]
+            if kwargs:
+                raise ValueError(
+                    "Use either positional fields or named fields, "
+                    "but not both."
+                )
+        else:
+            if kwargs:
+                if "ID" not in kwargs:
+                    raise ValueError("I'll need to see some ID")
+                full_vals = self.defaults.copy()
+                full_vals.update(kwargs)
+                to_write = [
+                    str(full_vals.get(field, "")) for field in self.fields
+                ]
+            else:
+                raise ValueError(
+                    "Use either positional fields or named fields."
+                )
         self._outstream.write("\n")
         self._outstream.write(",".join(to_write))
 
@@ -765,9 +749,9 @@ def write_txt_file(data, filename, sampling_rate=None):
 
     Example
     -------
-    >>> tmpdir = getfixture('tmpdir')
-    >>> signal=torch.tensor([1,2,3,4])
-    >>> write_txt_file(signal, tmpdir / 'example.txt')
+    >>> tmpdir = getfixture("tmpdir")
+    >>> signal = torch.tensor([1, 2, 3, 4])
+    >>> write_txt_file(signal, tmpdir / "example.txt")
     """
     del sampling_rate  # Not used.
     # Check if the path of filename exists
@@ -798,9 +782,9 @@ def write_stdout(data, filename=None, sampling_rate=None):
 
     Example
     -------
-    >>> tmpdir = getfixture('tmpdir')
-    >>> signal = torch.tensor([[1,2,3,4]])
-    >>> write_stdout(signal, tmpdir / 'example.txt')
+    >>> tmpdir = getfixture("tmpdir")
+    >>> signal = torch.tensor([[1, 2, 3, 4]])
+    >>> write_stdout(signal, tmpdir / "example.txt")
     [1, 2, 3, 4]
     """
     # Managing Torch.Tensor
@@ -839,8 +823,8 @@ def length_to_mask(length, max_len=None, dtype=None, device=None):
 
     Example
     -------
-    >>> length=torch.Tensor([1,2,3])
-    >>> mask=length_to_mask(length)
+    >>> length = torch.Tensor([1, 2, 3])
+    >>> mask = length_to_mask(length)
     >>> mask
     tensor([[1., 0., 0.],
             [1., 1., 0.],
@@ -890,8 +874,8 @@ def read_kaldi_lab(kaldi_ali, kaldi_lab_opts):
     -------
     This example requires kaldi files.
     ```
-    lab_folder = '/home/kaldi/egs/TIMIT/s5/exp/dnn4_pretrain-dbn_dnn_ali'
-    read_kaldi_lab(lab_folder, 'ali-to-pdf')
+    lab_folder = "/home/kaldi/egs/TIMIT/s5/exp/dnn4_pretrain-dbn_dnn_ali"
+    read_kaldi_lab(lab_folder, "ali-to-pdf")
     ```
     """
     # EXTRA TOOLS
@@ -930,7 +914,7 @@ def get_md5(file):
 
     Example
     -------
-    >>> get_md5('tests/samples/single-mic/example1.wav')
+    >>> get_md5("tests/samples/single-mic/example1.wav")
     'c482d0081ca35302d30d12f1136c34e5'
     """
     # Lets read stuff in 64kb chunks!
@@ -958,8 +942,8 @@ def save_md5(files, out_file):
 
     Example
     -------
-    >>> files = ['tests/samples/single-mic/example1.wav']
-    >>> tmpdir = getfixture('tmpdir')
+    >>> files = ["tests/samples/single-mic/example1.wav"]
+    >>> tmpdir = getfixture("tmpdir")
     >>> save_md5(files, tmpdir / "md5.pkl")
     """
     # Initialization of the dictionary
@@ -983,7 +967,7 @@ def save_pkl(obj, file):
 
     Example
     -------
-    >>> tmpfile = getfixture('tmpdir') / "example.pkl"
+    >>> tmpfile = getfixture("tmpdir") / "example.pkl"
     >>> save_pkl([1, 2, 3, 4, 5], tmpfile)
     >>> load_pkl(tmpfile)
     [1, 2, 3, 4, 5]
@@ -1043,8 +1027,8 @@ def prepend_bos_token(label, bos_index):
 
     Example
     -------
-    >>> label=torch.LongTensor([[1,0,0], [2,3,0], [4,5,6]])
-    >>> new_label=prepend_bos_token(label, bos_index=7)
+    >>> label = torch.LongTensor([[1, 0, 0], [2, 3, 0], [4, 5, 6]])
+    >>> new_label = prepend_bos_token(label, bos_index=7)
     >>> new_label
     tensor([[7, 1, 0, 0],
             [7, 2, 3, 0],
@@ -1077,9 +1061,9 @@ def append_eos_token(label, length, eos_index):
 
     Example
     -------
-    >>> label=torch.IntTensor([[1,0,0], [2,3,0], [4,5,6]])
-    >>> length=torch.LongTensor([1,2,3])
-    >>> new_label=append_eos_token(label, length, eos_index=7)
+    >>> label = torch.IntTensor([[1, 0, 0], [2, 3, 0], [4, 5, 6]])
+    >>> length = torch.LongTensor([1, 2, 3])
+    >>> new_label = append_eos_token(label, length, eos_index=7)
     >>> new_label
     tensor([[1, 7, 0, 0],
             [2, 3, 7, 0],
@@ -1110,7 +1094,10 @@ def merge_char(sequences, space="_"):
 
     Example
     -------
-    >>> sequences = [["a", "b", "_", "c", "_", "d", "e"], ["e", "f", "g", "_", "h", "i"]]
+    >>> sequences = [
+    ...     ["a", "b", "_", "c", "_", "d", "e"],
+    ...     ["e", "f", "g", "_", "h", "i"],
+    ... ]
     >>> results = merge_char(sequences)
     >>> results
     [['ab', 'c', 'de'], ['efg', 'hi']]
@@ -1136,11 +1123,12 @@ def merge_csvs(data_folder, csv_lst, merged_csv):
 
     Example
     -------
-    >>> tmpdir = getfixture('tmpdir')
-    >>> os.symlink(os.path.realpath("tests/samples/annotation/speech.csv"), tmpdir / "speech.csv")
-    >>> merge_csvs(tmpdir,
-    ... ["speech.csv", "speech.csv"],
-    ... "test_csv_merge.csv")
+    >>> tmpdir = getfixture("tmpdir")
+    >>> os.symlink(
+    ...     os.path.realpath("tests/samples/annotation/speech.csv"),
+    ...     tmpdir / "speech.csv",
+    ... )
+    >>> merge_csvs(tmpdir, ["speech.csv", "speech.csv"], "test_csv_merge.csv")
     """
     write_path = os.path.join(data_folder, merged_csv)
     if os.path.isfile(write_path):
@@ -1159,7 +1147,7 @@ def merge_csvs(data_folder, csv_lst, merged_csv):
                     # Checking header
                     if line != header:
                         raise ValueError(
-                            "Different header for " f"{csv_lst[0]} and {csv}."
+                            f"Different header for {csv_lst[0]} and {csv}."
                         )
                     continue
                 lines.append(line)
@@ -1186,7 +1174,7 @@ def split_word(sequences, space="_"):
 
     Example
     -------
-    >>> sequences = [['ab', 'c', 'de'], ['efg', 'hi']]
+    >>> sequences = [["ab", "c", "de"], ["efg", "hi"]]
     >>> results = split_word(sequences)
     >>> results
     [['a', 'b', '_', 'c', '_', 'd', 'e'], ['e', 'f', 'g', '_', 'h', 'i']]
@@ -1227,7 +1215,7 @@ def clean_padding_(tensor, length, len_dim=1, mask_value=0.0):
             [1, 2, 3, 4, 5],
             [2, 3, 4, 5, 6]])
     >>> length = torch.tensor([0.4, 1.0, 0.6])
-    >>> clean_padding_(x, length=length, mask_value=10.)
+    >>> clean_padding_(x, length=length, mask_value=10.0)
     >>> x
     tensor([[ 0,  1, 10, 10, 10],
             [ 1,  2,  3,  4,  5],
@@ -1245,7 +1233,7 @@ def clean_padding_(tensor, length, len_dim=1, mask_value=0.0):
     <BLANKLINE>
             [[ 2,  3,  4,  5,  6],
              [ 4,  6,  8, 10, 12]]])
-    >>> clean_padding_(x, length=length, mask_value=10., len_dim=2)
+    >>> clean_padding_(x, length=length, mask_value=10.0, len_dim=2)
     >>> x
     tensor([[[ 0,  1, 10, 10, 10],
              [ 0,  2, 10, 10, 10]],
@@ -1297,7 +1285,7 @@ def clean_padding(tensor, length, len_dim=1, mask_value=0.0):
             [1, 2, 3, 4, 5],
             [2, 3, 4, 5, 6]])
     >>> length = torch.tensor([0.4, 1.0, 0.6])
-    >>> x_p = clean_padding(x, length=length, mask_value=10.)
+    >>> x_p = clean_padding(x, length=length, mask_value=10.0)
     >>> x_p
     tensor([[ 0,  1, 10, 10, 10],
             [ 1,  2,  3,  4,  5],
@@ -1315,7 +1303,7 @@ def clean_padding(tensor, length, len_dim=1, mask_value=0.0):
     <BLANKLINE>
             [[ 2,  3,  4,  5,  6],
              [ 4,  6,  8, 10, 12]]])
-    >>> x_p = clean_padding(x, length=length, mask_value=10., len_dim=2)
+    >>> x_p = clean_padding(x, length=length, mask_value=10.0, len_dim=2)
     >>> x_p
     tensor([[[ 0,  1, 10, 10, 10],
              [ 0,  2, 10, 10, 10]],
@@ -1354,8 +1342,31 @@ def extract_concepts_values(sequences, keep_values, tag_in, tag_out, space):
 
     Example
     -------
-    >>> sequences = [['<response>','_','n','o','_','>','_','<localisation-ville>','_','L','e','_','M','a','n','s','_','>'], ['<response>','_','s','i','_','>'],['v','a','_','b','e','n','e']]
-    >>> results = extract_concepts_values(sequences, True, '<', '>', '_')
+    >>> sequences = [
+    ...     [
+    ...         "<response>",
+    ...         "_",
+    ...         "n",
+    ...         "o",
+    ...         "_",
+    ...         ">",
+    ...         "_",
+    ...         "<localisation-ville>",
+    ...         "_",
+    ...         "L",
+    ...         "e",
+    ...         "_",
+    ...         "M",
+    ...         "a",
+    ...         "n",
+    ...         "s",
+    ...         "_",
+    ...         ">",
+    ...     ],
+    ...     ["<response>", "_", "s", "i", "_", ">"],
+    ...     ["v", "a", "_", "b", "e", "n", "e"],
+    ... ]
+    >>> results = extract_concepts_values(sequences, True, "<", ">", "_")
     >>> results
     [['<response> no', '<localisation-ville> Le Mans'], ['<response> si'], ['']]
     """
@@ -1366,9 +1377,7 @@ def extract_concepts_values(sequences, keep_values, tag_in, tag_out, space):
         # ['<response>','no','>','<localisation-ville>','Le','Mans,'>']
         sequence = sequence.split(space)
         processed_sequence = []
-        value = (
-            []
-        )  # If previous sequence value never used because never had a tag_out
+        value = []  # If previous sequence value never used because never had a tag_out
         kept = ""  # If previous sequence kept never used because never had a tag_out
         concept_open = False
         for word in sequence:

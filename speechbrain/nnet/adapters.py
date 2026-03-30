@@ -57,18 +57,20 @@ class AdaptedModel(nn.Module):
     -------
     >>> from collections import OrderedDict
     >>> model = torch.nn.Sequential(
-    ...   OrderedDict([
-    ...     ("layer1", torch.nn.Linear(10, 20)),
-    ...     ("layer2", torch.nn.Linear(20, 20)),
-    ...     ("layer3", torch.nn.Linear(20, 10)),
-    ...   ])
+    ...     OrderedDict(
+    ...         [
+    ...             ("layer1", torch.nn.Linear(10, 20)),
+    ...             ("layer2", torch.nn.Linear(20, 20)),
+    ...             ("layer3", torch.nn.Linear(20, 10)),
+    ...         ]
+    ...     )
     ... )
     >>> lora_model = AdaptedModel(
-    ...   model_to_adapt=model,
-    ...   adapter_class=LoRA,
-    ...   target_layers=["layer[13]"],
-    ...   unfrozen_layers=["layer2"],
-    ...   adapter_kwargs={"rank": 2},
+    ...     model_to_adapt=model,
+    ...     adapter_class=LoRA,
+    ...     target_layers=["layer[13]"],
+    ...     unfrozen_layers=["layer2"],
+    ...     adapter_kwargs={"rank": 2},
     ... )
     >>> lora_model
     AdaptedModel(
@@ -160,7 +162,7 @@ class AdaptedModel(nn.Module):
     def loader(self, path, end_of_epoch):
         """Loads the base model plus trained params."""
         del end_of_epoch
-        state_dict = torch.load(path, map_location="cpu")
+        state_dict = torch.load(path, map_location="cpu", weights_only=True)
         self.load_state_dict(state_dict, strict=False)
 
     @checkpoints.mark_as_transfer

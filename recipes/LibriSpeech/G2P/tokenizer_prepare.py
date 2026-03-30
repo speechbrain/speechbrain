@@ -1,6 +1,4 @@
-"""A script to prepare annotations for tokenizers
-
-"""
+"""A script to prepare annotations for tokenizers"""
 
 import json
 import os

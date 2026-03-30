@@ -1,0 +1,252 @@
+# ###########################################################################################
+# Model: Vocos
+# Authors: Luca Della Libera 2024
+# ###########################################################################################
+
+experiment_name: vocos
+
+# Seed needs to be set at top of YAML
+seed: 0
+__set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
+
+# Data preparation
+data_folder: !PLACEHOLDER
+train_json: !ref <save_folder>/train.json
+valid_json: !ref <save_folder>/valid.json
+test_json: !ref <save_folder>/test.json
+train_split:
+    - train-clean-100
+    # - train-clean-360
+    # - train-other-500
+valid_split: [dev-clean]
+test_split: [test-clean]
+skip_prep: False
+
+# Output folders
+output_folder: !ref results/<experiment_name>/<seed>
+save_folder: !ref <output_folder>/save
+cache_folder: !name:huggingface_hub.constants.HUGGINGFACE_HUB_CACHE
+
+# Save options
+compute_metrics: True
+save_audios: True
+
+# Preprocessing parameters
+sample_rate: 16000
+audio_backend: soundfile
+train_remove_if_longer: 60.0  # Seconds
+valid_remove_if_longer: 60.0  # Seconds
+test_remove_if_longer: 60.0  # Seconds
+sorting: random
+
+# Training parameters
+num_epochs: 100
+grad_accumulation_factor: 1
+dynamic_batching: False
+train_batch_size: 16
+valid_batch_size: 1
+test_batch_size: 1
+train_max_batch_length: 20.0  # Seconds
+valid_max_batch_length: 20.0  # Seconds
+test_max_batch_length: 20.0  # Seconds
+num_buckets: 100
+max_batch_size: 128
+dataloader_workers: 4
+nonfinite_patience: 10
+max_grad_norm: 5.0
+precision: fp32
+ckpt_interval_steps: 10000
+keep_checkpoints: 1
+augment: False
+augment_prob: 0.75
+segment_size_feats: !ref 7040 // <generator_hop_length>  # Segment AFTER feature extraction
+segment_size: null
+segment_pad: False
+valid_freq: 1
+
+# Optimizer parameters
+lr: 0.0002
+betas: [0.8, 0.99]
+weight_decay: 0.01
+decay_factor: 0.999
+
+# Encoder parameters
+encoder_hidden_dims: [512, 512, 512, 512, 512, 512, 512]
+encoder_kernel_sizes: [10, 3, 3, 3, 3, 2, 2]
+encoder_strides: [5, 2, 2, 2, 2, 2, 2]
+encoder_num_layers: 6
+encoder_dim: 1024
+encoder_ffn_dim: 4096
+encoder_num_heads: 16
+encoder_num_buckets: 320
+encoder_max_distance: 800
+encoder_max_cached_steps: 2048
+encoder_dropout: 0.0
+encoder_conv_pos: 128
+encoder_conv_pos_groups: 16
+encoder_causal: False
+encoder_window_size: 512
+encoder_lookahead_size: 3
+encoder_use_flex_attention: False
+encoder_checkpoint: !apply:utils.download_wavlm6 [!ref <cache_folder>]
+
+# Generator parameters
+generator_input_dim: !ref <encoder_dim>
+generator_num_layers: 8
+generator_dim: 512
+generator_ffn_dim: 1536
+generator_kernel_size: 7
+generator_hop_length: 320
+generator_layerscale_init: null
+generator_n_fft: 1024
+generator_causal: False
+
+# Loss parameters
+win_length: 1024
+n_mel_channels: 80
+mel_fmin: 0
+mel_fmax: 8000
+mel_normalized: False
+power: 1.0
+dynamic_range_compression: True
+hingeg_loss_weight: 1.0
+feat_match_loss_weight: 54.0
+l1_spec_loss_weight: 45.0
+
+# Augmentation
+drop_freq: !new:speechbrain.augment.time_domain.DropFreq
+    drop_freq_low: 0  # Min frequency band dropout probability
+    drop_freq_high: 1  # Max frequency band dropout probability
+    drop_freq_count_low: 1  # Min number of frequency bands to drop
+    drop_freq_count_high: 3  # Max number of frequency bands to drop
+    drop_freq_width: 0.05  # Width of frequency bands to drop
+
+drop_chunk: !new:speechbrain.augment.time_domain.DropChunk
+    drop_length_low: 1  # Min number of audio chunks to drop
+    drop_length_high: 5  # Max number of audio chunks to drop
+    drop_count_low: 1000  # Min length of audio chunks to drop
+    drop_count_high: 2000  # Max length of audio chunks to drop
+
+augmentation: !new:speechbrain.augment.augmenter.Augmenter
+    parallel_augment: False
+    concat_original: False
+    repeat_augment: 1
+    shuffle_augmentations: False
+    min_augmentations: 2
+    max_augmentations: 2
+    augment_prob: !ref <augment_prob>
+    augmentations: [!ref <drop_freq>, !ref <drop_chunk>]
+
+# Modules
+encoder: !new:focalcodec.wavlm.WavLM
+    hidden_dims: !ref <encoder_hidden_dims>
+    kernel_sizes: !ref <encoder_kernel_sizes>
+    strides: !ref <encoder_strides>
+    num_layers: !ref <encoder_num_layers>
+    dim: !ref <encoder_dim>
+    ffn_dim: !ref <encoder_ffn_dim>
+    num_heads: !ref <encoder_num_heads>
+    num_buckets: !ref <encoder_num_buckets>
+    max_distance: !ref <encoder_max_distance>
+    max_cached_steps: !ref <encoder_max_cached_steps>
+    dropout: !ref <encoder_dropout>
+    conv_pos: !ref <encoder_conv_pos>
+    conv_pos_groups: !ref <encoder_conv_pos_groups>
+    causal: !ref <encoder_causal>
+    window_size: !ref <encoder_window_size>
+    lookahead_size: !ref <encoder_lookahead_size>
+    use_flex_attention: !ref <encoder_use_flex_attention>
+
+generator: !new:focalcodec.vocos.Vocos
+    input_dim: !ref <generator_input_dim>
+    num_layers: !ref <generator_num_layers>
+    dim: !ref <generator_dim>
+    ffn_dim: !ref <generator_ffn_dim>
+    kernel_size: !ref <generator_kernel_size>
+    hop_length: !ref <generator_hop_length>
+    layerscale_init: !ref <generator_layerscale_init>
+    n_fft: !ref <generator_n_fft>
+    causal: !ref <generator_causal>
+
+discriminator: !new:speechbrain.lobes.models.HifiGAN.HifiganDiscriminator
+
+modules:
+    generator: !ref <generator>
+    discriminator: !ref <discriminator>
+
+# Loss functions
+generator_loss: !new:speechbrain.lobes.models.HifiGAN.GeneratorLoss
+    stft_loss: null
+    stft_loss_weight: 0
+    mseg_loss: !new:speechbrain.lobes.models.HifiGAN.HingeGLoss
+    mseg_loss_weight: !ref <hingeg_loss_weight>
+    feat_match_loss: !new:speechbrain.lobes.models.HifiGAN.MelganFeatureLoss
+    feat_match_loss_weight: !ref <feat_match_loss_weight>
+    l1_spec_loss: !new:speechbrain.lobes.models.HifiGAN.L1SpecLoss
+        sample_rate: !ref <sample_rate>
+        hop_length: !ref <generator_hop_length>
+        win_length: !ref <win_length>
+        n_mel_channels: !ref <n_mel_channels>
+        n_fft: !ref <generator_n_fft>
+        n_stft: !ref <generator_n_fft> // 2 + 1
+        mel_fmin: !ref <mel_fmin>
+        mel_fmax: !ref <mel_fmax>
+        mel_normalized: !ref <mel_normalized>
+        power: !ref <power>
+        dynamic_range_compression: !ref <dynamic_range_compression>
+    l1_spec_loss_weight: !ref <l1_spec_loss_weight>
+
+# Discriminator loss
+discriminator_loss: !new:speechbrain.lobes.models.HifiGAN.DiscriminatorLoss
+    msed_loss: !new:speechbrain.lobes.models.HifiGAN.HingeDLoss
+
+# Optimizers
+opt_class: !name:torch.optim.AdamW
+    lr: !ref <lr>
+    betas: !ref <betas>
+    eps: 1.e-8
+    weight_decay: !ref <weight_decay>
+
+# Schedulers
+scheduler: !new:speechbrain.nnet.schedulers.StepScheduler
+    initial_value: !ref <lr>
+    decay_factor: !ref <decay_factor>
+
+# Performance metrics
+utmos_computer: !name:metrics.utmos.UTMOS
+    sample_rate: !ref <sample_rate>
+
+dwer_computer: !name:metrics.dwer.DWER
+    model_hub: openai/whisper-small
+    save_path: !ref <cache_folder>
+    sample_rate: !ref <sample_rate>
+
+wavlm_sim_computer: !name:metrics.speaker_similarity.SpkSimWavLM
+    model_hub: microsoft/wavlm-base-sv
+    save_path: !ref <cache_folder>
+    sample_rate: !ref <sample_rate>
+
+# Pretrainer
+pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
+    collect_in: !ref <save_folder>
+    loadables:
+        encoder: !ref <encoder>
+    paths:
+        encoder: !ref <encoder_checkpoint>
+    conditions:
+        encoder: !ref <encoder_checkpoint>
+
+# Counters, checkpointers, loggers, etc.
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+    limit: !ref <num_epochs>
+
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+    checkpoints_dir: !ref <save_folder>
+    recoverables:
+        generator: !ref <generator>
+        discriminator: !ref <discriminator>
+        counter: !ref <epoch_counter>
+
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+    save_file: !ref <output_folder>/train_log.txt
+    precision: 5

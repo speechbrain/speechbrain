@@ -41,7 +41,6 @@ class DelaySum_Beamformer(torch.nn.Module):
         sig : torch.Tensor
         """
         with torch.no_grad():
-
             Xs = self.stft(mics_signals)
             XXs = self.cov(Xs)
             tdoas = self.gccphat(XXs)

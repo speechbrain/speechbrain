@@ -32,9 +32,9 @@ def cosine_similarity_matrix(
 
     assert a.dim() == b.dim(), "Inputs must be of the same dim"
     assert a.dim() >= 2, "Expected at least 2 dims [X, cos_sim_dim]"
-    assert (
-        a.shape[:-2] == b.shape[:-2]
-    ), "Input shape must match until last 2 dims"
+    assert a.shape[:-2] == b.shape[:-2], (
+        "Input shape must match until last 2 dims"
+    )
 
     a_norm = torch.linalg.vector_norm(a, dim=-1).unsqueeze(-1)  # [..., X, 1]
     b_norm = torch.linalg.vector_norm(b, dim=-1).unsqueeze(-1)  # [..., Y, 1]

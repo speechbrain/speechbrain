@@ -61,7 +61,6 @@ class StatObject_SB:
         stat0=None,
         stat1=None,
     ):
-
         if modelset is None:  # For creating empty stat server
             self.modelset = numpy.empty(0, dtype="|O")
             self.segset = numpy.empty(0, dtype="|O")
@@ -223,6 +222,19 @@ class StatObject_SB:
             )
             session_per_model[idx] += self.get_model_stat1(model).shape[0]
         return sts_per_model, session_per_model
+
+    def mean_stat_per_model(self):
+        """Average the zero- and first-order statistics per model and store
+        them in a new StatObject_SB.
+
+        Returns
+        -------
+        a StatObject_SB object with the statistics averaged per model.
+        """
+        sts_per_model, session_per_model = self.sum_stat_per_model()
+        sts_per_model.stat0 = sts_per_model.stat0 / session_per_model[:, None]
+        sts_per_model.stat1 = sts_per_model.stat1 / session_per_model[:, None]
+        return sts_per_model
 
     def center_stat1(self, mu):
         """Center first order statistics.
@@ -602,6 +614,7 @@ class Scores:
         ch += self.scoremask.__repr__() + "\n"
         ch += "scoremat:\n"
         ch += self.scoremat.__repr__() + "\n"
+        return ch
 
 
 ## PLDA and LDA functionalities starts here
@@ -721,10 +734,13 @@ def fast_PLDA_scoring(
     enroll_ctr = copy.deepcopy(enroll)
     test_ctr = copy.deepcopy(test)
 
-    # If models are not unique, compute the mean per model, display a warning
+    # If models are not unique, require the user to average them first
     if not numpy.unique(enroll_ctr.modelset).shape == enroll_ctr.modelset.shape:
-        # logging.warning("Enrollment models are not unique, average i-vectors")
-        enroll_ctr = enroll_ctr.mean_stat_per_model()
+        raise ValueError(
+            "Enrollment models are not unique. Call "
+            "enroll.mean_stat_per_model() before passing to "
+            "fast_PLDA_scoring() to average statistics per model."
+        )
 
     # Remove missing models and test segments
     if check_missing:
@@ -735,11 +751,6 @@ def fast_PLDA_scoring(
     # Center the i-vectors around the PLDA mean
     enroll_ctr.center_stat1(mu)
     test_ctr.center_stat1(mu)
-
-    # If models are not unique, compute the mean per model, display a warning
-    if not numpy.unique(enroll_ctr.modelset).shape == enroll_ctr.modelset.shape:
-        # logging.warning("Enrollment models are not unique, average i-vectors")
-        enroll_ctr = enroll_ctr.mean_stat_per_model()
 
     # Compute constant component of the PLDA distribution
     invSigma = linalg.inv(Sigma)
@@ -865,41 +876,64 @@ class PLDA:
     >>> dim, N = 10, 100
     >>> n_spkrs = 10
     >>> train_xv = numpy.random.rand(N, dim)
-    >>> md = ['md'+str(random.randrange(1,n_spkrs,1)) for i in range(N)]
+    >>> md = ["md" + str(random.randrange(1, n_spkrs, 1)) for i in range(N)]
     >>> modelset = numpy.array(md, dtype="|O")
-    >>> sg = ['sg'+str(i) for i in range(N)]
+    >>> sg = ["sg" + str(i) for i in range(N)]
     >>> segset = numpy.array(sg, dtype="|O")
     >>> s = numpy.array([None] * N)
-    >>> stat0 = numpy.array([[1.0]]* N)
-    >>> xvectors_stat = StatObject_SB(modelset=modelset, segset=segset, start=s, stop=s, stat0=stat0, stat1=train_xv)
+    >>> stat0 = numpy.array([[1.0]] * N)
+    >>> xvectors_stat = StatObject_SB(
+    ...     modelset=modelset,
+    ...     segset=segset,
+    ...     start=s,
+    ...     stop=s,
+    ...     stat0=stat0,
+    ...     stat1=train_xv,
+    ... )
     >>> # Training PLDA model: M ~ (mean, F, Sigma)
     >>> plda = PLDA(rank_f=5)
     >>> plda.plda(xvectors_stat)
-    >>> print (plda.mean.shape)
+    >>> print(plda.mean.shape)
     (10,)
-    >>> print (plda.F.shape)
+    >>> print(plda.F.shape)
     (10, 5)
-    >>> print (plda.Sigma.shape)
+    >>> print(plda.Sigma.shape)
     (10, 10)
     >>> # Enrollment (20 utts), Test (30 utts)
     >>> en_N = 20
     >>> en_xv = numpy.random.rand(en_N, dim)
-    >>> en_sgs = ['en'+str(i) for i in range(en_N)]
+    >>> en_sgs = ["en" + str(i) for i in range(en_N)]
     >>> en_sets = numpy.array(en_sgs, dtype="|O")
     >>> en_s = numpy.array([None] * en_N)
-    >>> en_stat0 = numpy.array([[1.0]]* en_N)
-    >>> en_stat = StatObject_SB(modelset=en_sets, segset=en_sets, start=en_s, stop=en_s, stat0=en_stat0, stat1=en_xv)
+    >>> en_stat0 = numpy.array([[1.0]] * en_N)
+    >>> en_stat = StatObject_SB(
+    ...     modelset=en_sets,
+    ...     segset=en_sets,
+    ...     start=en_s,
+    ...     stop=en_s,
+    ...     stat0=en_stat0,
+    ...     stat1=en_xv,
+    ... )
     >>> te_N = 30
     >>> te_xv = numpy.random.rand(te_N, dim)
-    >>> te_sgs = ['te'+str(i) for i in range(te_N)]
+    >>> te_sgs = ["te" + str(i) for i in range(te_N)]  # codespell:ignore
     >>> te_sets = numpy.array(te_sgs, dtype="|O")
     >>> te_s = numpy.array([None] * te_N)
-    >>> te_stat0 = numpy.array([[1.0]]* te_N)
-    >>> te_stat = StatObject_SB(modelset=te_sets, segset=te_sets, start=te_s, stop=te_s, stat0=te_stat0, stat1=te_xv)
+    >>> te_stat0 = numpy.array([[1.0]] * te_N)
+    >>> te_stat = StatObject_SB(
+    ...     modelset=te_sets,
+    ...     segset=te_sets,
+    ...     start=te_s,
+    ...     stop=te_s,
+    ...     stat0=te_stat0,
+    ...     stat1=te_xv,
+    ... )
     >>> ndx = Ndx(models=en_sets, testsegs=te_sets)
     >>> # PLDA Scoring
-    >>> scores_plda = fast_PLDA_scoring(en_stat, te_stat, ndx, plda.mean, plda.F, plda.Sigma)
-    >>> print (scores_plda.scoremat.shape)
+    >>> scores_plda = fast_PLDA_scoring(
+    ...     en_stat, te_stat, ndx, plda.mean, plda.F, plda.Sigma
+    ... )
+    >>> print(scores_plda.scoremat.shape)
     (20, 30)
     """
 
@@ -981,7 +1015,6 @@ class PLDA:
 
         # Estimate PLDA model by iterating the EM algorithm
         for it in range(self.nb_iter):
-
             # E-step
             # print(
             #    f"E-step: Estimate between class covariance, it {it+1} / {nb_iter}"

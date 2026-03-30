@@ -40,7 +40,7 @@ def create_table(fid_w, csv_file):
     None
     """
     # Read CSV file into a list of dictionaries
-    with open(csv_file, "r", encoding="utf-8") as file:
+    with open(csv_file, encoding="utf-8") as file:
         csv_reader = csv.DictReader(file)
         recipes_lst = [row for row in csv_reader]
 
@@ -89,15 +89,15 @@ def create_table(fid_w, csv_file):
             performance_values = " | ".join(performance_dict.values()) + " |"
 
             str_res = (
-                f'[here]({recipe["Result_url"]})'
+                f"[here]({recipe['Result_url']})"
                 if recipe["Result_url"]
                 else "-"
             )
             hf_repo = (
-                f'[here]({recipe["HF_repo"]})' if recipe["HF_repo"] else "-"
+                f"[here]({recipe['HF_repo']})" if recipe["HF_repo"] else "-"
             )
 
-            performance_line = f' | [`{recipe["Hparam_file"]}`]({recipe["Hparam_file"]}) | {str_res} | {hf_repo} | {performance_values}'
+            performance_line = f" | [`{recipe['Hparam_file']}`]({recipe['Hparam_file']}) | {str_res} | {hf_repo} | {performance_values}"
             print(performance_line, file=fid_w)
 
         print("\n", file=fid_w)
@@ -124,7 +124,6 @@ def extract_name_value_pairs(input_string):
 
 
 if __name__ == "__main__":
-
     parser = argparse.ArgumentParser(
         description=(
             "Create the performance file from the recipe info csv files."
