@@ -54,7 +54,7 @@ templates/            # Minimal working examples to bootstrap new recipes
 tests/
   unittests/          # Unit tests for core library
   integration/        # Integration tests (small end-to-end training runs)
-docs/                 # Documentation 
+docs/                 # Documentation
   tutorials/          # Jupyter notebooks integrated into ReadTheDocs
 tools/                # Maintenance scripts (tutorial cell updater, etc.)
 ```
@@ -136,26 +136,26 @@ All tensors follow **batch-time-channels** ordering:
 Lengths are tracked as **relative lengths** (0.0 to 1.0), representing the fraction of the max length in the batch. This avoids passing absolute lengths and simplifies padding/masking. Example: a batch of 3 signals with lengths [16000, 12000, 8000] has relative lengths [1.0, 0.75, 0.5].
 
 ### Data pipeline
- 
+
 The pipeline has three layers: **data manifests** (JSON/CSV) → **DynamicItemDataset** → **Dynamic Item Pipelines**.
- 
+
 **Manifests** are JSON or CSV files containing static items (file paths, transcriptions, speaker IDs, durations). JSON format: `{"utt1": {"wav": "path.flac", "wrd": "HELLO", "spk_id": "spk01", "duration": 3.5}, ...}`. Each recipe provides a preparation script that parses raw datasets into this format. Manifests must include a `duration` field for dynamic batching to work.
- 
+
 **DynamicItemDataset** (`speechbrain.dataio.dataset`) loads a manifest and supports on-the-fly transformations via dynamic items. Dependencies between items are resolved automatically as a DAG. Items are evaluated **lazily** — only items in `set_output_keys` (and their dependencies) are computed.
- 
+
 ```python
 train_data = DynamicItemDataset.from_csv(csv_path=hparams["train_csv"],
     replacements={"data_root": hparams["data_folder"]})  # replacements substitute placeholders in manifest values
 ```
- 
+
 **Dynamic Item Pipelines** are functions decorated with `@sb.utils.data_pipeline.takes(...)` / `@sb.utils.data_pipeline.provides(...)`.
- 
+
 ```python
 @sb.utils.data_pipeline.takes("wav")
 @sb.utils.data_pipeline.provides("sig")
 def audio_pipeline(wav):
     return sb.dataio.dataio.read_audio(wav)
- 
+
 @sb.utils.data_pipeline.takes("wrd")
 @sb.utils.data_pipeline.provides("wrd", "tokens_bos", "tokens_eos", "tokens")
 def text_pipeline(wrd):
@@ -165,44 +165,44 @@ def text_pipeline(wrd):
     yield torch.LongTensor(tokens_list + [eos])    # tokens_eos
     yield torch.LongTensor(tokens_list)            # tokens
 ```
- 
+
 Register pipelines and declare outputs — typically applied to all splits at once:
- 
+
 ```python
 datasets = [train_data, valid_data, test_data]
 sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline)
 sb.dataio.dataset.add_dynamic_item(datasets, text_pipeline)
 sb.dataio.dataset.set_output_keys(datasets, ["id", "sig", "tokens_bos", "tokens_eos", "tokens"])
 ```
- 
+
 **Filtering and sorting**: `train_data.filtered_sorted(sort_key="duration")` returns a sorted view (shared static data, no copy). Supports `key_min_value`, `key_max_value`, `select_n`. When sorting, disable dataloader shuffle or sorting is pointless.
- 
+
 **PaddedBatch** (`speechbrain.dataio.batch`) is the collate function. It pads variable-length tensors and returns `PaddedData(data, lengths)` namedtuples. Always unpack: `wavs, wav_lens = batch.sig`. The `lengths` are relative (0.0–1.0). Use `SaveableDataLoader` instead of raw `DataLoader` — it supports checkpoint-resumable iteration.
- 
+
 **DynamicBatchSampler** (`speechbrain.dataio.sampler`) groups utterances into length-bucketed batches with a target total duration instead of a fixed batch size. Requires a `length_func` pointing to the manifest duration field. Do not pass `batch_size` when using `batch_sampler`.
- 
+
 **CategoricalEncoder** (`speechbrain.dataio.encoder`) maps string labels to integer indices for classification. Fit with `encoder.update_from_didataset(train_data, "spk_id")`, use `encoder.encode_label_torch(label)` inside a pipeline, sanity-check with `encoder.expect_len(num_classes)`.
- 
+
 Every recipe wires this together in a `dataio_prep(hparams)` function — follow this pattern for new recipes.
- 
+
 ## Recipe conventions
- 
+
 Every recipe lives at `recipes/{dataset}/{task}/{mdeol}` and follows this structure:
- 
+
 - `train.py` — the training script. It subclasses `Brain`, defines the dataio pipeline, and calls `brain.fit()` / `brain.evaluate()`. Multiple training scripts may be present for different model variants.
 - `prepare_{dataset}.py` — the data preparation script. It read the dataset structure and creates the CSV or JSON manifests with the correct format (e.g. duration, speaker id, etc.).
 - `hparams/*.yaml` — HyperPyYAML files. There may be multiple configs for different model variants.
 - `README.md` — documents results (WER, EER, etc.), how to run, and links to pretrained models on HuggingFace.
 - `extra_requirements.txt` — if the recipe needs packages not in core requirements.
- 
+
 To run a recipe:
 ```bash
 cd recipes/{dataset}/{task}/{model}
 python train.py hparams/train.yaml --data_folder /path/to/data
 ```
- 
+
 When creating a new recipe, start from `templates/` for a minimal working skeleton.
- 
+
 ## Running tests
 
 ```bash
