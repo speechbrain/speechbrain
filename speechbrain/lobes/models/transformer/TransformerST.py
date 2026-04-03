@@ -17,7 +17,7 @@ from speechbrain.lobes.models.transformer.Transformer import (
     get_key_padding_mask,
     get_lookahead_mask,
 )
-from speechbrain.lobes.models.transformer.TransformerASR import TransformerASR
+from speechbrain.lobes.models.transformer.TransformerASR import TransformerASR, make_transformer_src_tgt_masks
 from speechbrain.nnet.activations import Swish
 from speechbrain.nnet.containers import ModuleList
 from speechbrain.utils.logger import get_logger
@@ -243,7 +243,7 @@ class TransformerST(TransformerASR):
             tgt_key_padding_mask,
             src_mask,
             tgt_mask,
-        ) = self.make_masks(src, tgt, wav_len, pad_idx=pad_idx)
+        ) = make_transformer_src_tgt_masks(src, tgt, wav_len, pad_idx=pad_idx)
 
         transcription = self.custom_asr_tgt_module(tgt)
 
