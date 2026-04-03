@@ -2,6 +2,33 @@
 
 SpeechBrain is an open-source PyTorch toolkit for conversational AI (speech recognition, speaker verification, speech enhancement, separation, TTS, spoken language understanding, and more) known for its ease of use and flexibility. It is Apache 2.0 licensed.
 
+## Writing code
+
+- **Minimal try/except**: let errors propagate — silent failures hide bugs. Only catch exceptions for intentional fault tolerance (retries, robustness).
+- **Targeted comments**: don't explain your work process or reference old code. Use targeted comments sparingly to clarify ambiguous logic.
+- **Zen of Python**: remember the Zen of Python when writing code.
+```
+Beautiful is better than ugly.
+Explicit is better than implicit.
+Simple is better than complex.
+Complex is better than complicated.
+Flat is better than nested.
+Sparse is better than dense.
+Readability counts.
+Special cases aren't special enough to break the rules.
+Although practicality beats purity.
+Errors should never pass silently.
+Unless explicitly silenced.
+In the face of ambiguity, refuse the temptation to guess.
+There should be one-- and preferably only one --obvious way to do it.
+Although that way may not be obvious at first unless you're Dutch.
+Now is better than never.
+Although never is often better than *right* now.
+If the implementation is hard to explain, it's a bad idea.
+If the implementation is easy to explain, it may be a good idea.
+Namespaces are one honking great idea -- let's do more of those!
+```
+
 ## Project structure
 
 ```
@@ -21,7 +48,7 @@ recipes/              # Training scripts organized as recipes/{dataset}/{task}/{
     {model}/          # Recipe implementation for a specific model/configuration
       train.py        # Training script (subclasses Brain)
       hparams/        # HyperPyYAML config files (train.yaml, etc.)
-      extra-requirements.txt  # Recipe-specific pip dependencies (if any)
+      extra_requirements.txt  # Recipe-specific pip dependencies (if any)
       README.md       # Results, how to run, pretrained model links
 templates/            # Minimal working examples to bootstrap new recipes
 tests/
@@ -160,16 +187,17 @@ Every recipe wires this together in a `dataio_prep(hparams)` function — follow
  
 ## Recipe conventions
  
-Every recipe lives at `recipes/{dataset}/{task}/` and follows this structure:
+Every recipe lives at `recipes/{dataset}/{task}/{mdeol}` and follows this structure:
  
-- `train.py` — the training script. It subclasses `Brain`, defines the dataio pipeline, and calls `brain.fit()` / `brain.evaluate()`.
+- `train.py` — the training script. It subclasses `Brain`, defines the dataio pipeline, and calls `brain.fit()` / `brain.evaluate()`. Multiple training scripts may be present for different model variants.
+- `prepare_{dataset}.py` — the data preparation script. It read the dataset structure and creates the CSV or JSON manifests with the correct format (e.g. duration, speaker id, etc.).
 - `hparams/*.yaml` — HyperPyYAML files. There may be multiple configs for different model variants.
 - `README.md` — documents results (WER, EER, etc.), how to run, and links to pretrained models on HuggingFace.
-- `extra-requirements.txt` — if the recipe needs packages not in core requirements.
+- `extra_requirements.txt` — if the recipe needs packages not in core requirements.
  
 To run a recipe:
 ```bash
-cd recipes/{dataset}/{task}
+cd recipes/{dataset}/{task}/{model}
 python train.py hparams/train.yaml --data_folder /path/to/data
 ```
  
@@ -208,7 +236,7 @@ Pre-commit hooks are configured in `.pre-commit-config.yaml` and enforce formatt
 - **Formatting and linting**: enforced by `ruff` via pre-commit. Run `pre-commit run -a`.
 - **Docstrings**: NumPy-style. Every public class/function needs a docstring with description, arguments, returns, and a runnable example. Doctests are enforced by CI.
 - **Self-documenting code**: prefer clear naming over comments. Use comments for surprising implementations or algorithm clarifications.
-- **Minimize dependencies**: core library should stay lightweight. Recipe-specific deps go in `extra-requirements.txt`. If adding to core but the dependency is heavy, put it in `speechbrain/integrations/`.
+- **Minimize dependencies**: core library should stay lightweight. Recipe-specific deps go in `extra_requirements.txt`. If adding to core but the dependency is heavy, put it in `speechbrain/integrations/`.
 - **Efficiency**: operate on batches, prefer tensor ops over Python loops, avoid CPU/GPU syncs.
 
 ## Common pitfalls
