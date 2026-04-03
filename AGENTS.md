@@ -25,7 +25,7 @@ recipes/              # Training scripts organized as recipes/{dataset}/{task}/{
       README.md       # Results, how to run, pretrained model links
 templates/            # Minimal working examples to bootstrap new recipes
 tests/
-  unit/               # Unit tests for core library
+  unittests/          # Unit tests for core library
   integration/        # Integration tests (small end-to-end training runs)
 docs/                 # Documentation 
   tutorials/          # Jupyter notebooks integrated into ReadTheDocs
