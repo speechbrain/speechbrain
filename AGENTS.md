@@ -16,12 +16,13 @@ speechbrain/          # Core library (importable as `import speechbrain`)
   inference/          # Pretrained model interfaces (EncoderClassifier, EncoderDecoderASR, etc.)
   integrations/       # Optional heavy-dependency integrations (Transformers, Whisper, etc.)
   lm/                 # Language model utilities
-recipes/              # Training scripts organized as recipes/{dataset}/{task}/
+recipes/              # Training scripts organized as recipes/{dataset}/{task}/{model}/
   {dataset}/{task}/
-    train.py          # Training script (subclasses Brain)
-    hparams/          # HyperPyYAML config files (train.yaml, etc.)
-    extra-requirements.txt  # Recipe-specific pip dependencies (if any)
-    README.md         # Results, how to run, pretrained model links
+    {model}/          # Recipe implementation for a specific model/configuration
+      train.py        # Training script (subclasses Brain)
+      hparams/        # HyperPyYAML config files (train.yaml, etc.)
+      extra-requirements.txt  # Recipe-specific pip dependencies (if any)
+      README.md       # Results, how to run, pretrained model links
 templates/            # Minimal working examples to bootstrap new recipes
 tests/
   unit/               # Unit tests for core library
