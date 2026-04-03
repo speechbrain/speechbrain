@@ -1961,3 +1961,137 @@ class LaplacianVarianceLoss(nn.Module):
         else:
             loss = laplacian.masked_select(mask).var()
         return -loss
+
+
+class JeffreysLoss(nn.Module):
+    """Computes the Jeffreys Loss, a combination of Cross Entropy, Label Smoothing,
+    and Jeffreys divergence regularization.
+
+    Arguments
+    ---------
+    weight : torch.Tensor
+        Manual rescaling weight given to each class.
+    reduction : str
+        Specifies the reduction to apply to the output: 'mean' | 'sum' | 'batchmean'.
+    coeff1 : float
+        Coefficient for the first part of the smoothing (Label Smoothing intensity).
+        Must be between 0 and 1.
+    coeff2 : float
+        Coefficient for the Jeffreys regularization part.
+        Must be between 0 and 1.
+
+    Example
+    -------
+    >>> preds = torch.tensor([[0.1, 0.9], [0.9, 0.1]]).unsqueeze(1)
+    >>> targets = torch.tensor([[1], [0]])
+    >>> criterion = JeffreysLoss(coeff1=0.1, coeff2=0.05)
+    >>> loss = criterion(preds, targets)
+    >>> isinstance(loss, torch.Tensor)
+    True
+    """
+
+    def __init__(self, weight=None, reduction="mean", coeff1=0.0, coeff2=0.0):
+        super().__init__()
+        self.coeff1 = coeff1
+        self.coeff2 = coeff2
+        self.reduction = reduction
+
+        if weight is not None:
+            self.register_buffer("weight", weight)
+        else:
+            self.weight = None
+
+    @staticmethod
+    def _smooth_one_hot(targets, n_classes, coeff1=0.0, coeff2=0.0):
+        assert 0 <= coeff1 < 1
+        assert 0 <= coeff2 < 1
+        with torch.no_grad():
+            targets_smooth = (
+                torch.empty(
+                    size=(targets.size(0), n_classes), device=targets.device
+                )
+                .fill_(coeff1 / (n_classes - 1))
+                .scatter_(1, targets.unsqueeze(1), 1.0 - coeff1 - coeff2)
+            )
+        return targets_smooth
+
+    @staticmethod
+    def _jeffreys_one_cold(targets, n_classes):
+        with torch.no_grad():
+            targets_cold = (
+                torch.empty(
+                    size=(targets.size(0), n_classes), device=targets.device
+                )
+                .fill_(1)
+                .scatter_(1, targets.unsqueeze(1), 0.0)
+            )
+        return targets_cold
+
+    @staticmethod
+    def _jeffreys_one_hot(targets, n_classes):
+        with torch.no_grad():
+            targets_hot = (
+                torch.empty(
+                    size=(targets.size(0), n_classes), device=targets.device
+                )
+                .fill_(0)
+                .scatter_(1, targets.unsqueeze(1), 1.0)
+            )
+        return targets_hot
+
+    def forward(self, predictions, targets, length=None):
+        """
+        Arguments
+        ---------
+        predictions : torch.Tensor
+            Predicted tensor, of shape [batch, time, classes] or [batch, classes].
+        targets : torch.Tensor
+            Target tensor, of shape [batch, time] or [batch].
+        length : torch.Tensor
+            Length of each utterance (ignored for pooled embeddings).
+
+        Returns
+        -------
+        loss: torch.Tensor
+            The computed loss.
+        """
+        if len(predictions.shape) == 3:
+            predictions = predictions.squeeze(1)
+
+        if len(targets.shape) == 2:
+            targets = targets.squeeze(1)
+
+        targets = targets.long()
+
+        targets1 = self._smooth_one_hot(
+            targets, predictions.size(-1), self.coeff1, self.coeff2
+        )
+
+        sm = F.softmax(predictions, -1)
+        lsm = F.log_softmax(predictions, -1)
+
+        if self.weight is not None:
+            lsm = lsm * self.weight.unsqueeze(0)
+
+        loss = -(targets1 * lsm).sum(-1)
+
+        lsmsm = lsm * sm
+        targets21 = self._jeffreys_one_cold(
+            targets,
+            predictions.size(-1),
+        )
+        loss1 = (targets21 * lsmsm).sum(-1)
+
+        targets22 = self._jeffreys_one_hot(
+            targets,
+            predictions.size(-1),
+        )
+        loss2 = (targets22 * sm).sum(-1)
+
+        loss3 = loss1 / (torch.ones_like(loss2) - loss2 + 1e-8)
+        loss3 *= self.coeff2
+
+        total_loss = loss + loss3
+
+        mask = torch.ones_like(total_loss)
+        return reduce_loss(total_loss, mask, self.reduction)

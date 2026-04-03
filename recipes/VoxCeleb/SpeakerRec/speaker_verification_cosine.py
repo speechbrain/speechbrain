@@ -46,7 +46,15 @@ def compute_embedding(wavs, wav_lens):
     embeddings : torch.Tensor
     """
     with torch.no_grad():
-        feats = params["compute_features"](wavs)
+        if (
+            "use_tacotron2_mel_spec" in params
+            and params["use_tacotron2_mel_spec"]
+        ):
+            feats = params["compute_features"](audio=wavs)
+            feats = torch.transpose(feats, 1, 2)
+        else:
+            feats = params["compute_features"](wavs)
+
         feats = params["mean_var_norm"](feats, wav_lens)
         embeddings = params["embedding_model"](feats, wav_lens)
     return embeddings.squeeze(1)
