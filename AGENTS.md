@@ -185,7 +185,7 @@ pre-commit run -a
 pytest --doctest-modules speechbrain/path/to/module.py
 
 # Run unit tests
-pytest tests/unit/
+pytest tests/unittests/
 
 # Run a specific integration test
 pytest tests/integration/ASR_CTC/ -xvs
