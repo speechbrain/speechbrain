@@ -99,7 +99,7 @@ def _recursive_format(data, replacements):
             # If not dict, list or str, do nothing
 
 
-def load_data_csv(csv_path, replacements=None):
+def load_data_csv(csv_path, replacements=None, col_types=None):
     """Loads CSV and formats string values.
 
     Uses the SpeechBrain legacy CSV data format, where the CSV must have an
@@ -107,6 +107,11 @@ def load_data_csv(csv_path, replacements=None):
     If there is a field called duration, it is interpreted as a float.
     The rest of the fields are left as they are (legacy _format and _opts fields
     are not used to load the data in any special way).
+
+    When ``col_types`` is provided, the specified columns are explicitly cast
+    to the given types. This is useful when numeric columns (e.g. duration,
+    speaker id) need to be stored as a specific Python type rather than as
+    strings.
 
     Bash-like string replacements with $to_replace are supported.
 
@@ -117,6 +122,10 @@ def load_data_csv(csv_path, replacements=None):
     replacements : dict
         (Optional dict), e.g., {"data_folder": "/home/speechbrain/data"}
         This is used to recursively format all string values in the data.
+    col_types : dict, optional
+        A mapping from column name to a callable type, e.g.
+        ``{"duration": float, "spk_id": int}``.  Only the listed columns
+        are cast; all others are left as strings.
 
     Returns
     -------
@@ -169,6 +178,11 @@ def load_data_csv(csv_path, replacements=None):
             # Duration:
             if "duration" in row:
                 row["duration"] = float(row["duration"])
+            # Explicit column type casting:
+            if col_types:
+                for col, typ in col_types.items():
+                    if col in row:
+                        row[col] = typ(row[col])
             result[data_id] = row
     return result
 
