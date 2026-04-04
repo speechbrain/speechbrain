@@ -3,6 +3,34 @@ import os
 import torch
 
 
+def test_load_data_csv_col_types(tmpdir):
+    """col_types should cast only the specified columns."""
+    from speechbrain.dataio.dataio import load_data_csv
+
+    csv_content = "ID,duration,spk_id,transcript\nutt1,1.45,007,hello world\nutt2,2.0,42,bye\n"
+    csv_path = os.path.join(tmpdir, "test_col_types.csv")
+    with open(csv_path, "w", encoding="utf-8") as f:
+        f.write(csv_content)
+
+    # without col_types, duration is float (legacy), rest are strings
+    data = load_data_csv(csv_path)
+    assert isinstance(data["utt1"]["duration"], float)
+    assert isinstance(data["utt1"]["spk_id"], str)
+    assert data["utt1"]["spk_id"] == "007"  # leading zero preserved
+
+    # with col_types, specified columns get cast
+    data = load_data_csv(csv_path, col_types={"spk_id": int})
+    assert data["utt1"]["spk_id"] == 7
+    assert isinstance(data["utt1"]["spk_id"], int)
+    assert isinstance(data["utt1"]["duration"], float)  # still float (legacy)
+    assert isinstance(data["utt1"]["transcript"], str)
+
+    # col_types can override duration type too
+    data = load_data_csv(csv_path, col_types={"duration": str})
+    # col_types is applied after the legacy duration cast, so it re-casts
+    assert isinstance(data["utt1"]["duration"], str)
+
+
 def test_read_audio_info(tmpdir, device):
     from speechbrain.dataio.dataio import read_audio_info, write_audio
 

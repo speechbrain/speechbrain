@@ -453,10 +453,31 @@ class DynamicItemDataset(Dataset):
 
     @classmethod
     def from_csv(
-        cls, csv_path, replacements={}, dynamic_items=[], output_keys=[]
+        cls,
+        csv_path,
+        replacements={},
+        dynamic_items=[],
+        output_keys=[],
+        col_types=None,
     ):
-        """Load a data prep CSV file and create a Dataset based on it."""
-        data = load_data_csv(csv_path, replacements)
+        """Load a data prep CSV file and create a Dataset based on it.
+
+        Parameters
+        ----------
+        csv_path : str
+            Path to the CSV file.
+        replacements : dict
+            Substitutions for $-variables in the CSV values.
+        dynamic_items : list
+            Dynamic items to add to the dataset.
+        output_keys : list
+            Keys to include in the output.
+        col_types : dict, optional
+            Mapping from column name to type, e.g.
+            ``{"duration": float, "spk_id": int}``.
+            Passed through to :func:`load_data_csv`.
+        """
+        data = load_data_csv(csv_path, replacements, col_types=col_types)
         return cls(data, dynamic_items, output_keys)
 
     @classmethod
