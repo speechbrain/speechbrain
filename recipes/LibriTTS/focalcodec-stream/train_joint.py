@@ -1,12 +1,12 @@
 #!/usr/bin/env/python
 
-"""Recipe for training a decoder from continuous audio representations to waveform.
+"""Recipe for jointly fine-tuning the encoder, compressor, quantizer, decompressor, and refiner modules.
 
 To run this recipe:
-> python train_decoder.py hparams/<path-to-config>.yaml
+> python train_joint.py hparams/<path-to-config>.yaml
 
 Authors
- * Luca Della Libera 2025
+ * Luca Della Libera 2026
 """
 
 import os
@@ -23,56 +23,9 @@ from speechbrain.dataio.sampler import DynamicBatchSampler
 from speechbrain.utils.distributed import if_main_process, run_on_main
 
 
-class Resynthesis(sb.Brain):
-    def fit_batch(self, batch):
-        """Fit one batch."""
-        amp = sb.core.AMPConfig.from_name(self.precision)
-
-        # Train discriminator
-        with torch.autocast(
-            device_type=torch.device(self.device).type,
-            dtype=amp.dtype,
-            enabled=self.precision != torch.float32,
-        ):
-            self.extract_feats(batch, sb.Stage.TRAIN)
-            self.compute_forward_generator(batch, sb.Stage.TRAIN)
-            outputs = self.compute_forward_discriminator(batch, sb.Stage.TRAIN)
-            loss_discriminator = self.compute_objectives_discriminator(
-                outputs, batch, sb.Stage.TRAIN
-            )
-
-        self.scaler.scale(loss_discriminator).backward()
-        self.scaler.step(self.optimizer_discriminator)
-        self.optimizer_discriminator.zero_grad(set_to_none=True)
-        del loss_discriminator
-
-        # Train generator
-        with torch.autocast(
-            device_type=torch.device(self.device).type,
-            dtype=amp.dtype,
-            enabled=self.precision != torch.float32,
-        ):
-            outputs = self.compute_forward_discriminator(
-                batch, sb.Stage.TRAIN, return_discriminator=False
-            )
-            loss_generator = self.compute_objectives_generator(
-                outputs, batch, sb.Stage.TRAIN
-            )
-
-        self.scaler.scale(loss_generator).backward()
-        self.scaler.step(self.optimizer_generator)
-        self.optimizer_generator.zero_grad(set_to_none=True)
-
-        self.scaler.update()
-        self.optimizer_step += 1
-
-        # Cleanup
-        batch.sig = batch.hyp_sig = None
-
-        return loss_generator.detach().cpu()
-
-    def extract_feats(self, batch, stage):
-        """Extract continuous audio features from waveform."""
+class Refinement(sb.Brain):
+    def compute_forward(self, batch, stage):
+        """Forward pass."""
         batch = batch.to(self.device)
         sig, lens = batch.sig
 
@@ -82,132 +35,42 @@ class Resynthesis(sb.Brain):
 
         # Extract features
         with torch.no_grad():
-            self.hparams.encoder.to(self.device).eval()
-            feats, *encoder_state_ = self.hparams.encoder(sig, length=lens)
-
-        # Extract segments
-        if (
-            stage == sb.Stage.TRAIN
-            and self.hparams.segment_size_feats is not None
-        ):
-            segment_size_feats = self.hparams.segment_size_feats
-            B, T, H = feats.shape
-
-            # Convert relative lengths to absolute feature lengths
-            abs_lens = (T * lens).ceil().clamp(min=1, max=T).long()  # [B]
-
-            # Pad on the right if needed so that we can always extract segment_size_feats
-            if T < segment_size_feats:
-                pad_amount = segment_size_feats - T
-                feats = torch.nn.functional.pad(
-                    feats,
-                    (0, 0, 0, pad_amount),  # pad time dimension on the right
-                    value=0.0,
-                )
-
-            # Random start per sample
-            max_starts = (abs_lens - segment_size_feats).clamp(min=0)  # [B]
-
-            starts = (
-                torch.rand(B, device=feats.device) * (max_starts + 1).float()
-            ).long()  # [B]
-
-            # Build indices
-            offsets = torch.arange(
-                segment_size_feats, device=feats.device
-            )  # [L]
-            idx = starts[:, None] + offsets[None, :]  # [B, L]
-
-            # Gather cropped segments
-            idx_expanded = idx[:, :, None].expand(-1, -1, H)  # [B, L, H]
-            feats = feats.gather(1, idx_expanded)  # [B, L, H]
-
-            segment_size_sig = (
-                segment_size_feats * self.hparams.generator_hop_length
+            self.hparams.teacher_encoder.to(self.device).eval()
+            feats, *teacher_encoder_state_ = self.hparams.teacher_encoder(
+                sig, length=lens
             )
-            starts = starts * self.hparams.generator_hop_length  # [B]
 
-            # Pad signal on the right if needed so that we can always extract segment_size_sig
-            max_sig_len = (starts + segment_size_sig).max().item()
-            if sig.shape[1] < max_sig_len:
-                pad_amount = max_sig_len - sig.shape[1]
-                sig = torch.nn.functional.pad(
-                    sig,
-                    (0, pad_amount),  # pad time dimension on the right
-                    value=0.0,
-                )
+        # Forward model
+        hyp_feats, *encoder_state_ = self.hparams.encoder(sig, length=lens)
+        lats, *compressor_state_ = self.modules.compressor(hyp_feats)
+        codes, toks, aux_loss = self.modules.quantizer(lats)
+        hyp_qfeats, *decompressor_state_ = self.modules.decompressor(codes)
 
-            offsets = torch.arange(
-                segment_size_sig, device=self.device
-            )  # [L_sig]
-            idx = starts[:, None] + offsets[None, :]  # [B, L_sig]
-            sig = sig.gather(1, idx)
+        # Ensure hyp_qfeats matches feats in length
+        feat_len = feats.shape[1]  # Target length
+        hyp_len = hyp_qfeats.shape[1]  # Current length
 
-            lens = torch.ones_like(lens)
+        if hyp_len > feat_len:  # Trim excess
+            hyp_qfeats = hyp_qfeats[:, :feat_len]
+        elif hyp_len < feat_len:  # Pad if too short
+            pad_size = feat_len - hyp_len
+            hyp_qfeats = torch.nn.functional.pad(
+                hyp_qfeats, (0, 0, 0, pad_size)
+            )  # Padding on time dim
 
-        batch.sig = sig, lens
-        batch.feats = feats, lens
+        return hyp_qfeats, feats, aux_loss
 
-    def compute_forward_generator(self, batch, stage):
-        """Generator forward pass."""
-        sig, lens = batch.sig
+    def compute_objectives(self, predictions, batch, stage):
+        """Computes the objectives."""
+        hyp_qfeats, feats, aux_loss = predictions
 
-        # Forward generator
-        feats, _ = batch.feats
-        hyp_sig, *generator_state_ = self.modules.generator(feats)  # [B, T]
-        hyp_sig = hyp_sig[:, None]  # [B, 1, T]
+        _, lens = batch.sig
 
-        # Adjust length if not matching
-        sig = sig[:, None]
-        if sig.shape[-1] > hyp_sig.shape[-1]:
-            pad = [0, sig.shape[-1] - hyp_sig.shape[-1]]
-            hyp_sig = torch.nn.functional.pad(hyp_sig, pad, mode="replicate")
-        elif sig.shape[-1] < hyp_sig.shape[-1]:
-            hyp_sig = hyp_sig.narrow(-1, 0, sig.shape[-1])
+        # Reconstruction loss
+        loss = self.hparams.rec_loss(hyp_qfeats, feats, length=lens)
+        loss += aux_loss
 
-        batch.sig = sig, lens
-        batch.hyp_sig = hyp_sig, lens  # With gradient
-
-    def compute_forward_discriminator(
-        self, batch, stage, return_discriminator=True
-    ):
-        """Discriminator forward pass."""
-        sig, lens = batch.sig
-        hyp_sig, _ = batch.hyp_sig  # With gradient
-
-        if return_discriminator:
-            # Return predictions to compute discriminator loss
-            scores_fake, _ = self.modules.discriminator(hyp_sig.detach())
-            scores_real, _ = self.modules.discriminator(sig)
-            return scores_fake, scores_real
-
-        # Return predictions to compute generator loss
-        self.modules.discriminator.requires_grad_(False)
-        scores_fake, feats_fake = self.modules.discriminator(hyp_sig)
-        scores_real, feats_real = self.modules.discriminator(sig)
-        self.modules.discriminator.requires_grad_()
-
-        return hyp_sig, sig, scores_fake, feats_fake, feats_real
-
-    def compute_objectives_generator(self, predictions, batch, stage):
-        """Compute generator loss."""
-        loss = self.hparams.generator_loss(
-            stage,
-            y_hat=predictions[0],
-            y=predictions[1],
-            scores_fake=predictions[2],
-            feats_fake=predictions[3],
-            feats_real=predictions[4],
-        )
-        return loss["G_loss"]
-
-    def compute_objectives_discriminator(self, predictions, batch, stage):
-        """Compute discriminator loss."""
-        loss = self.hparams.discriminator_loss(
-            scores_fake=predictions[0],
-            scores_real=predictions[1],
-        )
-        return loss["D_loss"]
+        return loss
 
     def _fit_valid(self, valid_set, epoch, enable):
         """Validation stage."""
@@ -218,18 +81,37 @@ class Resynthesis(sb.Brain):
     def evaluate_batch(self, batch, stage):
         """Evaluate one batch."""
         assert stage in (sb.Stage.VALID, sb.Stage.TEST)
-        self.extract_feats(batch, stage)
-        self.compute_forward_generator(batch, stage)
-        outputs = self.compute_forward_discriminator(
-            batch, stage, return_discriminator=False
-        )
-        loss = self.compute_objectives_generator(outputs, batch, stage)
+        outputs = self.compute_forward(batch, stage=stage)
+        loss = self.compute_objectives(outputs, batch, stage=stage)
+        hyp_qfeats, feats, _ = outputs
 
         IDs = batch.id
-        _, lens = batch.sig
-        hyp_sig, sig, *_ = outputs
-        hyp_sig = hyp_sig[:, 0]
-        sig = sig[:, 0]
+        sig, lens = batch.sig
+
+        self.hparams.decoder.to(self.device).eval()
+        hyp_sig, *decoder_state_ = self.hparams.decoder(hyp_qfeats)
+        rec_sig, *decoder_state_ = self.hparams.decoder(feats)
+
+        # Downsample
+        hyp_sig = torchaudio.functional.resample(
+            hyp_sig,
+            24000,
+            self.hparams.sample_rate,
+        )
+        rec_sig = torchaudio.functional.resample(
+            rec_sig,
+            24000,
+            self.hparams.sample_rate,
+        )
+
+        # Adjust length if not matching
+        if sig.shape[-1] > hyp_sig.shape[-1]:
+            pad = [0, sig.shape[-1] - hyp_sig.shape[-1]]
+            hyp_sig = torch.nn.functional.pad(hyp_sig, pad, mode="replicate")
+            rec_sig = torch.nn.functional.pad(rec_sig, pad, mode="replicate")
+        elif sig.shape[-1] < hyp_sig.shape[-1]:
+            hyp_sig = hyp_sig.narrow(-1, 0, sig.shape[-1])
+            rec_sig = rec_sig.narrow(-1, 0, sig.shape[-1])
 
         if (
             self.hparams.save_audios
@@ -249,6 +131,11 @@ class Resynthesis(sb.Brain):
                     self.hparams.sample_rate,
                 )
                 write_audio(
+                    os.path.join(save_folder, f"{IDs[i]}_rec.wav"),
+                    rec_sig[i].cpu(),
+                    self.hparams.sample_rate,
+                )
+                write_audio(
                     os.path.join(save_folder, f"{IDs[i]}_ref.wav"),
                     sig[i].cpu(),
                     self.hparams.sample_rate,
@@ -261,30 +148,7 @@ class Resynthesis(sb.Brain):
             self.dwer_metric.append(IDs, hyp_sig, sig, lens)
             self.wavlm_sim_metric.append(IDs, hyp_sig, sig, lens)
 
-        # Cleanup
-        batch.sig = batch.hyp_sig = None
-
         return loss.detach().cpu()
-
-    def init_optimizers(self):
-        """Called during ``on_fit_start().``"""
-        self.optimizer_generator = self.opt_class(
-            self.modules.generator.parameters()
-        )
-        self.optimizer_discriminator = self.opt_class(
-            self.modules.discriminator.parameters()
-        )
-        self.optimizers_dict = {
-            "optimizer_generator": self.optimizer_generator,
-            "optimizer_discriminator": self.optimizer_discriminator,
-        }
-        if self.checkpointer is not None:
-            self.checkpointer.add_recoverable(
-                "optimizer_generator", self.optimizer_generator
-            )
-            self.checkpointer.add_recoverable(
-                "optimizer_discriminator", self.optimizer_discriminator
-            )
 
     def on_stage_start(self, stage, epoch=None):
         """Gets called at the beginning of each epoch."""
@@ -306,45 +170,34 @@ class Resynthesis(sb.Brain):
 
     def on_stage_end(self, stage, stage_loss, epoch=None):
         """Gets called at the end of each epoch."""
-        # Compute/store important stats
         current_epoch = self.hparams.epoch_counter.current
         stage_stats = {"loss": stage_loss}
 
-        # Save checkpoint and anneal learning rate at the end of each epoch
         if stage == sb.Stage.TRAIN:
-            self.avg_train_loss = 0.0
             self.train_stats = stage_stats
-            _, lr = self.hparams.scheduler(epoch)
-            sb.nnet.schedulers.update_learning_rate(
-                self.optimizer_generator, lr
-            )
-            sb.nnet.schedulers.update_learning_rate(
-                self.optimizer_discriminator, lr
-            )
-            self.stats_meta = {
-                "epoch": epoch,
-                "steps": self.optimizer_step,
-                "lr": lr,
-            }
-            if if_main_process():
-                self.checkpointer.save_and_keep_only(
-                    meta={"loss": stage_stats["loss"], "epoch": epoch},
-                    max_keys=["epoch"],
-                    num_to_keep=self.hparams.keep_checkpoints,
-                )
+            self.stats_meta = {"epoch": epoch, "steps": self.optimizer_step}
             if epoch % self.hparams.valid_freq != 0:
                 self.hparams.train_logger.log_stats(
                     stats_meta=self.stats_meta,
                     train_stats=self.train_stats,
                 )
 
-        # Perform end-of-validation operations
+        # Perform end-of-iteration operations, like annealing, logging, etc.
         elif stage == sb.Stage.VALID:
+            _, lr = self.hparams.scheduler(stage_stats["loss"])
+            sb.nnet.schedulers.update_learning_rate(self.optimizer, lr)
+            self.stats_meta["lr"] = lr
             self.hparams.train_logger.log_stats(
                 stats_meta=self.stats_meta,
                 train_stats=self.train_stats,
                 valid_stats=stage_stats,
             )
+            if if_main_process():
+                self.checkpointer.save_and_keep_only(
+                    meta={"loss": stage_stats["loss"]},
+                    min_keys=["loss"],
+                    num_to_keep=self.hparams.keep_checkpoints,
+                )
 
         elif stage == sb.Stage.TEST:
             if self.hparams.compute_metrics:
@@ -657,8 +510,12 @@ if __name__ == "__main__":
         hparams, run_opts
     )
 
+    # Freezing submodules
+    hparams["encoder"].encoder.positional_embedding.requires_grad_(False)
+    hparams["encoder"].encoder.relative_embedding.requires_grad_(False)
+
     # Trainer initialization
-    brain = Resynthesis(
+    brain = Refinement(
         modules=hparams["modules"],
         opt_class=hparams["opt_class"],
         hparams=hparams,
@@ -679,6 +536,6 @@ if __name__ == "__main__":
     brain.hparams.dwer_file = os.path.join(hparams["output_folder"], "dwer.txt")
     brain.evaluate(
         test_data,
-        max_key="epoch",
+        min_key="loss",
         test_loader_kwargs=hparams["test_dataloader_kwargs"],
     )

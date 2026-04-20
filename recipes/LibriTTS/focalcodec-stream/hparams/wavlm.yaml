@@ -1,9 +1,9 @@
 # ###########################################################################################
-# Model: Vocos
-# Authors: Luca Della Libera 2025
+# Model: WavLM
+# Authors: Luca Della Libera 2026
 # ###########################################################################################
 
-experiment_name: vocos
+experiment_name: wavlm
 
 # Seed needs to be set at top of YAML
 seed: 0
@@ -16,8 +16,8 @@ valid_json: !ref <save_folder>/valid.json
 test_json: !ref <save_folder>/test.json
 train_split:
     - train-clean-100
-    # - train-clean-360
-    # - train-other-500
+    - train-clean-360
+    - train-other-500
 valid_split: [dev-clean]
 test_split: [test-clean]
 skip_prep: False
@@ -27,16 +27,12 @@ output_folder: !ref results/<experiment_name>/<seed>
 save_folder: !ref <output_folder>/save
 cache_folder: !name:huggingface_hub.constants.HUGGINGFACE_HUB_CACHE
 
-# Save options
-compute_metrics: True
-save_audios: True
-
 # Preprocessing parameters
 sample_rate: 16000
 audio_backend: soundfile
-train_remove_if_longer: 60.0  # Seconds
-valid_remove_if_longer: 60.0  # Seconds
-test_remove_if_longer: 60.0  # Seconds
+train_remove_if_longer: 320.0  # Seconds
+valid_remove_if_longer: 320.0  # Seconds
+test_remove_if_longer: 320.0  # Seconds
 sorting: random
 
 # Training parameters
@@ -59,16 +55,20 @@ ckpt_interval_steps: 10000
 keep_checkpoints: 1
 augment: False
 augment_prob: 0.75
-segment_size_feats: !ref 7040 // <generator_hop_length>  # Segment AFTER feature extraction
+# segment_size: 480000
+# segment_pad: True
 segment_size: null
-segment_pad: False
+segment_pad: null
 valid_freq: 1
+distill_weights: [0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
 
 # Optimizer parameters
-lr: 0.0002
-betas: [0.8, 0.99]
+lr: 0.00005
+betas: [0.9, 0.98]
 weight_decay: 0.01
-decay_factor: 0.999
+improvement_threshold: 0.0025
+annealing_factor: 0.9
+patient: 0
 
 # Encoder parameters
 encoder_hidden_dims: [512, 512, 512, 512, 512, 512, 512]
@@ -88,30 +88,33 @@ encoder_causal: False
 encoder_window_size: 512
 encoder_lookahead_size: 3
 encoder_use_flex_attention: False
-encoder_checkpoint: !apply:utils.download_wavlm6 [!ref <cache_folder>]
+encoder_checkpoint: !apply:utils.download_wavlm6
+    cache_dir: !ref <cache_folder>
+    checkpoint_name: wavlm6.pt
 
-# Generator parameters
-generator_input_dim: !ref <encoder_dim>
-generator_num_layers: 8
-generator_dim: 512
-generator_ffn_dim: 1536
-generator_kernel_size: 7
-generator_hop_length: 320
-generator_layerscale_init: null
-generator_n_fft: 1024
-generator_causal: False
-
-# Loss parameters
-win_length: 1024
-n_mel_channels: 80
-mel_fmin: 0
-mel_fmax: 8000
-mel_normalized: False
-power: 1.0
-dynamic_range_compression: True
-hingeg_loss_weight: 1.0
-feat_match_loss_weight: 54.0
-l1_spec_loss_weight: 45.0
+# Student encoder parameters
+student_encoder_hidden_dims: !ref <encoder_hidden_dims>
+student_encoder_kernel_sizes: !ref <encoder_kernel_sizes>
+student_encoder_strides: !ref <encoder_strides>
+student_encoder_num_layers: !ref <encoder_num_layers>
+student_encoder_dim: !ref <encoder_dim>
+student_encoder_ffn_dim: !ref <encoder_ffn_dim>
+student_encoder_num_heads: !ref <encoder_num_heads>
+student_encoder_num_buckets: !ref <encoder_num_buckets>
+student_encoder_max_distance: !ref <encoder_max_distance>
+student_encoder_max_cached_steps: 0
+student_encoder_dropout: !ref <encoder_dropout>
+student_encoder_conv_pos: !ref <encoder_conv_pos>
+student_encoder_conv_pos_groups: !ref <encoder_conv_pos_groups>
+student_encoder_causal: True
+student_encoder_window_size: !ref <encoder_window_size>
+student_encoder_lookahead_size: !ref <encoder_lookahead_size>
+student_encoder_use_flex_attention: !ref <encoder_use_flex_attention>
+student_encoder_posemb_checkpoint: !PLACEHOLDER
+student_encoder_checkpoint: !apply:utils.download_wavlm6
+    cache_dir: !ref <cache_folder>
+    checkpoint_name: wavlm6_posemb.pt
+    positional_embedding_checkpoint: !ref <student_encoder_posemb_checkpoint>
 
 # Augmentation
 drop_freq: !new:speechbrain.augment.time_domain.DropFreq
@@ -157,48 +160,60 @@ encoder: !new:focalcodec.wavlm.WavLM
     lookahead_size: !ref <encoder_lookahead_size>
     use_flex_attention: !ref <encoder_use_flex_attention>
 
-generator: !new:focalcodec.vocos.Vocos
-    input_dim: !ref <generator_input_dim>
-    num_layers: !ref <generator_num_layers>
-    dim: !ref <generator_dim>
-    ffn_dim: !ref <generator_ffn_dim>
-    kernel_size: !ref <generator_kernel_size>
-    hop_length: !ref <generator_hop_length>
-    layerscale_init: !ref <generator_layerscale_init>
-    n_fft: !ref <generator_n_fft>
-    causal: !ref <generator_causal>
-
-discriminator: !new:speechbrain.lobes.models.HifiGAN.HifiganDiscriminator
+student_encoder: !new:focalcodec.wavlm.WavLM
+    hidden_dims: !ref <student_encoder_hidden_dims>
+    kernel_sizes: !ref <student_encoder_kernel_sizes>
+    strides: !ref <student_encoder_strides>
+    num_layers: !ref <student_encoder_num_layers>
+    dim: !ref <student_encoder_dim>
+    ffn_dim: !ref <student_encoder_ffn_dim>
+    num_heads: !ref <student_encoder_num_heads>
+    num_buckets: !ref <student_encoder_num_buckets>
+    max_distance: !ref <student_encoder_max_distance>
+    max_cached_steps: !ref <student_encoder_max_cached_steps>
+    dropout: !ref <student_encoder_dropout>
+    conv_pos: !ref <student_encoder_conv_pos>
+    conv_pos_groups: !ref <student_encoder_conv_pos_groups>
+    causal: !ref <student_encoder_causal>
+    window_size: !ref <student_encoder_window_size>
+    lookahead_size: !ref <student_encoder_lookahead_size>
+    use_flex_attention: !ref <student_encoder_use_flex_attention>
 
 modules:
-    generator: !ref <generator>
-    discriminator: !ref <discriminator>
+    student_encoder: !ref <student_encoder>
+
+# Activation cache
+activation_cache: !new:utils.ActivationCache
+    model: !ref <encoder>
+    module_names:
+        - encoder.layers.0
+        - encoder.layers.1
+        - encoder.layers.2
+        - encoder.layers.3
+        - encoder.layers.4
+        - encoder.layers.5
+    detach: True
+    clone: False
+    cpu: False
+
+# Student activation cache
+student_activation_cache: !new:utils.ActivationCache
+    model: !ref <student_encoder>
+    module_names:
+        - encoder.layers.0
+        - encoder.layers.1
+        - encoder.layers.2
+        - encoder.layers.3
+        - encoder.layers.4
+        - encoder.layers.5
+    detach: False
+    clone: False
+    cpu: False
 
 # Loss functions
-generator_loss: !new:speechbrain.lobes.models.HifiGAN.GeneratorLoss
-    stft_loss: null
-    stft_loss_weight: 0
-    mseg_loss: !new:speechbrain.lobes.models.HifiGAN.HingeGLoss
-    mseg_loss_weight: !ref <hingeg_loss_weight>
-    feat_match_loss: !new:speechbrain.lobes.models.HifiGAN.MelganFeatureLoss
-    feat_match_loss_weight: !ref <feat_match_loss_weight>
-    l1_spec_loss: !new:speechbrain.lobes.models.HifiGAN.L1SpecLoss
-        sample_rate: !ref <sample_rate>
-        hop_length: !ref <generator_hop_length>
-        win_length: !ref <win_length>
-        n_mel_channels: !ref <n_mel_channels>
-        n_fft: !ref <generator_n_fft>
-        n_stft: !ref <generator_n_fft> // 2 + 1
-        mel_fmin: !ref <mel_fmin>
-        mel_fmax: !ref <mel_fmax>
-        mel_normalized: !ref <mel_normalized>
-        power: !ref <power>
-        dynamic_range_compression: !ref <dynamic_range_compression>
-    l1_spec_loss_weight: !ref <l1_spec_loss_weight>
-
-# Discriminator loss
-discriminator_loss: !new:speechbrain.lobes.models.HifiGAN.DiscriminatorLoss
-    msed_loss: !new:speechbrain.lobes.models.HifiGAN.HingeDLoss
+rec_loss: !name:speechbrain.nnet.losses.mse_loss
+    allowed_len_diff: 0
+    reduction: mean
 
 # Optimizers
 opt_class: !name:torch.optim.AdamW
@@ -208,33 +223,24 @@ opt_class: !name:torch.optim.AdamW
     weight_decay: !ref <weight_decay>
 
 # Schedulers
-scheduler: !new:speechbrain.nnet.schedulers.StepScheduler
+scheduler: !new:speechbrain.nnet.schedulers.NewBobScheduler
     initial_value: !ref <lr>
-    decay_factor: !ref <decay_factor>
-
-# Performance metrics
-utmos_computer: !name:metrics.utmos.UTMOS
-    sample_rate: !ref <sample_rate>
-
-dwer_computer: !name:metrics.dwer.DWER
-    model_hub: openai/whisper-small
-    save_path: !ref <cache_folder>
-    sample_rate: !ref <sample_rate>
-
-wavlm_sim_computer: !name:metrics.speaker_similarity.SpkSimWavLM
-    model_hub: microsoft/wavlm-base-sv
-    save_path: !ref <cache_folder>
-    sample_rate: !ref <sample_rate>
+    improvement_threshold: !ref <improvement_threshold>
+    annealing_factor: !ref <annealing_factor>
+    patient: !ref <patient>
 
 # Pretrainer
 pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
     collect_in: !ref <save_folder>
     loadables:
         encoder: !ref <encoder>
+        student_encoder: !ref <student_encoder>
     paths:
         encoder: !ref <encoder_checkpoint>
+        student_encoder: !ref <student_encoder_checkpoint>
     conditions:
         encoder: !ref <encoder_checkpoint>
+        student_encoder: !ref <student_encoder_checkpoint>
 
 # Counters, checkpointers, loggers, etc.
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
@@ -243,8 +249,8 @@ epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     checkpoints_dir: !ref <save_folder>
     recoverables:
-        generator: !ref <generator>
-        discriminator: !ref <discriminator>
+        student_encoder: !ref <student_encoder>
+        scheduler: !ref <scheduler>
         counter: !ref <epoch_counter>
 
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger

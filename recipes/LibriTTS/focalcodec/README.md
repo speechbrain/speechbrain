@@ -3,6 +3,7 @@
 **Project Page**: https://lucadellalib.github.io/focalcodec-web/
 
 This folder contains recipes for training FocalCodec on LibriTTS. You can download LibriTTS from https://www.openslr.org/60/.
+
 FocalCodec is a low-bitrate single-codebook speech codec based on [focal modulation](https://arxiv.org/abs/2203.11926).
 
 For more information, check our papers:
@@ -41,7 +42,7 @@ Training FocalCodec is a two-stage process:
 python train_decoder.py hparams/vocos.yaml --data_folder <path-to-dataset>
 ```
 
-This step trains a decoder to map encoder features back into high-quality audio.
+This stage trains a decoder to map encoder features back into high-quality audio.
 UTMOS, dWER, and speaker similarity are computed on test set to assess the resynthesis performance.
 
 ---------------------------------------------------------------------------------------------------------
@@ -106,11 +107,11 @@ Please, cite FocalCodec if you use it for your research or business.
 ```
 
 ```bibtex
-@article{dellalibera2025focalcodecstream,
-    title   = {{FocalCodec-Stream}: Streaming Low-Bitrate Speech Coding via Causal Distillation},
-    author  = {Luca {Della Libera} and Cem Subakan and Mirco Ravanelli},
-    journal = {arXiv preprint arXiv:2509.16195},
-    year    = {2025},
+@inproceedings{dellalibera2026focalcodecstream,
+    title     = {{FocalCodec-Stream}: Streaming Low-Bitrate Speech Coding via Causal Distillation},
+    author    = {Luca {Della Libera} and Cem Subakan and Mirco Ravanelli},
+    booktitle = {IEEE International Conference on Acoustics, Speech and Signal Processing (ICASSP)},
+    year      = {2026},
 }
 ```
 

@@ -6,7 +6,7 @@ To run this recipe:
 > python train_decoder.py hparams/<path-to-config>.yaml
 
 Authors
- * Luca Della Libera 2025
+ * Luca Della Libera 2026
 """
 
 import os
@@ -83,7 +83,14 @@ class Resynthesis(sb.Brain):
         # Extract features
         with torch.no_grad():
             self.hparams.encoder.to(self.device).eval()
-            feats, *encoder_state_ = self.hparams.encoder(sig, length=lens)
+            feats, *encoder_state_ = self.hparams.encoder(
+                torchaudio.functional.resample(
+                    sig,
+                    self.hparams.sample_rate,
+                    self.hparams.encoder.sample_rate,
+                ),
+                length=lens,
+            )
 
         # Extract segments
         if (
