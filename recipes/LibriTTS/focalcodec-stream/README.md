@@ -15,7 +15,7 @@ For more information, check our papers:
 
 - [FocalCodec-Stream: Streaming Low-Bitrate Speech Coding via Causal Distillation](https://arxiv.org/abs/2509.16195)
 
-<img src="https://cas-bridge.xethub.hf.co/xet-bridge-us/68cec895158e9d135dba9625/0b3a9404850c0081f006cb8568029cd7fbd78e2adad1312ab3902da71e6d294c?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=cas%2F20260420%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20260420T034348Z&X-Amz-Expires=3600&X-Amz-Signature=9d5b5b2683f7ef336b20929f033eec484e199ceaccb86dd42f664446acb4a75f&X-Amz-SignedHeaders=host&X-Xet-Cas-Uid=63195d0582e7eec0eac040e3&response-content-disposition=inline%3B+filename*%3DUTF-8%27%27focalcodec-stream.png%3B+filename%3D%22focalcodec-stream.png%22%3B&response-content-type=image%2Fpng&x-amz-checksum-mode=ENABLED&x-id=GetObject&Expires=1776660228&Policy=eyJTdGF0ZW1lbnQiOlt7IkNvbmRpdGlvbiI6eyJEYXRlTGVzc1RoYW4iOnsiQVdTOkVwb2NoVGltZSI6MTc3NjY2MDIyOH19LCJSZXNvdXJjZSI6Imh0dHBzOi8vY2FzLWJyaWRnZS54ZXRodWIuaGYuY28veGV0LWJyaWRnZS11cy82OGNlYzg5NTE1OGU5ZDEzNWRiYTk2MjUvMGIzYTk0MDQ4NTBjMDA4MWYwMDZjYjg1NjgwMjljZDdmYmQ3OGUyYWRhZDEzMTJhYjM5MDJkYTcxZTZkMjk0YyoifV19&Signature=umOK5Wo0NLTdlBNFfn7TYppcyo7g8d4A91-p1BAaAkY3Qza1BZEZjXbqGWY7xzBEKr-tRtGjxqjnHYx4wYK27yBYSuYLL2Jc2nEm9PSRjb%7EMKvSobFBnb4pqgZJ7sRdg5DeQXSxoxg9dTqQc9LcUwGIo4ywMehaX3yJg3yg5%7E7QVmoVVtqH7NMiiM0tMorOqvcUbn%7E2SuUBf7KZswCk2apXLLhyK3JVHYusLmrNybrt1CP54rcr3t4XTaSJWDBQ6vdQ5IBm9JbFs-988Vzu3Stla14hEP3HUGgzAiKfAhLYE8jkqfd3sPhuXieZo0rMALACUbJFQzn99mHmPF2WxFQ__&Key-Pair-Id=K2L8F4GPSG1IFC" width="700">
+<img src="https://huggingface.co/lucadellalib/focalcodec_50hz_4k_causal/resolve/main/focalcodec-stream.png" width="700">
 
 ---------------------------------------------------------------------------------------------------------
 
@@ -134,7 +134,7 @@ For reference, we include the resynthesis results from the paper, obtained on **
 | [lucadellalib/focalcodec_50hz_4k_causal](https://huggingface.co/lucadellalib/focalcodec_50hz_4k_causal)   | LibriLight  |          24           |        50.0         |        80        |  1x4096   |        0.60        | 3.87  |   4.39   | 96.3 |
 | [lucadellalib/focalcodec_50hz_65k_causal](https://huggingface.co/lucadellalib/focalcodec_50hz_65k_causal) | LibriLight  |          24           |        50.0         |        80        |  1x65536  |        0.80        | 3.85  |   3.68   | 97.0 |
 
-The original training logs can be found at: TODO.
+The original training logs can be found at: [https://www.dropbox.com/scl/fo/3wan5x3xjdo7ls838u1r2/AJsb2-13n1VC_0kHCw0FvvQ?rlkey=8zdq5k6tgmskp2b8nmmu7sew3&e=1&st=93emlwmh&dl=0](https://www.dropbox.com/scl/fo/3wan5x3xjdo7ls838u1r2/AJsb2-13n1VC_0kHCw0FvvQ?rlkey=8zdq5k6tgmskp2b8nmmu7sew3&e=1&st=93emlwmh&dl=0).
 
 The original checkpoints can be found at: [https://huggingface.co/collections/lucadellalib/focalcodec](https://huggingface.co/collections/lucadellalib/focalcodec).
 
@@ -168,6 +168,7 @@ Please, cite FocalCodec-Stream if you use it for your research or business.
     title     = {{FocalCodec-Stream}: Streaming Low-Bitrate Speech Coding via Causal Distillation},
     author    = {Luca {Della Libera} and Cem Subakan and Mirco Ravanelli},
     booktitle = {IEEE International Conference on Acoustics, Speech and Signal Processing (ICASSP)},
+    pages     = {17002--17006},
     year      = {2026},
 }
 ```
