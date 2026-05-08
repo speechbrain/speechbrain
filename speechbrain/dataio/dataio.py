@@ -43,7 +43,7 @@ def load_data_json(json_path, replacements=None):
     Arguments
     ---------
     json_path : str
-        Path to CSV file.
+        Path to the JSON file.
     replacements : dict
         (Optional dict), e.g., {"data_folder": "/home/speechbrain/data"}.
         This is used to recursively format all string values in the data.
