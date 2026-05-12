@@ -291,6 +291,8 @@ class Pretrained(torch.nn.Module):
                     f"Could not parse CUDA device string '{self.device}': {e}. Falling back to device 0."
                 )
                 torch.cuda.set_device(0)
+        else:
+            self.device_type = self.device.split(":")[0]
 
         precision_dtype = AMPConfig.from_name(self.precision).dtype
         self.inference_ctx = TorchAutocast(
