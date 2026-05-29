@@ -24,9 +24,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, List, Optional, Sequence, Tuple
 
-TextNormalizer = Callable[[str], str]
 from tqdm import tqdm
 import re
+
 
 
 from speechbrain.dataio.dataio import (
@@ -41,6 +41,8 @@ from speechbrain.utils.parallel import parallel_map
 
 from speechbrain.utils.metric_stats import ErrorRateStats
 from transformers import AutoModelForSpeechSeq2Seq, AutoProcessor, pipeline
+
+TextNormalizer = Callable[[str], str]
 
 def sb_wer(ref_tokens, hyp_tokens): # Quick WER computation using SpeechBrain's ErrorRateStats
     stats = ErrorRateStats()
