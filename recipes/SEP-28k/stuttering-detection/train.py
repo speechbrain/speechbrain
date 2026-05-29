@@ -113,7 +113,7 @@ def dataio_prep(hparams):
     def audio_pipeline(Show, EpId, ClipId):
         EpId = int(EpId)
         file = f"{hparams['data_folder']}/sep28k_clips/{Show}/{EpId}/{Show}_{EpId}_{ClipId}.wav"
-        waveform, _ = audio_io.load(file, normalize=True)
+        waveform, _ = audio_io.load(file)
         return (EpId, int(ClipId)), waveform.squeeze()
 
     @sb.utils.data_pipeline.takes(

@@ -65,7 +65,6 @@ class Resynthesis(sb.Brain):
 
         self.scaler.update()
         self.optimizer_step += 1
-        self.step = self.optimizer_step
 
         # Cleanup
         batch.sig = batch.hyp_sig = None
@@ -92,34 +91,58 @@ class Resynthesis(sb.Brain):
             and self.hparams.segment_size_feats is not None
         ):
             segment_size_feats = self.hparams.segment_size_feats
-            abs_lens = (
-                (feats.shape[1] * lens)
-                .ceil()
-                .clamp(min=segment_size_feats, max=feats.shape[1])
-                .long()
-            )
-            max_starts = abs_lens - segment_size_feats  # [B]
+            B, T, H = feats.shape
+
+            # Convert relative lengths to absolute feature lengths
+            abs_lens = (T * lens).ceil().clamp(min=1, max=T).long()  # [B]
+
+            # Pad on the right if needed so that we can always extract segment_size_feats
+            if T < segment_size_feats:
+                pad_amount = segment_size_feats - T
+                feats = torch.nn.functional.pad(
+                    feats,
+                    (0, 0, 0, pad_amount),  # pad time dimension on the right
+                    value=0.0,
+                )
+
+            # Random start per sample
+            max_starts = (abs_lens - segment_size_feats).clamp(min=0)  # [B]
+
             starts = (
-                torch.rand(feats.shape[0], device=self.device)
-                * (max_starts + 1).float()
-            ).to(torch.long)
+                torch.rand(B, device=feats.device) * (max_starts + 1).float()
+            ).long()  # [B]
+
+            # Build indices
             offsets = torch.arange(
-                segment_size_feats, device=self.device
+                segment_size_feats, device=feats.device
             )  # [L]
             idx = starts[:, None] + offsets[None, :]  # [B, L]
-            idx_expanded = idx[:, :, None].expand(-1, -1, feats.shape[-1])
+
+            # Gather cropped segments
+            idx_expanded = idx[:, :, None].expand(-1, -1, H)  # [B, L, H]
             feats = feats.gather(1, idx_expanded)  # [B, L, H]
 
             segment_size_sig = (
                 segment_size_feats * self.hparams.generator_hop_length
             )
             starts = starts * self.hparams.generator_hop_length  # [B]
+
+            # Pad signal on the right if needed so that we can always extract segment_size_sig
+            max_sig_len = (starts + segment_size_sig).max().item()
+            if sig.shape[1] < max_sig_len:
+                pad_amount = max_sig_len - sig.shape[1]
+                sig = torch.nn.functional.pad(
+                    sig,
+                    (0, pad_amount),  # pad time dimension on the right
+                    value=0.0,
+                )
+
             offsets = torch.arange(
                 segment_size_sig, device=self.device
             )  # [L_sig]
             idx = starts[:, None] + offsets[None, :]  # [B, L_sig]
-            idx = idx.clamp(max=sig.shape[1] - 1).long()
             sig = sig.gather(1, idx)
+
             lens = torch.ones_like(lens)
 
         batch.sig = sig, lens

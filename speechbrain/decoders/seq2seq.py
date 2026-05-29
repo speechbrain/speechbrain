@@ -477,7 +477,10 @@ class S2SWhisperGreedySearcher(S2SGreedySearcher):
         self.prefix = prefix
         self.prompt = prompt
 
-        self.max_attn_tokens = self.model.model.decoder.config.max_length
+        config = self.model.model.decoder.config
+        self.max_attn_tokens = getattr(
+            config, "max_length", getattr(config, "max_target_positions", 448)
+        )
         self.sample_len = sample_len or self.max_attn_tokens // 2
 
         self.initial_tokens = self._get_initial_tokens()
@@ -622,10 +625,7 @@ class S2SWhisperGreedySearcher(S2SGreedySearcher):
                 ] = -torch.inf
 
         if self.suppress_tokens:
-            if self.model.config.suppress_tokens is None:
-                tokens_to_suppress = self.get_tokens_to_suppress
-            else:
-                tokens_to_suppress = self.model.get_suppress_tokens
+            tokens_to_suppress = self.get_tokens_to_suppress
             logits[:, list(tokens_to_suppress)] = -torch.inf
 
         return logits, tokens, attn
@@ -1998,7 +1998,10 @@ class S2SWhisperBeamSearcher(S2SBeamSearcher):
         self.prefix = prefix
         self.prompt = prompt
 
-        self.max_attn_tokens = self.model.model.decoder.config.max_length
+        config = self.model.model.decoder.config
+        self.max_attn_tokens = getattr(
+            config, "max_length", getattr(config, "max_target_positions", 448)
+        )
         self.sample_len = sample_len or self.max_attn_tokens // 2
 
         self.initial_tokens = self._get_initial_tokens()
@@ -2124,7 +2127,7 @@ class S2SWhisperBeamSearcher(S2SBeamSearcher):
         Arguments
         ---------
         past_key_values : tuple
-            The key-value cache.
+            The key-value cache (tuple or DynamicCache object from transformers).
         beam_idx : torch.Tensor
             The index of the previous path.
 
@@ -2132,11 +2135,18 @@ class S2SWhisperBeamSearcher(S2SBeamSearcher):
         -------
         The reordered key-value cache.
         """
+        # Newer transformers return a DynamicCache object with its own reorder method
+        if hasattr(past_key_values, "reorder_cache"):
+            past_key_values.reorder_cache(beam_idx)
+            return past_key_values
+
         reordered_past = ()
         for layer_past in past_key_values:
             reordered_past += (
                 tuple(
                     past_state.index_select(0, beam_idx)
+                    if past_state is not None
+                    else None
                     for past_state in layer_past
                 ),
             )
@@ -2178,10 +2188,7 @@ class S2SWhisperBeamSearcher(S2SBeamSearcher):
                 ] = -torch.inf
 
         if self.suppress_tokens:
-            if self.model.config.suppress_tokens is None:
-                tokens_to_suppress = self.get_tokens_to_suppress
-            else:
-                tokens_to_suppress = self.model.get_suppress_tokens
+            tokens_to_suppress = self.get_tokens_to_suppress
             logits[:, list(tokens_to_suppress)] = -torch.inf
 
         log_probs = (
