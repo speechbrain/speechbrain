@@ -15,6 +15,10 @@ python train{}.py hparams/{hparam_file}.py # Replace all the !PLACEHOLDER from t
 # Data preparation
 It is important to note that CommonVoice initially offers mp3 audio files. It is feasible to convert these files to .wav during data preparation, this will speed up training but also make the first data preparation to be pretty slow. Audio files are downsampled on the fly within the dataio function of the training script.
 
+# SSL pre-training for BESTOW
+
+The BESTOW recipe uses a streaming BESTRQ as its speech encoder. Fortunately, SpeechBrain provides a recipe to [train such an encoder](https://github.com/speechbrain/speechbrain/tree/develop/recipes/Libri-Light/self-supervised-learning/BEST-RQ). SpeechBrain also provides a pretrained encoder as a [downloadable checkpoint]().
+
 # Languages
 While CoVoST offers multiple languages, this recipe only was tested on English to German translation. However, there is nothing special to do to select another language pair aside from adding a proper text normalisation on the covost_prepary.py file.
 
