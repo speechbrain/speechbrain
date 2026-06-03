@@ -18,6 +18,9 @@ from speechbrain.decoders.utils import (
     inflate_tensor,
     mask_by_condition,
 )
+from speechbrain.lobes.models.transformer.TransformerASR import (
+    make_transformer_src_tgt_masks,
+)
 from speechbrain.utils.data_utils import undo_padding
 
 
@@ -325,6 +328,102 @@ class S2SGreedySearcher(S2SBaseSearcher):
             scores.unsqueeze(1),
             top_log_probs.unsqueeze(1),
         )
+
+
+class S2SBESTOWGreedySearcher(S2SGreedySearcher):
+    """This class implements greedy decoding for the BESTOW model.
+    It is equivalent to a transformer greedy decoding but with an extra prompt
+    and a few extra module (emb_proj + mixing_decoder + llm_emb_proj + LLM).
+
+    Arguments
+    ---------
+    modules : list with the following ones:
+        emb_proj : torch.nn.Module
+            The projection layer to downscale the embedding dim to the mixing_encoder input dim.
+        mixing_decoder : torch.nn.Module
+            A TransformerDecoder instance.
+        llm_emb_proj : torch.nn.Module
+            The projection layer to upscale the mixing_encoder output dim to the LLM embedding proj.
+        llm : torch.nn.Module
+            The LLM instance.
+
+    temperature : float
+        Temperature to use during decoding.
+    pad_token : int
+        Index of the pad token. This is because the LLM may expect a custom index.
+    **kwargs
+        Arguments to pass to S2SGreedySearcher
+    """
+
+    def __init__(self, modules, temperature=0.0, pad_token=0, **kwargs):
+        super().__init__(**kwargs)
+        self.emb_proj = modules[0]
+        self.mixing_decoder = modules[1]
+        self.llm_emb_proj = modules[2]
+        self.llm = modules[3]
+        self.softmax = torch.nn.LogSoftmax(dim=-1)
+        self.temperature = temperature
+        self.pad_token = pad_token
+
+    def reset_mem(self, batch_size, device):
+        """Needed to reset the memory during greedy search. In practice this function shouldn't be called as BESTOW gives an initial prompt."""
+        return None
+
+    def forward_step(
+        self, inp_tokens, memory, enc_states, enc_lens, dynchunk_config=None
+    ):
+        """Performs a step in the implemented greedy searcher based on BESTOW architecture."""
+        memory = _update_mem(inp_tokens, memory)
+
+        delay_steps = 0
+        if hasattr(dynchunk_config, "delay_steps"):
+            delay_steps = dynchunk_config.delay_steps
+        (
+            enc_key_padding_mask,
+            dec_key_padding_mask,
+            enc_mask,
+            dec_mask,
+        ) = make_transformer_src_tgt_masks(
+            enc_states,
+            memory,
+            enc_lens,
+            causal=True,
+            pad_idx=self.pad_token,
+            dynchunktrain_config=dynchunk_config,
+            delay_steps=delay_steps,
+        )
+
+        if hasattr(self.llm, "module"):
+            embedded_tokens = self.llm.module.embed_tokens(memory)
+        else:
+            embedded_tokens = self.llm.embed_tokens(memory)
+
+        text_embeds_proj = self.emb_proj(embedded_tokens)
+
+        if isinstance(dec_mask, tuple):
+            tgt_mask, memory_mask = dec_mask
+        else:
+            tgt_mask = dec_mask
+            memory_mask = None
+
+        mixed_output = self.mixing_decoder(
+            text_embeds_proj,
+            enc_states,
+            tgt_key_padding_mask=dec_key_padding_mask,  # Masked frames should be 1
+            memory_key_padding_mask=enc_key_padding_mask,  # Masked frames should be 1
+            tgt_mask=tgt_mask,
+            memory_mask=memory_mask,
+        )
+
+        # Proj and residual connection
+        mixed_embs = self.llm_emb_proj(mixed_output[0]) + embedded_tokens
+
+        # LLM forward
+        llm_logits = self.llm(
+            inputs_embeds=mixed_embs, attention_mask=~dec_key_padding_mask
+        ).logits  # Masked frames should be 0
+
+        return llm_logits[:, -1, :], memory, None
 
 
 class S2STransformerGreedySearcher(S2SGreedySearcher):
@@ -1747,6 +1846,121 @@ class S2SBeamSearcher(S2SBaseSearcher):
         """
         raise NotImplementedError
         return
+
+
+class S2SBESTOWBeamSearcher(S2SBeamSearcher):
+    """This class implements bream search decoding for the BESTOW model. It is equivalent to a transformer beam search decoding but with an extra prompt and a few extra module (emb_proj + decoder + llm_emb_proj + LLM).
+
+    Arguments
+    ---------
+    modules : list with the following ones:
+        emb_proj : torch.nn.Module
+            The projection layer to downscale the embedding dim to the mixing_encoder input dim.
+        mixing_decoder : torch.nn.Module
+            A TransformerDecoder instance.
+        llm_emb_proj : torch.nn.Module
+            The projection layer to upscale the mixing_encoder output dim to the LLM embedding proj.
+        llm : torch.nn.Module
+            The LLM instance.
+    vocab_size : int
+        Size of the output vocabulary
+    temperature : float
+        Temperature to use during decoding.
+    pad_token : int
+        Index of the pad token. This is because the LLM may expect a custom index.
+    **kwargs
+        Arguments to pass to S2SGreedySearcher
+    """
+
+    def __init__(
+        self, modules, vocab_size, temperature=1.0, pad_token=0, **kwargs
+    ):
+        super().__init__(**kwargs)
+        self.emb_proj = modules[0]
+        self.mixing_decoder = modules[1]
+        self.llm_emb_proj = modules[2]
+        self.llm = modules[3]
+        self.softmax = torch.nn.LogSoftmax(dim=-1)
+        self.temperature = temperature
+        self.pad_token = pad_token
+        self.vocab_size = vocab_size
+
+    def permute_mem(self, memory, index):
+        """Memory permutation during beamsearch. TODO: not confident about this?"""
+        memory = torch.index_select(memory, dim=0, index=index)
+        return memory
+
+    def reset_mem(self, batch_size, device):
+        """Needed to reset the memory during greedy search. In practice this function shouldn't be called as BESTOW gives an initial prompt."""
+        return None
+
+    def forward_step(
+        self,
+        inp_tokens,
+        memory,
+        enc_states,
+        enc_lens,
+        wav_lens,
+        dynchunk_config=None,
+    ):
+        """Performs a step in the implemented greedy searcher based on BESTOW architecture."""
+
+        memory = _update_mem(inp_tokens, memory)
+
+        wav_lens = inflate_tensor(wav_lens, times=self.beam_size, dim=0)
+
+        delay_steps = 0
+        if hasattr(dynchunk_config, "delay_steps"):
+            delay_steps = dynchunk_config.delay_steps
+
+        (
+            enc_key_padding_mask,
+            dec_key_padding_mask,
+            enc_mask,
+            dec_mask,
+        ) = make_transformer_src_tgt_masks(
+            enc_states,
+            memory,
+            wav_lens,
+            causal=True,
+            pad_idx=self.pad_token,
+            dynchunktrain_config=dynchunk_config,
+            delay_steps=delay_steps,
+        )
+
+        embedded_tokens = self.llm.embed_tokens(memory)
+        text_embeds_proj = self.emb_proj(embedded_tokens)
+
+        if isinstance(dec_mask, tuple):
+            tgt_mask, memory_mask = dec_mask
+        else:
+            tgt_mask = dec_mask
+            memory_mask = None
+
+        mixed_output = self.mixing_decoder(
+            text_embeds_proj,
+            enc_states,
+            tgt_key_padding_mask=dec_key_padding_mask,  # Masked frames should be 1
+            memory_key_padding_mask=enc_key_padding_mask,  # Masked frames should be 1
+            tgt_mask=tgt_mask,
+            memory_mask=memory_mask,
+        )
+
+        # Proj and residual connection
+        mixed_embs = self.llm_emb_proj(mixed_output[0]) + embedded_tokens
+
+        # LLM forward
+        llm_logits = self.llm(
+            inputs_embeds=mixed_embs, attention_mask=~dec_key_padding_mask
+        ).logits  # Masked frames should be 0
+
+        prob_dist = self.softmax(llm_logits / self.temperature)
+
+        return prob_dist[:, -1, :], memory, None
+
+    def set_n_out(self):
+        """set the number of output tokens."""
+        return self.vocab_size
 
 
 class S2SRNNBeamSearcher(S2SBeamSearcher):

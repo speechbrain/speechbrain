@@ -1,0 +1,387 @@
+# ############################################################################
+# Model: E2E AST with best-rq and Llama3 following BestOW
+# Encoder: best-rq (streaming)
+# Decoder: LLama3
+# losses: nll
+# Authors:  Titouan Parcollet
+# ############################################################################
+# Seed needs to be set at top of yaml, before objects with parameters are made
+seed: 3407
+__set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
+output_folder: !ref results/bestow_bestrq_llama3/<seed>
+output_bleu_folder: !ref <output_folder>/
+save_folder: !ref <output_folder>/save
+train_log: !ref <output_folder>/train_log.txt
+
+# Data files
+data_folder: !PLACEHOLDER  # e.g, /localscratch/cv-corpus-5.1-2020-06-22/fr
+train_tsv_file: !PLACEHOLDER  # Standard CommonVoice .tsv files
+dev_tsv_file: !PLACEHOLDER  # Standard CommonVoice .tsv files
+test_tsv_file: !PLACEHOLDER  # Standard CommonVoice .tsv files
+accented_letters: False
+src_language: en
+tgt_language: de
+train_csv: !ref <output_folder>/train.csv
+valid_csv: !ref <output_folder>/dev.csv
+test_csv: !ref <output_folder>/test.csv
+skip_prep: False # Skip data preparation
+convert_to_wav: True # Switch this to True to convert all mp3 files to wav.
+
+# Path to the model.ckpt of BestRQ. This must be pretrained otherwise it will
+# never converge. See the BESTRQ SSL recipes in SpeechBrain.
+bestrq_model_path: !PLACEHOLDER
+
+# LLM options
+llm_path: !PLACEHOLDER # /scratch-01/llama-2/llama-2-7b-hf, or /scratch-01/llama-2/llama-2-7b-chat-hf
+llm_prompt: "Translate into German "
+llm_emb_size: 4096
+
+# We remove utterance slonger than 10s in the train/dev/test sets as
+# longer sentences certainly correspond to "open microphones".
+avoid_if_longer_than: 10.0
+avoid_if_shorter_than: 1.0
+
+# THIS IS TERRIBLE BUT WE HAVE NO CHOICE.
+# Some version of the CV dataset may contain one or two files of more than
+# 2 min in the validation and or test. This is an error by design of the dataset
+# as these files contain 90% of silence. We exclude them.
+avoid_if_longer_than_val_test: 40.0
+
+ckpt_interval_minutes: 5 # save checkpoint every N min
+
+####################### Training Parameters ####################################
+number_of_epochs: 100 # will not be reached due to steps
+optimizer_step_limit: 30000
+batch_size: 32 # Not used because dynamic batching is activated
+grad_accumulation_factor: 2
+loss_reduction: 'batchmean'
+sorting: random
+num_workers: 4
+precision: fp16 # bf16, fp16 or fp32
+eval_precision: fp16
+
+# stages related parameters
+lr_adam: 0.0008
+lr_adam_ft: 0.00005
+max_grad_norm: 1.0
+warmup_steps: 10000
+augment_warmup: 10000
+
+# This setup works well for RTX 6000 with 98GB GPU, adapts it to your needs.
+# Or turn it off (but training speed will decrease)
+dynamic_batching: True
+max_batch_length_train: 250
+max_batch_length_val: 200 # we reduce it as the beam is much wider (VRAM)
+num_bucket: 100
+shuffle: True # if true re-creates batches at each epoch shuffling examples.
+batch_ordering: random
+max_batch_ex: 256
+
+dynamic_batch_sampler_train:
+    max_batch_length: !ref <max_batch_length_train>
+    num_buckets: !ref <num_bucket>
+    shuffle: !ref <shuffle>
+    batch_ordering: !ref <batch_ordering>
+    max_batch_ex: !ref <max_batch_ex>
+
+dynamic_batch_sampler_valid:
+    max_batch_length: !ref <max_batch_length_val>
+    num_buckets: !ref <num_bucket>
+    shuffle: !ref <shuffle>
+    batch_ordering: !ref <batch_ordering>
+    max_batch_ex: !ref <max_batch_ex>
+
+# Dataloader options
+train_dataloader_opts:
+    batch_size: !ref <batch_size>
+    shuffle: True
+    num_workers: !ref <num_workers>
+    collate_fn: !name:speechbrain.dataio.batch.PaddedBatch
+        padding_kwargs:
+            value: !ref <pad_token>
+
+valid_dataloader_opts:
+    batch_size: 8
+    collate_fn: !name:speechbrain.dataio.batch.PaddedBatch
+        padding_kwargs:
+            value: !ref <pad_token>
+
+test_dataloader_opts:
+    batch_size: 8
+    collate_fn: !name:speechbrain.dataio.batch.PaddedBatch
+        padding_kwargs:
+            value: !ref <pad_token>
+
+# Feature parameters
+sample_rate: 16000
+n_fft: 400
+n_mels: 80
+hop_length: 10
+
+# Streaming & dynamic chunk training options
+# At least for the current architecture on LibriSpeech, we found out that
+# non-streaming accuracy is very similar between `streaming: True` and
+# `streaming: False`.
+streaming: True  # controls all Dynamic Chunk Training & chunk size & left context mechanisms
+
+# Configuration for Dynamic Chunk Training.
+# In this model, a chunk is roughly equivalent to 40ms of audio.
+min_chunk_size: 16
+max_chunk_size: 16
+decode_chunk_size: 16
+llm_chunk_size: 8
+warmup_chunks: 2
+dynchunktrain_config_sampler: !new:speechbrain.utils.dynamic_chunk_training.DynChunkTrainConfigRandomSampler # yamllint disable-line rule:line-length
+    chunkwise_prob: 1.0 # Probability during a batch to limit attention and sample a random chunk size in the following range
+    warmup_chunks_min: !ref <warmup_chunks>
+    warmup_chunks_max: !ref <warmup_chunks>
+    chunk_size_min: !ref <min_chunk_size>  # Minimum chunk size (if in a DynChunkTrain batch)
+    chunk_size_max: !ref <min_chunk_size> # Maximum chunk size (if in a DynChunkTrain batch)
+    limited_left_context_prob: 1.0 # If in a DynChunkTrain batch, the probability during a batch to restrict left context to a random number of chunks
+    left_context_chunks_min: 100 # Minimum left context size (in # of chunks)
+    left_context_chunks_max: 100 # Maximum left context size (in # of chunks)
+    valid_config: !new:speechbrain.utils.dynamic_chunk_training.DynChunkTrainConfig
+        warmup_chunks: !ref <warmup_chunks>
+        chunk_size: !ref <decode_chunk_size>
+        left_context_size: 100
+    test_config: !new:speechbrain.utils.dynamic_chunk_training.DynChunkTrainConfig
+        warmup_chunks: !ref <warmup_chunks>
+        chunk_size: !ref <decode_chunk_size>
+        left_context_size: 100
+
+####################### Model Parameters ###########################
+
+# Frames - LLM projector params
+downsampling_factor: 2
+downsampling_output_dim: 1760
+
+# Mixing encoder
+mixing_causal: True
+mixing_d_model: !ref <downsampling_output_dim>
+mixing_layers: 2
+mixing_nhead: 8
+mixing_d_ffn: 2048
+
+# BEST RQ
+d_model: 880
+nhead: 8
+num_encoder_layers: 24
+num_decoder_layers: 0
+d_ffn: 2048
+transformer_dropout: 0.1
+encoder_layerdrop: 0.0
+
+activation: !name:torch.nn.GELU
+lora_rank: 8
+
+# Outputs
+pad_token: 128256 #Llama 3 pad index after adding
+bos_index: 128000
+eos_index: 128001
+eos_word: "<|end_of_text|>"
+
+# Decoding parameters
+min_decode_ratio: 0.0
+max_decode_ratio: 1.0
+valid_beam_size: 1 # We do greedy here so it's faster to decode ...
+test_beam_size: 5
+
+############################## models ################################
+
+# Features
+normalize: !new:speechbrain.processing.features.InputNormalization
+    norm_type: global # sentence doesn't do well with streaming!
+
+compute_features: !new:speechbrain.lobes.features.Fbank
+    sample_rate: !ref <sample_rate>
+    n_fft: !ref <n_fft>
+    n_mels: !ref <n_mels>
+
+# BEST RQ
+CNN: !new:speechbrain.lobes.models.convolution.ConvolutionFrontEnd
+    input_shape: (8, 10, 80)
+    num_blocks: 2
+    num_layers_per_block: 1
+    out_channels: (128, 32)
+    kernel_sizes: (3, 3)
+    strides: (2, 2)
+    residuals: (False, False)
+
+Transformer: !new:speechbrain.lobes.models.transformer.TransformerASR.TransformerASR # yamllint disable-line rule:line-length
+    input_size: 640
+    tgt_vocab: 10 # unused
+    d_model: !ref <d_model>
+    nhead: !ref <nhead>
+    num_encoder_layers: !ref <num_encoder_layers>
+    num_decoder_layers: !ref <num_decoder_layers>
+    d_ffn: !ref <d_ffn>
+    dropout: !ref <transformer_dropout>
+    activation: !ref <activation>
+    conformer_activation: !ref <activation>
+    encoder_module: conformer
+    attention_type: RoPEMHA
+    normalize_before: True
+    causal: False
+    layerdrop_prob: !ref <encoder_layerdrop>
+
+# A wrapper is needed because we only do the forward pass in the encoder
+# This part of SB needs a refacrtoring...
+enc: !new:speechbrain.lobes.models.transformer.TransformerASR.EncoderWrapper
+    transformer: !ref <Transformer>
+
+text_embeds_proj: !new:speechbrain.nnet.linear.Linear
+    input_size: !ref <llm_emb_size>
+    n_neurons: !ref <mixing_d_model>
+    bias: True
+
+llm_proj: !new:speechbrain.nnet.linear.Linear
+    input_size: !ref <mixing_d_model>
+    n_neurons: !ref <llm_emb_size>
+    bias: True
+
+mixing_decoder: !new:speechbrain.lobes.models.transformer.Transformer.TransformerDecoder
+    d_model: !ref <mixing_d_model>
+    num_layers: !ref <mixing_layers>
+    nhead: !ref <mixing_nhead>
+    d_ffn: !ref <mixing_d_ffn>
+    dropout: !ref <transformer_dropout>
+    activation: !ref <activation>
+    normalize_before: True
+    attention_type: RoPEMHA
+
+# Just used to load the pretrained checkpoint that packs CNN and enc weights.
+bestrq: !new:torch.nn.ModuleList
+    - [!ref <CNN>, !ref <enc>]
+
+bestrq_lora: !new:torch.nn.ModuleList
+    - [!ref <bestrq>, !ref <llm>]
+
+llm_base: !new:speechbrain.integrations.huggingface.llama.LLaMA
+    source: !ref <llm_path>
+    save_path: !ref <save_folder>
+    freeze: True
+    trust_remote_code: True
+    set_model_to_train: True # For LoRA adaptation
+
+llm: !new:speechbrain.nnet.adapters.AdaptedModel
+    model_to_adapt: !ref <llm_base>
+    adapter_class: !name:speechbrain.nnet.adapters.LoRA
+    all_linear: True
+    adapter_kwargs:
+        rank: !ref <lora_rank>
+
+greedy_searcher: !new:speechbrain.decoders.S2SBESTOWGreedySearcher
+    modules: [!ref <text_embeds_proj>, !ref <mixing_decoder>, !ref <llm_proj>, !ref <llm>]
+    bos_index: !ref <bos_index>
+    eos_index: !ref <eos_index>
+    pad_token: !ref <pad_token>
+    min_decode_ratio: !ref <min_decode_ratio>
+    max_decode_ratio: !ref <max_decode_ratio>
+
+beam_searcher: !new:speechbrain.decoders.S2SBESTOWBeamSearcher
+    modules: [!ref <text_embeds_proj>, !ref <mixing_decoder>, !ref <llm_proj>, !ref <llm>]
+    bos_index: !ref <bos_index>
+    eos_index: !ref <eos_index>
+    pad_token: !ref <pad_token>
+    min_decode_ratio: !ref <min_decode_ratio>
+    max_decode_ratio: !ref <max_decode_ratio>
+    beam_size: !ref <test_beam_size>
+    using_eos_threshold: False
+    length_normalization: True
+    vocab_size: 128264
+
+feat_downsampler: !new:speechbrain.lobes.downsampling.ConcatDownsampler
+    downsampling_factor: !ref <downsampling_factor>
+
+modules:
+    CNN: !ref <CNN>
+    enc: !ref <enc>
+    bestrq: !ref <bestrq>
+    feat_downsampler: !ref <feat_downsampler>
+    mixing_decoder: !ref <mixing_decoder>
+    llm: !ref <llm>
+    normalize: !ref <normalize>
+    text_embeds_proj: !ref <text_embeds_proj>
+    llm_proj: !ref <llm_proj>
+
+model: !new:torch.nn.ModuleList
+    - [!ref <text_embeds_proj>, !ref <mixing_decoder>, !ref <llm_proj>]
+
+# We define two optimizers as we have two stages (training + finetuning)
+Adam: !name:torch.optim.AdamW
+    lr: !ref <lr_adam>
+    weight_decay: 0.001
+
+Adam_ft: !name:torch.optim.AdamW
+    lr: !ref <lr_adam_ft>
+    weight_decay: 0
+
+log_softmax: !new:torch.nn.LogSoftmax
+    dim: -1
+
+nll_loss: !name:speechbrain.nnet.losses.nll_loss
+    reduction: !ref <loss_reduction>
+
+cosine_annealing: !new:speechbrain.nnet.schedulers.CyclicCosineScheduler
+    lr_initial: !ref <lr_adam>
+    n_warmup_steps: !ref <warmup_steps>
+    total_steps: !ref <optimizer_step_limit>
+
+cosine_ft_annealing: !new:speechbrain.nnet.schedulers.CyclicCosineScheduler
+    lr_initial: !ref <lr_adam_ft>
+    n_warmup_steps: !ref <warmup_steps>
+    total_steps: !ref <optimizer_step_limit>
+
+############################## Augmentations ###################################
+
+# Time Drop
+time_drop: !new:speechbrain.augment.freq_domain.SpectrogramDrop
+    drop_length_low: 15
+    drop_length_high: 25
+    drop_count_low: 1
+    drop_count_high: 3
+    replace: "mean"
+
+# Freq Drop
+freq_drop: !new:speechbrain.augment.freq_domain.SpectrogramDrop
+    drop_length_low: 10
+    drop_length_high: 25
+    drop_count_low: 1
+    drop_count_high: 3
+    replace: "mean"
+    dim: 2
+
+fea_augment: !new:speechbrain.augment.augmenter.Augmenter
+    min_augmentations: 2
+    max_augmentations: 3
+    augment_prob: 0.8
+    augmentations: [
+        !ref <time_drop>,
+        !ref <freq_drop>]
+
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+    checkpoints_dir: !ref <save_folder>
+    recoverables:
+        normalize: !ref <normalize>
+        bestrq: !ref <bestrq>
+        model: !ref <model>
+        cosine_annealing: !ref <cosine_annealing>
+        cosine_ft_annealing: !ref <cosine_ft_annealing>
+        counter: !ref <epoch_counter>
+        llm: !ref <llm>
+
+pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
+    collect_in: !ref <save_folder>
+    loadables:
+        bestrq: !ref <bestrq>
+    paths:
+        bestrq: !ref <bestrq_model_path>
+
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+    limit: !ref <number_of_epochs>
+
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+    save_file: !ref <train_log>
+
+acc_computer: !name:speechbrain.utils.Accuracy.AccuracyStats
+bleu_computer: !name:speechbrain.utils.bleu.BLEUStats
