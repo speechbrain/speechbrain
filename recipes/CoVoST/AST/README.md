@@ -26,7 +26,7 @@ While CoVoST offers multiple languages, this recipe only was tested on English t
 | Language | hyperparams file | Streaming? | Encoder | LLM | Test BLEU | Hugging Face link | Model link | GPUs |
 | ------------- |:-------------:|:-------------:|:---------------------------:| -----:| -----:| -----:| -----:| -----:|
 | English - German | conformer.yaml | No | conformer | None | 13.9 | None | None | 2x A40 |
-| English - German | bestow_llama3.yaml| Yes (640ms chunks + 1280ms warmup) | BESTRQ | LLaMA 3.1 8B | 27.2 | None | None | 2x A100 |
+| English - German | bestow_llama3.yaml| Yes (640ms chunks + 1280ms warmup) | BESTRQ | LLaMA 3.1 8B | 21.2 | None | None | 2x A100 |
 | English - German | w2v2_llama3.yaml| No | wavlm-large | LLaMA 3.1 8B | 27.2 | None | None | 2x A100 |
 
 # **About SpeechBrain**
