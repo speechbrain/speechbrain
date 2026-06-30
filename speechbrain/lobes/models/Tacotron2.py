@@ -1811,7 +1811,7 @@ def dynamic_range_compression(x, C=1, clip_val=1e-5):
     return torch.log(torch.clamp(x, min=clip_val) * C)
 
 
-def mel_spectogram(
+def mel_spectrogram(
     sample_rate,
     hop_length,
     win_length,

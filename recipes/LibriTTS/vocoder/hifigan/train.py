@@ -265,7 +265,7 @@ class HifiGanBrain(sb.Brain):
             )  # Copies weights
             inference_generator.remove_weight_norm()
             sig_out = inference_generator.inference(x)
-            spec_out = self.hparams.mel_spectogram(
+            spec_out = self.hparams.mel_spectrogram(
                 audio=sig_out.squeeze(0).cpu()
             )
         if self.hparams.use_tensorboard:
@@ -335,7 +335,7 @@ def dataio_prepare(hparams):
                     audio, (0, segment_size - audio.size(1)), "constant"
                 )
 
-        mel = hparams["mel_spectogram"](audio=audio.squeeze(0))
+        mel = hparams["mel_spectrogram"](audio=audio.squeeze(0))
 
         return mel, audio
 

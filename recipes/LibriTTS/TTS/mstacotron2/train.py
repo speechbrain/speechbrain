@@ -520,7 +520,7 @@ def dataio_prepare(hparams):
                 audio, sig_sr, hparams["sample_rate"]
             )
 
-        mel = hparams["mel_spectogram"](audio=audio.squeeze())
+        mel = hparams["mel_spectrogram"](audio=audio.squeeze())
 
         len_text = len(text_seq)
 

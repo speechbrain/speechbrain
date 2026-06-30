@@ -173,7 +173,7 @@ class DiffWaveBrain(sb.Brain):
                 fast_sampling_noise_schedule=self.hparams.fast_sampling_noise_schedule,
             )
 
-            spec_out = self.hparams.mel_spectogram(
+            spec_out = self.hparams.mel_spectrogram(
                 audio=sig_out.squeeze(1).cpu()
             )
 
@@ -243,7 +243,7 @@ def dataio_prepare(hparams):
                     audio, (0, segment_size - audio.size(1)), "constant"
                 )
 
-        mel = hparams["mel_spectogram"](audio=audio.squeeze(0))
+        mel = hparams["mel_spectrogram"](audio=audio.squeeze(0))
 
         # for diffwave the audio length needs to be hop_length * mel_length
         audio_length = mel.shape[-1] * hparams["spec_hop_length"]
