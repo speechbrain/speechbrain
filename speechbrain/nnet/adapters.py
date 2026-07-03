@@ -332,7 +332,7 @@ class LoRA(nn.Module):
     ---------
     target_module: nn.Module
         Module corresponding to the pretrained layer that will be wrapped with
-        this adapter. Works with nn.Linear and nn.Conv
+        this adapter. Works with nn.Linear and nn.Conv1d/2d/3d
     rank: int
         Size of the projection layer or rank (usually smaller).
     alpha : float
@@ -347,13 +347,16 @@ class LoRA(nn.Module):
     >>> output = adapt(x)
     >>> output.shape
     torch.Size([8, 60, 64])
+
+    >>> x = torch.rand((8, 16, 100))
+    >>> base_conv = nn.Conv1d(16, 32, kernel_size=3, stride=2)
+    >>> adapt = LoRA(base_conv, rank=4)
+    >>> adapt(x).shape == base_conv(x).shape
+    True
     """
 
     def __init__(self, target_module, rank=16, alpha=1.0):
         super().__init__()
-
-        input_size = target_module.weight.data.shape[1]
-        output_size = target_module.weight.data.shape[0]
 
         # Disable gradient for pretrained module
         self.pretrained_module = target_module
@@ -361,12 +364,46 @@ class LoRA(nn.Module):
             param.requires_grad = False
         device = target_module.weight.device
 
-        self.adapter_down_proj = nn.Linear(
-            input_size, rank, bias=False, device=device
-        )
-        self.adapter_up_proj = nn.Linear(
-            rank, output_size, bias=False, device=device
-        )
+        if isinstance(target_module, (nn.Conv1d, nn.Conv2d, nn.Conv3d)):
+            if target_module.groups != 1:
+                raise ValueError(
+                    "LoRA does not support convolutions with groups != 1, "
+                    f"got groups={target_module.groups} for {target_module}."
+                )
+            conv_cls = type(target_module)
+            # Follows the approach of HF peft: the down projection mirrors
+            # the geometry of the pretrained convolution so that both
+            # branches produce outputs of identical shape, while the up
+            # projection is a pointwise convolution.
+            self.adapter_down_proj = conv_cls(
+                target_module.in_channels,
+                rank,
+                kernel_size=target_module.kernel_size,
+                stride=target_module.stride,
+                padding=target_module.padding,
+                dilation=target_module.dilation,
+                padding_mode=target_module.padding_mode,
+                bias=False,
+                device=device,
+            )
+            self.adapter_up_proj = conv_cls(
+                rank,
+                target_module.out_channels,
+                kernel_size=1,
+                bias=False,
+                device=device,
+            )
+        else:
+            input_size = target_module.weight.data.shape[1]
+            output_size = target_module.weight.data.shape[0]
+
+            self.adapter_down_proj = nn.Linear(
+                input_size, rank, bias=False, device=device
+            )
+            self.adapter_up_proj = nn.Linear(
+                rank, output_size, bias=False, device=device
+            )
+
         self.adapter_up_proj.weight.data.fill_(0.0)
 
         self.scaling = alpha / rank
