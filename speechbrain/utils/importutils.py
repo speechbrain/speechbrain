@@ -86,9 +86,7 @@ class LazyModule(ModuleType):
                 "standard Python and include your version number."
             )
 
-        if importer_frame is not None and importer_frame.filename.endswith(
-            "/inspect.py"
-        ):
+        if importer_frame is not None and os.path.basename(importer_frame.filename) == "inspect.py":
             raise AttributeError()
 
         if self.lazy_module is None:
