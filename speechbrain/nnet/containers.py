@@ -11,7 +11,7 @@ import operator
 import torch
 
 from speechbrain.nnet.linear import Linear
-from speechbrain.utils.callchains import lengths_arg_exists
+from speechbrain.utils.callchains import lengths_arg_name
 from speechbrain.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -168,6 +168,10 @@ class LengthsCapableSequential(Sequential):
     This is useful for Sequential models that include RNNs where it is
     important to avoid padding, or for some feature normalization layers.
 
+    The lengths are forwarded under the name each layer expects: both the
+    ``lengths`` and ``wav_lens`` argument names are recognized (the latter
+    is used by e.g. the HuggingFace integration lobes).
+
     Unfortunately, this module is not jit-able because the compiler doesn't
     know ahead of time if the length will be passed, and some layers don't
     accept the length parameter.
@@ -175,6 +179,7 @@ class LengthsCapableSequential(Sequential):
 
     def __init__(self, *args, **kwargs):
         self.takes_lengths = []
+        self.lengths_arg_names = []
         super().__init__(*args, **kwargs)
 
     def append(self, *args, **kwargs):
@@ -182,13 +187,16 @@ class LengthsCapableSequential(Sequential):
         # Add lengths arg inference here.
         super().append(*args, **kwargs)
         latest_forward_method = list(self.values())[-1].forward
-        self.takes_lengths.append(lengths_arg_exists(latest_forward_method))
+        lengths_arg = lengths_arg_name(latest_forward_method)
+        self.lengths_arg_names.append(lengths_arg)
+        self.takes_lengths.append(lengths_arg is not None)
 
     def forward(self, x, lengths=None):
         """Applies layers in sequence, passing only the first element of tuples.
 
         In addition, forward the ``lengths`` argument to all layers that accept
-        a ``lengths`` argument in their ``forward()`` method (e.g. RNNs).
+        a ``lengths`` (or ``wav_lens``) argument in their ``forward()`` method
+        (e.g. RNNs, the HuggingFace integration lobes).
 
         Arguments
         ---------
@@ -202,9 +210,9 @@ class LengthsCapableSequential(Sequential):
         x : torch.Tensor
             The outputs after all layers are applied.
         """
-        for layer, give_lengths in zip(self.values(), self.takes_lengths):
-            if give_lengths:
-                x = layer(x, lengths=lengths)
+        for layer, lengths_arg in zip(self.values(), self.lengths_arg_names):
+            if lengths_arg is not None:
+                x = layer(x, **{lengths_arg: lengths})
             else:
                 x = layer(x)
             if isinstance(x, tuple):
