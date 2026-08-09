@@ -32,6 +32,57 @@ def test_rel_pos_MHA(device):
                     relpos(q, k, k, pos_embs=pos_embs)
 
 
+def rel_pos_enc_xl_slow(seq_len: int, emb_dim: int) -> np.ndarray:
+    """
+    Slow implementation of RelPosEncXL.make_pe.
+    """
+    result = np.zeros((2 * seq_len - 1, emb_dim))
+
+    for index in range(2 * seq_len - 1):
+        # rows run from the largest positive relative position down to the
+        # largest negative one, as expected by `RelPosMHAXL.rel_shift`.
+        position = seq_len - 1 - index
+
+        # Implement (1) from https://arxiv.org/pdf/1706.03762 for a signed
+        # position, as https://arxiv.org/pdf/1901.02860 does.
+        for dimension_pair_index in range(emb_dim // 2):
+            angle = position * 10000 ** (-2 * dimension_pair_index / emb_dim)
+            result[index][dimension_pair_index * 2] = math.sin(angle)
+            result[index][dimension_pair_index * 2 + 1] = math.cos(angle)
+
+    return result
+
+
+@pytest.mark.parametrize(
+    "seq_len, emb_dim", [(1, 4), (2, 4), (7, 16), (16, 2), (33, 64)]
+)
+def test_rel_pos_enc_xl(device, seq_len, emb_dim):
+    from speechbrain.nnet.attention import RelPosEncXL
+
+    reference = rel_pos_enc_xl_slow(seq_len, emb_dim)
+
+    # If opposite relative positions shared an embedding, the encoding could
+    # not tell a key `d` steps ahead from one `d` steps behind, and this test
+    # would be much weaker.
+    centre = seq_len - 1
+    assert seq_len == 1 or not np.allclose(
+        reference[:centre], np.flip(reference[centre + 1 :], axis=0)
+    )
+
+    encoder = RelPosEncXL(emb_dim, use_legacy_symmetric=False).to(device=device)
+    result = encoder.make_pe(seq_len)
+    assert result.shape == (1, 2 * seq_len - 1, emb_dim)
+
+    assert np.allclose(result[0].cpu().numpy(), reference, atol=1e-5)
+
+    # the default stays symmetric, so that checkpoints trained before this was
+    # made configurable keep behaving the same way
+    legacy = RelPosEncXL(emb_dim).to(device=device).make_pe(seq_len)
+    assert torch.equal(
+        legacy[0, :centre], torch.flip(legacy[0, centre + 1 :], (0,))
+    )
+
+
 memoised_calls = []
 
 
