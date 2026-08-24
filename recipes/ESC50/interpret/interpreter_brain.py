@@ -366,13 +366,13 @@ class InterpreterBrain(sb.core.Brain):
         comp_tensor = torch.Tensor(self.comp.scores)
         comp_tensor = comp_tensor[~torch.isnan(comp_tensor)]
         tmp = {
-            "SPS": torch.Tensor(self.sps.scores).mean().item(),
-            "COMP": comp_tensor.mean().item(),
+            "SPS": torch.Tensor(self.sps.scores).mean(),
+            "COMP": comp_tensor.mean(),
         }
         quantus_metrics = {}
         for m in tmp:
             if not tmp[m].isnan():
-                quantus_metrics[m] = tmp[m]
+                quantus_metrics[m] = tmp[m].item()
 
         if stage == sb.Stage.VALID:
             current_fid = torch.Tensor(self.inp_fid.scores).mean()
@@ -387,9 +387,9 @@ class InterpreterBrain(sb.core.Brain):
                 "AI": torch.Tensor(self.AI.scores).mean().item(),
                 "AD": torch.Tensor(self.AD.scores).mean().item(),
                 "AG": torch.Tensor(self.AG.scores).mean().item(),
-                "faithfulness_mean": torch.Tensor(
-                    self.faithfulness.scores
-                ).mean().item(),
+                "faithfulness_mean": torch.Tensor(self.faithfulness.scores)
+                .mean()
+                .item(),
             }
             valid_stats.update(extra_m)
             valid_stats.update(quantus_metrics)
@@ -415,9 +415,9 @@ class InterpreterBrain(sb.core.Brain):
                 "AI": torch.Tensor(self.AI.scores).mean().item(),
                 "AD": torch.Tensor(self.AD.scores).mean().item(),
                 "AG": torch.Tensor(self.AG.scores).mean().item(),
-                "faithfulness_mean": torch.Tensor(
-                    self.faithfulness.scores
-                ).mean().item(),
+                "faithfulness_mean": torch.Tensor(self.faithfulness.scores)
+                .mean()
+                .item(),
             }
             test_stats.update(extra_m)
             test_stats.update(quantus_metrics)
