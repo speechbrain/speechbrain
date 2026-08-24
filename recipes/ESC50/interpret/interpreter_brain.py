@@ -358,7 +358,7 @@ class InterpreterBrain(sb.core.Brain):
             }
 
         extra_m = {
-            k: torch.Tensor(getattr(self, k).scores).mean()
+            k: torch.Tensor(getattr(self, k).scores).mean().item()
             for k in self.extra_metrics().keys()
         }
 
@@ -366,8 +366,8 @@ class InterpreterBrain(sb.core.Brain):
         comp_tensor = torch.Tensor(self.comp.scores)
         comp_tensor = comp_tensor[~torch.isnan(comp_tensor)]
         tmp = {
-            "SPS": torch.Tensor(self.sps.scores).mean(),
-            "COMP": comp_tensor.mean(),
+            "SPS": torch.Tensor(self.sps.scores).mean().item(),
+            "COMP": comp_tensor.mean().item(),
         }
         quantus_metrics = {}
         for m in tmp:
@@ -383,13 +383,13 @@ class InterpreterBrain(sb.core.Brain):
             valid_stats = {
                 "loss": stage_loss,
                 "acc": self.acc_metric.summarize("average"),
-                "input_fidelity": current_fid,
-                "AI": torch.Tensor(self.AI.scores).mean(),
-                "AD": torch.Tensor(self.AD.scores).mean(),
-                "AG": torch.Tensor(self.AG.scores).mean(),
+                "input_fidelity": current_fid.item(),
+                "AI": torch.Tensor(self.AI.scores).mean().item(),
+                "AD": torch.Tensor(self.AD.scores).mean().item(),
+                "AG": torch.Tensor(self.AG.scores).mean().item(),
                 "faithfulness_mean": torch.Tensor(
                     self.faithfulness.scores
-                ).mean(),
+                ).mean().item(),
             }
             valid_stats.update(extra_m)
             valid_stats.update(quantus_metrics)
@@ -407,17 +407,17 @@ class InterpreterBrain(sb.core.Brain):
             )
 
         if stage == sb.Stage.TEST:
-            current_fid = torch.Tensor(self.inp_fid.scores).mean()
+            current_fid = torch.Tensor(self.inp_fid.scores).mean().item()
             test_stats = {
                 "loss": stage_loss,
                 "acc": self.acc_metric.summarize("average"),
                 "input_fidelity": current_fid,
-                "AI": torch.Tensor(self.AI.scores).mean(),
-                "AD": torch.Tensor(self.AD.scores).mean(),
-                "AG": torch.Tensor(self.AG.scores).mean(),
+                "AI": torch.Tensor(self.AI.scores).mean().item(),
+                "AD": torch.Tensor(self.AD.scores).mean().item(),
+                "AG": torch.Tensor(self.AG.scores).mean().item(),
                 "faithfulness_mean": torch.Tensor(
                     self.faithfulness.scores
-                ).mean(),
+                ).mean().item(),
             }
             test_stats.update(extra_m)
             test_stats.update(quantus_metrics)
