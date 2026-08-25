@@ -45,10 +45,10 @@ class Wav2Vec2(HFTransformersInterface):
         HuggingFace hub name: e.g "facebook/wav2vec2-large-lv60"
     save_path : str
         Path (dir) of the downloaded model.
-    output_norm : bool (default: True)
+    output_norm : bool (default: False)
         If True, a layer_norm (affine) will be applied to the output obtained
         from the wav2vec model.
-    freeze : bool (default: True)
+    freeze : bool (default: False)
         If True, the model is frozen. If False, the model will be trained
         alongside with the rest of the pipeline.
     freeze_feature_extractor :  bool (default: False)

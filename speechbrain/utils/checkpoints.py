@@ -1219,7 +1219,7 @@ class Checkpointer:
         checkpoints = []
         for ckpt_dir in checkpoint_dirs:
             with open(ckpt_dir / METAFNAME, encoding="utf-8") as fi:
-                meta = yaml.load(fi, Loader=yaml.Loader)
+                meta = yaml.load(fi, Loader=yaml.SafeLoader)
             paramfiles = {}
             for ckptfile in ckpt_dir.iterdir():
                 if ckptfile.suffix == PARAMFILE_EXT:

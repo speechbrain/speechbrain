@@ -310,7 +310,7 @@ def dataio_prepare(hparams):
         )
 
         audio = sb.dataio.dataio.read_audio(wav)
-        mel = hparams["mel_spectogram"](audio=audio)
+        mel = hparams["mel_spectrogram"](audio=audio)
 
         len_text = len(text_seq)
 

@@ -1,9 +1,9 @@
 # ###########################################################################################
-# Model: Vocos
-# Authors: Luca Della Libera 2025
+# Model: WaveNeXt
+# Authors: Luca Della Libera 2026
 # ###########################################################################################
 
-experiment_name: vocos
+experiment_name: wavenext
 
 # Seed needs to be set at top of YAML
 seed: 0
@@ -32,7 +32,7 @@ compute_metrics: True
 save_audios: True
 
 # Preprocessing parameters
-sample_rate: 16000
+sample_rate: 24000
 audio_backend: soundfile
 train_remove_if_longer: 60.0  # Seconds
 valid_remove_if_longer: 60.0  # Seconds
@@ -43,7 +43,7 @@ sorting: random
 num_epochs: 100
 grad_accumulation_factor: 1
 dynamic_batching: False
-train_batch_size: 16
+train_batch_size: 32
 valid_batch_size: 1
 test_batch_size: 1
 train_max_batch_length: 20.0  # Seconds
@@ -59,13 +59,13 @@ ckpt_interval_steps: 10000
 keep_checkpoints: 1
 augment: False
 augment_prob: 0.75
-segment_size_feats: !ref 7040 // <generator_hop_length>  # Segment AFTER feature extraction
+segment_size_feats: !ref 72000 // <generator_hop_length>  # Segment AFTER feature extraction
 segment_size: null
 segment_pad: False
 valid_freq: 1
 
 # Optimizer parameters
-lr: 0.0002
+lr: 0.0004
 betas: [0.8, 0.99]
 weight_decay: 0.01
 decay_factor: 0.999
@@ -88,24 +88,26 @@ encoder_causal: False
 encoder_window_size: 512
 encoder_lookahead_size: 3
 encoder_use_flex_attention: False
-encoder_checkpoint: !apply:utils.download_wavlm6 [!ref <cache_folder>]
+encoder_checkpoint: !apply:utils.download_wavlm6
+    cache_dir: !ref <cache_folder>
+    checkpoint_name: wavlm6.pt
 
 # Generator parameters
 generator_input_dim: !ref <encoder_dim>
 generator_num_layers: 8
-generator_dim: 512
-generator_ffn_dim: 1536
+generator_dim: 1024
+generator_ffn_dim: 2048
 generator_kernel_size: 7
-generator_hop_length: 320
+generator_hop_length: 480
 generator_layerscale_init: null
-generator_n_fft: 1024
-generator_causal: False
+generator_causal: True
 
 # Loss parameters
 win_length: 1024
+n_fft: 1024
 n_mel_channels: 80
 mel_fmin: 0
-mel_fmax: 8000
+mel_fmax: 12000
 mel_normalized: False
 power: 1.0
 dynamic_range_compression: True
@@ -157,7 +159,7 @@ encoder: !new:focalcodec.wavlm.WavLM
     lookahead_size: !ref <encoder_lookahead_size>
     use_flex_attention: !ref <encoder_use_flex_attention>
 
-generator: !new:focalcodec.vocos.Vocos
+generator: !new:focalcodec.wavenext.WaveNeXt
     input_dim: !ref <generator_input_dim>
     num_layers: !ref <generator_num_layers>
     dim: !ref <generator_dim>
@@ -165,7 +167,6 @@ generator: !new:focalcodec.vocos.Vocos
     kernel_size: !ref <generator_kernel_size>
     hop_length: !ref <generator_hop_length>
     layerscale_init: !ref <generator_layerscale_init>
-    n_fft: !ref <generator_n_fft>
     causal: !ref <generator_causal>
 
 discriminator: !new:speechbrain.lobes.models.HifiGAN.HifiganDiscriminator
@@ -187,8 +188,8 @@ generator_loss: !new:speechbrain.lobes.models.HifiGAN.GeneratorLoss
         hop_length: !ref <generator_hop_length>
         win_length: !ref <win_length>
         n_mel_channels: !ref <n_mel_channels>
-        n_fft: !ref <generator_n_fft>
-        n_stft: !ref <generator_n_fft> // 2 + 1
+        n_fft: !ref <n_fft>
+        n_stft: !ref <n_fft> // 2 + 1
         mel_fmin: !ref <mel_fmin>
         mel_fmax: !ref <mel_fmax>
         mel_normalized: !ref <mel_normalized>

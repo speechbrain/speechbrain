@@ -73,7 +73,7 @@ dataloader_options:
 # Functions
 use_tacotron2_mel_spec: True
 
-compute_features: !name:speechbrain.lobes.models.Tacotron2.mel_spectogram
+compute_features: !name:speechbrain.lobes.models.Tacotron2.mel_spectrogram
     sample_rate: !ref <sample_rate>
     hop_length: !ref <hop_length>
     win_length: !ref <win_length>

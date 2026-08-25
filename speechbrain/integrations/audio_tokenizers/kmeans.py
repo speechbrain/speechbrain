@@ -7,7 +7,10 @@ Authors
 import joblib
 import torch
 
+from speechbrain.utils import checkpoints
 
+
+@checkpoints.register_checkpoint_hooks
 class MiniBatchKMeansSklearn(torch.nn.Module):
     """A wrapper for scikit-learn MiniBatchKMeans, providing integration with PyTorch tensors.
 
@@ -64,6 +67,7 @@ class MiniBatchKMeansSklearn(torch.nn.Module):
         self.device = device
         return super().to(device)
 
+    @checkpoints.mark_as_saver
     def save(self, path):
         """Saves the model to the specified file.
 
@@ -74,6 +78,7 @@ class MiniBatchKMeansSklearn(torch.nn.Module):
         """
         joblib.dump(self.kmeans, path)
 
+    @checkpoints.mark_as_loader
     def load(self, path, end_of_epoch):
         """Loads the model from the specified file.
 

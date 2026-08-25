@@ -344,7 +344,7 @@ class HifiGanBrain(sb.Brain):
             if inference_generator.duration_predictor:
                 x = torch.unique_consecutive(x, dim=1)
             sig_out = inference_generator.inference(x, spk=spk)
-            spec_out = self.hparams.mel_spectogram(
+            spec_out = self.hparams.mel_spectrogram(
                 audio=sig_out.squeeze(0).cpu()
             )
         if self.hparams.use_tensorboard:

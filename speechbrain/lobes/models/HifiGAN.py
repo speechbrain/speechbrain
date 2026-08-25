@@ -48,7 +48,7 @@ def dynamic_range_compression(x, C=1, clip_val=1e-5):
     return torch.log(torch.clamp(x, min=clip_val) * C)
 
 
-def mel_spectogram(
+def mel_spectrogram(
     sample_rate,
     hop_length,
     win_length,
@@ -1367,7 +1367,7 @@ class L1SpecLoss(nn.Module):
         -------
         L1 loss
         """
-        y_hat_M = mel_spectogram(
+        y_hat_M = mel_spectrogram(
             self.sample_rate,
             self.hop_length,
             self.win_length,
@@ -1382,8 +1382,8 @@ class L1SpecLoss(nn.Module):
             self.dynamic_range_compression,
             y_hat,
         )
-        # y_M = mel_spectogram(self.mel_params, y)
-        y_M = mel_spectogram(
+        # y_M = mel_spectrogram(self.mel_params, y)
+        y_M = mel_spectrogram(
             self.sample_rate,
             self.hop_length,
             self.win_length,

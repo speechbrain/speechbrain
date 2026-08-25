@@ -49,7 +49,7 @@ def silu(x):
     return x * torch.sigmoid(x)
 
 
-def diffwave_mel_spectogram(
+def diffwave_mel_spectrogram(
     sample_rate,
     hop_length,
     win_length,

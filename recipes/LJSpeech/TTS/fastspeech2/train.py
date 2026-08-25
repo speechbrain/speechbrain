@@ -537,7 +537,7 @@ def dataio_prepare(hparams):
         audio = audio.squeeze()
         audio = audio[int(fs * start) : int(fs * end)]
 
-        mel, energy = hparams["mel_spectogram"](audio=audio)
+        mel, energy = hparams["mel_spectrogram"](audio=audio)
         mel = mel[:, : sum(durs)]
         energy = energy[: sum(durs)]
         pitch = np.load(pitch)
