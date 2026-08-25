@@ -187,7 +187,7 @@ Every recipe wires this together in a `dataio_prep(hparams)` function — follow
 
 ## Recipe conventions
 
-Every recipe lives at `recipes/{dataset}/{task}/{mdeol}` and follows this structure:
+Every recipe lives at `recipes/{dataset}/{task}/{model}` and follows this structure:
 
 - `train.py` — the training script. It subclasses `Brain`, defines the dataio pipeline, and calls `brain.fit()` / `brain.evaluate()`. Multiple training scripts may be present for different model variants.
 - `prepare_{dataset}.py` — the data preparation script. It read the dataset structure and creates the CSV or JSON manifests with the correct format (e.g. duration, speaker id, etc.).
@@ -243,11 +243,11 @@ Pre-commit hooks are configured in `.pre-commit-config.yaml` and enforce formatt
 
 - **HyperPyYAML is not plain YAML**: do not treat `.yaml` files as simple config. `!new:` instantiates objects, `!ref` resolves references. Editing these files requires understanding the tag system. If you break a `!ref` chain, training will crash at load time.
 - **Relative lengths, not absolute**: SpeechBrain passes relative lengths (0 to 1) for masking/padding. Do not pass absolute sample counts where relative lengths are expected.
-- **modules vs hparams**: objects listed under `modules:` in the YAML are registered as `nn.Module`s on the Brain (moved to device, included in DDP, saved in checkpoints). Objects accessed via `self.hparams.*` are not. Putting a trainable module only in hparams means it won't be on the right device or saved properly.
+- **modules vs hparams**: objects listed under `modules:` in the YAML are registered as `nn.Module`s on the Brain (moved to device, included in DDP). Objects accessed via `self.hparams.*` are not. Putting a trainable module only in hparams means it won't be on the right device or saved properly.
 - **Stage-dependent logic**: always check `stage` before computing validation-only metrics or applying train-only augmentation. Forgetting this causes training-time metric computation (slow) or test-time augmentation (wrong results).
 - **Batch format**: batch objects from the dataio pipeline are `PaddedBatch` instances. Access signals as `batch.sig` which returns `(tensor, lengths)` tuples. Do not index batch like a plain dict.
 - **Checkpointing**: Brain's checkpointer saves/loads modules, optimizers, schedulers, and epoch counters. If you add a new trainable module, register it with the checkpointer or it won't be saved/restored.
-- **Soundfile vs torchaudio**: SpeechBrain is migrating audio I/O from torchaudio to soundfile. Use `speechbrain.dataio.dataio.read_audio` for reading audio, not raw torchaudio calls.
+- **Soundfile vs torchaudio**: SpeechBrain uses a soundfile backend for audio I/O. Use `speechbrain.dataio.dataio.read_audio` for reading audio, not raw torchaudio calls.
 
 ## Pretrained models and inference
 
@@ -266,7 +266,7 @@ The `from_hparams` method downloads the model and YAML from HuggingFace, loads v
 - PyTorch (core)
 - HyperPyYAML (`hyperpyyaml` package — SpeechBrain's extended YAML, separate repo at `speechbrain/HyperPyYAML`)
 - soundfile (audio I/O)
-- torchaudio (some legacy audio I/O, being phased out)
+- torchaudio (basic feature transforms, resampling, etc.)
 - HuggingFace Hub (model hosting/downloading)
 - sentencepiece / tokenizers (for text tokenization in some recipes)
 
