@@ -24,6 +24,19 @@ from torch.nn import LayerNorm, Parameter
 
 from speechbrain.dataio.dataio import length_to_mask
 
+# Note: The path torch.nn.utils.parametrizations may not be available
+# in older PyTorch versions, such as 1.13.1. To ensure compatibility,
+# it is recommended to check and use the appropriate import statement.
+
+# Attempt to import the preferred module for parametrizations in newer PyTorch versions
+try:
+    from torch.nn.utils.parametrizations import weight_norm
+
+# If the preferred import fails, fallback to the alternative import for compatibility
+except ImportError:
+    from torch.nn.utils import weight_norm
+
+
 logger = logging.getLogger(__name__)
 
 
@@ -662,9 +675,7 @@ class TransformerEncoder(nn.Module):
         nn.init.normal_(self.pos_conv.weight, mean=0, std=std)
         nn.init.constant_(self.pos_conv.bias, 0)
 
-        self.pos_conv = nn.utils.weight_norm(
-            self.pos_conv, name="weight", dim=2
-        )
+        self.pos_conv = weight_norm(self.pos_conv, name="weight", dim=2)
         self.pos_conv = nn.Sequential(
             self.pos_conv, SamePad(args.conv_pos), nn.GELU()
         )

@@ -40,6 +40,18 @@ from torchaudio import transforms
 import speechbrain as sb
 from speechbrain.nnet.CNN import Conv1d, Conv2d, ConvTranspose1d
 
+# Note: The path torch.nn.utils.parametrizations may not be available
+# in older PyTorch versions, such as 1.13.1. To ensure compatibility,
+# it is recommended to check and use the appropriate import statement.
+
+# Attempt to import the preferred module for parametrizations in newer PyTorch versions
+try:
+    from torch.nn.utils.parametrizations import weight_norm as torch_weight_norm
+
+# If the preferred import fails, fallback to the alternative import for compatibility
+except ImportError:
+    from torch.nn.utils import weight_norm as torch_weight_norm
+
 LRELU_SLOPE = 0.1
 
 
@@ -1059,9 +1071,7 @@ class DiscriminatorS(torch.nn.Module):
     def __init__(self, use_spectral_norm=False):
         super().__init__()
         norm_f = (
-            nn.utils.spectral_norm
-            if use_spectral_norm
-            else nn.utils.weight_norm
+            nn.utils.spectral_norm if use_spectral_norm else torch_weight_norm
         )
         self.convs = nn.ModuleList(
             [
