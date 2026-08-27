@@ -24,6 +24,18 @@ from speechbrain.processing.signal_processing import (
 )
 from speechbrain.utils.logger import get_logger
 
+# Note: The path torch.nn.utils.parametrizations may not be available
+# in older PyTorch versions, such as 1.13.1. To ensure compatibility,
+# it is recommended to check and use the appropriate import statement.
+
+# Attempt to import the preferred module for parametrizations in newer PyTorch versions
+try:
+    from torch.nn.utils.parametrizations import weight_norm as torch_weight_norm
+
+# If the preferred import fails, fallback to the alternative import for compatibility
+except ImportError:
+    from torch.nn.utils import weight_norm as torch_weight_norm
+
 logger = get_logger(__name__)
 
 
@@ -415,7 +427,7 @@ class Conv1d(nn.Module):
             nn.init.normal_(self.conv.weight, std=1e-6)
 
         if weight_norm:
-            self.conv = nn.utils.weight_norm(self.conv)
+            self.conv = torch_weight_norm(self.conv)
 
     def forward(self, x):
         """Returns the output of the convolution.
