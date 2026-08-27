@@ -161,7 +161,7 @@ class SpectrogramDrop(torch.nn.Module):
         # Randomly sample the positions of the chunks to drop
         mask_pos = torch.randint(
             0,
-            max(1, D, -mask_len.max()),
+            max(1, D - mask_len.max()),
             (batch_size, n_masks),
             device=spectrogram.device,
         ).unsqueeze(2)
