@@ -54,9 +54,22 @@ class SpeakerBrain(sb.core.Brain):
             feats = self.modules.compute_features(wavs)
         feats = self.modules.mean_var_norm(feats, lens)
 
-        # Embeddings + speaker classifier
+        # Embeddings
         embeddings = self.modules.embedding_model(feats)
-        outputs = self.modules.classifier(embeddings)
+
+        # Speaker classifier
+        if (
+            stage == sb.Stage.TRAIN
+            and hasattr(self.hparams, "classifier_needs_labels")
+            and self.hparams.classifier_needs_labels
+        ):
+            # Fetch and replicate labels locally for margin-based classifiers (e.g., ArcFace)
+            spkid, _ = batch.spk_id_encoded
+            if hasattr(self.hparams, "wav_augment"):
+                spkid = self.hparams.wav_augment.replicate_labels(spkid)
+            outputs = self.modules.classifier(embeddings, spkid)
+        else:
+            outputs = self.modules.classifier(embeddings)
 
         return outputs, lens
 

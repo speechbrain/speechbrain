@@ -50,23 +50,32 @@ The system trains a TDNN for speaker embeddings coupled with a speaker-id classi
 * [X-Vector, proposed at early 2018](https://danielpovey.com/files/2018_icassp_xvectors.pdf)
 * ResNet X-Vector
 * [ECAPA-TDNN](https://arxiv.org/abs/2005.07143)
+* [ECAPA2](https://arxiv.org/pdf/2401.08342)
 
-Below we show the example of doing speaker verification using ECAPA-TDNN.
+Below we show the example of doing speaker verification using ECAPA-TDNN and ECAPA2.
 
-## Speaker verification using ECAPA-TDNN embeddings
-Run the following command to train speaker embeddings using ECAPA-TDNN
+## Speaker verification using ECAPA-TDNN / ECAPA2 embeddings
+Run the following command to train speaker embeddings using ECAPA-TDNN or ECAPA2:
 
 `python train_speaker_embeddings.py hparams/train_ecapa_tdnn.yaml`
+or
+`python train_speaker_embeddings.py hparams/train_ecapa2.yaml`
 
 The speaker-id accuracy should be around 98-99% for both voxceleb1 and voceleb2.
 
 After training the speaker embeddings, it is possible to perform speaker verification using cosine similarity.  You can run it with the following command:
 
 `python speaker_verification_cosine.py hparams/verification_ecapa.yaml`
+or
+`python speaker_verification_cosine.py hparams/verification_ecapa2.yaml`
 
-This system achieves:
+This ECAPA-TDNN system achieves:
 - EER = 0.80% (voxceleb1 + voxceleb2) with s-norm
 - EER = 0.90% (voxceleb1 + voxceleb2) without s-norm
+
+This ECAPA2 system achieves:
+- EER = 0.60% (voxceleb1 + voxceleb2) with s-norm
+- EER = 0.70% (voxceleb1 + voxceleb2) without s-norm
 
 These results are all obtained with the official verification split of voxceleb1 (veri\_test2.txt)
 
@@ -87,13 +96,16 @@ Below results are all obtained with the official verification split of voxceleb1
 |-----------------|------------|------| -----|
 | Xvector + PLDA  | VoxCeleb 1,2 | 3.23% | https://www.dropbox.com/sh/ab1ma1lnmskedo8/AADsmgOLPdEjSF6wV3KyhNG1a?dl=0 |
 | ECAPA-TDNN      | VoxCeleb 1,2 | 0.80% | https://www.dropbox.com/sh/ab1ma1lnmskedo8/AADsmgOLPdEjSF6wV3KyhNG1a?dl=0 |
+| ECAPA2          | VoxCeleb 1,2 | 0.60% | https://drive.google.com/drive/folders/1cpU5qpCVM30Ip8I85EPM33lsUYPa6S7q?usp=sharing |
 | ResNet TDNN     | VoxCeleb 1,2 | 0.95% | https://www.dropbox.com/sh/ab1ma1lnmskedo8/AADsmgOLPdEjSF6wV3KyhNG1a?dl=0 |
 
 [Speaker verification results (in EER), no score normalization]
 | System          | Dataset    | VoxCeleb1-O  | VoxCeleb1-E  | VoxCeleb1-H  | Model/Log Link |
 |-----------------|------------|------|------|------| -----|
 | ECAPA-TDNN      | VoxCeleb 1,2 | 0.90% | - | - | https://www.dropbox.com/sh/ab1ma1lnmskedo8/AADsmgOLPdEjSF6wV3KyhNG1a?dl=0 |
+| ECAPA2          | VoxCeleb 1,2 | 0.70% | - | - | https://drive.google.com/drive/folders/1cpU5qpCVM30Ip8I85EPM33lsUYPa6S7q?usp=sharing |
 | ECAPA-TDNN      | VoxCeleb 2 | 1.30% | 1.98% | 3.62% | (to be updated) |
+| ECAPA2          | VoxCeleb 2 | 0.79% | 1.00% | 1.76% | https://drive.google.com/drive/folders/18F_cl7HrAahBD4OnX3ynBB-IgHONKE9f?usp=sharing |
 | ResNet TDNN     | VoxCeleb 1,2 | 1.05% | - | - | https://www.dropbox.com/sh/ab1ma1lnmskedo8/AADsmgOLPdEjSF6wV3KyhNG1a?dl=0  |
 
 
