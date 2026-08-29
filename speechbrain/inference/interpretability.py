@@ -177,6 +177,6 @@ class PIQAudioInterpreter(Pretrained):
         x_int_sound_domain, text_lab = self.interpret_batch(batch)
         return x_int_sound_domain, text_lab, fs_model
 
-    def forward(self, wavs, wav_lens=None):
+    def forward(self, wavs):
         """Runs the classification"""
-        return self.interpret_batch(wavs, wav_lens)
+        return self.interpret_batch(wavs)
