@@ -785,7 +785,7 @@ class BinaryMetricStats(MetricStats):
 
         self.summary["FAR"] = FP / (FP + TN + eps)
         self.summary["FRR"] = FN / (TP + FN + eps)
-        self.summary["DER"] = (FP + FN) / (TP + TN + eps)
+        self.summary["DER"] = (FP + FN) / (TP + TN + FP + FN + eps)
         self.summary["threshold"] = threshold
 
         self.summary["precision"] = TP / (TP + FP + eps)

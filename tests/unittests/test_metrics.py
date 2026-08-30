@@ -119,7 +119,7 @@ def test_embedding_error_rate_stats(device):
 
 
 def test_binary_metrics(device):
-    from speechbrain.utils.metric_stats import BinaryMetricStats
+    from speechbrain.utils.metric_stats import EER, BinaryMetricStats
 
     binary_stats = BinaryMetricStats()
     binary_stats.append(
@@ -132,9 +132,17 @@ def test_binary_metrics(device):
     assert summary["TN"] == 2
     assert summary["FP"] == 1
     assert summary["FN"] == 2
+    assert math.isclose(summary["DER"], 3 / 6, abs_tol=1e-6)
 
     summary = binary_stats.summarize(threshold=None)
     assert summary["threshold"] >= 0.3 and summary["threshold"] < 0.4
+
+    # at the EER threshold the detection error rate is the EER
+    eer, _ = EER(
+        torch.tensor([0.1, 0.8, 0.3], device=device),
+        torch.tensor([0.4, 0.2, 0.6], device=device),
+    )
+    assert math.isclose(summary["DER"], eer, abs_tol=1e-6)
 
     summary = binary_stats.summarize(threshold=None, max_samples=1)
     assert summary["threshold"] >= 0.1 and summary["threshold"] < 0.2
