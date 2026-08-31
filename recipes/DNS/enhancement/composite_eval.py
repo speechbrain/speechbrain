@@ -454,9 +454,9 @@ if __name__ == "__main__":
             enhanced_path_f = os.path.join(
                 enhanced_path, _file[:-4] + "_enhanced.wav"
             )
-            clean_sig = librosa.load(clean_path_f, sr=None)[0]
+            clean_sig, sample_rate = librosa.load(clean_path_f, sr=None)
             enhanced_sig = librosa.load(enhanced_path_f, sr=None)[0]
-            res = eval_composite(clean_sig, enhanced_sig)
+            res = eval_composite(clean_sig, enhanced_sig, sample_rate)
             csig += res["csig"]
             cbak += res["cbak"]
             covl += res["covl"]
