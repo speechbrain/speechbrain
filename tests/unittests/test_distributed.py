@@ -91,3 +91,24 @@ def test_run_on_main(tmpdir):
         world_size,
         join=True,
     )
+
+
+# Test infer_device.
+
+
+def test_infer_device():
+    device = distributed.infer_device()
+    if torch.accelerator.is_available():
+        assert device.startswith(torch.accelerator.current_accelerator())
+    else:
+        assert device == "cpu"
+
+
+def test_infer_device_local_rank(monkeypatch):
+    monkeypatch.setenv("LOCAL_RANK", "1")
+    device = distributed.infer_device()
+    if torch.accelerator.is_available():
+        assert device == f"{torch.accelerator.current_accelerator()}:1"
+    else:
+        assert device == "cpu"
+
