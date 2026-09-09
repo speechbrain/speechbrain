@@ -295,9 +295,10 @@ def convolve1d(
 
     # Use the implementation given by torch, which should be efficient on GPU
     else:
+        # conv1d performs cross-correlation, so reverse the kernel for convolution.
         convolved = torch.nn.functional.conv1d(
             input=waveform,
-            weight=kernel,
+            weight=kernel.flip(-1),
             stride=stride,
             groups=groups,
             padding=padding if not isinstance(padding, tuple) else 0,
