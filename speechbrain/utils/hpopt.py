@@ -331,7 +331,7 @@ class HyperparameterOptimizationContext:
         self.reporter_kwargs = reporter_kwargs or {}
         self.reporter = None
         self.enabled = False
-        self.result = {"objective": 0.0}
+        self.result = None
 
     def parse_arguments(
         self, arg_list, pass_hpopt_args=None, pass_trial_id=True

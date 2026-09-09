@@ -65,3 +65,41 @@ def test_hpopt_context():
     output.seek(0)
     output_result = json.load(output)
     assert output_result["per"] == 3
+    assert hp.get_trial_id() == hp.DEFAULT_TRIAL_ID
+
+
+@pytest.mark.parametrize("enabled", [False, True])
+@pytest.mark.parametrize("objective_key", ["error", "objective"])
+def test_hpopt_context_without_report(enabled, objective_key):
+    from io import StringIO
+
+    from speechbrain.utils import hpopt as hp
+
+    output = StringIO()
+    with hp.hyperparameter_optimization(
+        objective_key=objective_key, output=output
+    ) as hp_ctx:
+        args = ["hparams.yaml"] + (["--hpopt", "True"] if enabled else [])
+        hp_ctx.parse_arguments(args)
+
+    assert output.getvalue() == ""
+    assert hp.get_trial_id() == hp.DEFAULT_TRIAL_ID
+
+
+@pytest.mark.parametrize("enabled", [False, True])
+def test_hpopt_context_reports_zero(enabled):
+    import json
+    from io import StringIO
+
+    from speechbrain.utils import hpopt as hp
+
+    output = StringIO()
+    with hp.hyperparameter_optimization(
+        objective_key="error", output=output
+    ) as hp_ctx:
+        args = ["hparams.yaml"] + (["--hpopt", "True"] if enabled else [])
+        hp_ctx.parse_arguments(args)
+        hp.report_result({"error": 0.0})
+
+    assert json.loads(output.getvalue()) == {"error": 0.0, "objective": 0.0}
+    assert hp.get_trial_id() == hp.DEFAULT_TRIAL_ID
