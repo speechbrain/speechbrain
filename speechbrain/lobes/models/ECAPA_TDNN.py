@@ -285,7 +285,7 @@ class AttentiveStatisticsPooling(nn.Module):
             mean, std = _compute_statistics(x, mask / total)
             mean = mean.unsqueeze(2).repeat(1, 1, L)
             std = std.unsqueeze(2).repeat(1, 1, L)
-            attn = torch.cat([x, mean, std], dim=1)
+            attn = torch.cat([x, mean, std], dim=1).to(x.dtype)
         else:
             attn = x
 
