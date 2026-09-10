@@ -299,7 +299,16 @@ class PositionalEncoding(nn.Module):
         Returns
         -------
         The positional encoding.
+
+        Raises
+        ------
+        ValueError
+            If the input sequence is longer than ``max_len``.
         """
+        if x.size(1) > self.max_len:
+            raise ValueError(
+                f"Input sequence length {x.size(1)} exceeds the maximum positional encoding length {self.max_len}."
+            )
         return self.pe[:, : x.size(1)].clone().detach()
 
 
