@@ -18,6 +18,9 @@ class LazyModule(ModuleType):
     """Defines a module type that lazily imports the target module, thus
     exposing contents without importing the target module needlessly.
 
+    The ``__file__`` attribute is available only after the target is loaded,
+    so inspecting its filename does not force an import.
+
     Arguments
     ---------
     name : str
@@ -109,6 +112,9 @@ class LazyModule(ModuleType):
         return f"LazyModule(package={self.package}, target={self.target}, loaded={self.lazy_module is not None})"
 
     def __getattr__(self, attr):
+        # Introspection (e.g. IPython autoreload) must not load optional modules.
+        if attr == "__file__" and self.lazy_module is None:
+            raise AttributeError(attr)
         # NOTE: exceptions here get eaten and not displayed
         return getattr(self.ensure_module(1), attr)
 
