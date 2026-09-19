@@ -415,7 +415,7 @@ class Conv1d(nn.Module):
             nn.init.normal_(self.conv.weight, std=1e-6)
 
         if weight_norm:
-            self.conv = nn.utils.weight_norm(self.conv)
+            self.conv = nn.utils.parametrizations.weight_norm(self.conv)
 
     def forward(self, x):
         """Returns the output of the convolution.
@@ -649,7 +649,7 @@ class Conv2d(nn.Module):
             nn.init.zeros_(self.conv.weight)
 
         if weight_norm:
-            self.conv = nn.utils.weight_norm(self.conv)
+            self.conv = nn.utils.parametrizations.weight_norm(self.conv)
 
     def forward(self, x):
         """Returns the output of the convolution.
@@ -978,7 +978,7 @@ class ConvTranspose1d(nn.Module):
         )
 
         if weight_norm:
-            self.conv = nn.utils.weight_norm(self.conv)
+            self.conv = nn.utils.parametrizations.weight_norm(self.conv)
 
     def forward(self, x, output_size=None):
         """Returns the output of the convolution.
