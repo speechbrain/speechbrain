@@ -50,7 +50,7 @@ dev = [
 version = {file = "speechbrain/version.txt"}
 
 [tool.setuptools.packages.find]
-exclude = ["tests", "tests.*"]
+include = ["speechbrain", "speechbrain.*"]
 
 [tool.setuptools.package-data]
 speechbrain = ["version.txt", "log-config.yaml"]
