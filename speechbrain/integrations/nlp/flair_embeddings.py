@@ -52,7 +52,7 @@ class FlairEmbeddings:
     ... )
     >>> weighted_wer.base_stats.append(["id"], ["hi friend"], ["hi buddy"])
     >>> weighted_wer.summarize()
-    {'ember_wer': 16.6..., 'ember_insertions': 1.0, 'ember_substitutions': 0.5, 'ember_deletions': 0.0, 'ember_num_edits': 1.5}
+    {'ember_wer': 18.75, 'ember_insertions': 1.0, 'ember_substitutions': 0.5, 'ember_deletions': 0.0, 'ember_num_edits': 1.5}
     """
 
     def __init__(self, embeddings: Embeddings) -> None:
