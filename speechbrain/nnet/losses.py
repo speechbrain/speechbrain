@@ -831,7 +831,8 @@ def compute_length_mask(data, length=None, len_dim=1):
     data: torch.Tensor
         the data shape
     length: torch.Tensor
-        the length of the corresponding data samples
+        Relative lengths of the corresponding data samples. Floating-point
+        noise near an integer boundary is ignored.
     len_dim: int
         the length dimension (defaults to 1)
 
@@ -899,11 +900,25 @@ def compute_length_mask(data, length=None, len_dim=1):
              [1, 0],
              [1, 0],
              [1, 0]]])
+    >>> compute_length_mask(torch.zeros(1, 70), torch.tensor([36 / 70])).sum()
+    tensor(36.)
     """
     mask = torch.ones_like(data)
     if length is not None:
+        absolute_length = length * float(data.shape[len_dim])
+        rounded_length = absolute_length.round()
+        absolute_length = torch.where(
+            torch.isclose(
+                absolute_length,
+                rounded_length,
+                rtol=torch.finfo(absolute_length.dtype).eps,
+                atol=1e-6,
+            ),
+            rounded_length,
+            absolute_length,
+        )
         length_mask = length_to_mask(
-            (length * data.shape[len_dim] - 1e-6),
+            absolute_length,
             max_len=data.shape[len_dim],
         )
 
