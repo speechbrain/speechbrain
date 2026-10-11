@@ -1,28 +1,34 @@
 """
-Codec Augmentation via torchaudio
+Codec Augmentation via soundfile
 
-This library provides codec augmentation techniques in torchaudio for enhanced
-audio data processing.
-
-For detailed guidance and usage examples, refer to the tutorial at:
-https://pytorch.org/audio/stable/tutorials/audio_data_augmentation_tutorial.html
-
-Note: This code is compatible with FFmpeg as the torchaudio backend.
-When using FFmpeg2, the maximum number of samples for processing is limited to 16.
+This library provides codec augmentation techniques for enhanced audio data
+processing. Waveforms are encoded to an in-memory buffer with an audio codec
+and decoded back, simulating the artefacts introduced by lossy compression.
 
 Authors
  * Mirco Ravanelli 2023
+ * Peter Plantinga 2026
 """
 
+import io
 import random
 
+import soundfile as sf
 import torch
-import torchaudio
+
+
+def _match_length(waveform, length):
+    """Pad or trim a waveform so that its last dimension equals ``length``."""
+    if waveform.shape[-1] < length:
+        waveform = torch.nn.functional.pad(
+            waveform, (0, length - waveform.shape[-1])
+        )
+    return waveform[..., :length]
 
 
 class CodecAugment(torch.nn.Module):
     """
-    Apply random audio codecs to input waveforms using torchaudio.
+    Apply random audio codecs to input waveforms using soundfile.
 
     This class provides an interface for applying codec augmentation techniques to audio data.
 
@@ -34,19 +40,34 @@ class CodecAugment(torch.nn.Module):
     Example
     -------
     >>> waveform = torch.rand(4, 16000)
-    >>> if torchaudio.list_audio_backends()[0] == "ffmpeg":
-    ...     augmenter = CodecAugment(16000)
-    ...     output_waveform = augmenter(waveform)
+    >>> augmenter = CodecAugment(16000)
+    >>> output_waveform = augmenter(waveform)
+    >>> output_waveform.shape
+    torch.Size([4, 16000])
     """
 
     def __init__(self, sample_rate=16000):
         super().__init__()
         self.sample_rate = sample_rate
         self.available_format_encoders = [
-            ("wav", "pcm_mulaw"),
-            ("mp3", None),
-            ("g722", None),
+            ("WAV", "ULAW"),
+            ("MP3", "MPEG_LAYER_III"),
+            ("OGG", "OPUS"),
         ]
+
+    def _encode_decode(self, waveform, format=None, encoder=None):
+        """Round-trip a single mono waveform through the given codec."""
+        buffer = io.BytesIO()
+        sf.write(
+            buffer,
+            waveform.numpy(),
+            self.sample_rate,
+            format=format,
+            subtype=encoder,
+        )
+        buffer.seek(0)
+        decoded, _ = sf.read(buffer, dtype="float32")
+        return torch.from_numpy(decoded)
 
     def apply_codec(self, waveform, format=None, encoder=None):
         """
@@ -57,22 +78,33 @@ class CodecAugment(torch.nn.Module):
         waveform: torch.Tensor
             Input waveform of shape `[batch, time]`.
         format: str
-            The audio format to use (e.g., "wav", "mp3"). Default is None.
+            The soundfile format to use (e.g., "WAV", "MP3"). Default is None.
         encoder: str
-            The encoder to use for the format (e.g., "opus", "vorbis"). Default is None.
+            The soundfile subtype to use for the format (e.g., "ULAW", "OPUS").
+            Default is None, letting soundfile pick the default subtype.
 
         Returns
         ---------
         torch.Tensor:
             Coded version of the input waveform of shape `[batch, time]`.
         """
-        audio_effector = torchaudio.io.AudioEffector(
-            format=format, encoder=encoder
-        )
-        waveform_aug = audio_effector.apply(
-            waveform.transpose(0, 1).to("cpu"), self.sample_rate
-        )
-        return waveform_aug.transpose(0, 1).to(waveform.device)
+        device = waveform.device
+        waveform = waveform.detach().cpu().float()
+        squeeze = waveform.dim() == 1
+        if squeeze:
+            waveform = waveform.unsqueeze(0)
+        length = waveform.shape[-1]
+
+        # Encode each batch element as a mono stream: some codecs (e.g. MP3)
+        # only support one or two channels per file.
+        coded = [
+            _match_length(self._encode_decode(sample, format, encoder), length)
+            for sample in waveform
+        ]
+        waveform_aug = torch.stack(coded)
+        if squeeze:
+            waveform_aug = waveform_aug.squeeze(0)
+        return waveform_aug.to(device)
 
     def forward(self, waveform):
         """
