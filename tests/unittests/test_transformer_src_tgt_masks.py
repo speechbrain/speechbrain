@@ -10,7 +10,9 @@ def test_src_key_padding_mask_matches_padded_width(device):
     src = torch.randn(3, 100, 80, device=device)
     wav_len = torch.tensor([0.50, 0.75, 0.90], device=device)
 
-    src_key_padding_mask, _, _, _ = make_transformer_src_tgt_masks(src, wav_len=wav_len)
+    src_key_padding_mask, _, _, _ = make_transformer_src_tgt_masks(
+        src, wav_len=wav_len
+    )
 
     assert src_key_padding_mask.shape == (3, src.shape[1])
 
