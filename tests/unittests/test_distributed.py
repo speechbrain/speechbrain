@@ -111,4 +111,3 @@ def test_infer_device_local_rank(monkeypatch):
         assert device == f"{torch.accelerator.current_accelerator()}:1"
     else:
         assert device == "cpu"
-
