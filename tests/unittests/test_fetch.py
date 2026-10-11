@@ -1,3 +1,5 @@
+import pathlib
+
 import pytest
 
 from speechbrain.utils import fetching
@@ -91,3 +93,25 @@ def test_fetch_raises_on_network_disallowed(tmp_path):
             savedir=str(destdir),
             fetch_config=config,
         )
+
+
+def test_fetch_hf_copy_skip_cache_save_filename(tmp_path, monkeypatch):
+    # Recent huggingface_hub always stores `<local_dir>/<filename>`
+    def fake_hf_hub_download(repo_id, filename, local_dir=None, **kwargs):
+        path = pathlib.Path(local_dir) / filename
+        path.write_text("abc123")
+        return str(path)
+
+    monkeypatch.setattr(
+        fetching.huggingface_hub, "hf_hub_download", fake_hf_hub_download
+    )
+
+    outpath = fetching.fetch(
+        "label_encoder.txt",
+        "speechbrain/some-model",
+        savedir=tmp_path,
+        save_filename="label_encoder.ckpt",
+        local_strategy=fetching.LocalStrategy.COPY_SKIP_CACHE,
+    )
+    assert outpath == tmp_path / "label_encoder.ckpt"
+    assert outpath.read_text() == "abc123"
