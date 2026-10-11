@@ -208,6 +208,26 @@ def test_text_encoder(tmpdir):
     assert encoded[0] == 0
 
 
+def test_text_encoder_limited_labelset():
+    from speechbrain.dataio.encoder import TextEncoder
+
+    sentences = [["a", "b", "c"], ["a", "b"], ["a"]]
+
+    encoder = TextEncoder()
+    encoder.limited_labelset_from_iterable(sentences, n_most_common=2)
+    assert set(encoder.lab2ind) == {"a", "b"}
+
+    encoder = TextEncoder()
+    encoder.limited_labelset_from_iterable(sentences, min_count=3)
+    assert set(encoder.lab2ind) == {"a"}
+
+    encoder = TextEncoder()
+    encoder.limited_labelset_from_iterable(
+        ["a", "b", "a"], sequence_input=False, min_count=2
+    )
+    assert set(encoder.lab2ind) == {"a"}
+
+
 def test_ctc_encoder(tmpdir):
     from speechbrain.dataio.encoder import CTCTextEncoder
 
