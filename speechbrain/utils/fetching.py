@@ -275,6 +275,9 @@ def download_file_hf(hf_kwargs, destination, local_strategy):
         fetched_file = pathlib.Path(fetched_file)
         if local_strategy != LocalStrategy.COPY_SKIP_CACHE:
             link_with_strategy(fetched_file, destination, local_strategy)
+        elif fetched_file.absolute() != destination:
+            # HF always downloads to `<savedir>/<filename>`
+            shutil.move(fetched_file, destination)
 
     except HTTPError as e:
         if "404 Client Error" in str(e):
@@ -416,11 +419,7 @@ def fetch(
     }
     if local_strategy == LocalStrategy.COPY_SKIP_CACHE:
         hf_kwargs.update(
-            {
-                "local_dir": savedir,
-                "local_dir_use_symlinks": False,
-                "force_filename": save_filename,
-            }
+            {"local_dir": savedir, "local_dir_use_symlinks": False}
         )
     else:
         hf_kwargs["cache_dir"] = fetch_config.huggingface_cache_dir
