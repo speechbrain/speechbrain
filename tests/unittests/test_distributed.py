@@ -97,11 +97,12 @@ def test_run_on_main(tmpdir):
 
 
 def test_infer_device():
-    device = distributed.infer_device()
+    inferred_device = distributed.infer_device()
+    current_device = str(torch.accelerator.current_accelerator())
     if torch.accelerator.is_available():
-        assert device.startswith(torch.accelerator.current_accelerator())
+        assert current_device.startswith(inferred_device)
     else:
-        assert device == "cpu"
+        assert inferred_device == "cpu"
 
 
 def test_infer_device_local_rank(monkeypatch):
