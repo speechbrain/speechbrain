@@ -25,8 +25,8 @@ dependencies = [
     "scipy>=1.4.1",
     "sentencepiece>=0.1.91",
     "soundfile>=0.12.1",
-    "torch>=2.1.0",
-    "torchaudio>=2.1.0",
+    "torch>=2.7.1",
+    "torchaudio>=2.7.1",
     "tqdm>=4.42.0",
     "huggingface_hub>=0.8.0",
 ]
@@ -50,7 +50,7 @@ dev = [
 version = {file = "speechbrain/version.txt"}
 
 [tool.setuptools.packages.find]
-exclude = ["tests", "tests.*"]
+include = ["speechbrain", "speechbrain.*"]
 
 [tool.setuptools.package-data]
 speechbrain = ["version.txt", "log-config.yaml"]

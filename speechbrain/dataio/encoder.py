@@ -918,7 +918,10 @@ class TextEncoder(CategoricalEncoder):
     ):
         """Change default for sequence_input to True."""
         return super().limited_labelset_from_iterable(
-            iterable, sequence_input=True, n_most_common=None, min_count=1
+            iterable,
+            sequence_input=sequence_input,
+            n_most_common=n_most_common,
+            min_count=min_count,
         )
 
     def add_bos_eos(
