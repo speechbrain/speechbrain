@@ -12,6 +12,7 @@ Authors:
 """
 
 # Importing libraries
+import math
 import random
 
 import torch
@@ -492,9 +493,9 @@ class SpeedPerturb(torch.nn.Module):
         # Initialize resamplers
         self.resamplers = []
         for speed in self.speeds:
-            if speed == int(speed):
+            if math.isclose(speed, round(speed)):
                 # use a compact exact ratio for integer speeds
-                config = {"orig_freq": int(speed), "new_freq": 100}
+                config = {"orig_freq": round(speed), "new_freq": 100}
             else:
                 config = {
                     "orig_freq": self.orig_freq,
