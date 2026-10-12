@@ -60,3 +60,34 @@ def test_count_ops():
     assert count_ops(table)["insertions"] == 0
     assert count_ops(table)["deletions"] == 0
     assert count_ops(table)["substitutions"] == 1
+
+
+def test_wer_summary_all_empty_references():
+    from speechbrain.utils.edit_distance import (
+        wer_details_by_utterance,
+        wer_summary,
+    )
+
+    # Every reference is empty, but hypotheses have insertions: the summary
+    # must not report a perfect WER of 0.0 (see issue #3090).
+    refs = {"utt1": [], "utt2": []}
+    hyps = {"utt1": ["a", "b"], "utt2": ["c"]}
+    details = wer_details_by_utterance(refs, hyps, None, "all")
+    summary = wer_summary(details)
+    assert summary["num_scored_tokens"] == 0
+    assert summary["num_edits"] == 3
+    assert summary["WER"] == 100.0 * 3 / 1
+
+    # Empty references AND no edits (empty hypotheses): stays 0.0.
+    refs = {"utt1": []}
+    hyps = {"utt1": []}
+    details = wer_details_by_utterance(refs, hyps, None, "all")
+    summary = wer_summary(details)
+    assert summary["WER"] == 0.0
+
+    # Regular mixed case unchanged.
+    refs = {"utt1": ["a", "b"], "utt2": ["c"]}
+    hyps = {"utt1": ["a", "x"], "utt2": ["c"]}
+    details = wer_details_by_utterance(refs, hyps, None, "all")
+    summary = wer_summary(details)
+    assert summary["WER"] == 100.0 * 1 / 3

@@ -612,10 +612,10 @@ def wer_summary(details_by_utterance):
                 num_erroneous_sents += 1
         if dets["hyp_absent"]:
             num_absent_sents += 1
-    if num_scored_tokens != 0:
-        WER = 100.0 * num_edits / num_scored_tokens
-    else:
-        WER = 0.0
+    # NOTE: max() keeps WER at 0.0 when there are no scored tokens and no
+    # edits, but reports the edits (per the utterance-level convention above)
+    # when every scored reference is empty and insertions were made.
+    WER = 100.0 * num_edits / max(1, num_scored_tokens)
     wer_details = {
         "WER": WER,
         "SER": 100.0 * num_erroneous_sents / num_scored_sents,
