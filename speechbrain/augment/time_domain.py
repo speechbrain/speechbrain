@@ -12,6 +12,7 @@ Authors:
 """
 
 # Importing libraries
+import math
 import random
 
 import torch
@@ -478,7 +479,7 @@ class SpeedPerturb(torch.nn.Module):
     >>> clean.shape
     torch.Size([1, 52173])
     >>> perturbed.shape
-    torch.Size([1, 57971])
+    torch.Size([1, 57970])
     """
 
     def __init__(self, orig_freq, speeds=[90, 100, 110], device="cpu"):
@@ -492,10 +493,14 @@ class SpeedPerturb(torch.nn.Module):
         # Initialize resamplers
         self.resamplers = []
         for speed in self.speeds:
-            config = {
-                "orig_freq": self.orig_freq,
-                "new_freq": round(self.orig_freq * 100 / speed),
-            }
+            if math.isclose(speed, round(speed)):
+                # use a compact exact ratio for integer speeds
+                config = {"orig_freq": round(speed), "new_freq": 100}
+            else:
+                config = {
+                    "orig_freq": self.orig_freq,
+                    "new_freq": round(self.orig_freq * 100 / speed),
+                }
             self.resamplers.append(Resample(**config))
 
     def forward(self, waveform):
