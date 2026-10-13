@@ -18,6 +18,9 @@ from speechbrain.decoders.utils import (
     inflate_tensor,
     mask_by_condition,
 )
+from speechbrain.lobes.models.transformer.TransformerASR import (
+    make_transformer_src_tgt_masks,
+)
 from speechbrain.utils.data_utils import undo_padding
 
 
@@ -179,7 +182,14 @@ class S2SGreedySearcher(S2SBaseSearcher):
     """
 
     @torch.no_grad()
-    def forward(self, enc_states, wav_len, attention_mask=None):
+    def forward(
+        self,
+        enc_states,
+        wav_len,
+        keep_lens_rel=False,
+        memory=None,
+        dynchunk_config=None,
+    ):
         """This method performs a greedy search.
 
         Arguments
@@ -189,8 +199,15 @@ class S2SGreedySearcher(S2SBaseSearcher):
             (ex. the encoded speech representation to be attended).
         wav_len : torch.Tensor
             The speechbrain-style relative length.
-        attention_mask : torch.Tensor
-            The attention mask to be used when decoding.
+        keep_lens_rel : bool
+            If True, the enc_lens will be passed to forward step without converting to absolute len. This is useful if masking is generated
+            in the forward_step.
+        memory : torch.Tensor (optional)
+            Default is None. This tensor passed to the forward can be considered
+            as a prompt to start the decoding from. It will initialise the
+            memory of 'already generated tokens'.
+        dynchunk_config : DynChunkTrainConfig, optional
+            Dynamic Chunk Training configuration. This is typically used for streaming.
 
         Returns
         -------
@@ -203,11 +220,19 @@ class S2SGreedySearcher(S2SBaseSearcher):
         top_log_probs : torch.Tensor (batch, max length of token_id sequences)
             The log probabilities of each hypotheses.
         """
-        enc_lens = torch.round(enc_states.shape[1] * wav_len).int()
+
+        if not keep_lens_rel:
+            enc_lens = torch.round(enc_states.shape[1] * wav_len).int()
+        else:
+            enc_lens = wav_len
+
         device = enc_states.device
         batch_size = enc_states.shape[0]
 
-        memory = self.reset_mem(batch_size, device=device)
+        # If memory is given we don't want to reset it and we want to use it as
+        # input tokens.
+        if memory is None:
+            memory = self.reset_mem(batch_size, device=device)
 
         # Using bos as the first input
         inp_tokens = (
@@ -218,27 +243,16 @@ class S2SGreedySearcher(S2SBaseSearcher):
         min_decode_steps = int(enc_states.shape[1] * self.min_decode_ratio)
         max_decode_steps = int(enc_states.shape[1] * self.max_decode_ratio)
 
-        min_decode_steps, max_decode_steps = self.change_max_decoding_length(
-            min_decode_steps, max_decode_steps
-        )
-
         has_ended = enc_states.new_zeros(batch_size).bool()
         for step in range(min_decode_steps, max_decode_steps):
-            if attention_mask is not None:
-                attention_mask = torch.cat(
-                    [
-                        attention_mask,
-                        torch.ones(
-                            batch_size, 1, device=device, dtype=torch.bool
-                        ),
-                    ],
-                    dim=1,
+            if dynchunk_config is not None:
+                logits, memory, _ = self.forward_step(
+                    inp_tokens, memory, enc_states, enc_lens, dynchunk_config
                 )
-                attention_mask[has_ended, -1] = False
-
-            logits, memory, _ = self.forward_step(
-                inp_tokens, memory, enc_states, enc_lens, attention_mask
-            )
+            else:
+                logits, memory, _ = self.forward_step(
+                    inp_tokens, memory, enc_states, enc_lens
+                )
 
             if self.temperature == 0:
                 inp_tokens = logits.argmax(dim=-1)
@@ -325,6 +339,102 @@ class S2SGreedySearcher(S2SBaseSearcher):
             scores.unsqueeze(1),
             top_log_probs.unsqueeze(1),
         )
+
+
+class S2SBESTOWGreedySearcher(S2SGreedySearcher):
+    """This class implements greedy decoding for the BESTOW model.
+    It is equivalent to a transformer greedy decoding but with an extra prompt
+    and a few extra module (emb_proj + mixing_decoder + llm_emb_proj + LLM).
+
+    Arguments
+    ---------
+    modules : list with the following ones:
+        emb_proj : torch.nn.Module
+            The projection layer to downscale the embedding dim to the mixing_encoder input dim.
+        mixing_decoder : torch.nn.Module
+            A TransformerDecoder instance.
+        llm_emb_proj : torch.nn.Module
+            The projection layer to upscale the mixing_encoder output dim to the LLM embedding proj.
+        llm : torch.nn.Module
+            The LLM instance.
+
+    temperature : float
+        Temperature to use during decoding.
+    pad_token : int
+        Index of the pad token. This is because the LLM may expect a custom index.
+    **kwargs
+        Arguments to pass to S2SGreedySearcher
+    """
+
+    def __init__(self, modules, temperature=0.0, pad_token=0, **kwargs):
+        super().__init__(**kwargs)
+        self.emb_proj = modules[0]
+        self.mixing_decoder = modules[1]
+        self.llm_emb_proj = modules[2]
+        self.llm = modules[3]
+        self.softmax = torch.nn.LogSoftmax(dim=-1)
+        self.temperature = temperature
+        self.pad_token = pad_token
+
+    def reset_mem(self, batch_size, device):
+        """Needed to reset the memory during greedy search. In practice this function shouldn't be called as BESTOW gives an initial prompt."""
+        return None
+
+    def forward_step(
+        self, inp_tokens, memory, enc_states, enc_lens, dynchunk_config=None
+    ):
+        """Performs a step in the implemented greedy searcher based on BESTOW architecture."""
+        memory = _update_mem(inp_tokens, memory)
+
+        delay_steps = 0
+        if hasattr(dynchunk_config, "delay_steps"):
+            delay_steps = dynchunk_config.delay_steps
+        (
+            enc_key_padding_mask,
+            dec_key_padding_mask,
+            enc_mask,
+            dec_mask,
+        ) = make_transformer_src_tgt_masks(
+            enc_states,
+            memory,
+            enc_lens,
+            causal=True,
+            pad_idx=self.pad_token,
+            dynchunktrain_config=dynchunk_config,
+            delay_steps=delay_steps,
+        )
+
+        if hasattr(self.llm, "module"):
+            embedded_tokens = self.llm.module.embed_tokens(memory)
+        else:
+            embedded_tokens = self.llm.embed_tokens(memory)
+
+        text_embeds_proj = self.emb_proj(embedded_tokens)
+
+        if isinstance(dec_mask, tuple):
+            tgt_mask, memory_mask = dec_mask
+        else:
+            tgt_mask = dec_mask
+            memory_mask = None
+
+        mixed_output = self.mixing_decoder(
+            text_embeds_proj,
+            enc_states,
+            tgt_key_padding_mask=dec_key_padding_mask,  # Masked frames should be 1
+            memory_key_padding_mask=enc_key_padding_mask,  # Masked frames should be 1
+            tgt_mask=tgt_mask,
+            memory_mask=memory_mask,
+        )
+
+        # Proj and residual connection
+        mixed_embs = self.llm_emb_proj(mixed_output[0]) + embedded_tokens
+
+        # LLM forward
+        llm_logits = self.llm(
+            inputs_embeds=mixed_embs, attention_mask=~dec_key_padding_mask
+        ).logits  # Masked frames should be 0
+
+        return llm_logits[:, -1, :], memory, None
 
 
 class S2STransformerGreedySearcher(S2SGreedySearcher):
@@ -883,7 +993,15 @@ class S2SBeamSearcher(S2SBaseSearcher):
         )
 
     def _attn_weight_step(
-        self, inp_tokens, memory, enc_states, enc_lens, attn, log_probs
+        self,
+        inp_tokens,
+        memory,
+        enc_states,
+        enc_lens,
+        wav_lens,
+        attn,
+        log_probs,
+        dynchunk_config=None,
     ):
         """This method computes a forward_step if attn_weight is superior to 0.
 
@@ -898,10 +1016,14 @@ class S2SBeamSearcher(S2SBaseSearcher):
             The encoder states to be attended.
         enc_lens : torch.Tensor
             The actual length of each enc_states sequence.
+        wav_lens : torch.Tensor
+            The actual length (relative) of each wav sequence.
         attn : torch.Tensor
             The attention weight.
         log_probs : torch.Tensor
             The log-probabilities of the current step output.
+        dynchunk_config : DynChunkTrainConfig, optional
+            Dynamic Chunk Training configuration. This is typically used for streaming.
 
         Returns
         -------
@@ -914,9 +1036,19 @@ class S2SBeamSearcher(S2SBaseSearcher):
             The attention weight.
         """
         if self.attn_weight > 0:
-            log_probs, memory, attn = self.forward_step(
-                inp_tokens, memory, enc_states, enc_lens
-            )
+            if dynchunk_config is not None:
+                log_probs, memory, attn = self.forward_step(
+                    inp_tokens,
+                    memory,
+                    enc_states,
+                    enc_lens,
+                    wav_lens,
+                    dynchunk_config,
+                )
+            else:
+                log_probs, memory, attn = self.forward_step(
+                    inp_tokens, memory, enc_states, enc_lens
+                )
             log_probs = self.attn_weight * log_probs
         return log_probs, memory, attn
 
@@ -1084,7 +1216,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
             )
         return prev_attn_peak
 
-    def _update_reset_memory(self, enc_states, enc_lens):
+    def _update_reset_memory(self, enc_states, enc_lens, memory=None):
         """Call reset memory for each module.
 
         Arguments
@@ -1093,6 +1225,10 @@ class S2SBeamSearcher(S2SBaseSearcher):
             The encoder states to be attended.
         enc_lens : torch.Tensor
             The actual length of each enc_states sequence.
+        memory : torch.Tensor (optional)
+            Default is None. This tensor passed to the forward can be considered
+            as a prompt to start the decoding from. It will initialise the
+            memory of 'already generated tokens'.
 
         Returns
         -------
@@ -1101,7 +1237,13 @@ class S2SBeamSearcher(S2SBaseSearcher):
         scorer_memory : No limit
             The memory variables generated in this step.
         """
-        memory = self.reset_mem(self.n_bh, device=self.device)
+
+        if memory is None:
+            memory = self.reset_mem(self.n_bh, device=self.device)
+        else:
+            memory = memory.repeat(
+                [self.beam_size, 1]
+            )  # we repeat the memory for each beam
         scorer_memory = None
         if self.scorer is not None:
             scorer_memory = self.scorer.reset_scorer_mem(enc_states, enc_lens)
@@ -1264,7 +1406,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
             alived_hyps,
         )
 
-    def init_beam_search_data(self, enc_states, wav_len):
+    def init_beam_search_data(self, enc_states, wav_len, memory=None):
         """Initialize the beam search data.
 
         Arguments
@@ -1273,6 +1415,10 @@ class S2SBeamSearcher(S2SBaseSearcher):
             The encoder states to be attended.
         wav_len : torch.Tensor
             The actual length of each enc_states sequence.
+        memory : torch.Tensor (optional)
+            Default is None. This tensor passed to the forward can be considered
+            as a prompt to start the decoding from. It will initialise the
+            memory of 'already generated tokens'.
 
         Returns
         -------
@@ -1305,7 +1451,9 @@ class S2SBeamSearcher(S2SBaseSearcher):
 
         self.n_out = self.set_n_out()
 
-        memory, scorer_memory = self._update_reset_memory(enc_states, enc_lens)
+        memory, scorer_memory = self._update_reset_memory(
+            enc_states, enc_lens, memory
+        )
 
         # Inflate the enc_states and enc_len by beam_size times
         enc_states = inflate_tensor(enc_states, times=self.beam_size, dim=0)
@@ -1487,7 +1635,9 @@ class S2SBeamSearcher(S2SBaseSearcher):
         prev_attn_peak,
         enc_states,
         enc_lens,
+        wav_lens,
         step,
+        dynchunk_config=None,
     ):
         """A search step for the next most likely tokens.
 
@@ -1515,8 +1665,12 @@ class S2SBeamSearcher(S2SBaseSearcher):
             The encoder states to be attended.
         enc_lens : torch.Tensor
             The actual length of each enc_states sequence.
+        wav_lens : torch.Tensor
+            The actual length (relative) of each wav sequence.
         step : int
             The current decoding step.
+        dynchunk_config : DynChunkTrainConfig, optional
+            Dynamic Chunk Training configuration. This is typically used for streaming.
 
         Returns
         -------
@@ -1540,7 +1694,14 @@ class S2SBeamSearcher(S2SBaseSearcher):
             The scores of the current step output.
         """
         (log_probs, memory, attn) = self._attn_weight_step(
-            inp_tokens, memory, enc_states, enc_lens, attn, log_probs
+            inp_tokens,
+            memory,
+            enc_states,
+            enc_lens,
+            wav_lens,
+            attn,
+            log_probs,
+            dynchunk_config,
         )
 
         # Keep the original value
@@ -1629,7 +1790,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
 
         return eos_hyps_and_log_probs_scores
 
-    def forward(self, enc_states, wav_len):  # noqa: C901
+    def forward(self, enc_states, wav_len, memory=None, dynchunk_config=None):  # noqa: C901
         """Applies beamsearch and returns the predicted tokens.
 
         Arguments
@@ -1638,6 +1799,12 @@ class S2SBeamSearcher(S2SBaseSearcher):
             The encoder states to be attended.
         wav_len : torch.Tensor
             The actual length of each enc_states sequence.
+        memory : torch.Tensor (optional)
+            Default is None. This tensor passed to the forward can be considered
+            as a prompt to start the decoding from. It will initialise the
+            memory of 'already generated tokens'.
+        dynchunk_config : DynChunkTrainConfig, optional
+            Dynamic Chunk Training configuration. This is typically used for streaming.
 
         Returns
         -------
@@ -1650,6 +1817,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
         best_log_probs : torch.Tensor
             The log probabilities of each predicted tokens.
         """
+
         (
             alived_hyps,
             inp_tokens,
@@ -1661,7 +1829,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
             prev_attn_peak,
             enc_states,
             enc_lens,
-        ) = self.init_beam_search_data(enc_states, wav_len)
+        ) = self.init_beam_search_data(enc_states, wav_len, memory=memory)
 
         for step in range(self.max_decode_steps):
             # terminate condition
@@ -1689,7 +1857,9 @@ class S2SBeamSearcher(S2SBaseSearcher):
                 prev_attn_peak,
                 enc_states,
                 enc_lens,
+                wav_len,
                 step,
+                dynchunk_config,
             )
 
             if self._check_end_condition(alived_hyps):
@@ -1747,6 +1917,121 @@ class S2SBeamSearcher(S2SBaseSearcher):
         """
         raise NotImplementedError
         return
+
+
+class S2SBESTOWBeamSearcher(S2SBeamSearcher):
+    """This class implements bream search decoding for the BESTOW model. It is equivalent to a transformer beam search decoding but with an extra prompt and a few extra module (emb_proj + decoder + llm_emb_proj + LLM).
+
+    Arguments
+    ---------
+    modules : list with the following ones:
+        emb_proj : torch.nn.Module
+            The projection layer to downscale the embedding dim to the mixing_encoder input dim.
+        mixing_decoder : torch.nn.Module
+            A TransformerDecoder instance.
+        llm_emb_proj : torch.nn.Module
+            The projection layer to upscale the mixing_encoder output dim to the LLM embedding proj.
+        llm : torch.nn.Module
+            The LLM instance.
+    vocab_size : int
+        Size of the output vocabulary
+    temperature : float
+        Temperature to use during decoding.
+    pad_token : int
+        Index of the pad token. This is because the LLM may expect a custom index.
+    **kwargs
+        Arguments to pass to S2SGreedySearcher
+    """
+
+    def __init__(
+        self, modules, vocab_size, temperature=1.0, pad_token=0, **kwargs
+    ):
+        super().__init__(**kwargs)
+        self.emb_proj = modules[0]
+        self.mixing_decoder = modules[1]
+        self.llm_emb_proj = modules[2]
+        self.llm = modules[3]
+        self.softmax = torch.nn.LogSoftmax(dim=-1)
+        self.temperature = temperature
+        self.pad_token = pad_token
+        self.vocab_size = vocab_size
+
+    def permute_mem(self, memory, index):
+        """Memory permutation during beamsearch. TODO: not confident about this?"""
+        memory = torch.index_select(memory, dim=0, index=index)
+        return memory
+
+    def reset_mem(self, batch_size, device):
+        """Needed to reset the memory during greedy search. In practice this function shouldn't be called as BESTOW gives an initial prompt."""
+        return None
+
+    def forward_step(
+        self,
+        inp_tokens,
+        memory,
+        enc_states,
+        enc_lens,
+        wav_lens,
+        dynchunk_config=None,
+    ):
+        """Performs a step in the implemented greedy searcher based on BESTOW architecture."""
+
+        memory = _update_mem(inp_tokens, memory)
+
+        wav_lens = inflate_tensor(wav_lens, times=self.beam_size, dim=0)
+
+        delay_steps = 0
+        if hasattr(dynchunk_config, "delay_steps"):
+            delay_steps = dynchunk_config.delay_steps
+
+        (
+            enc_key_padding_mask,
+            dec_key_padding_mask,
+            enc_mask,
+            dec_mask,
+        ) = make_transformer_src_tgt_masks(
+            enc_states,
+            memory,
+            wav_lens,
+            causal=True,
+            pad_idx=self.pad_token,
+            dynchunktrain_config=dynchunk_config,
+            delay_steps=delay_steps,
+        )
+
+        embedded_tokens = self.llm.embed_tokens(memory)
+        text_embeds_proj = self.emb_proj(embedded_tokens)
+
+        if isinstance(dec_mask, tuple):
+            tgt_mask, memory_mask = dec_mask
+        else:
+            tgt_mask = dec_mask
+            memory_mask = None
+
+        mixed_output = self.mixing_decoder(
+            text_embeds_proj,
+            enc_states,
+            tgt_key_padding_mask=dec_key_padding_mask,  # Masked frames should be 1
+            memory_key_padding_mask=enc_key_padding_mask,  # Masked frames should be 1
+            tgt_mask=tgt_mask,
+            memory_mask=memory_mask,
+        )
+
+        # Proj and residual connection
+        mixed_embs = self.llm_emb_proj(mixed_output[0]) + embedded_tokens
+
+        # LLM forward
+        llm_logits = self.llm(
+            inputs_embeds=mixed_embs, attention_mask=~dec_key_padding_mask
+        ).logits  # Masked frames should be 0
+
+        prob_dist = self.softmax(llm_logits / self.temperature)
+
+        return prob_dist[:, -1, :], memory, None
+
+    def set_n_out(self):
+        """set the number of output tokens."""
+        return self.vocab_size
 
 
 class S2SRNNBeamSearcher(S2SBeamSearcher):

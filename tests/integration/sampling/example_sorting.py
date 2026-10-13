@@ -191,7 +191,7 @@ def ddp_recipes(rank, size, backend="gloo"):
     os.environ["RANK"] = f"{rank}"
     os.environ["LOCAL_RANK"] = f"{rank}"
     os.environ["MASTER_ADDR"] = "127.0.0.1"
-    os.environ["MASTER_PORT"] = "29500"
+    os.environ["MASTER_PORT"] = "12345"
 
     run_opts = dict()
     run_opts["distributed_launch"] = True

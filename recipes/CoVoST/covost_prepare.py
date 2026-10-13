@@ -14,6 +14,7 @@ import csv
 import functools
 import os
 import re
+import shutil
 from dataclasses import dataclass
 
 from speechbrain.dataio.dataio import read_audio_info
@@ -293,7 +294,7 @@ def process_line(line, convert_to_wav, data_folder, src_language, tgt_language):
     if os.path.isfile(audio_path):
         info = read_audio_info(audio_path)
     else:
-        msg = "\tError loading: %s" % (str(len(file_name)))
+        msg = "\tError loading: %s" % (str(len(audio_path_filename)))
         logger.info(msg)
         return None
 
@@ -483,14 +484,21 @@ def convert_mp3_to_wav(audio_mp3_path):
     subprocess.CalledProcessError
         If the conversion process fails.
     """
-    audio_wav_path = audio_mp3_path.replace(".mp3", ".wav")
-    if not os.path.isfile(audio_wav_path):
-        if VERBOSE:
-            os.system(
-                f"ffmpeg -y -i {audio_mp3_path} -ac 1 -ar {SAMPLING_RATE} {audio_wav_path}"
-            )
-        else:
-            os.system(
-                f"ffmpeg -y -i {audio_mp3_path} -ac 1 -ar {SAMPLING_RATE} {audio_wav_path} > /dev/null 2>&1"
-            )
+    if is_ffmpeg_installed():
+        audio_wav_path = audio_mp3_path.replace(".mp3", ".wav")
+        if not os.path.isfile(audio_wav_path):
+            if VERBOSE:
+                os.system(
+                    f"ffmpeg -y -i {audio_mp3_path} -ac 1 -ar {SAMPLING_RATE} {audio_wav_path}"
+                )
+            else:
+                os.system(
+                    f"ffmpeg -y -i {audio_mp3_path} -ac 1 -ar {SAMPLING_RATE} {audio_wav_path} > /dev/null 2>&1"
+                )
+    else:
+        raise RuntimeError("ffmpeg must be installed to convert .mp3 to .wav")
     return audio_wav_path
+
+
+def is_ffmpeg_installed():
+    return shutil.which("ffmpeg")
