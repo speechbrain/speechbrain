@@ -109,22 +109,33 @@ class GlobalLayerNorm(nn.Module):
 
 
 class CumulativeLayerNorm(nn.LayerNorm):
-    """Calculate Cumulative Layer Normalization.
+    """Apply channelwise layer normalization.
+
+    Despite the class name, statistics are computed only over the channel
+    dimension, independently at each time step. They are not accumulated over
+    preceding time steps. For inputs of size [N, C, K, S], each (K, S) position is normalized independently over C.
+    For inputs of size [N, C, L], each L position is normalized over C.
 
     Arguments
     ---------
     dim : int
-        Dimension that you want to normalize.
+        Number of channels in the input (the C dimension).
     elementwise_affine : bool
-        Learnable per-element affine parameters.
+        Whether to use learnable per-channel affine parameters.
     eps : float
-        A small value to prevent overflow.
+        A value added to the variance for numerical stability.
 
     Example
     -------
     >>> x = torch.randn(5, 10, 20)
     >>> CLN = CumulativeLayerNorm(10)
     >>> x_norm = CLN(x)
+    >>> # Output at one frame does not depend on other frames
+    >>> torch.allclose(x_norm[:, :, -1:], CLN(x[:, :, -1:]))
+    True
+    >>> x_chunked = x.reshape(5, 10, 4, 5)
+    >>> torch.allclose(CLN(x_chunked).reshape_as(x), x_norm)
+    True
     """
 
     def __init__(self, dim, elementwise_affine=True, eps=1e-8):
@@ -161,7 +172,11 @@ class CumulativeLayerNorm(nn.LayerNorm):
 
 
 def select_norm(norm, dim, shape, eps=1e-8):
-    """Just a wrapper to select the normalization type."""
+    """Select the normalization type.
+
+    The ``cln`` option uses :class:`CumulativeLayerNorm`, which performs
+    channelwise rather than cumulative normalization.
+    """
 
     if norm == "gln":
         return GlobalLayerNorm(dim, shape, elementwise_affine=True, eps=eps)
@@ -1222,7 +1237,7 @@ class SepformerWrapper(nn.Module):
     masknet_norm: str,
         The normalization type to be used in the masknet
         Should be one of 'ln' -- layernorm, 'gln' -- globallayernorm
-                         'cln' -- cumulative layernorm, 'bn' -- batchnorm
+                         'cln' -- channelwise layernorm, 'bn' -- batchnorm
                          -- see the select_norm function above for more details
     masknet_useextralinearlayer: bool
         Whether or not to use a linear layer at the output of intra and inter blocks
