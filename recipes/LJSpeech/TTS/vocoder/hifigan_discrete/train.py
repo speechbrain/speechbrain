@@ -11,7 +11,6 @@ Authors
  * Yingzhi WANG 2022
 """
 
-import copy
 import pathlib as pl
 import random
 import sys
@@ -336,12 +335,9 @@ class HifiGanBrain(sb.Brain):
                 return
             x, y = self.last_batch
 
-            # Preparing model for inference by removing weight norm
-            inference_generator = copy.deepcopy(self.hparams.generator)
-            inference_generator.remove_weight_norm()
-            if inference_generator.duration_predictor:
+            if self.hparams.generator.duration_predictor:
                 x = torch.unique_consecutive(x, dim=1)
-            sig_out = inference_generator.inference(x)
+            sig_out = self.hparams.generator.inference(x)
             spec_out = self.hparams.mel_spectrogram(
                 audio=sig_out.squeeze(0).cpu()
             )
