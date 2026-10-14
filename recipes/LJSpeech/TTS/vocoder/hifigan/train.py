@@ -244,7 +244,25 @@ class HifiGanBrain(sb.Brain):
                 return
             x, y = self.last_batch
 
-            sig_out = self.hparams.generator.inference(x)
+            # Preparing model for inference by removing weight norm
+            inference_generator = type(self.hparams.generator)(
+                in_channels=self.hparams.in_channels,
+                out_channels=self.hparams.out_channels,
+                resblock_type=self.hparams.resblock_type,
+                resblock_dilation_sizes=self.hparams.resblock_dilation_sizes,
+                resblock_kernel_sizes=self.hparams.resblock_kernel_sizes,
+                upsample_kernel_sizes=self.hparams.upsample_kernel_sizes,
+                upsample_initial_channel=self.hparams.upsample_initial_channel,
+                upsample_factors=self.hparams.upsample_factors,
+                inference_padding=self.hparams.inference_padding,
+                cond_channels=self.hparams.cond_channels,
+                conv_post_bias=self.hparams.conv_post_bias,
+            ).to(self.device)  # Gets a new instance
+            inference_generator.load_state_dict(
+                self.hparams.generator.state_dict()
+            )  # Copies weights
+            inference_generator.remove_weight_norm()
+            sig_out = inference_generator.inference(x)
             spec_out = self.hparams.mel_spectrogram(
                 audio=sig_out.squeeze(0).cpu()
             )

@@ -335,9 +335,33 @@ class HifiGanBrain(sb.Brain):
                 return
             x, y = self.last_batch
 
-            if self.hparams.generator.duration_predictor:
+            # Preparing model for inference by removing weight norm
+            inference_generator = type(self.hparams.generator)(
+                in_channels=self.hparams.in_channels,
+                out_channels=self.hparams.out_channels,
+                resblock_type=self.hparams.resblock_type,
+                resblock_dilation_sizes=self.hparams.resblock_dilation_sizes,
+                resblock_kernel_sizes=self.hparams.resblock_kernel_sizes,
+                upsample_kernel_sizes=self.hparams.upsample_kernel_sizes,
+                upsample_initial_channel=self.hparams.upsample_initial_channel,
+                upsample_factors=self.hparams.upsample_factors,
+                inference_padding=self.hparams.inference_padding,
+                cond_channels=self.hparams.cond_channels,
+                conv_post_bias=self.hparams.conv_post_bias,
+                vocab_size=self.hparams.vocab_size,
+                embedding_dim=self.hparams.embedding_dim,
+                duration_predictor=self.hparams.duration_predictor,
+                var_pred_hidden_dim=self.hparams.var_pred_hidden_dim,
+                var_pred_kernel_size=self.hparams.var_pred_kernel_size,
+                var_pred_dropout=self.hparams.var_pred_dropout,
+            ).to(self.device)  # Gets a new instance
+            inference_generator.load_state_dict(
+                self.hparams.generator.state_dict()
+            )  # Copies weights
+            inference_generator.remove_weight_norm()
+            if inference_generator.duration_predictor:
                 x = torch.unique_consecutive(x, dim=1)
-            sig_out = self.hparams.generator.inference(x)
+            sig_out = inference_generator.inference(x)
             spec_out = self.hparams.mel_spectrogram(
                 audio=sig_out.squeeze(0).cpu()
             )

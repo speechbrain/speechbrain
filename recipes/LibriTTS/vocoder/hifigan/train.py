@@ -246,7 +246,6 @@ class HifiGanBrain(sb.Brain):
             x, y = self.last_batch
 
             # Preparing model for inference by removing weight norm
-            # inference_generator = copy.deepcopy(self.hparams.generator)
             inference_generator = type(self.hparams.generator)(
                 in_channels=self.hparams.in_channels,
                 out_channels=self.hparams.out_channels,
