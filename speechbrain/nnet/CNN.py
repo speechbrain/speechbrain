@@ -17,6 +17,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torchaudio
+from torch.nn.utils.parametrize import remove_parametrizations
 
 from speechbrain.processing.signal_processing import (
     gabor_impulse_response,
@@ -415,7 +416,7 @@ class Conv1d(nn.Module):
             nn.init.normal_(self.conv.weight, std=1e-6)
 
         if weight_norm:
-            self.conv = nn.utils.weight_norm(self.conv)
+            self.conv = nn.utils.parametrizations.weight_norm(self.conv)
 
     def forward(self, x):
         """Returns the output of the convolution.
@@ -522,7 +523,7 @@ class Conv1d(nn.Module):
 
     def remove_weight_norm(self):
         """Removes weight normalization at inference if used during training."""
-        self.conv = nn.utils.remove_weight_norm(self.conv)
+        self.conv = remove_parametrizations(self.conv, "weight")
 
 
 class Conv2d(nn.Module):
@@ -649,7 +650,7 @@ class Conv2d(nn.Module):
             nn.init.zeros_(self.conv.weight)
 
         if weight_norm:
-            self.conv = nn.utils.weight_norm(self.conv)
+            self.conv = nn.utils.parametrizations.weight_norm(self.conv)
 
     def forward(self, x):
         """Returns the output of the convolution.
@@ -776,7 +777,7 @@ class Conv2d(nn.Module):
 
     def remove_weight_norm(self):
         """Removes weight normalization at inference if used during training."""
-        self.conv = nn.utils.remove_weight_norm(self.conv)
+        self.conv = remove_parametrizations(self.conv, "weight")
 
 
 class ConvTranspose1d(nn.Module):
@@ -978,7 +979,7 @@ class ConvTranspose1d(nn.Module):
         )
 
         if weight_norm:
-            self.conv = nn.utils.weight_norm(self.conv)
+            self.conv = nn.utils.parametrizations.weight_norm(self.conv)
 
     def forward(self, x, output_size=None):
         """Returns the output of the convolution.
@@ -1031,7 +1032,7 @@ class ConvTranspose1d(nn.Module):
 
     def remove_weight_norm(self):
         """Removes weight normalization at inference if used during training."""
-        self.conv = nn.utils.remove_weight_norm(self.conv)
+        self.conv = remove_parametrizations(self.conv, "weight")
 
 
 class DepthwiseSeparableConv1d(nn.Module):

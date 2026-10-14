@@ -1061,7 +1061,7 @@ class DiscriminatorS(torch.nn.Module):
         norm_f = (
             nn.utils.spectral_norm
             if use_spectral_norm
-            else nn.utils.weight_norm
+            else nn.utils.parametrizations.weight_norm
         )
         self.convs = nn.ModuleList(
             [
