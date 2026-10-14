@@ -2,6 +2,32 @@ import torch
 import torch.nn
 
 
+def test_src_key_padding_mask_matches_padded_width(device):
+    from speechbrain.lobes.models.transformer.TransformerASR import (
+        make_transformer_src_tgt_masks,
+    )
+
+    src = torch.randn(3, 100, 80, device=device)
+    wav_len = torch.tensor([0.50, 0.75, 0.90], device=device)
+
+    src_key_padding_mask, _, _, _ = make_transformer_src_tgt_masks(
+        src, wav_len=wav_len
+    )
+
+    assert src_key_padding_mask.shape == (3, src.shape[1])
+
+    attention = torch.nn.MultiheadAttention(
+        embed_dim=src.shape[-1], num_heads=1, batch_first=True
+    ).to(device)
+    output, _ = attention(
+        src,
+        src,
+        src,
+        key_padding_mask=src_key_padding_mask,
+    )
+    assert output.shape == src.shape
+
+
 def test_make_transformer_src_tgt_masks(device):
     from numpy import inf
 
