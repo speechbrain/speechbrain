@@ -113,7 +113,7 @@ class CumulativeLayerNorm(nn.LayerNorm):
 
     Despite the class name, statistics are computed only over the channel
     dimension, independently at each time step. They are not accumulated over
-    preceding time steps. For inputs of size [N, C, K, S], each (K, S) position is normalized independently over C. 
+    preceding time steps. For inputs of size [N, C, K, S], each (K, S) position is normalized independently over C.
     For inputs of size [N, C, L], each L position is normalized over C.
 
     Arguments
