@@ -113,8 +113,8 @@ class CumulativeLayerNorm(nn.LayerNorm):
 
     Despite the class name, statistics are computed only over the channel
     dimension, independently at each time step. They are not accumulated over
-    preceding time steps. For inputs of size [N, C, K, S], each position in
-    the K and S dimensions is normalized independently over C.
+    preceding time steps. For inputs of size [N, C, K, S], each (K, S) position is normalized independently over C. 
+    For inputs of size [N, C, L], each L position is normalized over C.
 
     Arguments
     ---------
@@ -130,6 +130,7 @@ class CumulativeLayerNorm(nn.LayerNorm):
     >>> x = torch.randn(5, 10, 20)
     >>> CLN = CumulativeLayerNorm(10)
     >>> x_norm = CLN(x)
+    >>> # Output at one frame does not depend on other frames
     >>> torch.allclose(x_norm[:, :, -1:], CLN(x[:, :, -1:]))
     True
     >>> x_chunked = x.reshape(5, 10, 4, 5)
