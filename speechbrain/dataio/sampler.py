@@ -12,7 +12,6 @@ Authors:
 """
 
 from collections import Counter
-from operator import itemgetter
 from typing import List, Optional, Union
 
 import numpy as np
@@ -749,6 +748,14 @@ class DistributedSamplerWrapper(DistributedSampler):
     ----
     This is is automatically applied to any sampler in the Brain class when DDP
     training is used.
+
+    Example
+    -------
+    >>> sampler = DistributedSamplerWrapper(
+    ...     [[0, 1], [2, 3]], num_replicas=2, rank=0, shuffle=False
+    ... )
+    >>> list(sampler)
+    [[0, 1]]
     """
 
     def __init__(self, sampler, *args, **kwargs):
@@ -763,9 +770,7 @@ class DistributedSamplerWrapper(DistributedSampler):
         # sampler
         sampler_indices = list(self.sampler.__iter__())
         indices_of_indices = super().__iter__()
-        # Itemgetter fetches the wrapped sampler indices from the positions
-        # pointed to by DistributedSampler
-        return iter(itemgetter(*indices_of_indices)(sampler_indices))
+        return (sampler_indices[i] for i in indices_of_indices)
 
     def set_epoch(self, epoch):
         """Pass set_epoch() through to DistributedSampler and the wrapper one"""
