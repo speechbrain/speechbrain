@@ -78,7 +78,8 @@ class DiffWaveBrain(sb.Brain):
             preds.squeeze(1), noise.squeeze(1), length=lens
         )
 
-        self.last_loss_stats[stage] = {"loss": loss}
+        # Store as float as the meta will be loaded with safe yaml (incompatible with tensor).
+        self.last_loss_stats[stage] = {"loss": float(loss.item())}
         return loss
 
     def on_fit_start(self):
