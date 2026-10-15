@@ -134,7 +134,7 @@ def prepare_GSC(
         return
 
     # If the data folders do not exist, we need to extract the data
-    if not os.path.isdir(os.path.join(data_folder, "train-synth")):
+    if not os.path.isfile(os.path.join(data_folder, "validation_list.txt")):
         # Check for zip file and download if it doesn't exist
         tar_location = os.path.join(data_folder, "speech_commands_v0.02.tar.gz")
         if not os.path.exists(tar_location):
