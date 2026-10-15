@@ -195,7 +195,9 @@ class SEBlock(nn.Module):
         """Processes the input tensor x and returns an output tensor."""
         L = x.shape[-1]
         if lengths is not None:
-            mask = length_to_mask(lengths * L, max_len=L, device=x.device)
+            mask = length_to_mask(
+                lengths * L, max_len=L, dtype=x.dtype, device=x.device
+            )
             mask = mask.unsqueeze(1)
             total = mask.sum(dim=2, keepdim=True)
             s = (x * mask).sum(dim=2, keepdim=True) / total
@@ -273,7 +275,9 @@ class AttentiveStatisticsPooling(nn.Module):
             lengths = torch.ones(x.shape[0], device=x.device)
 
         # Make binary mask of shape [N, 1, L]
-        mask = length_to_mask(lengths * L, max_len=L, device=x.device)
+        mask = length_to_mask(
+            lengths * L, max_len=L, dtype=x.dtype, device=x.device
+        )
         mask = mask.unsqueeze(1)
 
         # Expand the temporal context of the pooling layer by allowing the
@@ -281,7 +285,7 @@ class AttentiveStatisticsPooling(nn.Module):
         if self.global_context:
             # torch.std is unstable for backward computation
             # https://github.com/pytorch/pytorch/issues/4320
-            total = mask.sum(dim=2, keepdim=True).float()
+            total = mask.sum(dim=2, keepdim=True).to(x.dtype)
             mean, std = _compute_statistics(x, mask / total)
             mean = mean.unsqueeze(2).repeat(1, 1, L)
             std = std.unsqueeze(2).repeat(1, 1, L)
