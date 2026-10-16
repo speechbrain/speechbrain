@@ -475,7 +475,7 @@ class WeightedErrorRateStats(MetricStats):
             utt_weighted_insertions = 0.0
             utt_weighted_substitutions = 0.0
             utt_weighted_deletions = 0.0
-            utt_total = 0.0
+            utt_total = float(utterance["num_ref_tokens"])
 
             for edit_symbol, a_idx, b_idx in utterance["alignment"]:
                 a = (
@@ -499,14 +499,12 @@ class WeightedErrorRateStats(MetricStats):
                     elif edit_symbol == EDIT_SYMBOLS["sub"]:
                         utt_weighted_substitutions += pair_score
 
-                utt_total += 1.0
-
             utt_weighted_edits = (
                 utt_weighted_insertions
                 + utt_weighted_substitutions
                 + utt_weighted_deletions
             )
-            utt_weighted_wer_ratio = utt_weighted_edits / utt_total
+            utt_weighted_wer_ratio = utt_weighted_edits / max(1.0, utt_total)
             self.scores.append(
                 {
                     "key": self.base_stats.ids[i],
@@ -526,7 +524,7 @@ class WeightedErrorRateStats(MetricStats):
         weighted_edits = (
             weighted_insertions + weighted_substitutions + weighted_deletions
         )
-        weighted_wer_ratio = weighted_edits / total
+        weighted_wer_ratio = weighted_edits / total if total > 0 else 0.0
 
         self.summary = {
             f"{self.weight_name}_wer": weighted_wer_ratio * 100.0,
