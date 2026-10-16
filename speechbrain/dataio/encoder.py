@@ -1021,7 +1021,7 @@ class TextEncoder(CategoricalEncoder):
         if not hasattr(self, "bos_label"):
             raise KeyError("BOS label has not been added to label set!")
         if torch.is_tensor(x):
-            bos_ind = torch.Tensor([self.lab2ind[self.bos_label]])
+            bos_ind = x.new_tensor([self.lab2ind[self.bos_label]])
             return torch.cat([bos_ind, x])
         return [self.lab2ind[self.bos_label]] + list(x)
 
@@ -1037,7 +1037,7 @@ class TextEncoder(CategoricalEncoder):
         if not hasattr(self, "eos_label"):
             raise KeyError("EOS label has not been added to label set!")
         if torch.is_tensor(x):
-            eos_ind = torch.Tensor([self.lab2ind[self.eos_label]])
+            eos_ind = x.new_tensor([self.lab2ind[self.eos_label]])
             return torch.cat([x, eos_ind])
         return list(x) + [self.lab2ind[self.eos_label]]
 
