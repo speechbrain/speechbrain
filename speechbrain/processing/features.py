@@ -1295,7 +1295,8 @@ class InputNormalization(torch.nn.Module):
         behavior of BatchNorm. To maintain this behavior, use
         `speechbrain.nnet.normalization.BatchNorm1d(momentum=avg_factor)`.
     length_dim : int, default 1
-        The dimension for which to mask out the padding positions.
+        The time dimension used for both padding masks and normalization
+        statistics, e.g. 2 for input shaped ``[batch, features, time]``.
     update_until_epoch : int, default 2
         The epoch for which updates to the norm stats should stop.
         By default, stops after one epoch of updates, as when
@@ -1424,7 +1425,7 @@ class InputNormalization(torch.nn.Module):
             The normalized tensor.
         """
         # Padding mask is used to protect padding elements from updates
-        mask = make_padding_mask(x, lengths, length_dim=1)
+        mask = make_padding_mask(x, lengths, length_dim=self.length_dim)
 
         # Global stats should be updated before performing normalization
         if self.norm_type == "global":
