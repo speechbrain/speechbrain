@@ -54,6 +54,10 @@ coverage.xml
 cover/
 tests/tmp/
 tests/download/
+# Data generated under tests/samples/ by recipe tests (noise/RIR downloads, manifests)
+tests/samples/*/noise/
+tests/samples/*/rir/
+tests/samples/ESC50/manifest/
 
 # Translations
 *.mo
