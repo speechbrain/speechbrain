@@ -1,5 +1,6 @@
 import math
 
+import pytest
 import torch
 import torch.nn
 
@@ -138,6 +139,42 @@ def test_binary_metrics(device):
 
     summary = binary_stats.summarize(threshold=None, max_samples=1)
     assert summary["threshold"] >= 0.1 and summary["threshold"] < 0.2
+
+
+@pytest.mark.parametrize(
+    "positive_label,negative_label", [(1, 0), (0, 1), (2, -1)]
+)
+@pytest.mark.parametrize("dtype", [torch.int64, torch.float32])
+@pytest.mark.parametrize("threshold", [0.5, None])
+def test_binary_metrics_positive_label(
+    device, positive_label, negative_label, dtype, threshold
+):
+    from speechbrain.utils.metric_stats import BinaryMetricStats
+
+    scores = torch.tensor([0.9, 0.4, 0.8, 0.2, 0.3, 0.6], device=device)
+    binary_labels = torch.tensor([1, 0, 1, 0, 1, 0], device=device)
+    labels = torch.where(
+        binary_labels.bool(), positive_label, negative_label
+    ).to(dtype)
+    original_labels = labels.clone()
+    ids = [str(i) for i in range(len(scores))]
+    reference = BinaryMetricStats()
+    reference.append(ids, scores, binary_labels)
+    expected = reference.summarize(threshold=threshold)
+    if threshold == 0.5:
+        assert [expected[key] for key in ("TP", "TN", "FP", "FN")] == [
+            2,
+            2,
+            1,
+            1,
+        ]
+
+    stats = BinaryMetricStats(positive_label=positive_label)
+    stats.append(ids, scores, labels)
+    for _ in range(2):
+        assert stats.summarize(threshold=threshold) == pytest.approx(expected)
+        torch.testing.assert_close(stats.labels, original_labels)
+    torch.testing.assert_close(labels, original_labels)
 
 
 def test_EER(device):
