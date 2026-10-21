@@ -776,7 +776,7 @@ class BinaryMetricStats(MetricStats):
             eer, threshold = EER(positive_scores, negative_scores)
 
         pred = (self.scores > threshold).float()
-        true = self.labels
+        true = (self.labels == self.positive_label).float()
 
         TP = self.summary["TP"] = float(pred.mul(true).sum())
         TN = self.summary["TN"] = float((1.0 - pred).mul(1.0 - true).sum())
