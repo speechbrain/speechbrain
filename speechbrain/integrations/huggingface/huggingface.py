@@ -304,6 +304,12 @@ class HFTransformersInterface(nn.Module):
         For example, wav2vec2 model pretrained with SB (Wav2Vec2Pretrain) has slightly different keys from Wav2Vec2.
         This method handle the compatibility between the two.
 
+        By default, it handles checkpoints saved from the SpeechBrain module
+        itself (e.g. by the Checkpointer), whose keys start with ``model.``
+        because the HuggingFace model is stored as ``self.model``. When no key
+        matches ``self.model`` as is, this prefix is removed and the keys
+        without it (buffers of the SpeechBrain module) are dropped.
+
         Users should modify this function according to their own tasks.
 
         Arguments
@@ -312,8 +318,23 @@ class HFTransformersInterface(nn.Module):
             Checkpoint path, file name relative to the repo root.
         **kwargs : dict
             Args to forward
+
+        Returns
+        -------
+        modified_state_dict : dict
+            The state dict to load into ``self.model``.
         """
-        pass
+        state_dict = torch.load(path, map_location="cpu")
+        model_keys = self.model.state_dict().keys()
+        if any(key in model_keys for key in state_dict):
+            return state_dict
+
+        prefix = "model."
+        return {
+            key[len(prefix) :]: params
+            for key, params in state_dict.items()
+            if key.startswith(prefix)
+        }
 
     def _load_sb_pretrained_parameters(self, path):
         """Loads the parameter of a HuggingFace model pretrained with SpeechBrain
@@ -329,6 +350,11 @@ class HFTransformersInterface(nn.Module):
         ---------
         path : pathlib.Path
             The full path to the checkpoint.
+
+        Raises
+        ------
+        RuntimeError
+            If none of the parameters of the model are in the checkpoint.
         """
         modified_state_dict = self._modify_state_dict(path)
 
@@ -338,6 +364,11 @@ class HFTransformersInterface(nn.Module):
         incompatible_keys = self.model.load_state_dict(
             modified_state_dict, strict=False
         )
+        if len(incompatible_keys.missing_keys) == len(self.model.state_dict()):
+            raise RuntimeError(
+                f"None of the parameters of {type(self.model).__name__} were "
+                f"found in {path}, so the model would keep random weights."
+            )
         for missing_key in incompatible_keys.missing_keys:
             logger.warning(
                 f"During parameter transfer to {self.model} loading from "
