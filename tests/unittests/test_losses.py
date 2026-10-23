@@ -252,3 +252,121 @@ def test_guided_attention_loss_shapes(device):
         input_lengths, output_lengths, max_input_len=10, max_target_len=12
     )
     assert soft_mask.shape == (3, 10, 12)
+
+
+@pytest.mark.parametrize("sequence", [False, True])
+@pytest.mark.parametrize("repeat", [1, 3])
+def test_kldiv_mean_averages_nonpadding_targets(device, sequence, repeat):
+    from torch.distributions import Categorical, kl_divergence
+
+    from speechbrain.nnet.losses import kldiv_loss
+
+    logits = torch.tensor([[1.0, -0.5, 0.2], [-0.1, 0.4, 1.1]], device=device)
+    targets = torch.tensor([1, 2], device=device)
+    if sequence:
+        logits = logits.unsqueeze(0).repeat(repeat, 1, 1)
+        targets = targets.unsqueeze(0).repeat(repeat, 1)
+    else:
+        logits = logits.repeat(repeat, 1)
+        targets = targets.repeat(repeat)
+    logits.requires_grad_()
+    # For smoothing=0.2, the true class gets 0.8 and each other class 0.1.
+    distribution = torch.tensor(
+        [[0.1, 0.8, 0.1], [0.1, 0.1, 0.8]], device=device
+    )
+    if sequence:
+        distribution = distribution.unsqueeze(0).repeat(repeat, 1, 1)
+    else:
+        distribution = distribution.repeat(repeat, 1)
+    expected = kl_divergence(
+        Categorical(probs=distribution), Categorical(logits=logits)
+    ).mean()
+    actual = kldiv_loss(logits.log_softmax(-1), targets, label_smoothing=0.2)
+    torch.testing.assert_close(actual, expected)
+    actual_gradient = torch.autograd.grad(actual, logits, retain_graph=True)[0]
+    expected_gradient = torch.autograd.grad(expected, logits)[0]
+    torch.testing.assert_close(actual_gradient, expected_gradient)
+
+
+@pytest.mark.parametrize("padding", [0, 2, 5])
+def test_kldiv_mean_ignores_padding(device, padding):
+    from torch.distributions import Categorical, kl_divergence
+
+    from speechbrain.nnet.losses import kldiv_loss
+
+    logits = torch.tensor([[[1.0, -0.5, 0.2], [-0.1, 0.4, 1.1]]], device=device)
+    targets = torch.tensor([[1, 2]], device=device)
+    expected = kl_divergence(
+        Categorical(
+            probs=torch.tensor(
+                [[[0.1, 0.8, 0.1], [0.1, 0.1, 0.8]]], device=device
+            )
+        ),
+        Categorical(logits=logits),
+    ).mean()
+    logits = torch.cat(
+        [logits, torch.full((1, padding, 3), 2.0, device=device)], dim=1
+    ).requires_grad_()
+    targets = torch.cat(
+        [targets, torch.zeros((1, padding), dtype=torch.long, device=device)],
+        dim=1,
+    )
+    actual = kldiv_loss(logits.log_softmax(-1), targets, label_smoothing=0.2)
+    torch.testing.assert_close(actual, expected)
+    actual.backward()
+    assert torch.count_nonzero(logits.grad[:, 2:]) == 0
+
+
+def test_kldiv_mean_all_padding_is_zero(device):
+    from speechbrain.nnet.losses import kldiv_loss
+
+    logits = torch.ones(2, 3, 4, device=device, requires_grad=True)
+    targets = torch.zeros(2, 3, device=device, dtype=torch.long)
+    loss = kldiv_loss(logits.log_softmax(-1), targets, label_smoothing=0.2)
+    assert loss.item() == 0.0
+    loss.backward()
+    assert torch.count_nonzero(logits.grad) == 0
+
+
+@pytest.mark.parametrize("reduction", ["sum", "batchmean"])
+def test_kldiv_unnormalized_reductions(device, reduction):
+    from torch.distributions import Categorical, kl_divergence
+
+    from speechbrain.nnet.losses import kldiv_loss
+
+    logits = torch.tensor(
+        [[[1.0, -0.5, 0.2], [-0.1, 0.4, 1.1]]], device=device
+    ).repeat(3, 1, 1)
+    targets = torch.tensor([[1, 2]], device=device).repeat(3, 1)
+    reference = kl_divergence(
+        Categorical(
+            probs=torch.tensor(
+                [[[0.1, 0.8, 0.1], [0.1, 0.1, 0.8]]], device=device
+            )
+        ),
+        Categorical(logits=logits),
+    ).sum()
+    if reduction == "batchmean":
+        reference = reference / 3
+    actual = kldiv_loss(
+        logits.log_softmax(-1),
+        targets,
+        label_smoothing=0.2,
+        reduction=reduction,
+    )
+    torch.testing.assert_close(actual, reference)
+
+
+def test_kldiv_mean_small_smoothing_matches_nll(device):
+    from speechbrain.nnet.losses import kldiv_loss
+
+    logits = torch.tensor([[[1.0, -0.5, 0.2], [-0.1, 0.4, 1.1]]], device=device)
+    targets = torch.tensor([[1, 2]], device=device)
+    expected = torch.nn.functional.cross_entropy(
+        logits.flatten(0, 1), targets.flatten()
+    )
+    for smoothing in (0.0, 1e-8):
+        actual = kldiv_loss(
+            logits.log_softmax(-1), targets, label_smoothing=smoothing
+        )
+        torch.testing.assert_close(actual, expected)
