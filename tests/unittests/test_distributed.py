@@ -4,6 +4,7 @@ Test for distributed.py.
 
 import operator
 
+import pytest
 import torch
 
 from speechbrain.utils import distributed
@@ -112,3 +113,71 @@ def test_infer_device_local_rank(monkeypatch):
         assert device == f"{torch.accelerator.current_accelerator()}:1"
     else:
         assert device == "cpu"
+
+# Test the accelerator handling of ddp_init_group.
+
+
+class _FakeAccelerator:
+    """Minimal stand-in for ``torch.accelerator``: an accelerator that is not CUDA alone."""
+
+    def __init__(self, device_type="cuda", device_count=2):
+        self._device_type = device_type
+        self._device_count = device_count
+
+    def is_available(self):
+        return True
+
+    def current_accelerator(self):
+        return torch.device(self._device_type)
+
+    def device_count(self):
+        return self._device_count
+
+
+def test_ddp_init_group_accepts_a_non_cuda_backend(monkeypatch):
+    monkeypatch.setenv("RANK", "1")
+    monkeypatch.setenv("LOCAL_RANK", "1")
+    recorded = {}
+    bound = []
+
+    monkeypatch.setattr(distributed.torch, "accelerator", _FakeAccelerator())
+    monkeypatch.setattr(distributed.torch.cuda, "set_device", bound.append)
+    monkeypatch.setattr(
+        distributed.torch.distributed,
+        "is_backend_available",
+        lambda name: name == "hccl",
+        raising=False,
+    )
+    monkeypatch.setattr(
+        distributed.torch.distributed,
+        "init_process_group",
+        lambda **kwargs: recorded.update(kwargs),
+    )
+
+    distributed.ddp_init_group({"distributed_backend": "hccl"})
+
+    assert recorded["backend"] == "hccl"
+    assert recorded["rank"] == 1
+    # The rank is bound to its own device even when the backend is not nccl.
+    assert [str(device) for device in bound] == ["cuda:1"]
+
+
+def test_ddp_init_group_counts_devices_through_the_accelerator(monkeypatch):
+    monkeypatch.setenv("RANK", "3")
+    monkeypatch.setenv("LOCAL_RANK", "3")
+    monkeypatch.setattr(distributed.torch, "accelerator", _FakeAccelerator(device_count=2))
+
+    with pytest.raises(ValueError, match="Not enough GPUs"):
+        distributed.ddp_init_group({"distributed_backend": "hccl"})
+
+
+def test_ddp_init_group_rejects_an_unknown_backend(monkeypatch):
+    monkeypatch.setenv("RANK", "0")
+    monkeypatch.setenv("LOCAL_RANK", "0")
+    monkeypatch.setattr(distributed.torch, "accelerator", _FakeAccelerator())
+    monkeypatch.setattr(
+        distributed.torch.distributed, "is_backend_available", lambda name: False, raising=False
+    )
+
+    with pytest.raises(ValueError, match="communication protocol"):
+        distributed.ddp_init_group({"distributed_backend": "not-a-backend"})

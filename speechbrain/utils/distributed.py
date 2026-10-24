@@ -460,31 +460,45 @@ def ddp_init_group(run_opts):
     if local_rank is None or rank is None:
         return
 
+    # The accelerator is not necessarily CUDA: other backends, such as Ascend NPU through
+    # `torch_npu` (which ships the 'hccl' collective library), are reachable through the
+    # device-agnostic `torch.accelerator` API.
+    accelerator_device_type = (
+        torch.accelerator.current_accelerator().type
+        if torch.accelerator.is_available()
+        else None
+    )
+
     if not run_opts["distributed_backend"] == "gloo":
-        if local_rank + 1 > torch.cuda.device_count():
+        device_count = (
+            torch.accelerator.device_count() if accelerator_device_type is not None else 0
+        )
+        if local_rank + 1 > device_count:
             raise ValueError(
                 "Killing process " + "" + "\nNot enough GPUs available!"
             )
     rank = int(rank)
 
-    if run_opts["distributed_backend"] == "nccl":
+    backend = run_opts["distributed_backend"]
+    if backend == "nccl":
         if not torch.distributed.is_nccl_available():
             raise ValueError("NCCL is not supported in your machine.")
-    elif run_opts["distributed_backend"] == "gloo":
+    elif backend == "gloo":
         if not torch.distributed.is_gloo_available():
             raise ValueError("GLOO is not supported in your machine.")
-    elif run_opts["distributed_backend"] == "mpi":
+    elif backend == "mpi":
         if not torch.distributed.is_mpi_available():
             raise ValueError("MPI is not supported in your machine.")
-    else:
+    elif not getattr(torch.distributed, "is_backend_available", lambda _name: False)(backend):
+        # Accelerators other than CUDA also ship their own collective library, which PyTorch
+        # reports through the generic backend check.
         raise ValueError(
-            run_opts["distributed_backend"]
-            + " communication protocol doesn't exist."
+            backend + " communication protocol doesn't exist."
         )
 
-    if run_opts["distributed_backend"] == "nccl":
-        device = torch.device(f"cuda:{local_rank}")
-        torch.cuda.set_device(device)
+    if backend != "gloo" and accelerator_device_type is not None:
+        device = torch.device(accelerator_device_type, local_rank)
+        getattr(torch, accelerator_device_type).set_device(device)
 
     # rank arg is used to set the right rank of the current process for ddp.
     # if you have 2 servers with 2 gpu:
@@ -495,7 +509,7 @@ def ddp_init_group(run_opts):
     #   GPU0: local_rank=device=0, rank=2
     #   GPU1: local_rank=device=1, rank=3
     torch.distributed.init_process_group(
-        backend=run_opts["distributed_backend"],
+        backend=backend,
         rank=rank,
         timeout=datetime.timedelta(seconds=7200),
     )
