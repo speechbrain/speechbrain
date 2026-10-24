@@ -492,9 +492,7 @@ def ddp_init_group(run_opts):
     elif not getattr(torch.distributed, "is_backend_available", lambda _name: False)(backend):
         # Accelerators other than CUDA also ship their own collective library, which PyTorch
         # reports through the generic backend check.
-        raise ValueError(
-            backend + " communication protocol doesn't exist."
-        )
+        raise ValueError(backend + " communication protocol doesn't exist.")
 
     if backend != "gloo" and accelerator_device_type is not None:
         device = torch.device(accelerator_device_type, local_rank)
