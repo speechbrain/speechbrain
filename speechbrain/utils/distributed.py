@@ -471,7 +471,9 @@ def ddp_init_group(run_opts):
 
     if not run_opts["distributed_backend"] == "gloo":
         device_count = (
-            torch.accelerator.device_count() if accelerator_device_type is not None else 0
+            torch.accelerator.device_count()
+            if accelerator_device_type is not None
+            else 0
         )
         if local_rank + 1 > device_count:
             raise ValueError(
@@ -489,7 +491,9 @@ def ddp_init_group(run_opts):
     elif backend == "mpi":
         if not torch.distributed.is_mpi_available():
             raise ValueError("MPI is not supported in your machine.")
-    elif not getattr(torch.distributed, "is_backend_available", lambda _name: False)(backend):
+    elif not getattr(
+        torch.distributed, "is_backend_available", lambda _name: False
+    )(backend):
         # Accelerators other than CUDA also ship their own collective library, which PyTorch
         # reports through the generic backend check.
         raise ValueError(backend + " communication protocol doesn't exist.")

@@ -114,6 +114,7 @@ def test_infer_device_local_rank(monkeypatch):
     else:
         assert device == "cpu"
 
+
 # Test the accelerator handling of ddp_init_group.
 
 
@@ -165,7 +166,9 @@ def test_ddp_init_group_accepts_a_non_cuda_backend(monkeypatch):
 def test_ddp_init_group_counts_devices_through_the_accelerator(monkeypatch):
     monkeypatch.setenv("RANK", "3")
     monkeypatch.setenv("LOCAL_RANK", "3")
-    monkeypatch.setattr(distributed.torch, "accelerator", _FakeAccelerator(device_count=2))
+    monkeypatch.setattr(
+        distributed.torch, "accelerator", _FakeAccelerator(device_count=2)
+    )
 
     with pytest.raises(ValueError, match="Not enough GPUs"):
         distributed.ddp_init_group({"distributed_backend": "hccl"})
@@ -176,7 +179,10 @@ def test_ddp_init_group_rejects_an_unknown_backend(monkeypatch):
     monkeypatch.setenv("LOCAL_RANK", "0")
     monkeypatch.setattr(distributed.torch, "accelerator", _FakeAccelerator())
     monkeypatch.setattr(
-        distributed.torch.distributed, "is_backend_available", lambda name: False, raising=False
+        distributed.torch.distributed,
+        "is_backend_available",
+        lambda name: False,
+        raising=False,
     )
 
     with pytest.raises(ValueError, match="communication protocol"):
