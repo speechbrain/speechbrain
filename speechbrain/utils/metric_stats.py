@@ -6,6 +6,7 @@ Authors:
  * Mirco Ravanelli 2020
  * Gaëlle Laperrière 2021
  * Sahar Ghannay 2021
+ * Othman Istaiteh 2026
 """
 
 from typing import Callable, Optional
