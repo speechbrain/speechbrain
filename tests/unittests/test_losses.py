@@ -252,3 +252,109 @@ def test_guided_attention_loss_shapes(device):
         input_lengths, output_lengths, max_input_len=10, max_target_len=12
     )
     assert soft_mask.shape == (3, 10, 12)
+
+
+def test_jeffreys_loss_without_regularization(device):
+    import torch.nn.functional as F
+
+    from speechbrain.nnet.losses import JeffreysLoss
+
+    torch.manual_seed(0)
+    n_classes = 5
+    predictions = torch.randn(8, n_classes, device=device)
+    targets = torch.randint(0, n_classes, (8,), device=device)
+
+    # Without smoothing nor regularization, it is the cross entropy.
+    loss = JeffreysLoss()(predictions, targets)
+    assert torch.allclose(loss, F.cross_entropy(predictions, targets))
+
+    # coeff1 alone is label smoothing over the non-target classes, which is
+    # PyTorch label smoothing over all classes with a rescaled value.
+    coeff1 = 0.1
+    loss = JeffreysLoss(coeff1=coeff1)(predictions, targets)
+    ref = F.cross_entropy(
+        predictions,
+        targets,
+        label_smoothing=coeff1 * n_classes / (n_classes - 1),
+    )
+    assert torch.allclose(loss, ref, atol=1e-6)
+
+
+def test_jeffreys_loss_value(device):
+    import torch.nn.functional as F
+
+    from speechbrain.nnet.losses import JeffreysLoss
+
+    torch.manual_seed(0)
+    n_classes = 6
+    coeff1, coeff2 = 0.1, 0.05
+    predictions = torch.randn(4, n_classes, device=device)
+    targets = torch.randint(0, n_classes, (4,), device=device)
+
+    probs = F.softmax(predictions, dim=-1)
+    log_probs = F.log_softmax(predictions, dim=-1)
+    one_hot = F.one_hot(targets, n_classes).float()
+    smoothed = one_hot * (1 - coeff1 - coeff2) + (1 - one_hot) * coeff1 / (
+        n_classes - 1
+    )
+    cross_entropy = -(smoothed * log_probs).sum(-1)
+    p_target = (one_hot * probs).sum(-1)
+    jeffreys = ((1 - one_hot) * probs * log_probs).sum(-1) / (1 - p_target)
+    ref = (cross_entropy + coeff2 * jeffreys).mean()
+
+    loss = JeffreysLoss(coeff1=coeff1, coeff2=coeff2)(predictions, targets)
+    assert torch.allclose(loss, ref, atol=1e-5)
+
+
+def test_jeffreys_loss_shapes_and_reductions(device):
+    from speechbrain.nnet.losses import JeffreysLoss
+
+    torch.manual_seed(0)
+    predictions = torch.randn(3, 4, device=device)
+    targets = torch.tensor([0, 2, 3], device=device)
+    criterion = JeffreysLoss(coeff1=0.1, coeff2=0.05)
+
+    # Pooled embeddings come as [batch, 1, classes] with [batch, 1] targets.
+    loss = criterion(predictions, targets)
+    loss_3d = criterion(predictions.unsqueeze(1), targets.unsqueeze(1))
+    assert torch.allclose(loss, loss_3d)
+
+    per_utterance = JeffreysLoss(coeff1=0.1, coeff2=0.05, reduction="batch")(
+        predictions, targets
+    )
+    assert per_utterance.shape == (3,)
+    assert torch.allclose(per_utterance.mean(), loss)
+
+    batchmean = JeffreysLoss(coeff1=0.1, coeff2=0.05, reduction="batchmean")(
+        predictions, targets
+    )
+    assert torch.allclose(batchmean, loss)
+
+
+def test_jeffreys_loss_weight_and_gradient(device):
+    from speechbrain.nnet.losses import JeffreysLoss
+
+    torch.manual_seed(0)
+    predictions = torch.randn(5, 4, device=device, requires_grad=True)
+    targets = torch.randint(0, 4, (5,), device=device)
+
+    loss = JeffreysLoss(coeff1=0.1, coeff2=0.05)(predictions, targets)
+    weighted = JeffreysLoss(
+        weight=torch.ones(4, device=device), coeff1=0.1, coeff2=0.05
+    )(predictions, targets)
+    assert torch.allclose(loss, weighted)
+
+    loss.backward()
+    assert torch.isfinite(predictions.grad).all()
+    assert predictions.grad.abs().sum() > 0
+
+
+def test_jeffreys_loss_invalid_coefficients(device):
+    from speechbrain.nnet.losses import JeffreysLoss
+
+    predictions = torch.randn(2, 3, device=device)
+    targets = torch.tensor([0, 1], device=device)
+    with pytest.raises(AssertionError):
+        JeffreysLoss(coeff1=1.0)(predictions, targets)
+    with pytest.raises(AssertionError):
+        JeffreysLoss(coeff2=1.0)(predictions, targets)
