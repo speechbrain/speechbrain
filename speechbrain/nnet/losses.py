@@ -7,6 +7,7 @@ Authors
  * Hwidong Na 2020
  * Yan Gao 2020
  * Titouan Parcollet 2020
+ * Othman Istaiteh 2026
 """
 
 import functools

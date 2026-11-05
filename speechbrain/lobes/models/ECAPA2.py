@@ -2,6 +2,9 @@
 
 This module implements the ECAPA2 model and Sub-Center ArcFace Classifier.
 
+Authors
+ * Othman Istaiteh 2026
+
 Acknowledgment:
 The source code is derived from the Kiwano toolkit.
 """
