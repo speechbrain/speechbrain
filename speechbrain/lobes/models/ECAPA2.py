@@ -17,20 +17,36 @@ from speechbrain.dataio.dataio import length_to_mask
 
 
 class SubCenterClassifier(nn.Module):
-    """Sub-Center ArcFace Classifier.
+    """Speaker classifier with an additive angular margin and sub-centers
+    (Sub-center ArcFace).
+
+    Each class is represented by ``k_subcenters`` learnable weight vectors
+    instead of one. The score of a class is the cosine similarity between the
+    normalised embedding and the closest of its sub-centers, so noisy or
+    atypical utterances of a speaker can attach to a secondary sub-center
+    without pulling the main one away.
+
+    During training (when ``label`` is given), the additive angular margin of
+    ArcFace (https://arxiv.org/abs/1801.07698) is applied to the target class:
+    its angle ``theta`` becomes ``theta + margin``, and all the logits are
+    multiplied by ``scale``. Without ``label``, the raw cosine similarities
+    are returned, e.g. for inference.
+
+    Reference: Deng et al., "Sub-center ArcFace: Boosting Face Recognition by
+    Large-scale Noisy Web Faces", ECCV 2020.
 
     Arguments
     ---------
     input_size : int
-        Expected size of the input dimension.
+        Size of the input embeddings.
     out_neurons : int
-        Number of output classes.
+        Number of classes (speakers).
     k_subcenters : int
         Number of sub-centers per class.
     margin : float
-        Angular margin penalty.
+        Additive angular margin, in radians, applied to the target class.
     scale : float
-        Feature scale multiplier.
+        Scale applied to the logits when the margin is applied.
 
     Example
     -------
@@ -39,6 +55,10 @@ class SubCenterClassifier(nn.Module):
     >>> output = classify(x)
     >>> output.shape
     torch.Size([8, 10])
+    >>> labels = torch.randint(0, 10, (8,))
+    >>> output = classify(x, labels)
+    >>> output.shape
+    torch.Size([8, 1, 10])
     """
 
     def __init__(
@@ -70,7 +90,23 @@ class SubCenterClassifier(nn.Module):
         self.register_buffer("mm", torch.sin(pi - m) * m)
 
     def forward(self, x, label=None):
-        """Processes the input tensor x and returns output probabilities."""
+        """Computes the class scores of the embeddings.
+
+        Arguments
+        ---------
+        x : torch.Tensor
+            Embeddings, of shape [batch, input_size] or [batch, 1, input_size].
+        label : torch.Tensor
+            Class indices of shape [batch] or [batch, 1]. If given, the
+            angular margin and the scale are applied.
+
+        Returns
+        -------
+        torch.Tensor
+            Cosine similarities of shape [batch, out_neurons] if ``label`` is
+            None, otherwise scaled logits with margin of shape
+            [batch, 1, out_neurons].
+        """
         if x.dim() == 3:
             x = x.squeeze(1)
 
@@ -99,7 +135,31 @@ class SubCenterClassifier(nn.Module):
 
 
 class ECAPA2DownsampleBlock(nn.Module):
-    """Downsampling block for ECAPA2."""
+    """Projection shortcut of the ECAPA2 frontend: a convolution followed by
+    batch normalisation.
+
+    It is used on the residual path of the frontend stages that downsample
+    the frequency axis, so that the shortcut matches the shape of the output
+    of the strided ``ECAPA2ConvBlock``.
+
+    Arguments
+    ---------
+    in_channels : int
+        Number of input channels.
+    out_channels : int
+        Number of output channels.
+    kernel_size : int or tuple
+        Size of the convolution kernel.
+    stride : int or tuple
+        Stride of the convolution, as (frequency, time).
+
+    Example
+    -------
+    >>> block = ECAPA2DownsampleBlock(16, 16, stride=(2, 1))
+    >>> x = torch.rand(4, 16, 80, 100)
+    >>> block(x).shape
+    torch.Size([4, 16, 40, 100])
+    """
 
     def __init__(self, in_channels, out_channels, kernel_size=1, stride=1):
         super().__init__()
@@ -118,7 +178,26 @@ class ECAPA2DownsampleBlock(nn.Module):
 
 
 class ECAPA2SEBlock2d(nn.Module):
-    """2D Squeeze-and-Excitation block."""
+    """Squeeze-and-Excitation block for 2D feature maps.
+
+    The input is averaged over frequency and time, passed through a
+    bottleneck (Linear, ReLU, BatchNorm, Linear, Sigmoid), and the resulting
+    per-channel weights rescale the input channels.
+
+    Arguments
+    ---------
+    in_channels : int
+        Number of input (and output) channels.
+    se_channels : int
+        Number of channels of the bottleneck.
+
+    Example
+    -------
+    >>> block = ECAPA2SEBlock2d(16, se_channels=8)
+    >>> x = torch.rand(4, 16, 80, 100)
+    >>> block(x).shape
+    torch.Size([4, 16, 80, 100])
+    """
 
     def __init__(self, in_channels, se_channels=128):
         super().__init__()
@@ -143,7 +222,30 @@ class ECAPA2SEBlock2d(nn.Module):
 
 
 class ECAPA2ConvBlock(nn.Module):
-    """Convolutional block with SE processing for ECAPA2 frontend."""
+    """Convolutional block of the ECAPA2 frontend.
+
+    Three 3x3 convolutions, each followed by ReLU and batch normalisation,
+    then a Squeeze-and-Excitation block. The first convolution uses
+    ``stride``, which downsamples the frequency axis when set to (2, 1).
+
+    Arguments
+    ---------
+    in_channels : int
+        Number of input channels.
+    out_channels : int
+        Number of output channels.
+    stride : tuple
+        Stride of the first convolution, as (frequency, time).
+    se_channels : int
+        Number of channels of the Squeeze-and-Excitation bottleneck.
+
+    Example
+    -------
+    >>> block = ECAPA2ConvBlock(1, 16, stride=(2, 1), se_channels=8)
+    >>> x = torch.rand(4, 1, 80, 100)
+    >>> block(x).shape
+    torch.Size([4, 16, 40, 100])
+    """
 
     def __init__(
         self, in_channels, out_channels, stride=(1, 1), se_channels=128
@@ -184,7 +286,26 @@ class ECAPA2ConvBlock(nn.Module):
 
 
 class ECAPA2SEBlock1d(nn.Module):
-    """1D Squeeze-and-Excitation block."""
+    """Squeeze-and-Excitation block for 1D feature maps.
+
+    The input is averaged over time, passed through a bottleneck (Linear,
+    ReLU, BatchNorm, Linear, Sigmoid), and the resulting per-channel weights
+    rescale the input channels.
+
+    Arguments
+    ---------
+    in_channels : int
+        Number of input (and output) channels.
+    se_channels : int
+        Number of channels of the bottleneck.
+
+    Example
+    -------
+    >>> block = ECAPA2SEBlock1d(64, se_channels=16)
+    >>> x = torch.rand(4, 64, 100)
+    >>> block(x).shape
+    torch.Size([4, 64, 100])
+    """
 
     def __init__(self, in_channels, se_channels=128):
         super().__init__()
@@ -207,7 +328,36 @@ class ECAPA2SEBlock1d(nn.Module):
 
 
 class ECAPA2Res2NetConv1d(nn.Module):
-    """Res2Net convolutional block for 1D features."""
+    """Res2Net block with dilated convolutions for 1D features.
+
+    A 1x1 convolution is followed by a split of the channels into 8 groups.
+    The first group is kept as is, and each following group goes through a
+    dilated convolution after adding the output of the previous group, which
+    gives the block several receptive fields. The groups are concatenated,
+    passed through a second 1x1 convolution and a Squeeze-and-Excitation
+    block. Every convolution is followed by ReLU and batch normalisation.
+
+    Arguments
+    ---------
+    channels : int
+        Number of input (and output) channels. Must be divisible by 8.
+    kernel_size : int
+        Kernel size of the dilated convolutions.
+    padding : int
+        Padding of the dilated convolutions. Use
+        ``dilation * (kernel_size - 1) // 2`` to keep the number of frames.
+    dilation : int
+        Dilation of the dilated convolutions.
+    se_channels : int
+        Number of channels of the Squeeze-and-Excitation bottleneck.
+
+    Example
+    -------
+    >>> block = ECAPA2Res2NetConv1d(64, se_channels=16)
+    >>> x = torch.rand(4, 64, 100)
+    >>> block(x).shape
+    torch.Size([4, 64, 100])
+    """
 
     def __init__(
         self, channels, kernel_size=3, padding=2, dilation=2, se_channels=128
@@ -265,7 +415,30 @@ class ECAPA2Res2NetConv1d(nn.Module):
 
 
 class ECAPA2TDNNBlock(nn.Module):
-    """TDNN block for ECAPA2."""
+    """Time-delay (1D convolution) block: Conv1d, ReLU and batch
+    normalisation.
+
+    The convolution has no padding, so a kernel size larger than 1 reduces
+    the number of frames.
+
+    Arguments
+    ---------
+    in_channels : int
+        Number of input channels.
+    out_channels : int
+        Number of output channels.
+    kernel_size : int
+        Kernel size of the convolution.
+    dilation : int
+        Dilation of the convolution.
+
+    Example
+    -------
+    >>> block = ECAPA2TDNNBlock(80, 64)
+    >>> x = torch.rand(4, 80, 100)
+    >>> block(x).shape
+    torch.Size([4, 64, 100])
+    """
 
     def __init__(self, in_channels, out_channels, kernel_size=1, dilation=1):
         super().__init__()
@@ -285,7 +458,28 @@ class ECAPA2TDNNBlock(nn.Module):
 
 
 class ECAPA2DenseBlock(nn.Module):
-    """Dense convolutional block for ECAPA2."""
+    """Frame-level projection block: Conv1d followed by ReLU, without
+    normalisation.
+
+    In ECAPA2 it maps the output of the Res2Net block to the dimension used
+    by the attentive statistics pooling.
+
+    Arguments
+    ---------
+    in_channels : int
+        Number of input channels.
+    out_channels : int
+        Number of output channels.
+    kernel_size : int
+        Kernel size of the convolution.
+
+    Example
+    -------
+    >>> block = ECAPA2DenseBlock(64, 128)
+    >>> x = torch.rand(4, 64, 100)
+    >>> block(x).shape
+    torch.Size([4, 128, 100])
+    """
 
     def __init__(self, in_channels, out_channels, kernel_size=1):
         super().__init__()
@@ -300,7 +494,33 @@ class ECAPA2DenseBlock(nn.Module):
 
 
 class ECAPA2AttentiveStatPoolingBlock(nn.Module):
-    """Attentive Statistics Pooling for ECAPA2."""
+    """Channel-wise attentive statistics pooling, followed by batch
+    normalisation.
+
+    Each frame is concatenated with the global mean and standard deviation of
+    the utterance. A small network computes, for every channel, attention
+    weights over time, which give a weighted mean and a weighted standard
+    deviation. Padded frames are masked using ``lengths``. The output is the
+    concatenation of the weighted mean and standard deviation.
+
+    Arguments
+    ---------
+    in_channels : int
+        Number of input channels.
+    attention_channels : int
+        Number of channels of the attention network.
+    out_channels : int
+        Size of the output, which must be ``2 * in_channels``.
+
+    Example
+    -------
+    >>> block = ECAPA2AttentiveStatPoolingBlock(
+    ...     64, attention_channels=16, out_channels=128
+    ... )
+    >>> x = torch.rand(4, 64, 100)
+    >>> block(x, lengths=torch.tensor([1.0, 0.8, 0.6, 0.5])).shape
+    torch.Size([4, 128])
+    """
 
     def __init__(self, in_channels, attention_channels=128, out_channels=3072):
         super().__init__()
@@ -317,7 +537,21 @@ class ECAPA2AttentiveStatPoolingBlock(nn.Module):
         self.bn = nn.BatchNorm1d(out_channels)
 
     def forward(self, x, lengths=None):
-        """Processes the input tensor with optional lengths mask."""
+        """Pools the frames into one vector per utterance.
+
+        Arguments
+        ---------
+        x : torch.Tensor
+            Frame-level features of shape [batch, channels, time].
+        lengths : torch.Tensor
+            Relative lengths of the utterances. If None, all the frames are
+            used.
+
+        Returns
+        -------
+        torch.Tensor
+            Pooled statistics of shape [batch, 2 * channels].
+        """
         L = x.shape[-1]
         if lengths is None:
             mask = torch.ones(x.shape[0], 1, L, device=x.device)
@@ -352,7 +586,23 @@ class ECAPA2AttentiveStatPoolingBlock(nn.Module):
 
 
 class ECAPA2EmbeddingBlock(nn.Module):
-    """Kiwano-style Embedding Block: BN -> Linear -> BN."""
+    """Embedding layer of ECAPA2: batch normalisation, linear projection and
+    batch normalisation.
+
+    Arguments
+    ---------
+    in_channels : int
+        Size of the pooled statistics.
+    out_channels : int
+        Size of the speaker embedding.
+
+    Example
+    -------
+    >>> block = ECAPA2EmbeddingBlock(128, 32)
+    >>> x = torch.rand(4, 128)
+    >>> block(x).shape
+    torch.Size([4, 32])
+    """
 
     def __init__(self, in_channels, out_channels):
         super().__init__()
@@ -369,7 +619,28 @@ class ECAPA2EmbeddingBlock(nn.Module):
 
 
 class ECAPA2Frontend(nn.Module):
-    """2D Convolutional Frontend for ECAPA2."""
+    """2D convolutional frontend of ECAPA2.
+
+    A stack of 20 residual ``ECAPA2ConvBlock`` in five stages. The last four
+    stages start with a block of stride (2, 1), with a projection shortcut,
+    so the frequency axis is divided by 16 while the time axis is kept.
+
+    Arguments
+    ---------
+    channels1 : int
+        Number of channels of the first stages.
+    channels2 : int
+        Number of channels of the last stages.
+    attention_channels : int
+        Number of channels of the Squeeze-and-Excitation bottlenecks.
+
+    Example
+    -------
+    >>> frontend = ECAPA2Frontend(8, 16, attention_channels=8)
+    >>> x = torch.rand(2, 1, 80, 50)
+    >>> frontend(x).shape
+    torch.Size([2, 16, 5, 50])
+    """
 
     def __init__(self, channels1, channels2, attention_channels=128):
         super().__init__()
