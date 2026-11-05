@@ -1999,7 +1999,7 @@ class JeffreysLoss(nn.Module):
     weight : torch.Tensor
         Manual rescaling weight given to each class.
     reduction : str
-        Specifies the reduction to apply to the output: 'mean' | 'sum' | 'batchmean'.
+        Specifies the reduction to apply to the output: 'mean' | 'batch' | 'batchmean'.
     coeff1 : float
         Coefficient for the first part of the smoothing (Label Smoothing intensity).
         Must be between 0 and 1.
