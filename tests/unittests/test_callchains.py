@@ -11,6 +11,23 @@ def test_lengths_arg_exists():
     assert lengths_arg_exists(len_func)
 
 
+def test_lengths_arg_name():
+    from speechbrain.utils.callchains import lengths_arg_name
+
+    def non_len_func(x):
+        return x + 1
+
+    def len_func(x, lengths):
+        return x + lengths
+
+    def wav_lens_func(x, wav_lens=None):
+        return x + wav_lens
+
+    assert lengths_arg_name(non_len_func) is None
+    assert lengths_arg_name(len_func) == "lengths"
+    assert lengths_arg_name(wav_lens_func) == "wav_lens"
+
+
 def test_lengths_capable_chain():
     from speechbrain.utils.callchains import LengthsCapableChain
 
@@ -30,3 +47,14 @@ def test_lengths_capable_chain():
     assert chain(1, 2) == 5
     chain.append(tuple_func)
     assert chain(1, 2) == 5
+
+
+def test_lengths_capable_chain_wav_lens():
+    from speechbrain.utils.callchains import LengthsCapableChain
+
+    def wav_lens_func(x, wav_lens=None):
+        assert wav_lens is not None
+        return x + wav_lens
+
+    chain = LengthsCapableChain(wav_lens_func)
+    assert chain(1, 2) == 3

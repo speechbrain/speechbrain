@@ -1,7 +1,7 @@
+import math
 import os
 
 import torch
-import torchaudio
 
 from speechbrain.dataio.dataio import write_audio
 
@@ -108,6 +108,19 @@ def test_speed_perturb(device):
 
     assert slowed_wav.shape[-1] > test_waveform.shape[-1]
     assert slowed_wav.shape[-1] == test_waveform.shape[-1] * 2
+
+
+def test_speed_perturb_resampling_factor():
+    from speechbrain.augment.time_domain import SpeedPerturb
+
+    for speed in [95, 105]:
+        speed_perturb = SpeedPerturb(16000, speeds=[speed])
+        resampler = speed_perturb.resamplers[0]
+        actual_factor = resampler.new_freq // math.gcd(
+            resampler.orig_freq, resampler.new_freq
+        )
+        expected_factor = 100 // math.gcd(speed, 100)
+        assert actual_factor == expected_factor
 
 
 def test_drop_freq(device):
@@ -513,11 +526,11 @@ def test_SpectrogramDrop():
 
     from speechbrain.augment.codec import CodecAugment
 
-    if "ffmpeg" in torchaudio.list_audio_backends():
-        waveform = torch.rand(4, 16000)
-        augmenter = CodecAugment(16000)
-        output_waveform = augmenter(waveform)
-        assert not torch.allclose(waveform, output_waveform)
+    waveform = torch.rand(4, 16000)
+    augmenter = CodecAugment(16000)
+    output_waveform = augmenter(waveform)
+    assert output_waveform.shape == waveform.shape
+    assert not torch.allclose(waveform, output_waveform)
 
     from speechbrain.augment.time_domain import DropBitResolution
 

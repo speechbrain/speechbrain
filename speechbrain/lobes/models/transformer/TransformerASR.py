@@ -146,7 +146,9 @@ def make_transformer_src_tgt_masks(
     # mask out audio beyond the length of audio for each batch
     if wav_len is not None:
         abs_len = torch.round(wav_len * src.shape[1])
-        src_key_padding_mask = ~length_to_mask(abs_len).bool()
+        src_key_padding_mask = ~length_to_mask(
+            abs_len, max_len=src.shape[1]
+        ).bool()
 
     # mask out the source
     src_mask = make_transformer_src_mask(

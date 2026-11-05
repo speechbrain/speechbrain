@@ -1467,6 +1467,10 @@ class InputNormalization(torch.nn.Module):
             _, self.glob_mean, var = gaussian_statistics(x, mask, dim=dim)
             self.glob_std = var.clamp(min=self.epsilon).sqrt()
 
+        # Ensure running stats are on the same device as the input
+        self.glob_mean = self.glob_mean.to(x.device)
+        self.glob_std = self.glob_std.to(x.device)
+
         self.count, self.glob_mean, self.glob_std = mean_std_update(
             x, mask, dim, self.count, self.glob_mean, self.glob_std
         )

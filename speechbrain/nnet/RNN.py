@@ -124,7 +124,7 @@ class RNN(torch.nn.Module):
         if input_size is None:
             if len(input_shape) > 3:
                 self.reshape = True
-            input_size = torch.prod(torch.tensor(input_shape[2:]))
+            input_size = int(torch.prod(torch.tensor(input_shape[2:])).item())
 
         self.rnn = torch.nn.RNN(
             input_size=input_size,

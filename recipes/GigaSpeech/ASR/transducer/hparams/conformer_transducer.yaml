@@ -163,9 +163,6 @@ nbest: 1
 state_beam: 2.3
 expand_beam: 2.3
 
-# If True uses torchaudio loss. Otherwise, the numba one
-use_torchaudio: False
-
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
    limit: !ref <number_of_epochs>
 
@@ -314,7 +311,6 @@ log_softmax: !new:speechbrain.nnet.activations.Softmax
 
 transducer_cost: !name:speechbrain.nnet.losses.transducer_loss
    blank_index: !ref <blank_index>
-   use_torchaudio: !ref <use_torchaudio>
 
 # for MTL
 # update model if any HEAD module is added

@@ -19,6 +19,34 @@ def lengths_arg_exists(func):
     return "lengths" in spec.args + spec.kwonlyargs
 
 
+LENGTHS_ARG_NAMES = ("lengths", "wav_lens")
+
+
+def lengths_arg_name(func):
+    """Return the name of the relative-lengths argument of ``func``, if any.
+
+    Both ``lengths`` (the general SpeechBrain convention) and ``wav_lens``
+    (the name used by e.g. the HuggingFace integration lobes) are recognized.
+
+    Arguments
+    ---------
+    func : callable
+        The function, method, or other callable to search for a lengths arg.
+
+    Returns
+    -------
+    str or None
+        The name of the lengths argument, or None if ``func`` does not take
+        one.
+    """
+    spec = inspect.getfullargspec(func)
+    candidates = spec.args + spec.kwonlyargs
+    for name in LENGTHS_ARG_NAMES:
+        if name in candidates:
+            return name
+    return None
+
+
 class LengthsCapableChain:
     """Chain together callables. Can handle relative lengths.
 
@@ -35,6 +63,7 @@ class LengthsCapableChain:
     def __init__(self, *funcs):
         self.funcs = []
         self.takes_lengths = []
+        self.lengths_arg_names = []
         for func in funcs:
             self.append(func)
 
@@ -47,8 +76,9 @@ class LengthsCapableChain:
             The main input
         lengths : Any
             The lengths argument which will be conditionally passed to
-            any functions in the chain that take a 'lengths' argument.
-            In SpeechBrain the convention is to use relative lengths.
+            any functions in the chain that take a 'lengths' (or
+            'wav_lens') argument. In SpeechBrain the convention is to
+            use relative lengths.
 
         Returns
         -------
@@ -63,9 +93,9 @@ class LengthsCapableChain:
         """
         if not self.funcs:
             return x
-        for func, give_lengths in zip(self.funcs, self.takes_lengths):
-            if give_lengths:
-                x = func(x, lengths)
+        for func, lengths_arg in zip(self.funcs, self.lengths_arg_names):
+            if lengths_arg is not None:
+                x = func(x, **{lengths_arg: lengths})
             else:
                 x = func(x)
             if isinstance(x, tuple):
@@ -75,7 +105,9 @@ class LengthsCapableChain:
     def append(self, func):
         """Add a function to the chain"""
         self.funcs.append(func)
-        self.takes_lengths.append(lengths_arg_exists(func))
+        lengths_arg = lengths_arg_name(func)
+        self.lengths_arg_names.append(lengths_arg)
+        self.takes_lengths.append(lengths_arg is not None)
 
     def __str__(self):
         clsname = self.__class__.__name__

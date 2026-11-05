@@ -132,7 +132,7 @@ class MelSpectrogramEncoder(Pretrained):
     >>> spk_emb = encoder.encode_waveform(signal)  # doctest: +SKIP
 
     >>> # Compute embedding from a mel-spectrogram (sample_rate must match the sample rate of the ecoder)
-    >>> mel_spec = encoder.mel_spectogram(audio=signal)  # doctest: +SKIP
+    >>> mel_spec = encoder.mel_spectrogram(audio=signal)  # doctest: +SKIP
     >>> spk_emb = encoder.encode_mel_spectrogram(mel_spec)  # doctest: +SKIP
 
     >>> # Compute embeddings for a batch of mel-spectrograms
@@ -147,7 +147,7 @@ class MelSpectrogramEncoder(Pretrained):
         """Dynamic range compression for audio signals"""
         return torch.log(torch.clamp(x, min=clip_val) * C)
 
-    def mel_spectogram(self, audio):
+    def mel_spectrogram(self, audio):
         """calculates MelSpectrogram for a raw audio signal
 
         Arguments
@@ -203,7 +203,7 @@ class MelSpectrogramEncoder(Pretrained):
         wav = wav.to(self.device)
 
         # Computes mel-spectrogram
-        mel_spec = self.mel_spectogram(audio=wav)
+        mel_spec = self.mel_spectrogram(audio=wav)
 
         # Calls encode_mel_spectrogram to compute the speaker embedding
         return self.encode_mel_spectrogram(mel_spec)

@@ -87,7 +87,7 @@ inference_padding: 5
 cond_channels: 0
 conv_post_bias: True
 
-mel_spectogram: !name:speechbrain.lobes.models.HifiGAN.mel_spectogram
+mel_spectrogram: !name:speechbrain.lobes.models.HifiGAN.mel_spectrogram
   sample_rate: !ref <sample_rate>
   hop_length: !ref <hop_length>
   win_length: !ref <win_length>

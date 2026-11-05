@@ -200,7 +200,7 @@ model: !new:speechbrain.lobes.models.FastSpeech2.FastSpeech2WithAlignment
     energy_pred_kernel_size: !ref <energy_pred_kernel_size>
     variance_predictor_dropout: !ref <variance_predictor_dropout>
 
-mel_spectogram: !name:speechbrain.lobes.models.FastSpeech2.mel_spectogram
+mel_spectrogram: !name:speechbrain.lobes.models.FastSpeech2.mel_spectrogram
     sample_rate: !ref <sample_rate>
     hop_length: !ref <hop_length>
     win_length: !ref <win_length>

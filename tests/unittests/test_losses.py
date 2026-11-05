@@ -160,7 +160,6 @@ def test_transducer_loss(device):
         probs_length,
         target_length,
         blank_index=0,
-        use_torchaudio=False,
     )
     out_cost.backward()
     assert out_cost.item() == pytest.approx(2.2478, 0.0001)

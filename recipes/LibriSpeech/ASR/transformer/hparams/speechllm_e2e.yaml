@@ -150,12 +150,13 @@ ssl: !new:speechbrain.integrations.huggingface.wav2vec2.Wav2Vec2
     freeze: !ref <ssl_frozen>
     save_path: !ref <ssl_folder>
     device_map: !ref <ssl_device>
+ssl_feat_dims: 768
 
-activation: !name:speechbrain.nnet.activations.ReLU
+activation: !name:torch.nn.ReLU
 dnn_layers: 2
 dnn_neurons: !ref <llm_emb_size>
 proj: !new:speechbrain.lobes.models.VanillaNN.VanillaNN
-    input_shape: [null, null, 5120] # 1024 * downsampling_factor
+    input_shape: [null, null, !ref <ssl_feat_dims> * <downsampling_factor>] # 1024 * downsampling_factor
     activation: !ref <activation>
     dnn_blocks: !ref <dnn_layers>
     dnn_neurons: !ref <dnn_neurons>

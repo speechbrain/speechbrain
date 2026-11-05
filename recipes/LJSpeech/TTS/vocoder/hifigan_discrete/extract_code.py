@@ -17,8 +17,8 @@ from tqdm import tqdm
 import speechbrain as sb
 from speechbrain.dataio import audio_io
 from speechbrain.dataio.dataio import load_pkl, save_pkl
+from speechbrain.integrations.audio_tokenizers.discrete_ssl import DiscreteSSL
 from speechbrain.integrations.huggingface import hubert, wav2vec2, wavlm
-from speechbrain.integrations.huggingface.discrete_ssl import DiscreteSSL
 from speechbrain.utils.logger import get_logger
 
 OPT_FILE = "opt_ljspeech_extract_code.pkl"

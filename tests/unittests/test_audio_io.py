@@ -225,6 +225,27 @@ def test_audio_io_numpy_input(tmpdir):
     assert torch.allclose(loaded, torch.from_numpy(waveform_np), atol=1e-3)
 
 
+def test_audio_io_save_integer_tensor_pcm_roundtrip(tmpdir):
+    """Test save preserves integer tensor values for PCM output."""
+    from speechbrain.dataio import audio_io
+
+    sample_rate = 16000
+    waveform = torch.tensor([[0, 1, -1, 255, -255]], dtype=torch.int64)
+
+    audio_path = os.path.join(tmpdir, "integer_input.wav")
+    audio_io.save(audio_path, waveform, sample_rate, subtype="PCM_16")
+
+    loaded, sr = audio_io.load(
+        audio_path,
+        channels_first=True,
+        always_2d=True,
+        dtype=torch.int16,
+    )
+
+    assert sr == sample_rate
+    assert torch.equal(loaded, waveform.to(torch.int16))
+
+
 def test_audio_io_list_backends():
     """Test list_audio_backends function."""
     from speechbrain.dataio import audio_io

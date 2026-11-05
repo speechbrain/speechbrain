@@ -75,7 +75,7 @@ class HFTransformersInterface(nn.Module):
         If True, build a sequence-to-sequence model with lm_head
     quantization_config : dict (default: None)
         Quantization config, extremely useful for deadling with LLM
-    freeze : bool (default: True)
+    freeze : bool (default: False)
         If True, the model is frozen. If False, the model will be trained
         alongside with the rest of the pipeline.
     cache_dir : str or Path (default: None)

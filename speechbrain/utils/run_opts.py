@@ -210,6 +210,30 @@ class RunOptions:
         """Make items accessible via dict notation, to maintain backwards compat."""
         return getattr(self, key)
 
+    def get(self, key, default=None):
+        """Dict-like get method, to maintain backwards compat."""
+        return getattr(self, key, default)
+
+    def __contains__(self, key):
+        """Dict-like 'in' check, to maintain backwards compat."""
+        return hasattr(self, key)
+
+    def keys(self):
+        """Dict-like keys method, to maintain backwards compat."""
+        return self.as_dict().keys()
+
+    def __iter__(self):
+        """Dict-like iteration over keys, to maintain backwards compat."""
+        return iter(self.as_dict())
+
+    def items(self):
+        """Dict-like items method, to maintain backwards compat."""
+        return self.as_dict().items()
+
+    def values(self):
+        """Dict-like values method, to maintain backwards compat."""
+        return self.as_dict().values()
+
     @classmethod
     def from_dictionary(cls, args_dict):
         """Set experimental arguments from a dictionary."""

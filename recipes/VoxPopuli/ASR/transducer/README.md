@@ -6,13 +6,8 @@ You can download VoxPopuli at: https://github.com/facebookresearch/voxpopuli
 **We only report results for english but you simply need to download a different set to train with a different language!**
 
 # Extra-Dependencies
-This recipe supports two implementations of the transducer loss, see `use_torchaudio` arg in the yaml file:
-1. Transducer loss from torchaudio (this requires torchaudio version >= 0.10.0).
-2. Speechbrain implementation using Numba. To use it, please set `use_torchaudio=False` in the yaml file. This version is implemented within SpeechBrain and  allows you to directly access the python code of the transducer loss (and directly modify it if needed).
-
-The Numba implementation is currently enabled by default as the `use_torchaudio` option is incompatible with `bfloat16` training.
-
-Note: Before running this recipe, make sure numba is installed. Otherwise, run:
+This recipe uses the SpeechBrain Numba-based transducer loss implementation.
+Before running this recipe, make sure numba is installed:
 ```
 pip install numba
 ```
