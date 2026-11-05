@@ -58,6 +58,7 @@ loss_reduction: 'batchmean'
 sorting: random
 num_workers: 4
 precision: fp16 # bf16, fp16 or fp32
+eval_precision: fp16
 
 # stages related parameters
 lr_adam: 0.0005
@@ -96,25 +97,26 @@ dynamic_batch_sampler_valid:
     max_batch_ex: !ref <max_batch_ex>
 
 # Dataloader options
+padding_value: 128256
 train_dataloader_opts:
     batch_size: !ref <batch_size>
     shuffle: True
     num_workers: !ref <num_workers>
     collate_fn: !name:speechbrain.dataio.batch.PaddedBatch
         padding_kwargs:
-            value: 128256
+            value: !ref <padding_value>
 
 valid_dataloader_opts:
     batch_size: 8
     collate_fn: !name:speechbrain.dataio.batch.PaddedBatch
         padding_kwargs:
-            value: 128256
+            value: !ref <padding_value>
 
 test_dataloader_opts:
     batch_size: 8
     collate_fn: !name:speechbrain.dataio.batch.PaddedBatch
         padding_kwargs:
-            value: 128256
+            value: !ref <padding_value>
 
 
 ####################### Model Parameters ###########################
@@ -140,7 +142,6 @@ wav2vec2: !new:speechbrain.lobes.models.huggingface_transformers.wav2vec2.Wav2Ve
     output_norm: True
     freeze: !ref <wav2vec2_frozen>
     save_path: !ref <wav2vec2_folder>
-    normalize_wav: False
 
 proj: !new:speechbrain.lobes.models.VanillaNN.VanillaNN
     input_shape: [null, null, 5120] # 5 x 1024

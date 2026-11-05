@@ -34,10 +34,10 @@ class MERT(Wav2Vec2):
         HuggingFace hub name: e.g "m-a-p/MERT-v1-330M"
     save_path : str
         Path (dir) of the downloaded model.
-    output_norm : bool (default: True)
+    output_norm : bool (default: False)
         If True, a layer_norm (affine) will be applied to the output obtained
         from the mert model.
-    freeze : bool (default: True)
+    freeze : bool (default: False)
         If True, the model is frozen. If False, the model will be trained
         alongside with the rest of the pipeline.
     freeze_feature_extractor :  bool (default: False)

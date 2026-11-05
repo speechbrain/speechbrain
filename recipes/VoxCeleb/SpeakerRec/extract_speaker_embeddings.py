@@ -113,7 +113,7 @@ if __name__ == "__main__":
     sys.path.append(os.path.dirname(current_dir))
 
     # Load hyperparameters file with command-line overrides
-    params_file, run_opts, overrides = sb.core.parse_arguments(sys.argv[3:])
+    params_file, run_opts, overrides = sb.parse_arguments(sys.argv[3:])
     if "data_folder:" not in overrides:
         # By default it is a PLACEHOLDER (we need to replace it with a dummy path)
         overrides += "\ndata_folder: ."

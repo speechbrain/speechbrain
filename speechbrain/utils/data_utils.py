@@ -139,6 +139,7 @@ def get_all_files(
 
             # Check exclude_and case
             if exclude_and is not None:
+                exclude_and_entry = False
                 match_found = 0
 
                 for ele in exclude_and:

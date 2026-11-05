@@ -136,7 +136,7 @@ postnet_embedding_dim: 512
 postnet_kernel_size: 5
 postnet_n_convolutions: 5
 
-mel_spectogram: !name:speechbrain.lobes.models.Tacotron2.mel_spectogram
+mel_spectrogram: !name:speechbrain.lobes.models.Tacotron2.mel_spectrogram
   sample_rate: !ref <sample_rate>
   hop_length: !ref <hop_length>
   win_length: !ref <win_length>

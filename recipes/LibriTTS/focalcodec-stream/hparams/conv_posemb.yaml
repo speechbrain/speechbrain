@@ -1,0 +1,208 @@
+# ###########################################################################################
+# Model: Convolutional positional embedding
+# Authors: Luca Della Libera 2026
+# ###########################################################################################
+
+experiment_name: conv_posemb
+
+# Seed needs to be set at top of YAML
+seed: 0
+__set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
+
+# Data preparation
+data_folder: !PLACEHOLDER
+train_json: !ref <save_folder>/train.json
+valid_json: !ref <save_folder>/valid.json
+test_json: !ref <save_folder>/test.json
+train_split:
+    - train-clean-100
+    - train-clean-360
+    - train-other-500
+valid_split: [dev-clean]
+test_split: [test-clean]
+skip_prep: False
+
+# Output folders
+output_folder: !ref results/<experiment_name>/<seed>
+save_folder: !ref <output_folder>/save
+cache_folder: !name:huggingface_hub.constants.HUGGINGFACE_HUB_CACHE
+
+# Preprocessing parameters
+sample_rate: 16000
+audio_backend: soundfile
+train_remove_if_longer: 320.0  # Seconds
+valid_remove_if_longer: 320.0  # Seconds
+test_remove_if_longer: 320.0  # Seconds
+sorting: random
+
+# Training parameters
+num_epochs: 100
+grad_accumulation_factor: 1
+dynamic_batching: False
+train_batch_size: 16
+valid_batch_size: 1
+test_batch_size: 1
+train_max_batch_length: 20.0  # Seconds
+valid_max_batch_length: 20.0  # Seconds
+test_max_batch_length: 20.0  # Seconds
+num_buckets: 100
+max_batch_size: 128
+dataloader_workers: 4
+nonfinite_patience: 10
+max_grad_norm: 5.0
+precision: fp32
+ckpt_interval_steps: 10000
+keep_checkpoints: 1
+augment: False
+augment_prob: 0.75
+segment_size: null
+segment_pad: null
+valid_freq: 1
+
+# Optimizer parameters
+lr: 0.0005
+betas: [0.9, 0.98]
+weight_decay: 0.01
+improvement_threshold: 0.0025
+annealing_factor: 0.9
+patient: 0
+
+# Encoder parameters
+encoder_hidden_dims: [512, 512, 512, 512, 512, 512, 512]
+encoder_kernel_sizes: [10, 3, 3, 3, 3, 2, 2]
+encoder_strides: [5, 2, 2, 2, 2, 2, 2]
+encoder_num_layers: 6
+encoder_dim: 1024
+encoder_ffn_dim: 4096
+encoder_num_heads: 16
+encoder_num_buckets: 320
+encoder_max_distance: 800
+encoder_max_cached_steps: 2048
+encoder_dropout: 0.0
+encoder_conv_pos: 128
+encoder_conv_pos_groups: 16
+encoder_causal: False
+encoder_window_size: 512
+encoder_lookahead_size: 3
+encoder_use_flex_attention: False
+encoder_checkpoint: !apply:utils.download_wavlm6
+    cache_dir: !ref <cache_folder>
+    checkpoint_name: wavlm6.pt
+
+# Student positional embedding parameters
+student_posemb_dim: !ref <encoder_dim>
+student_posemb_kernel_size: !ref <encoder_conv_pos>
+student_posemb_groups: !ref <encoder_conv_pos_groups>
+student_posemb_causal: True
+student_posemb_checkpoint: !apply:utils.download_wavlm6
+    cache_dir: !ref <cache_folder>
+    checkpoint_name: posemb.pt
+    positional_embedding_only: True
+
+# Augmentation
+drop_freq: !new:speechbrain.augment.time_domain.DropFreq
+    drop_freq_low: 0  # Min frequency band dropout probability
+    drop_freq_high: 1  # Max frequency band dropout probability
+    drop_freq_count_low: 1  # Min number of frequency bands to drop
+    drop_freq_count_high: 3  # Max number of frequency bands to drop
+    drop_freq_width: 0.05  # Width of frequency bands to drop
+
+drop_chunk: !new:speechbrain.augment.time_domain.DropChunk
+    drop_length_low: 1  # Min number of audio chunks to drop
+    drop_length_high: 5  # Max number of audio chunks to drop
+    drop_count_low: 1000  # Min length of audio chunks to drop
+    drop_count_high: 2000  # Max length of audio chunks to drop
+
+augmentation: !new:speechbrain.augment.augmenter.Augmenter
+    parallel_augment: False
+    concat_original: False
+    repeat_augment: 1
+    shuffle_augmentations: False
+    min_augmentations: 2
+    max_augmentations: 2
+    augment_prob: !ref <augment_prob>
+    augmentations: [!ref <drop_freq>, !ref <drop_chunk>]
+
+# Modules
+encoder: !new:focalcodec.wavlm.WavLM
+    hidden_dims: !ref <encoder_hidden_dims>
+    kernel_sizes: !ref <encoder_kernel_sizes>
+    strides: !ref <encoder_strides>
+    num_layers: !ref <encoder_num_layers>
+    dim: !ref <encoder_dim>
+    ffn_dim: !ref <encoder_ffn_dim>
+    num_heads: !ref <encoder_num_heads>
+    num_buckets: !ref <encoder_num_buckets>
+    max_distance: !ref <encoder_max_distance>
+    max_cached_steps: !ref <encoder_max_cached_steps>
+    dropout: !ref <encoder_dropout>
+    conv_pos: !ref <encoder_conv_pos>
+    conv_pos_groups: !ref <encoder_conv_pos_groups>
+    causal: !ref <encoder_causal>
+    window_size: !ref <encoder_window_size>
+    lookahead_size: !ref <encoder_lookahead_size>
+    use_flex_attention: !ref <encoder_use_flex_attention>
+
+student_posemb: !new:focalcodec.wavlm.ConvPositionalEmbedding
+    dim: !ref <student_posemb_dim>
+    kernel_size: !ref <student_posemb_kernel_size>
+    groups: !ref <student_posemb_groups>
+    causal: !ref <student_posemb_causal>
+
+modules:
+    student_posemb: !ref <student_posemb>
+
+# Activation cache
+activation_cache: !new:utils.ActivationCache
+    model: !ref <encoder>
+    module_names: encoder.positional_embedding
+    detach: True
+    clone: False
+    cpu: False
+
+# Loss functions
+rec_loss: !name:speechbrain.nnet.losses.mse_loss
+    allowed_len_diff: 0
+    reduction: mean
+
+# Optimizers
+opt_class: !name:torch.optim.AdamW
+    lr: !ref <lr>
+    betas: !ref <betas>
+    eps: 1.e-8
+    weight_decay: !ref <weight_decay>
+
+# Schedulers
+scheduler: !new:speechbrain.nnet.schedulers.NewBobScheduler
+    initial_value: !ref <lr>
+    improvement_threshold: !ref <improvement_threshold>
+    annealing_factor: !ref <annealing_factor>
+    patient: !ref <patient>
+
+# Pretrainer
+pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
+    collect_in: !ref <save_folder>
+    loadables:
+        encoder: !ref <encoder>
+        student_posemb: !ref <student_posemb>
+    paths:
+        encoder: !ref <encoder_checkpoint>
+        student_posemb: !ref <student_posemb_checkpoint>
+    conditions:
+        encoder: !ref <encoder_checkpoint>
+        student_posemb: !ref <student_posemb_checkpoint>
+
+# Counters, checkpointers, loggers, etc.
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+    limit: !ref <num_epochs>
+
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+    checkpoints_dir: !ref <save_folder>
+    recoverables:
+        student_posemb: !ref <student_posemb>
+        scheduler: !ref <scheduler>
+        counter: !ref <epoch_counter>
+
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+    save_file: !ref <output_folder>/train_log.txt
+    precision: 5

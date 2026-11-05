@@ -79,8 +79,8 @@ def get_local_rank() -> Optional[int]:
 def infer_device() -> str:
     """Make a basic guess about intended running device based on
     availability and distributed environment variable 'LOCAL_RANK'"""
-    if torch.cuda.is_available():
-        device = "cuda"
+    if torch.accelerator.is_available():
+        device = str(torch.accelerator.current_accelerator())
         local_rank = get_local_rank()
         if local_rank is not None:
             device += f":{local_rank}"

@@ -310,6 +310,8 @@ class Brain:
                 torch.cuda.set_device(int(device_index))
             except ValueError:
                 torch.cuda.set_device(0)
+        else:
+            self.device_type = self.device.split(":")[0]
 
         # Checking that DataParallel use the right number of GPU
         if self.data_parallel_backend and torch.cuda.device_count() == 0:

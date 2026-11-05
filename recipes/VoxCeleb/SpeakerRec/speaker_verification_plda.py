@@ -224,7 +224,7 @@ if __name__ == "__main__":
     sys.path.append(os.path.dirname(current_dir))
 
     # Load hyperparameters file with command-line overrides
-    params_file, run_opts, overrides = sb.core.parse_arguments(sys.argv[1:])
+    params_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
     with open(params_file, encoding="utf-8") as fin:
         params = load_hyperpyyaml(fin, overrides)
 

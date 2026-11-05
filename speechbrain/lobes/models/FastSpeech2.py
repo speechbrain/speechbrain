@@ -1160,7 +1160,7 @@ class Loss(nn.Module):
         return loss
 
 
-def mel_spectogram(
+def mel_spectrogram(
     sample_rate,
     hop_length,
     win_length,
@@ -2425,7 +2425,7 @@ class FastSpeech2WithAlignment(nn.Module):
     def forward(
         self,
         tokens,
-        mel_spectograms=None,
+        mel_spectrograms=None,
         pitch=None,
         energy=None,
         pace=1.0,
@@ -2438,8 +2438,8 @@ class FastSpeech2WithAlignment(nn.Module):
         ---------
         tokens: torch.Tensor
             batch of input tokens
-        mel_spectograms: torch.Tensor
-            batch of mel_spectograms (used only for training)
+        mel_spectrograms: torch.Tensor
+            batch of mel_spectrograms (used only for training)
         pitch: torch.Tensor
             batch of pitch for each frame. If it is None, the model will infer on predicted pitches
         energy: torch.Tensor
@@ -2503,9 +2503,9 @@ class FastSpeech2WithAlignment(nn.Module):
         alignment_soft = None
         alignment_logprob = None
         alignment_mas = None
-        if mel_spectograms is not None:
+        if mel_spectrograms is not None:
             y_mask = get_key_padding_mask(
-                mel_spectograms, pad_idx=self.padding_idx
+                mel_spectrograms, pad_idx=self.padding_idx
             )
             y_mask_inverted = (~y_mask).unsqueeze(-1)
 
@@ -2516,7 +2516,7 @@ class FastSpeech2WithAlignment(nn.Module):
                 alignment_mas,
             ) = self._forward_aligner(
                 token_feats,
-                mel_spectograms,
+                mel_spectrograms,
                 srcmask_inverted.transpose(1, 2),
                 y_mask_inverted.transpose(1, 2),
             )

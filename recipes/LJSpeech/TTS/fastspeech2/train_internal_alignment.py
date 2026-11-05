@@ -340,7 +340,7 @@ def dataio_prepare(hparams):
 
         audio, fs = audio_io.load(wav)
         audio = audio.squeeze()
-        mel, energy = hparams["mel_spectogram"](audio=audio)
+        mel, energy = hparams["mel_spectrogram"](audio=audio)
 
         pitch = np.load(pitch)
         pitch = torch.from_numpy(pitch)

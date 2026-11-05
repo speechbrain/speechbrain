@@ -39,7 +39,7 @@ class WeightedSSLModel(HFTransformersInterface):
         Path (dir) of the downloaded model.
     layernorm: bool, (default: False)
         Whether layer representations should be layernormed before sum
-    freeze : bool (default: True)
+    freeze : bool (default: False)
         If True, the model is frozen. If False, the model will be trained
         alongside with the rest of the pipeline.
     **kwargs : dict
