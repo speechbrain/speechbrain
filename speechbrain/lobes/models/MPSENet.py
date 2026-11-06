@@ -406,37 +406,6 @@ class ConformerBlock(nn.Module):
         return self.layer(x)[0]
 
 
-class LSTMBlock(nn.Module):
-    """Bidirectional LSTM sequence block, projected back to ``d_model``.
-
-    Arguments
-    ---------
-    d_model : int
-        Feature size.
-    hidden_size : int, optional
-        LSTM hidden size per direction (default: ``d_model``).
-
-    Example
-    -------
-    >>> block = LSTMBlock(16)
-    >>> block(torch.randn(3, 20, 16)).shape
-    torch.Size([3, 20, 16])
-    """
-
-    def __init__(self, d_model, hidden_size=None):
-        super().__init__()
-        hidden_size = hidden_size or d_model
-        self.norm = nn.LayerNorm(d_model)
-        self.lstm = nn.LSTM(
-            d_model, hidden_size, batch_first=True, bidirectional=True
-        )
-        self.proj = nn.Linear(2 * hidden_size, d_model)
-
-    def forward(self, x):
-        """Processes ``(N, L, C)``."""
-        return self.proj(self.lstm(self.norm(x))[0])
-
-
 class GRUTransformerBlock(nn.Module):
     """Attention + bidirectional GRU block used by the released checkpoints.
 
@@ -497,7 +466,7 @@ class TSBlock(nn.Module):
 
     Example
     -------
-    >>> block = TSBlock(LSTMBlock, 8)
+    >>> block = TSBlock(GRUTransformerBlock, 8)
     >>> block(torch.randn(2, 8, 10, 17)).shape
     torch.Size([2, 8, 10, 17])
     """
@@ -524,7 +493,7 @@ class MPSENet(nn.Module):
     ---------
     seq_block : callable
         Builds the sequence model of each time-frequency block, e.g.
-        ``ConformerBlock`` (MP-SENet), ``LSTMBlock``, or
+        ``ConformerBlock`` (MP-SENet) or
         ``functools.partial(GRUTransformerBlock, batch_first=False)`` to load
         the released checkpoints.
     num_blocks : int
