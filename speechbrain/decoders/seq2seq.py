@@ -6,6 +6,7 @@ Authors
  * Peter Plantinga 2020
  * Mirco Ravanelli 2020
  * Sung-Lin Yeh 2020
+ * Othman Istaiteh 2026
 """
 
 from functools import cached_property
@@ -2245,3 +2246,160 @@ class S2SHFTextBasedBeamSearcher(S2STransformerBeamSearcher):
     def set_n_out(self):
         """set the number of output tokens."""
         return self.vocab_size
+
+
+class S2SSeamlessGreedySearcher(S2SGreedySearcher):
+    """This class implements the greedy decoding for the SeamlessM4T
+    speech-to-text models (see speechbrain.integrations.huggingface.seamless_m4t).
+
+    The decoding starts from the target language token of the model, so
+    ``model.set_target_lang()`` switches between transcription and
+    translation directions.
+
+    Arguments
+    ---------
+    model : speechbrain.integrations.huggingface.seamless_m4t.SeamlessM4T
+        The SeamlessM4T model.
+    temperature : float (default: 0.0)
+        Sampling temperature. 0.0 means argmax decoding.
+    use_kv_cache : bool (default: True)
+        Whether to use key-value cache.
+    **kwargs
+        see S2SBaseSearcher, arguments are directly passed.
+    """
+
+    def __init__(self, model, temperature=0.0, use_kv_cache=True, **kwargs):
+        super().__init__(bos_index=model.bos, eos_index=model.eos, **kwargs)
+        self.model = model
+        self.temperature = temperature
+        self.use_kv_cache = use_kv_cache
+        self.kv_cache = None
+
+    def forward(self, enc_states, wav_len, attention_mask=None):
+        """Greedy decoding from the current target language of the model.
+
+        Arguments
+        ---------
+        enc_states : torch.Tensor
+            The speech encoder outputs.
+        wav_len : torch.Tensor
+            The relative lengths of the encoder outputs.
+        attention_mask : torch.Tensor
+            Unused, kept for compatibility with S2SGreedySearcher.
+
+        Returns
+        -------
+        See S2SGreedySearcher.forward.
+        """
+        self.bos_index = self.model.bos
+        return super().forward(enc_states, wav_len, attention_mask)
+
+    def reset_mem(self, batch_size, device):
+        """The memory holds the decoded tokens, starting empty."""
+        self.kv_cache = None
+        return None
+
+    def forward_step(
+        self, inp_tokens, memory, enc_states, enc_lens, attention_mask=None
+    ):
+        """Performs a step in the implemented greedy searcher."""
+        memory = _update_mem(inp_tokens, memory)
+        logits, attn, kv = self.model.forward_decoder(
+            enc_states,
+            memory,
+            enc_lens,
+            last_position_only=True,
+            use_cache=self.use_kv_cache,
+            past_key_values=self.kv_cache,
+        )
+        if self.use_kv_cache:
+            self.kv_cache = kv
+        return logits[:, -1, :], memory, attn
+
+
+class S2SSeamlessBeamSearcher(S2SBeamSearcher):
+    """This class implements the beam search decoding for the SeamlessM4T
+    speech-to-text models (see speechbrain.integrations.huggingface.seamless_m4t).
+
+    The decoding starts from the target language token of the model, so
+    ``model.set_target_lang()`` switches between transcription and
+    translation directions.
+
+    Arguments
+    ---------
+    module : list with the following one:
+        model : speechbrain.integrations.huggingface.seamless_m4t.SeamlessM4T
+            The SeamlessM4T model.
+    temperature : float (default: 1.0)
+        Temperature factor applied to softmax.
+    use_kv_cache : bool (default: True)
+        Whether to use key-value cache. It needs transformers >= 4.54.
+    **kwargs
+        see S2SBeamSearcher, arguments are directly passed.
+    """
+
+    def __init__(self, module, temperature=1.0, use_kv_cache=True, **kwargs):
+        super().__init__(
+            bos_index=module[0].bos, eos_index=module[0].eos, **kwargs
+        )
+        self.model = module[0]
+        self.temperature = temperature
+        self.use_kv_cache = use_kv_cache
+        self.kv_cache = None
+
+    def forward(self, enc_states, wav_len):
+        """Beam search from the current target language of the model.
+
+        Arguments
+        ---------
+        enc_states : torch.Tensor
+            The speech encoder outputs.
+        wav_len : torch.Tensor
+            The relative lengths of the encoder outputs.
+
+        Returns
+        -------
+        See S2SBeamSearcher.forward.
+        """
+        self.bos_index = self.model.bos
+        return super().forward(enc_states, wav_len)
+
+    def reset_mem(self, batch_size, device):
+        """The memory holds the decoded tokens, starting empty."""
+        self.kv_cache = None
+        return None
+
+    def permute_mem(self, memory, index):
+        """Permutes the memory and the key-value cache of the beams."""
+        memory = torch.index_select(memory, dim=0, index=index)
+        if self.use_kv_cache:
+            if not hasattr(self.kv_cache, "reorder_cache"):
+                raise RuntimeError(
+                    "The SeamlessM4T key-value cache of this transformers "
+                    "version cannot be reordered: use transformers >= 4.54 "
+                    "or use_kv_cache=False."
+                )
+            self.kv_cache.reorder_cache(index)
+        return memory
+
+    def forward_step(self, inp_tokens, memory, enc_states, enc_lens):
+        """Performs a step in the implemented beamsearcher."""
+        memory = _update_mem(inp_tokens, memory)
+        logits, attn, kv = self.model.forward_decoder(
+            enc_states,
+            memory,
+            enc_lens,
+            last_position_only=True,
+            use_cache=self.use_kv_cache,
+            past_key_values=self.kv_cache,
+        )
+        if self.use_kv_cache:
+            self.kv_cache = kv
+        log_probs = torch.nn.functional.log_softmax(
+            logits[:, -1, :] / self.temperature, dim=-1
+        )
+        return log_probs, memory, attn
+
+    def set_n_out(self):
+        """Set the number of output tokens."""
+        return self.model.vocab_size
