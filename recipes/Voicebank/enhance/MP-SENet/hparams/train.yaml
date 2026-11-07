@@ -1,0 +1,117 @@
+# ############################################################################
+# Model: MP-SENet (Conformer time-frequency blocks)
+# Dataset: VoiceBank-DEMAND, 16 kHz
+# Authors:
+#  * Manil Bendali 2026
+# ############################################################################
+
+seed: 1234
+__set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
+
+data_folder: !PLACEHOLDER # e.g. /path/to/noisy-vctk-16k
+output_folder: !ref results/MP-SENet/<seed>
+save_folder: !ref <output_folder>/save
+train_log: !ref <output_folder>/train_log.txt
+enhanced_folder: !ref <output_folder>/enhanced_wavs
+
+# Data files
+train_annotation: !ref <output_folder>/train.json
+valid_annotation: !ref <output_folder>/valid.json
+test_annotation: !ref <output_folder>/test.json
+skip_prep: False
+
+# Audio and STFT
+sample_rate: 16000
+segment_size: 32000 # 2 s random crops for training
+n_fft: 400
+hop_length: 100
+win_length: 400
+compress: 0.3 # power-law magnitude compression
+
+stft: !name:speechbrain.lobes.models.MPSENet.mag_pha_stft
+    n_fft: !ref <n_fft>
+    hop_length: !ref <hop_length>
+    win_length: !ref <win_length>
+    compress: !ref <compress>
+
+istft: !name:speechbrain.lobes.models.MPSENet.mag_pha_istft
+    n_fft: !ref <n_fft>
+    hop_length: !ref <hop_length>
+    win_length: !ref <win_length>
+    compress: !ref <compress>
+
+# Training
+number_of_epochs: 400
+batch_size: 4
+learning_rate: 0.0005
+adam_b1: 0.8
+adam_b2: 0.99
+lr_decay: 0.99 # per epoch
+num_workers: 4
+n_jobs: 1 # parallel jobs for PESQ evaluation
+
+# Generator loss weights from the paper. The original code doubles the
+# complex and consistency losses before weighting them by 0.1.
+loss_weights:
+    mag: 0.9
+    pha: 0.3
+    com: 0.2
+    consistency: 0.2
+    time: 0.2
+    metric: 0.05
+
+train_dataloader_options:
+    batch_size: !ref <batch_size>
+    shuffle: True
+    drop_last: True
+    num_workers: !ref <num_workers>
+
+# Full utterances, one at a time (no padding).
+valid_dataloader_options:
+    batch_size: 1
+    num_workers: !ref <num_workers>
+
+# Model
+seq_block: !name:speechbrain.lobes.models.MPSENet.ConformerBlock
+    nhead: 4
+    kernel_size: 31
+
+generator: !new:speechbrain.lobes.models.MPSENet.MPSENet
+    seq_block: !ref <seq_block>
+    num_blocks: 4
+    channels: 64
+    n_fft: !ref <n_fft>
+    beta: 2.0
+
+discriminator: !new:speechbrain.lobes.models.MPSENet.MetricDiscriminator
+
+modules:
+    generator: !ref <generator>
+    discriminator: !ref <discriminator>
+
+opt_class_generator: !name:torch.optim.AdamW
+    lr: !ref <learning_rate>
+    betas: [!ref <adam_b1>, !ref <adam_b2>]
+
+opt_class_discriminator: !name:torch.optim.AdamW
+    lr: !ref <learning_rate>
+    betas: [!ref <adam_b1>, !ref <adam_b2>]
+
+sch_class_generator: !name:torch.optim.lr_scheduler.ExponentialLR
+    gamma: !ref <lr_decay>
+
+sch_class_discriminator: !name:torch.optim.lr_scheduler.ExponentialLR
+    gamma: !ref <lr_decay>
+
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+    limit: !ref <number_of_epochs>
+
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+    checkpoints_dir: !ref <save_folder>
+    recoverables:
+        generator: !ref <generator>
+        discriminator: !ref <discriminator>
+        counter: !ref <epoch_counter>
+
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+    save_file: !ref <train_log>
