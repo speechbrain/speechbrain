@@ -562,7 +562,9 @@ class WhisperASR(Pretrained):
         if self.mods.whisper.language is None or task == "lang_id":
             lang_tokens, lang_probs = self.mods.whisper.detect_language(mel)
             languages = [max(probs, key=probs.get) for probs in lang_probs]
-            self.mods.decoder.set_lang_tokens(lang_tokens)
+            # Only a decoding uses (and then clears) the language tokens.
+            if task != "lang_id":
+                self.mods.decoder.set_lang_tokens(lang_tokens)
         return languages, lang_probs
 
     def _get_audio_stream(

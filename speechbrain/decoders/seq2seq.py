@@ -492,7 +492,14 @@ class S2SWhisperGreedySearcher(S2SGreedySearcher):
         self.lang_tokens = None
 
     def set_lang_tokens(self, lang_tokens):
-        """Set the language to be used during decoding."""
+        """Set the language to be used during the next decoding.
+
+        Arguments
+        ---------
+        lang_tokens : torch.Tensor
+            Language token ids, one per utterance, shape (batch_size,),
+            e.g. from ``Whisper.detect_language``.
+        """
         self.lang_tokens = lang_tokens
 
     def set_task(self, task):
@@ -588,7 +595,7 @@ class S2SWhisperGreedySearcher(S2SGreedySearcher):
                 self.lang_tokens
             )
             # after using it, reset it.
-            self.lang_token = None
+            self.lang_tokens = None
         return mem
 
     def forward_step(
@@ -2013,7 +2020,14 @@ class S2SWhisperBeamSearcher(S2SBeamSearcher):
         self.lang_tokens = None
 
     def set_lang_tokens(self, lang_tokens):
-        """Set the language to be used during decoding."""
+        """Set the language to be used during the next decoding.
+
+        Arguments
+        ---------
+        lang_tokens : torch.Tensor
+            Language token ids, one per utterance, shape (batch_size,),
+            e.g. from ``Whisper.detect_language``.
+        """
         self.lang_tokens = lang_tokens
 
     def set_task(self, task):
@@ -2106,11 +2120,12 @@ class S2SWhisperBeamSearcher(S2SBeamSearcher):
         memory_tokens = self.initial_tokens[:-1]
         mem = torch.tensor([memory_tokens] * batch_size).to(device)
         if self.lang_tokens is not None:
+            # One language token per utterance, repeated for its beams.
             mem[:, self.initial_tokens.index(self.model.bos) + 1] = (
-                self.lang_tokens
+                inflate_tensor(self.lang_tokens, times=self.beam_size, dim=0)
             )
             # after using it, reset it.
-            self.lang_token = None
+            self.lang_tokens = None
         return mem
 
     def permute_mem(self, memory, index):
