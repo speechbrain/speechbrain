@@ -48,6 +48,15 @@ python train_with_w2v_mbart.py hparams/train_w2v2_mbart_st.yaml --root_data_fold
 
 One should change hparams/train_w2v2_mbart_st.yaml to hparams/train_w2v2_nllb_st.yaml in the above training command for using NLLB model instead.
 
+## Training with SeamlessM4T
+
+For fine-tuning the speech encoder and the text decoder of [SeamlessM4T](https://huggingface.co/facebook/seamless-m4t-v2-large), please refer to the hparams/train_seamless_st.yaml file. Tamasheq is not one of the SeamlessM4T languages, so the speech encoder is fine-tuned as well. The parts of the model to fine-tune are chosen in the yaml file with `freeze_encoder`, `freeze_feature_projection`, `freeze_adapter`, `freeze_decoder` and `freeze_embeddings` (or `freeze_seamless` for the whole model).
+
+For launching training:
+```
+python train_with_seamless.py hparams/train_seamless_st.yaml --root_data_folder=your/data/path # e.g., /workspace/speechbrain/recipes/IWSLT22_lowresource/IWSLT2022_Tamasheq_data/taq_fra_clean
+```
+
 ## Pre-training Semantically-Aligned Multimodal Utterance-level (SAMU) wav2vec
 
 Inspired by [SAMU-XLSR](https://arxiv.org/abs/2205.08180), a model that unifies speech and text modality for making the pre-trained speech foundation model more semantically aware, we introduce here a recipe for fine-tuning a pre-trained wav2vec 2.0 model in the same manner. Training data can be paired speech/text data of the kind used by ASR or AST. In this recipe, we use directly the IWSLT2022_Tamasheq_data AST data.
@@ -79,6 +88,7 @@ One should change hparams/train_samu_mbart_st.yaml to hparams/train_samu_nllb_st
 | 3 | train_w2v2_nllb_st.yaml | 11.09 | 8.70 | [DropBox](https://www.dropbox.com/sh/spp2ijgfdbzuz26/AABkJ97e72D7aKzNLTm1qmWEa?dl=0) |
 | 4 | train_samu_mbart_st.yaml | 13.41 | 10.28 | [DropBox](https://www.dropbox.com/sh/98s1xyc3chreaw6/AABom3FnwY5SsIvg4en9tWC2a?dl=0) |
 | 5 | train_samu_nllb_st.yaml | 13.89 | 11.32 | [DropBox](https://www.dropbox.com/sh/ekkpl9c3kxsgllj/AABa0q2LrJe_o7JF-TTbfxZ-a?dl=0) |
+| 6 | train_seamless_st.yaml | 19.58 | 15.29 | Not avail. |
 
 ## Citation
 ```

@@ -1,0 +1,185 @@
+# ############################################################################
+# Model: E2E AST with SeamlessM4T (speech encoder + text decoder)
+# Encoder: SeamlessM4T speech encoder (w2v-BERT 2.0 + length adapter)
+# Decoder: SeamlessM4T text decoder
+# losses: NLL
+# Augmentation: TimeDomainSpecAugment
+# Authors:  Othman Istaiteh 2026
+# ############################################################################
+# Seed needs to be set at top of yaml, before objects with parameters are made
+seed: 3407
+__set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
+output_folder: !ref results/seamless_<src_language>_<tgt_language>/<seed>
+save_folder: !ref <output_folder>/save
+train_log: !ref <output_folder>/train_log.txt
+bleu_file: !ref <output_folder>/bleu.txt
+
+# Data files
+data_folder: !PLACEHOLDER  # e.g, /localscratch/cv-corpus-8.0-2022-01-19/fr
+train_tsv_file: !PLACEHOLDER  # Standard CoVoST .tsv files
+dev_tsv_file: !PLACEHOLDER  # Standard CoVoST .tsv files
+test_tsv_file: !PLACEHOLDER  # Standard CoVoST .tsv files
+src_language: fr
+tgt_language: en
+train_csv: !ref <output_folder>/train.csv
+valid_csv: !ref <output_folder>/dev.csv
+test_csv: !ref <output_folder>/test.csv
+skip_prep: False # Skip data preparation
+convert_to_wav: True # Switch this to True to convert all mp3 files to wav.
+
+# URL for the SeamlessM4T model (v1 and v2 checkpoints are supported).
+seamless_hub: facebook/seamless-m4t-v2-large
+seamless_folder: !ref <save_folder>/seamless_checkpoint
+target_lang: eng # SeamlessM4T code of <tgt_language>
+
+# We remove training utterances longer than 10s as they certainly
+# correspond to "open microphones".
+avoid_if_longer_than: 10.0
+avoid_if_shorter_than: 1.0
+
+# Some version of the CV dataset may contain one or two files of more than
+# 2 min in the validation and or test. This is an error by design of the dataset
+# as these files contain 90% of silence. We exclude them.
+avoid_if_longer_than_val_test: 90.0
+
+ckpt_interval_minutes: 15 # save checkpoint every N min
+
+####################### Training Parameters ####################################
+freeze_seamless: False
+freeze_encoder: False
+freeze_feature_projection: False
+freeze_adapter: False
+freeze_decoder: False
+freeze_embeddings: True # embeddings are tied with the lm_head (256k tokens)
+gradient_checkpointing: True # leaves memory margin on 40GB GPUs
+number_of_epochs: 3
+lr_seamless: 1e-5
+weight_decay: 0.01
+warmup_steps: 500
+max_grad_norm: 5.0
+# The augmented copies are concatenated to the batch (concat_original), so
+# the model sees 2 x batch_size utterances per step. This setup works with
+# 2x A100 40GB (speech encoder fine-tuned).
+batch_size: 4
+test_batch_size: 8
+grad_accumulation_factor: 16
+num_checkpoints_to_keep: 2
+loss_reduction: 'batchmean'
+label_smoothing: 0.1
+sorting: ascending
+num_workers: 4
+precision: fp16 # bf16, fp16 or fp32
+eval_precision: fp16
+sample_rate: 16000
+
+# Decoding parameters
+# The encoder outputs one frame every 160 ms, hence max_decode_ratio > 1.
+min_decode_ratio: 0.0
+max_decode_ratio: 2.0
+test_beam_size: 5
+
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+    limit: !ref <number_of_epochs>
+
+train_dataloader_opts:
+    batch_size: !ref <batch_size>
+    num_workers: !ref <num_workers>
+
+valid_dataloader_opts:
+    batch_size: !ref <test_batch_size>
+    num_workers: !ref <num_workers>
+
+test_dataloader_opts:
+    batch_size: !ref <test_batch_size>
+    num_workers: !ref <num_workers>
+
+############################## models ##########################################
+seamless: !new:speechbrain.integrations.huggingface.seamless_m4t.SeamlessM4T
+    source: !ref <seamless_hub>
+    save_path: !ref <seamless_folder>
+    target_lang: !ref <target_lang>
+    sampling_rate: !ref <sample_rate>
+    freeze: !ref <freeze_seamless>
+    freeze_encoder: !ref <freeze_encoder>
+    freeze_feature_projection: !ref <freeze_feature_projection>
+    freeze_adapter: !ref <freeze_adapter>
+    freeze_decoder: !ref <freeze_decoder>
+    freeze_embeddings: !ref <freeze_embeddings>
+    gradient_checkpointing: !ref <gradient_checkpointing>
+
+log_softmax: !new:speechbrain.nnet.activations.Softmax
+    apply_log: True
+
+modules:
+    seamless: !ref <seamless>
+
+seamless_opt_class: !name:torch.optim.AdamW
+    lr: !ref <lr_seamless>
+    weight_decay: !ref <weight_decay>
+
+seq_cost: !name:speechbrain.nnet.losses.nll_loss
+    label_smoothing: !ref <label_smoothing>
+    reduction: !ref <loss_reduction>
+
+lr_annealing_seamless: !new:speechbrain.nnet.schedulers.NoamScheduler
+    lr_initial: !ref <lr_seamless>
+    n_warmup_steps: !ref <warmup_steps>
+
+############################## Decoding ########################################
+valid_search: !new:speechbrain.decoders.seq2seq.S2SSeamlessGreedySearcher
+    model: !ref <seamless>
+    min_decode_ratio: !ref <min_decode_ratio>
+    max_decode_ratio: !ref <max_decode_ratio>
+
+test_search: !new:speechbrain.decoders.seq2seq.S2SSeamlessBeamSearcher
+    module: [!ref <seamless>]
+    min_decode_ratio: !ref <min_decode_ratio>
+    max_decode_ratio: !ref <max_decode_ratio>
+    beam_size: !ref <test_beam_size>
+
+############################## Augmentations ###################################
+
+speed_perturb: !new:speechbrain.augment.time_domain.SpeedPerturb
+    orig_freq: !ref <sample_rate>
+    speeds: [95, 100, 105]
+
+# Frequency drop: randomly drops a number of frequency bands to zero.
+drop_freq: !new:speechbrain.augment.time_domain.DropFreq
+    drop_freq_low: 0  # Min frequency band dropout probability
+    drop_freq_high: 1  # Max frequency band dropout probability
+    drop_freq_count_low: 1  # Min number of frequency bands to drop
+    drop_freq_count_high: 3  # Max number of frequency bands to drop
+    drop_freq_width: 0.05  # Width of frequency bands to drop
+
+# Time drop: randomly drops a number of temporal chunks.
+drop_chunk: !new:speechbrain.augment.time_domain.DropChunk
+    drop_length_low: 1000
+    drop_length_high: 2000
+    drop_count_low: 1
+    drop_count_high: 5
+
+# Augmenter: Combines previously defined augmentations to perform data augmentation
+wav_augment: !new:speechbrain.augment.augmenter.Augmenter
+    concat_original: True
+    min_augmentations: 3
+    max_augmentations: 3
+    augment_prob: 1.0
+    augmentations: [
+        !ref <speed_perturb>,
+        !ref <drop_freq>,
+        !ref <drop_chunk>]
+
+############################## Logging and Pretrainer ##########################
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+    checkpoints_dir: !ref <save_folder>
+    recoverables:
+        seamless: !ref <seamless>
+        scheduler_seamless: !ref <lr_annealing_seamless>
+        counter: !ref <epoch_counter>
+
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+    save_file: !ref <train_log>
+
+bleu_computer: !name:speechbrain.integrations.nlp.bleu.BLEUStats
+
+acc_computer: !name:speechbrain.utils.Accuracy.AccuracyStats

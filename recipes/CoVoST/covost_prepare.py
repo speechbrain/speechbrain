@@ -356,7 +356,8 @@ def language_specific_preprocess(language, sentence):
     Parameters
     ----------
     language : str
-        The code of the language to use for normalisation. E.g. "en", "de".
+        The code of the language to use for normalisation. E.g. "en", "de",
+        "fr".
     sentence : str
         The string to normalise.
     Returns
@@ -374,6 +375,10 @@ def language_specific_preprocess(language, sentence):
     if language == "de":
         final_characters = set(
             " abcdefghijklmnopqrstuvwxyz1234567890-&ÄäÖöÜüẞß'"
+        )
+    elif language == "fr":
+        final_characters = set(
+            " abcdefghijklmnopqrstuvwxyz1234567890-&àâæçéèêëîïôœùûüÿ'"
         )
     else:  # Default to english set.
         final_characters = set(" abcdefghijklmnopqrstuvwxyz1234567890-&'")
