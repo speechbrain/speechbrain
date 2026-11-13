@@ -40,6 +40,7 @@ import torch
 from hyperpyyaml import load_hyperpyyaml
 
 import speechbrain as sb
+import speechbrain.nnet.schedulers as schedulers
 from speechbrain.utils.distributed import if_main_process, run_on_main
 from speechbrain.utils.logger import get_logger
 
@@ -91,6 +92,9 @@ class ASR(sb.Brain):
             wav_lens,
             pad_idx=self.hparams.pad_index,
             dynchunktrain_config=dynchunktrain_config,
+            encoder_kwargs={
+                "warmup": self.hparams.conformer_warmup(self.optimizer_step)
+            },
         )
         x = self.modules.proj_enc(x)
 
@@ -209,11 +213,6 @@ class ASR(sb.Brain):
 
         return loss
 
-    def on_fit_batch_end(self, batch, outputs, loss, should_step):
-        """At the end of the optimizer step, apply noam annealing."""
-        if should_step:
-            self.hparams.noam_annealing(self.optimizer)
-
     def on_stage_start(self, stage, epoch):
         """Gets called at the beginning of each epoch"""
         if stage != sb.Stage.TRAIN:
@@ -232,13 +231,18 @@ class ASR(sb.Brain):
 
         # Perform end-of-iteration things, like annealing, logging, etc.
         if stage == sb.Stage.VALID:
-            lr = self.hparams.noam_annealing.current_lr
+            # Learning rate annealing
+            current_lr, next_lr = self.hparams.lr_scheduler(
+                [self.optimizer], epoch, stage_loss
+            )
+            schedulers.update_learning_rate(self.optimizer, next_lr)
+
             steps = self.optimizer_step
             optimizer = self.optimizer.__class__.__name__
 
             epoch_stats = {
                 "epoch": epoch,
-                "lr": lr,
+                "lr": current_lr,
                 "steps": steps,
                 "optimizer": optimizer,
             }
