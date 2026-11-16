@@ -55,7 +55,7 @@ The model is trained on lower case transcriptions and the WER is computed in the
 
 | Release | Model | commit hash | hyperparams file | LM | Dev Clean WER | Test Clean WER | Test Other WER | HuggingFace link | Model link | GPUs |
 | ------------- |:-------------:| -----:|-----:|:---------------------------:|  -----:| -----:| -----:|  :-----------: |:-----------:| :-----------:|
-| 2026-11-06 | v2-large | - | train_hf_seamless.yaml | No | 2.51% | 2.62% | 5.15% | Not Avail. | Not Avail. | 2xV100 32GB (train), 2xA100 40GB (test) |
+| 2026-11-06 | v2-large | [deef440](https://github.com/speechbrain/speechbrain/pull/3125/commits/deef4406ecad4d5bd21a98d3a1c5b21040b0237f) | train_hf_seamless.yaml | No | 2.51% | 2.62% | 5.15% | Not Avail. | Not Avail. | 2xV100 32GB (train), 2xA100 40GB (test) |
 
 
 ## Transformers
