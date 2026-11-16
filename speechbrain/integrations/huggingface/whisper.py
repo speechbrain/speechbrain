@@ -663,3 +663,22 @@ class Whisper(HFTransformersInterface):
         ]
 
         return language_tokens, language_probs
+
+    def _modify_state_dict(self, path, **kwargs):
+        """Strip the ``model.`` prefix added by SpeechBrain checkpoint saving.
+
+        When a Whisper lobe is saved via the default SpeechBrain hook
+        (``torch_save`` → ``obj.state_dict()``), keys are namespaced as
+        ``model.encoder.*``, ``model.decoder.*`` and ``_mel_filters``. The
+        underlying HF model expects ``encoder.*``, ``decoder.*`` (no prefix),
+        so loading without remapping silently drops every parameter.
+
+        This mirrors what the Wav2Vec2 integration already does.
+        """
+        modified_state_dict = {}
+        orig_state_dict = torch.load(path, map_location="cpu")
+        for key, params in orig_state_dict.items():
+            if key.startswith("model."):
+                save_key = key.replace("model.", "", 1)
+                modified_state_dict[save_key] = params
+        return modified_state_dict
