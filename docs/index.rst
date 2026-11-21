@@ -26,14 +26,15 @@ necessary to help users develop their projects.
 
    .. code-block:: bibtex
 
-      @misc{speechbrainV1,
-         title={Open-Source Conversational AI with {SpeechBrain} 1.0},
-         author={Mirco Ravanelli and Titouan Parcollet and Adel Moumen and Sylvain de Langen and Cem Subakan and Peter Plantinga and Yingzhi Wang and Pooneh Mousavi and Luca Della Libera and Artem Ploujnikov and Francesco Paissan and Davide Borra and Salah Zaiem and Zeyu Zhao and Shucong Zhang and Georgios Karakasidis and Sung-Lin Yeh and Pierre Champion and Aku Rouhe and Rudolf Braun and Florian Mai and Juan Zuluaga-Gomez and Seyed Mahed Mousavi and Andreas Nautsch and Xuechen Liu and Sangeet Sagar and Jarod Duret and Salima Mdhaffar and Gaelle Laperriere and Mickael Rouvier and Renato De Mori and Yannick Esteve},
-         year={2024},
-         eprint={2407.00463},
-         archivePrefix={arXiv},
-         primaryClass={cs.LG},
-         url={https://arxiv.org/abs/2407.00463},
+      @article{speechbrainV1,
+         author  = {Mirco Ravanelli and Titouan Parcollet and Adel Moumen and Sylvain de Langen and Cem Subakan and Peter Plantinga and Yingzhi Wang and Pooneh Mousavi and Luca Della Libera and Artem Ploujnikov and Francesco Paissan and Davide Borra and Salah Zaiem and Zeyu Zhao and Shucong Zhang and Georgios Karakasidis and Sung-Lin Yeh and Pierre Champion and Aku Rouhe and Rudolf Braun and Florian Mai and Juan Zuluaga-Gomez and Seyed Mahed Mousavi and Andreas Nautsch and Ha Nguyen and Xuechen Liu and Sangeet Sagar and Jarod Duret and Salima Mdhaffar and Gaelle Laperriere and Mickael Rouvier and Renato De Mori and Yannick Esteve},
+         title   = {Open-Source Conversational AI with {SpeechBrain} 1.0},
+         journal = {Journal of Machine Learning Research},
+         year    = {2024},
+         volume  = {25},
+         number  = {333},
+         pages   = {1--11},
+         url     = {http://jmlr.org/papers/v25/24-0991.html},
       }
       @misc{speechbrain,
          title={SpeechBrain: A General-Purpose Speech Toolkit},
