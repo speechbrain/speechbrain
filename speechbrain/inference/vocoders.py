@@ -290,9 +290,9 @@ class DiffWaveVocoder(Pretrained):
             )
         return waveform.squeeze(0)
 
-    def forward(self, spectrogram):
+    def forward(self, spectrogram, hop_len):
         """Decodes the input spectrograms"""
-        return self.decode_batch(spectrogram)
+        return self.decode_batch(spectrogram, hop_len)
 
 
 class UnitHIFIGAN(Pretrained):
