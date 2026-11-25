@@ -41,7 +41,7 @@ def Accuracy(log_probabilities, targets, length=None):
     """
     if length is not None:
         mask = length_to_mask(
-            length * targets.shape[1],
+            torch.round(length * targets.shape[1]),
             max_len=targets.shape[1],
         ).bool()
         if len(targets.shape) == 3:
