@@ -809,6 +809,8 @@ class BinaryMetricStats(MetricStats):
 def EER(positive_scores, negative_scores):
     """Computes the EER (and its threshold).
 
+    Error counts use sorted scores and storage linear in the trial count.
+
     Arguments
     ---------
     positive_scores : torch.tensor
@@ -844,20 +846,28 @@ def EER(positive_scores, negative_scores):
     final_FRR = 0
     final_FAR = 0
 
-    for i, cur_thresh in enumerate(thresholds):
-        pos_scores_threshold = positive_scores <= cur_thresh
-        FRR = (pos_scores_threshold.sum(0)).float() / positive_scores.shape[0]
-        del pos_scores_threshold
+    positive_scores, _ = torch.sort(positive_scores)
+    negative_scores, _ = torch.sort(negative_scores)
+    FRR = torch.searchsorted(positive_scores, thresholds, right=True).float()
+    FRR = FRR / positive_scores.shape[0]
+    negative_count = (~torch.isnan(negative_scores)).sum()
+    FAR = (
+        negative_count
+        - torch.searchsorted(negative_scores, thresholds, right=True)
+    ).float() / negative_scores.shape[0]
+    # Comparisons with a NaN threshold are false for both classes.
+    FRR = torch.where(torch.isnan(thresholds), 0.0, FRR)
+    FAR = torch.where(torch.isnan(thresholds), 0.0, FAR)
 
-        neg_scores_threshold = negative_scores > cur_thresh
-        FAR = (neg_scores_threshold.sum(0)).float() / negative_scores.shape[0]
-        del neg_scores_threshold
-
+    # Compare float32 gaps against Python-float stored rates for tie selection.
+    # Transfer all rates once instead of synchronizing for each GPU threshold.
+    rates = torch.stack((FRR, FAR, (FAR - FRR).abs()), dim=-1).cpu().numpy()
+    for i, (FRR, FAR, difference) in enumerate(rates):
         # Finding the threshold for EER
-        if (FAR - FRR).abs().item() < abs(final_FAR - final_FRR) or i == 0:
+        if float(difference) < abs(final_FAR - final_FRR) or i == 0:
             min_index = i
-            final_FRR = FRR.item()
-            final_FAR = FAR.item()
+            final_FRR = float(FRR)
+            final_FAR = float(FAR)
 
     # It is possible that eer != fpr != fnr. We return (FAR  + FRR) / 2 as EER.
     EER = (final_FAR + final_FRR) / 2

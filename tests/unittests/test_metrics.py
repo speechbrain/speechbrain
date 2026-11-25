@@ -173,6 +173,34 @@ def test_EER(device):
     assert correct > 900 and correct < 1100
 
 
+def test_EER_repeated_scores(device):
+    from speechbrain.utils.metric_stats import EER
+
+    for dtype in (torch.float32, torch.float64):
+        # The float32 gap and Python-float stored rates have different
+        # rounding. A single argmin over the gaps selects a different tie.
+        positive_scores = torch.tensor(
+            [0.0] + [0.5] * 7 + [1.0] * 2, dtype=dtype, device=device
+        )
+        negative_scores = torch.tensor(
+            [0.0] * 2 + [0.5] * 7 + [1.0], dtype=dtype, device=device
+        )
+        # Keep non-contiguous vectors supported by the previous comparisons.
+        positive_scores = positive_scores.repeat_interleave(2)[::2]
+        negative_scores = negative_scores.repeat_interleave(2)[::2]
+        eer, threshold = EER(positive_scores, negative_scores)
+        assert eer == 0.45000000670552254
+        assert threshold == 0.75
+
+        # All samples at the same score still produce the sole threshold.
+        eer, threshold = EER(
+            torch.full((3,), 0.5, dtype=dtype, device=device),
+            torch.full((7,), 0.5, dtype=dtype, device=device),
+        )
+        assert eer == 0.5
+        assert threshold == 0.5
+
+
 def test_minDCF(device):
     from speechbrain.utils.metric_stats import minDCF
 
