@@ -312,6 +312,8 @@ class HyperparameterOptimizationContext:
     A convenience context manager that makes it possible to conditionally
     enable hyperparameter optimization for a recipe.
 
+    Results are reported on exit only after ``report_result`` is called.
+
     Arguments
     ---------
     reporter_args: list
@@ -331,7 +333,7 @@ class HyperparameterOptimizationContext:
         self.reporter_kwargs = reporter_kwargs or {}
         self.reporter = None
         self.enabled = False
-        self.result = {"objective": 0.0}
+        self.result = None
 
     def parse_arguments(
         self, arg_list, pass_hpopt_args=None, pass_trial_id=True

@@ -65,3 +65,58 @@ def test_hpopt_context():
     output.seek(0)
     output_result = json.load(output)
     assert output_result["per"] == 3
+
+
+@pytest.mark.parametrize("enabled", [False, True])
+@pytest.mark.parametrize("objective_key", ["objective", "valid_loss"])
+def test_hpopt_context_without_result(enabled, objective_key):
+    from io import StringIO
+
+    from speechbrain.utils import hpopt as hp
+
+    output = StringIO()
+    with hp.hyperparameter_optimization(
+        objective_key=objective_key, output=output
+    ) as hp_ctx:
+        hp_ctx.parse_arguments(["hparams.yaml", "--hpopt", str(enabled)])
+
+    assert output.getvalue() == ""
+    assert hp._context["current"] is None
+
+
+@pytest.mark.parametrize("enabled", [False, True])
+@pytest.mark.parametrize("objective_key", ["objective", "valid_loss"])
+def test_hpopt_context_reports_zero(enabled, objective_key):
+    import json
+    from io import StringIO
+
+    from speechbrain.utils import hpopt as hp
+
+    output = StringIO()
+    with hp.hyperparameter_optimization(
+        objective_key=objective_key, output=output
+    ) as hp_ctx:
+        hp_ctx.parse_arguments(["hparams.yaml", "--hpopt", str(enabled)])
+        hp.report_result({objective_key: 2.0})
+        hp.report_result({objective_key: 0.0})
+
+    assert json.loads(output.getvalue()) == {
+        objective_key: 0.0,
+        "objective": 0.0,
+    }
+    assert hp._context["current"] is None
+
+
+def test_hpopt_context_does_not_report_after_exception():
+    from io import StringIO
+
+    from speechbrain.utils import hpopt as hp
+
+    output = StringIO()
+    with pytest.raises(RuntimeError, match="evaluation failed"):
+        with hp.hyperparameter_optimization(output=output):
+            hp.report_result({"objective": 1.0})
+            raise RuntimeError("evaluation failed")
+
+    assert output.getvalue() == ""
+    assert hp._context["current"] is None
