@@ -128,3 +128,114 @@ def test_features_multimic(device):
     output_ch2 = compute_fbanks(inputs_ch2)
     output_ch2 = output_ch2[..., 0]
     assert torch.sum(output - output_ch2) < 5e-05
+
+
+def test_lpc_and_formants(device):
+    import math
+
+    import torchaudio
+
+    from speechbrain.processing.vocal_features import (
+        choose_lpc_order,
+        compute_lpc,
+        estimate_formants,
+        solve_formants_from_lpc,
+    )
+
+    fs = 16000
+    # 1. Test polynomial root solving on synthetic resonator poles
+    f1, f2 = 500.0, 1500.0
+    bw1, bw2 = 60.0, 100.0
+    r1 = math.exp(-math.pi * bw1 / fs)
+    theta1 = 2 * math.pi * f1 / fs
+    r2 = math.exp(-math.pi * bw2 / fs)
+    theta2 = 2 * math.pi * f2 / fs
+
+    a1 = [1.0, -2 * r1 * math.cos(theta1), r1**2]
+    a2 = [1.0, -2 * r2 * math.cos(theta2), r2**2]
+    a_true = torch.tensor(
+        [
+            [
+                [
+                    a1[0] * a2[0],
+                    a1[0] * a2[1] + a1[1] * a2[0],
+                    a1[0] * a2[2] + a1[1] * a2[1] + a1[2] * a2[0],
+                    a1[1] * a2[2] + a1[2] * a2[1],
+                    a1[2] * a2[2],
+                ]
+            ]
+        ],
+        device=device,
+    )
+
+    formants, bws = solve_formants_from_lpc(
+        a_true, sample_rate=fs, num_formants=2
+    )
+    assert torch.allclose(
+        formants[0, 0, 0], torch.tensor(f1, device=device), atol=2.0
+    )
+    assert torch.allclose(
+        formants[0, 0, 1], torch.tensor(f2, device=device), atol=2.0
+    )
+    assert torch.allclose(
+        bws[0, 0, 0], torch.tensor(bw1, device=device), atol=2.0
+    )
+    assert torch.allclose(
+        bws[0, 0, 1], torch.tensor(bw2, device=device), atol=2.0
+    )
+
+    # 2. Test compute_lpc
+    frames = torch.randn(2, 5, 400, device=device)
+    coeffs = compute_lpc(frames, lpc_order=10)
+    assert coeffs.shape == (2, 5, 11)
+    assert torch.allclose(coeffs[:, :, 0], torch.ones(2, 5, device=device))
+
+    # 3. Test choose_lpc_order
+    sig_1d = torch.randn(16000, device=device)
+    order_1d = choose_lpc_order(sig_1d, sample_rate=fs)
+    assert isinstance(order_1d, int) and order_1d >= 8
+
+    sig_2d = torch.randn(2, 16000, device=device)
+    order_2d = choose_lpc_order(sig_2d, sample_rate=fs)
+    assert isinstance(order_2d, torch.Tensor) and order_2d.shape == (2,)
+
+    # 4. Test estimate_formants end-to-end
+    pulse = torch.zeros(1, int(fs * 0.4), device=device)
+    pulse[0, :: int(fs / 100)] = 1.0
+    a_poly_t = torch.tensor(
+        [
+            a1[0] * a2[0],
+            a1[0] * a2[1] + a1[1] * a2[0],
+            a1[0] * a2[2] + a1[1] * a2[1] + a1[2] * a2[0],
+            a1[1] * a2[2] + a1[2] * a2[1],
+            a1[2] * a2[2],
+        ],
+        device=device,
+    )
+    b_poly_t = torch.tensor([1.0, 0.0, 0.0, 0.0, 0.0], device=device)
+    synth = torchaudio.functional.lfilter(
+        pulse, a_poly_t, b_poly_t, clamp=False
+    )
+
+    fmts, bws, voiced = estimate_formants(
+        synth,
+        sample_rate=fs,
+        lpc_order=12,
+        num_formants=2,
+        preemphasis=0.0,
+        lpc_method="burg",
+    )
+    assert fmts.shape == (1, 38, 2)
+    assert bws.shape == (1, 38, 2)
+    assert voiced.shape == (1, 38)
+    assert voiced.any()
+
+    # Formant estimates during voiced frames should be close to targets
+    voiced_f1 = fmts[0, voiced[0], 0]
+    voiced_f2 = fmts[0, voiced[0], 1]
+    valid_f1 = voiced_f1[~torch.isnan(voiced_f1)]
+    valid_f2 = voiced_f2[~torch.isnan(voiced_f2)]
+    assert valid_f1.numel() > 0
+    assert (valid_f1.median() - f1).abs() < 50.0
+    assert valid_f2.numel() > 0
+    assert (valid_f2.median() - f2).abs() < 50.0
