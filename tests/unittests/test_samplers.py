@@ -1,4 +1,41 @@
+import pytest
 import torch
+
+
+@pytest.mark.parametrize(
+    "samples, expected",
+    [
+        ([], [[], []]),
+        ([0], [[0], [0]]),
+        ([0, 1], [[0], [1]]),
+        ([0, 1, 2, 3], [[0, 2], [1, 3]]),
+        ([[0, 1]], [[[0, 1]], [[0, 1]]]),
+        ([[0, 1], [2, 3]], [[[0, 1]], [[2, 3]]]),
+        (
+            [[0, 1], [2, 3], [4, 5], [6, 7]],
+            [[[0, 1], [4, 5]], [[2, 3], [6, 7]]],
+        ),
+    ],
+)
+def test_distributed_sampler_preserves_samples(samples, expected):
+    from speechbrain.dataio.sampler import DistributedSamplerWrapper
+
+    for rank in range(2):
+        sampler = DistributedSamplerWrapper(
+            samples, num_replicas=2, rank=rank, shuffle=False
+        )
+        assert list(sampler) == expected[rank]
+
+
+def test_distributed_sampler_drops_incomplete_shard():
+    from speechbrain.dataio.sampler import DistributedSamplerWrapper
+
+    for rank in range(2):
+        sampler = DistributedSamplerWrapper(
+            [0], num_replicas=2, rank=rank, shuffle=False, drop_last=True
+        )
+        assert len(sampler) == 0
+        assert list(sampler) == []
 
 
 def test_ConcatDatasetBatchSampler(device):
