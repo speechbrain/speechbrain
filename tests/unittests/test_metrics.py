@@ -271,3 +271,30 @@ Target: C
   -> B: 1 / 1 (100.00%)
 """
     assert report == ref_report
+
+
+def test_accuracy_excludes_padding_from_relative_lengths(device):
+    from speechbrain.dataio.batch import PaddedBatch
+    from speechbrain.utils.Accuracy import Accuracy, AccuracyStats
+
+    # 7 / 13 in float32 times 13 gives 7.0000005, which must not
+    # pull the first padded position into the mask.
+    batch = PaddedBatch(
+        [
+            {"tokens": torch.ones(7, dtype=torch.long)},
+            {"tokens": torch.ones(13, dtype=torch.long)},
+        ]
+    )
+    targets, lengths = batch.tokens
+    targets, lengths = targets.to(device), lengths.to(device)
+
+    # Predict every real token correctly and a non-pad class on padding.
+    log_probs = torch.log(
+        torch.tensor([0.1, 0.9], device=device).expand(2, 13, 2).clone()
+    )
+
+    assert Accuracy(log_probs, targets, lengths) == (20.0, 20.0)
+
+    stats = AccuracyStats()
+    stats.append(log_probs, targets, lengths)
+    assert stats.summarize() == 1.0
