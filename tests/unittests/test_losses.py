@@ -2,6 +2,46 @@ import pytest
 import torch
 
 
+@pytest.mark.parametrize("len_dim", [1, 2])
+@pytest.mark.parametrize("length_dtype", [torch.float32, torch.float64])
+def test_length_mask_recovers_integer_lengths(device, len_dim, length_dtype):
+    from speechbrain.nnet.losses import compute_length_mask
+
+    data = torch.zeros(2, 70, 3, device=device).transpose(1, len_dim)
+    lengths = torch.tensor([36 / 70, 1.0], dtype=length_dtype, device=device)
+    mask = compute_length_mask(data, lengths, len_dim).transpose(1, len_dim)
+
+    assert mask[0, :36].all()
+    assert not mask[0, 36:].any()
+    assert mask[1].all()
+
+
+def test_length_mask_preserves_fractional_boundary(device):
+    from speechbrain.nnet.losses import compute_length_mask
+
+    data = torch.zeros(1, 10, device=device)
+    mask = compute_length_mask(data, torch.tensor([0.24], device=device))
+    assert mask.tolist() == [[1, 1, 1, 0, 0, 0, 0, 0, 0, 0]]
+
+
+def test_mse_ignores_errors_in_padding(device):
+    from speechbrain.dataio.batch import PaddedBatch
+    from speechbrain.nnet.losses import mse_loss
+
+    batch = PaddedBatch(
+        [{"sig": torch.zeros(36, 3)}, {"sig": torch.zeros(70, 3)}]
+    ).to(device)
+    targets, lengths = batch.sig
+    predictions = targets.clone()
+    predictions[0, 36:] = 1
+    predictions.requires_grad_()
+
+    loss = mse_loss(predictions, targets, lengths)
+    loss.backward()
+    assert loss == 0
+    assert not predictions.grad.any()
+
+
 def test_nll(device):
     from speechbrain.nnet.losses import nll_loss
 
