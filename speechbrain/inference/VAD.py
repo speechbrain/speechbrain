@@ -468,10 +468,11 @@ class VAD(Pretrained):
         if save_path is not None:
             f = open(save_path, mode="w", encoding="utf-8")
 
-        # Getting the total size of the input file
+        # Getting the total size of the input file, in the boundaries' unit
         if audio_file is not None:
             sample_rate, audio_len = self._get_audio_info(audio_file)
-            audio_len = audio_len / sample_rate
+            if boundaries.dtype != torch.int:
+                audio_len = audio_len / sample_rate
 
         # Setting the rights format for second- or sample-based boundaries
         if boundaries.dtype == torch.int:
@@ -513,9 +514,9 @@ class VAD(Pretrained):
                     "segment_%03d " + value_format + value_format + "NON_SPEECH"
                 )
                 if print_boundaries:
-                    print(print_str % (cnt_seg, end_value, audio_len))
+                    print(print_str % (cnt_seg, last_end, audio_len))
                 if save_path is not None:
-                    f.write(print_str % (cnt_seg, end_value, audio_len) + "\n")
+                    f.write(print_str % (cnt_seg, last_end, audio_len) + "\n")
 
         if save_path is not None:
             f.close()
