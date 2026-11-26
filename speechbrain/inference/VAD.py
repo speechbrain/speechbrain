@@ -14,6 +14,8 @@ Authors:
  * Pradnya Kandarkar 2023
 """
 
+import math
+
 import torch
 
 from speechbrain.dataio import audio_io
@@ -737,7 +739,7 @@ class VAD(Pretrained):
         return vad_signal
 
     def double_check_speech_segments(
-        self, boundaries, audio_file, speech_th=0.5
+        self, boundaries, audio_file, speech_th=0.5, max_chunk_size=60.0
     ):
         """Takes in input the boundaries of the detected speech segments and
         double checks (using the neural VAD) that they actually contain speech.
@@ -752,6 +754,11 @@ class VAD(Pretrained):
             Threshold on the mean posterior probability over which speech is
             confirmed. Below that threshold, the segment is re-assigned to a
             non-speech region.
+        max_chunk_size: float
+            Maximum size (in seconds) of the audio fed to the neural model in
+            one forward pass. Candidate segments longer than this are split
+            into equal chunks that are processed one after the other, since
+            very long sequences can make the RNN fail on GPU (cuDNN error).
 
         Returns
         -------
@@ -773,7 +780,9 @@ class VAD(Pretrained):
             segment, fs = audio_io.load(
                 str(audio_file), frame_offset=beg_sample, num_frames=len_seg
             )
-            speech_prob = self.get_speech_prob_chunk(segment)
+            speech_prob = self._get_speech_prob_bounded(
+                segment, int(max_chunk_size * sample_rate)
+            )
             if speech_prob.mean() > speech_th:
                 # Accept this as a speech segment
                 new_boundaries.append([boundaries[i, 0], boundaries[i, 1]])
@@ -781,6 +790,30 @@ class VAD(Pretrained):
         # Convert boundaries from list to tensor
         new_boundaries = torch.FloatTensor(new_boundaries).to(boundaries.device)
         return new_boundaries
+
+    def _get_speech_prob_bounded(self, wavs, max_chunk_len):
+        """Computes the speech probabilities of a (possibly very long) signal
+        by running the model on at most ``max_chunk_len`` samples at a time.
+        A signal that already fits is processed in a single forward pass.
+
+        Arguments
+        ---------
+        wavs: torch.Tensor
+            Waveforms [batch, time], as accepted by ``get_speech_prob_chunk``.
+        max_chunk_len: int
+            Maximum number of samples processed in one forward pass.
+
+        Returns
+        -------
+        torch.Tensor
+            The frame-level speech probabilities, [batch, frames, 1].
+        """
+        n_chunks = max(1, math.ceil(wavs.shape[-1] / max_chunk_len))
+        probs = [
+            self.get_speech_prob_chunk(chunk)
+            for chunk in wavs.tensor_split(n_chunks, dim=-1)
+        ]
+        return torch.cat(probs, dim=1)
 
     def get_segments(
         self, boundaries, audio_file, before_margin=0.1, after_margin=0.1
