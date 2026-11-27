@@ -79,7 +79,8 @@ class MiniBatchKMeansSklearn(torch.nn.Module):
         joblib.dump(self.kmeans, path)
 
     @checkpoints.mark_as_loader
-    def load(self, path, end_of_epoch):
+    @checkpoints.mark_as_transfer
+    def load(self, path, end_of_epoch=None):
         """Loads the model from the specified file.
 
         Arguments
@@ -88,7 +89,9 @@ class MiniBatchKMeansSklearn(torch.nn.Module):
             The file path from which to load the model.
         end_of_epoch : bool
             Indicates if this load is triggered at the end of an epoch.
+            Unused, kept for compatibility.
         """
+        del end_of_epoch
         self.kmeans = joblib.load(path)
         self.cluster_centers = self.cluster_centers_
 
