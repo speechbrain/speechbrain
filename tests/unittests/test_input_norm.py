@@ -93,6 +93,29 @@ class TestInputNormalization:
         # Check if padding values are preserved properly
         assert torch.allclose(output[~mask], x[~mask], atol=1e-5)
 
+    @pytest.mark.parametrize("norm_type", ["sentence", "batch", "global"])
+    @pytest.mark.parametrize("length_dim", [2, 3])
+    @pytest.mark.parametrize("avoid_padding_norm", [False, True])
+    def test_nondefault_length_dim(
+        self, sample_data, norm_type, length_dim, avoid_padding_norm
+    ):
+        """Moving the time axis must not change the normalization."""
+        x, lengths, _ = sample_data
+        if length_dim == 3:
+            x = x.unsqueeze(-1)
+        reference = InputNormalization(
+            norm_type=norm_type, avoid_padding_norm=avoid_padding_norm
+        )
+        norm = InputNormalization(
+            norm_type=norm_type,
+            length_dim=length_dim,
+            avoid_padding_norm=avoid_padding_norm,
+        )
+
+        expected = reference(x, lengths).transpose(1, length_dim)
+        output = norm(x.transpose(1, length_dim), lengths)
+        torch.testing.assert_close(output, expected)
+
     def test_global_normalization_updates(self, sample_data):
         """Test global normalization with statistics updates."""
         x, lengths, mask = sample_data
