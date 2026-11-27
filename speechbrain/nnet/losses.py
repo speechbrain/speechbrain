@@ -575,7 +575,9 @@ def kldiv_loss(
         Entries of this value are considered padding.
     reduction : str
         Options are 'mean', 'batch', 'batchmean', 'sum'.
-        See pytorch for 'mean', 'sum'. The 'batch' option returns
+        With label smoothing, 'mean' averages the per-target KL divergence
+        over non-padding targets and 'sum' returns their sum. An all-padding
+        input returns zero. The 'batch' option returns
         one loss per item in the batch, 'batchmean' returns sum / batch size.
 
     Returns
@@ -613,7 +615,7 @@ def kldiv_loss(
 
         # return loss according to reduction specified
         if reduction == "mean":
-            return loss.sum().mean()
+            return loss.sum() / (~ignore).sum().clamp(min=1)
         elif reduction == "batchmean":
             return loss.sum() / bz
         elif reduction == "batch":
