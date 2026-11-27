@@ -559,22 +559,26 @@ class Whisper(HFTransformersInterface):
         Arguments
         ---------
         language : str
-            The language to convert to a token.
+            Language code (e.g. "fr") or English name (e.g. "french").
 
         Returns
         -------
-        token
-            The token id corresponding to the given language.
+        token : int
+            The id of the language token.
 
         Raises
         ------
         KeyError
             If the language is not found in the tokenizer.
         """
-        token = self.tokenizer.convert_tokens_to_ids.get(
-            f"<|{language}|>", None
+        from transformers.models.whisper.tokenization_whisper import (
+            TO_LANGUAGE_CODE,
         )
-        if token:
+
+        language = language.lower()
+        language = TO_LANGUAGE_CODE.get(language, language)
+        token = self.tokenizer.convert_tokens_to_ids(f"<|{language}|>")
+        if token != self.tokenizer.unk_token_id:
             return token
 
         raise KeyError(f"Language {language} not found in tokenizer.")
