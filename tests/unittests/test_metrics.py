@@ -82,6 +82,28 @@ def test_weighted_error_rate_stats():
     assert math.isclose(summary["weighted_substitutions"], 1.0 + 0.1)
 
 
+def test_weighted_error_rate_stats_insertions():
+    from speechbrain.utils.metric_stats import (
+        ErrorRateStats,
+        WeightedErrorRateStats,
+    )
+
+    wer_stats = ErrorRateStats()
+    weighted_wer_stats = WeightedErrorRateStats(
+        wer_stats, cost_function=lambda edit, a, b: 1.0
+    )
+
+    wer_stats.append(
+        ids=["utterance1"], predict=[["a", "b", "c", "d"]], target=[["a", "b"]]
+    )
+    summary = weighted_wer_stats.summarize()
+
+    # with unit costs, the weighted WER must match the regular WER
+    assert math.isclose(summary["weighted_wer"], wer_stats.summarize("WER"))
+    assert math.isclose(summary["weighted_wer"], 100.0)
+    assert math.isclose(weighted_wer_stats.scores[0]["WER"], 100.0)
+
+
 def test_synonym_dict_error_rate_stats():
     from speechbrain.utils.dictionaries import SynonymDictionary
     from speechbrain.utils.metric_stats import ErrorRateStats
