@@ -161,9 +161,7 @@ def get_decoding(
                 },
             )
 
-    output_folder = None
-    if "output_folder" in hparams:
-        output_folder = output_folder
+    output_folder = hparams.get("output_folder")
 
     if compose_HL_with_G:
         G = utils.load_G(G_path, cache=caching)
