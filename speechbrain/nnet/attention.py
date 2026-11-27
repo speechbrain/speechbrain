@@ -342,9 +342,23 @@ class RelPosEncXL(nn.Module):
         If unspecified, defaults to `torch.float32`. Controls the data type of
         the output embedding (but does not affect the precision of the
         computations, which remain `torch.float32`).
+    use_legacy_symmetric : bool, optional
+        If True (the default), the embedding of a negative relative position
+        is made equal to that of the matching positive one, which leaves the
+        encoding unable to tell apart a key that is `d` steps ahead from one
+        that is `d` steps behind. If False, the sine terms are negated for the
+        negative positions, as in Transformer-XL.
+        Every SpeechBrain checkpoint released so far was trained with True, so
+        the default is kept for compatibility. See
+        https://github.com/speechbrain/speechbrain/issues/3070
     """
 
-    def __init__(self, emb_dim: int, dtype: torch.dtype = torch.float32):
+    def __init__(
+        self,
+        emb_dim: int,
+        dtype: torch.dtype = torch.float32,
+        use_legacy_symmetric: bool = True,
+    ):
         super().__init__()
         self.emb_dim = emb_dim
 
@@ -355,6 +369,7 @@ class RelPosEncXL(nn.Module):
         self.register_buffer("inv_freq", inv_freq)
 
         self.emb_dtype = dtype
+        self.use_legacy_symmetric = use_legacy_symmetric
 
     @torch.no_grad()
     def make_pe(self, seq_len: int):
@@ -369,7 +384,10 @@ class RelPosEncXL(nn.Module):
         Returns
         -------
         torch.Tensor
-            Positional embedding tensor of shape `[1, 2*seq_len-1, embed_dim]`
+            Positional embedding tensor of shape `[1, 2*seq_len-1, embed_dim]`.
+            Row `i` corresponds to the signed relative position
+            `seq_len - 1 - i`, which is the order expected by
+            :meth:`~RelPosMHAXL.rel_shift`.
         """
 
         emb_dtype = self.emb_dtype
@@ -395,10 +413,16 @@ class RelPosEncXL(nn.Module):
             ).unsqueeze(-1)
 
             sinusoids = torch.sin(positions * self.inv_freq)
+            cosinusoids = torch.cos(positions * self.inv_freq)
             pe_past[:, 0::2] = sinusoids
-            pe_past[:, 1::2] = torch.cos(positions * self.inv_freq)
-            pe_future[:, 0::2] = sinusoids  # same for past and future
-            pe_future[:, 1::2] = torch.cos(-positions * self.inv_freq)
+            pe_past[:, 1::2] = cosinusoids
+            # `cos` is even, so only the sine terms differ between the positive
+            # and the negative relative positions.
+            if self.use_legacy_symmetric:
+                pe_future[:, 0::2] = sinusoids
+            else:
+                pe_future[:, 0::2] = -sinusoids
+            pe_future[:, 1::2] = cosinusoids
 
             pe_past = torch.flip(pe_past, (0,)).unsqueeze(0)
             pe_future = pe_future[1:].unsqueeze(0)
