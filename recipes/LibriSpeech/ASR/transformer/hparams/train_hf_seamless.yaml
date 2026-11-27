@@ -1,0 +1,178 @@
+# ################################
+# Model: SeamlessM4T (Encoder-Decoder) + NLL
+# Augmentation: none (TimeDomainSpecAugment can be enabled below)
+# Authors: Othman Istaiteh 2026
+# ################################
+
+# Seed needs to be set at top of yaml, before objects with parameters are made
+seed: 1986
+__set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
+output_folder: !ref results/seamless/<seed>
+output_wer_folder: !ref <output_folder>/
+save_folder: !ref <output_folder>/save
+train_log: !ref <output_folder>/train_log.txt
+
+# URL for the SeamlessM4T model (v1 and v2 checkpoints are supported).
+seamless_hub: facebook/seamless-m4t-v2-large
+seamless_folder: !ref <save_folder>/seamless_checkpoint
+target_lang: eng
+
+# Train on lower case transcriptions. The WER is always computed in the
+# upper case LibriSpeech format.
+lowercase_transcripts: True
+
+# Data files
+data_folder: !PLACEHOLDER # e,g./path/to/LibriSpeech
+train_splits: ["train-clean-100"]
+dev_splits: ["dev-clean"]
+test_splits: ["dev-clean", "test-clean", "test-other"]
+skip_prep: False
+train_csv: !ref <output_folder>/train.csv
+valid_csv: !ref <output_folder>/dev-clean.csv
+test_csv:
+    - !ref <output_folder>/dev-clean.csv
+    - !ref <output_folder>/test-clean.csv
+    - !ref <output_folder>/test-other.csv
+
+ckpt_interval_minutes: 10 # save checkpoint every N min
+
+############################## Training Parameters #############################
+freeze_seamless: False
+freeze_encoder: False
+freeze_feature_projection: False
+freeze_adapter: False
+freeze_decoder: False
+freeze_embeddings: True # embeddings are tied with the lm_head (256k tokens)
+gradient_checkpointing: True # leaves memory margin on 40GB GPUs
+number_of_epochs: 1
+weight_decay: 0.01
+lr_seamless: 1e-5
+warmup_steps: 500
+max_grad_norm: 2.0
+sorting: ascending
+precision: fp16 # bf16, fp16 or fp32
+eval_precision: fp16
+sampling_rate: 16_000
+
+# With data_parallel batch_size is split into N jobs
+# With DDP batch_size is multiplied by N jobs
+# This setup works with 2x A100 40GB (speech encoder fine-tuned). Training
+# also fits on 2x V100 32GB, but not the test stage that follows it.
+batch_size: 4
+test_batch_size: 16
+grad_accumulation_factor: 4
+
+# Decoding parameters
+# The encoder outputs one frame every 160 ms, hence max_decode_ratio > 1.
+min_decode_ratio: 0.0
+max_decode_ratio: 2.0
+test_beam_size: 8
+
+####################### Model Parameters #######################################
+
+train_loader_kwargs:
+    batch_size: !ref <batch_size>
+
+valid_loader_kwargs:
+    batch_size: !ref <test_batch_size>
+
+test_loader_kwargs:
+    batch_size: !ref <test_batch_size>
+
+
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+    limit: !ref <number_of_epochs>
+
+############################## Augmentations ###################################
+
+# UNCOMMENT THIS SECTION TO ADD AUGMENTATIONS
+# speed_perturb: !new:speechbrain.augment.time_domain.SpeedPerturb
+#     orig_freq: !ref <sampling_rate>
+#     speeds: [95, 100, 105]
+
+# # Frequency drop: randomly drops a number of frequency bands to zero.
+# drop_freq: !new:speechbrain.augment.time_domain.DropFreq
+#     drop_freq_low: 0  # Min frequency band dropout probability
+#     drop_freq_high: 1  # Max frequency band dropout probability
+#     drop_freq_count_low: 1  # Min number of frequency bands to drop
+#     drop_freq_count_high: 3  # Max number of frequency bands to drop
+#     drop_freq_width: 0.05  # Width of frequency bands to drop
+
+# # Time drop: randomly drops a number of temporal chunks.
+# drop_chunk: !new:speechbrain.augment.time_domain.DropChunk
+#     drop_length_low: 1
+#     drop_length_high: 5
+#     drop_count_low: 1000
+#     drop_count_high: 2000
+
+# # Augmenter: Combines previously defined augmentations to perform data augmentation
+# wav_augment: !new:speechbrain.augment.augmenter.Augmenter
+#     concat_original: True
+#     min_augmentations: 3
+#     max_augmentations: 3
+#     augment_prob: 1.0
+#     augmentations: [
+#         !ref <speed_perturb>,
+#         !ref <drop_freq>,
+#         !ref <drop_chunk>]
+
+############################## Models ##########################################
+
+seamless: !new:speechbrain.integrations.huggingface.seamless_m4t.SeamlessM4T
+    source: !ref <seamless_hub>
+    save_path: !ref <seamless_folder>
+    target_lang: !ref <target_lang>
+    sampling_rate: !ref <sampling_rate>
+    freeze: !ref <freeze_seamless>
+    freeze_encoder: !ref <freeze_encoder>
+    freeze_feature_projection: !ref <freeze_feature_projection>
+    freeze_adapter: !ref <freeze_adapter>
+    freeze_decoder: !ref <freeze_decoder>
+    freeze_embeddings: !ref <freeze_embeddings>
+    gradient_checkpointing: !ref <gradient_checkpointing>
+
+log_softmax: !new:speechbrain.nnet.activations.Softmax
+    apply_log: True
+
+nll_loss: !name:speechbrain.nnet.losses.nll_loss
+
+modules:
+    seamless: !ref <seamless>
+
+############################## Decoding & optimiser ############################
+
+seamless_opt_class: !name:torch.optim.AdamW
+    lr: !ref <lr_seamless>
+    weight_decay: !ref <weight_decay>
+
+valid_search: !new:speechbrain.decoders.seq2seq.S2SSeamlessGreedySearcher
+    model: !ref <seamless>
+    min_decode_ratio: !ref <min_decode_ratio>
+    max_decode_ratio: !ref <max_decode_ratio>
+
+test_search: !new:speechbrain.decoders.seq2seq.S2SSeamlessBeamSearcher
+    module: [!ref <seamless>]
+    min_decode_ratio: !ref <min_decode_ratio>
+    max_decode_ratio: !ref <max_decode_ratio>
+    beam_size: !ref <test_beam_size>
+
+lr_annealing_seamless: !new:speechbrain.nnet.schedulers.NoamScheduler
+    lr_initial: !ref <lr_seamless>
+    n_warmup_steps: !ref <warmup_steps>
+
+############################## Logging and Pretrainer ##########################
+
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+    checkpoints_dir: !ref <save_folder>
+    recoverables:
+        seamless: !ref <seamless>
+        scheduler_seamless: !ref <lr_annealing_seamless>
+        counter: !ref <epoch_counter>
+
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+    save_file: !ref <train_log>
+
+error_rate_computer: !name:speechbrain.utils.metric_stats.ErrorRateStats
+
+cer_computer: !name:speechbrain.utils.metric_stats.ErrorRateStats
+    split_tokens: True
