@@ -80,12 +80,21 @@ class SenseBrain(sb.core.Brain):
             self.optimizers_dict["wav2vec_optimizer"] = self.wav2vec_optimizer
 
     def freeze_optimizers(self, optimizers):
-        """Freezes the wav2vec2 optimizer according to the warmup steps."""
+        """Select which optimizers are active during training."""
         valid_optimizers = {}
-        if not self.hparams.wav2vec2_frozen:
+
+        # Always keep the model (attention pooling head) optimizer active
+        if "model_optimizer" in optimizers:
+            valid_optimizers["model_optimizer"] = optimizers["model_optimizer"]
+
+        # Conditionally include wav2vec2 optimizer when it is not frozen
+        if (not self.hparams.wav2vec2_frozen) and (
+            "wav2vec_optimizer" in optimizers
+        ):
             valid_optimizers["wav2vec_optimizer"] = optimizers[
                 "wav2vec_optimizer"
             ]
+
         return valid_optimizers
 
     def on_stage_start(self, stage, epoch):
