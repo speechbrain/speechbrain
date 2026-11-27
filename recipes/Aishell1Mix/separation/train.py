@@ -132,9 +132,9 @@ class Separation(sb.Brain):
             # hard threshold the easy dataitems
             if self.hparams.threshold_byloss:
                 th = self.hparams.threshold
-                loss_to_keep = loss[loss > th]
-                if loss_to_keep.nelement() > 0:
-                    loss = loss_to_keep.mean()
+                loss = loss[loss > th]
+                if loss.nelement() > 0:
+                    loss = loss.mean()
             else:
                 loss = loss.mean()
 
@@ -154,6 +154,7 @@ class Separation(sb.Brain):
                 f"infinite loss or empty loss! it happened {self.nonfinite_count} times so far - skipping this batch"
             )
             loss.data = torch.tensor(0.0).to(self.device)
+
         self.optimizer.zero_grad()
 
         return loss.detach().cpu()
@@ -534,6 +535,13 @@ if __name__ == "__main__":
         hyperparams_to_save=hparams_file,
         overrides=overrides,
     )
+    # Check if wsj0_tr is set with dynamic mixing
+    if hparams["dynamic_mixing"] and not os.path.exists(
+        hparams["base_folder_dm"]
+    ):
+        raise ValueError(
+            "Please, specify a valid base_folder_dm folder when using dynamic mixing"
+        )
 
     # Update precision to bf16 if the device is CPU and precision is fp16
     if run_opts.get("device") == "cpu" and hparams.get("precision") == "fp16":
@@ -568,9 +576,7 @@ if __name__ == "__main__":
             if not os.path.exists(
                 os.path.normpath(hparams["base_folder_dm"]) + "_processed"
             ):
-                from recipes.Aishell1Mix.meta.preprocess_dynamic_mixing import (
-                    resample_folder,
-                )
+                from preprocess_dynamic_mixing import resample_folder
 
                 print("Resampling the base folder")
                 run_on_main(
@@ -606,6 +612,7 @@ if __name__ == "__main__":
             "num_spks": hparams["num_spks"],
             "training_signal_len": hparams["training_signal_len"],
             "dataloader_opts": hparams["dataloader_opts"],
+            "use_wham_noise": hparams["use_wham_noise"],
         }
 
         train_data = dynamic_mix_data_prep(dm_hparams)

@@ -1,7 +1,7 @@
 # Speech separation with Aishell1Mix
-This folder contains some popular recipes for the Aishell1Mix dataset similar to [LibriMix Dataset](https://arxiv.org/pdf/2005.11262.pdf) (2/3 sources).
+This folder contains some popular recipes for the Aishell1Mix dataset similar to [LibriMix Dataset](https://arxiv.org/pdf/2005.11262.pdf) (2/3 sources). You can checkout our [paper](https://link.springer.com/chapter/10.1007/978-981-95-5382-2_15) for more details.
 
-* This recipe supports train with several source separation models on Aishell1Mix, including [Sepformer](https://arxiv.org/abs/2010.13154), [DPRNN](https://arxiv.org/abs/1910.06379), [ConvTasnet](https://arxiv.org/abs/1809.07454), [DPTNet](https://arxiv.org/abs/2007.13975).
+* This recipe supports train with several source separation models on Aishell1Mix, including [Sepformer](https://arxiv.org/abs/2010.13154), [DPRNN](https://arxiv.org/abs/1910.06379), [ConvTasnet](https://arxiv.org/abs/1809.07454), [DPTNet](https://arxiv.org/abs/2007.13975) and [MossFormer2](https://arxiv.org/abs/2312.11825).
 
 ## Installing Extra Dependencies
 
@@ -89,10 +89,18 @@ You can add the other runtime options as appropriate. For more complete informat
 - HuggingFace: https://huggingface.co/speechbrain/
 
 
-# **Citing SpeechBrain**
-Please, cite SpeechBrain if you use it for your research or business.
+# **Citing**
+Please, cite Aishell1Mix and SpeechBrain if you use it for your research or business.
 
 ```bibtex
+@inproceedings{huang2025aishell1mix,
+  title={Aishell1Mix: Towards Robust Mandarin Speech Separation with Scalable Audio Language Models},
+  author={Huang, Zijian and Subakan, Cem},
+  booktitle={National Conference on Man-Machine Speech Communication},
+  pages={187--200},
+  year={2025},
+  organization={Springer}
+}
 @misc{speechbrainV1,
   title={Open-Source Conversational AI with SpeechBrain 1.0},
   author={Mirco Ravanelli and Titouan Parcollet and Adel Moumen and Sylvain de Langen and Cem Subakan and Peter Plantinga and Yingzhi Wang and Pooneh Mousavi and Luca Della Libera and Artem Ploujnikov and Francesco Paissan and Davide Borra and Salah Zaiem and Zeyu Zhao and Shucong Zhang and Georgios Karakasidis and Sung-Lin Yeh and Pierre Champion and Aku Rouhe and Rudolf Braun and Florian Mai and Juan Zuluaga-Gomez and Seyed Mahed Mousavi and Andreas Nautsch and Xuechen Liu and Sangeet Sagar and Jarod Duret and Salima Mdhaffar and Gaelle Laperriere and Mickael Rouvier and Renato De Mori and Yannick Esteve},
