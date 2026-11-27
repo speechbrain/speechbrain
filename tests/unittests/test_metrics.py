@@ -1,5 +1,9 @@
+import importlib
 import math
+from multiprocessing import TimeoutError
+from unittest.mock import Mock
 
+import pytest
 import torch
 import torch.nn
 
@@ -22,6 +26,57 @@ def test_metric_stats(device):
     assert summary["min_id"] == "utterance1"
     assert math.isclose(summary["max_score"], 0.1, rel_tol=1e-5)
     assert summary["max_id"] == "utterance2"
+
+
+@pytest.mark.parametrize(
+    "error", [ValueError("bad metric"), RuntimeError("bad metric")]
+)
+def test_metric_stats_parallel_error_propagates(monkeypatch, error):
+    metric_stats = importlib.import_module("speechbrain.utils.metric_stats")
+
+    parallel = Mock(side_effect=[error, [torch.tensor(0.0)]])
+    monkeypatch.setattr(metric_stats, "Parallel", lambda **kwargs: parallel)
+    stats = metric_stats.MetricStats(
+        metric=torch.nn.functional.l1_loss, n_jobs=2, batch_eval=False
+    )
+    with pytest.raises(type(error), match="bad metric"):
+        stats.append(
+            ids=["utt"], predict=[torch.ones(2)], target=[torch.zeros(2)]
+        )
+    parallel.assert_called_once()
+
+
+def test_metric_stats_parallel_timeout_retries(monkeypatch):
+    metric_stats = importlib.import_module("speechbrain.utils.metric_stats")
+
+    parallel = Mock(side_effect=[TimeoutError(), [torch.tensor(1.0)]])
+    monkeypatch.setattr(metric_stats, "Parallel", lambda **kwargs: parallel)
+    stats = metric_stats.MetricStats(
+        metric=torch.nn.functional.l1_loss, n_jobs=2, batch_eval=False
+    )
+    stats.append(ids=["utt"], predict=[torch.ones(2)], target=[torch.zeros(2)])
+    assert parallel.call_count == 2
+    assert stats.summarize()["average"] == 1.0
+
+
+@pytest.mark.parametrize("n_jobs", [1, 2])
+def test_metric_stats_sequence_evaluation_with_lengths(n_jobs):
+    from speechbrain.utils.metric_stats import MetricStats
+
+    stats = MetricStats(
+        metric=torch.nn.functional.l1_loss, n_jobs=n_jobs, batch_eval=False
+    )
+    stats.append(
+        ids=["first", "second"],
+        predict=torch.tensor([[1.0, 2.0, 3.0, 4.0], [2.0, 4.0, 99.0, 99.0]]),
+        target=torch.tensor([[0.0, 0.0, 0.0, 0.0], [1.0, 1.0, 99.0, 99.0]]),
+        lengths=torch.tensor([1.0, 0.5]),
+    )
+    assert stats.scores == [2.5, 2.0]
+    summary = stats.summarize()
+    assert summary["average"] == 2.25
+    assert summary["min_id"] == "second"
+    assert summary["max_id"] == "first"
 
 
 def test_error_rate_stats(device):

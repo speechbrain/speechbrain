@@ -8,6 +8,7 @@ Authors:
  * Sahar Ghannay 2021
 """
 
+from multiprocessing import TimeoutError
 from typing import Callable, Optional
 
 import torch
@@ -170,7 +171,7 @@ class MetricStats:
 
 
 def multiprocess_evaluation(metric, predict, target, lengths=None, n_jobs=8):
-    """Runs metric evaluation if parallel over multiple jobs."""
+    """Run parallel metric evaluation, retrying only timeout exceptions."""
     if lengths is not None:
         lengths = (lengths * predict.size(1)).round().int().cpu()
         predict = [p[:length].cpu() for p, length in zip(predict, lengths)]
@@ -182,7 +183,7 @@ def multiprocess_evaluation(metric, predict, target, lengths=None, n_jobs=8):
                 delayed(metric)(p, t) for p, t in zip(predict, target)
             )
             break
-        except Exception as e:
+        except TimeoutError as e:
             print(e)
             print("Evaluation timeout...... (will try again)")
 
