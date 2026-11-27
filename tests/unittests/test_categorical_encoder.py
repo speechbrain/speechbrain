@@ -208,6 +208,27 @@ def test_text_encoder(tmpdir):
     assert encoded[0] == 0
 
 
+def test_text_encoder_bos_eos_index_tensor(device):
+    import torch
+
+    from speechbrain.dataio.encoder import TextEncoder
+
+    encoder = TextEncoder()
+    encoder.update_from_iterable([["a", "b"]])
+    encoder.add_bos_eos()
+    encoded = torch.tensor([0, 1], device=device)
+
+    with_bos = encoder.prepend_bos_index(encoded)
+    assert with_bos.dtype == encoded.dtype
+    assert with_bos.device == encoded.device
+    assert with_bos.tolist() == [2, 0, 1]
+
+    with_eos = encoder.append_eos_index(encoded)
+    assert with_eos.dtype == encoded.dtype
+    assert with_eos.device == encoded.device
+    assert with_eos.tolist() == [0, 1, 3]
+
+
 def test_text_encoder_limited_labelset():
     from speechbrain.dataio.encoder import TextEncoder
 
