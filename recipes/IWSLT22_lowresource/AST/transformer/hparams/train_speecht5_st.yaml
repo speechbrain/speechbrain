@@ -1,0 +1,137 @@
+# ############################################################################
+# Model: E2E Automatic Speech Translation with SpeechT5 (https://arxiv.org/abs/2110.07205)
+# Encoder: SpeechT5 Speech Encoder Pre-net + Speech Encoder
+# Decoder: SpeechT5 Text Decoder + Text Decoder Post-net + beamsearch
+# Tokens: unigram (SentencePiece, vocab size: 81)
+# losses: NLL loss
+# Training: IWSLT 22 Tamlasheq - French dataset
+# Author: Haroun Elleuch
+# ############################################################################
+
+# Seed needs to be set at top of yaml, before objects with parameters are made
+seed: 372
+__set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
+output_folder: !ref results/speecht5_st/<seed>
+save_folder: !ref <output_folder>/save
+train_log: !ref <output_folder>/train_log.log
+
+# root data folder points to 17h version inside the github folder (IWSLT2022_Tamasheq_data/taq_fra_clean/)
+root_data_folder: !PLACEHOLDER
+# data folder is the place where the json files will be stored prior to training
+data_folder: !ref <root_data_folder>/json_version/
+
+annotation_train: !ref <data_folder>/train.json
+annotation_valid: !ref <data_folder>/valid.json
+annotation_test: !ref <data_folder>/test.json
+skip_prep: True
+
+lang: "fr"
+
+#SpeechT5 parameters
+speecht5_hub: microsoft/speecht5_asr
+speecht5_folder: !ref <save_folder>/speecht5_checkpoint
+speecht5_frozen: False
+
+####################### Training Parameters ####################################
+number_of_epochs: 200
+lr: 0.0001
+batch_size: 2
+test_batch_size: 8
+loss_reduction: batchmean
+ckpt_interval_minutes: 5 # save checkpoint every N min
+
+# Data sorting parameters: sorting_debug_duration replaces sorting_min_duration in debug mode
+sorting: random
+sorting_min_duration: 1
+sorting_debug_duration: 3
+sorting_max_duration: 3_000_000_000
+
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+    limit: !ref <number_of_epochs>
+
+dataloader_options:
+    batch_size: !ref <batch_size>
+    num_workers: 4
+
+test_dataloader_options:
+    batch_size: !ref <test_batch_size>
+    num_workers: 4
+
+# Outputs
+label_smoothing: 0.1
+bos_index: 0
+eos_index: 2
+
+# Decoding parameters
+min_decode_ratio: 0.0
+max_decode_ratio: 0.5
+valid_beam_size: 2
+test_beam_size: 10
+
+############################## models ################################
+#SpeechT5 model
+speecht5: !new:speechbrain.lobes.models.huggingface_transformers.speecht5.SpeechT5ForASR
+    source: !ref <speecht5_hub>
+    freeze: !ref <speecht5_frozen>
+    freeze_encoder: False
+    encoder_only: False
+    freeze_feature_extractor: False
+    output_all_hiddens: False
+    output_attentions: False
+    save_path: !ref <speecht5_folder>
+    cache_dir: !ref <speecht5_folder>
+
+modules:
+    speecht5: !ref <speecht5>
+
+log_softmax: !new:speechbrain.nnet.activations.Softmax
+    apply_log: True
+
+adam_opt_class: !name:torch.optim.AdamW
+    lr: !ref <lr>
+
+nll_loss: !name:speechbrain.nnet.losses.nll_loss
+    label_smoothing: !ref <label_smoothing>
+    reduction: !ref <loss_reduction>
+
+lr_annealing_adam: !new:speechbrain.nnet.schedulers.NewBobScheduler
+    initial_value: !ref <lr>
+    improvement_threshold: 0.0025
+    annealing_factor: 0.5
+    patient: 2
+
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+    checkpoints_dir: !ref <save_folder>
+    recoverables:
+        speecht5: !ref <speecht5>
+        lr_annealing_adam: !ref <lr_annealing_adam>
+        counter: !ref <epoch_counter>
+
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+    save_file: !ref <train_log>
+
+valid_search: !new:speechbrain.decoders.S2SSpeechT5BeamSearch
+    module: [!ref <speecht5>]
+    bos_index: !ref <bos_index>
+    eos_index: !ref <eos_index>
+    min_decode_ratio: !ref <min_decode_ratio>
+    max_decode_ratio: !ref <max_decode_ratio>
+    beam_size: !ref <valid_beam_size>
+    using_eos_threshold: True
+    length_normalization: True
+
+test_search: !new:speechbrain.decoders.S2SSpeechT5BeamSearch
+    module: [!ref <speecht5>]
+    bos_index: !ref <bos_index>
+    eos_index: !ref <eos_index>
+    min_decode_ratio: !ref <min_decode_ratio>
+    max_decode_ratio: !ref <max_decode_ratio>
+    beam_size: !ref <test_beam_size>
+    using_eos_threshold: True
+    length_normalization: True
+
+bleu_computer: !name:speechbrain.utils.bleu.BLEUStats
+    merge_words: False
+    lang: !ref <lang>
+
+acc_computer: !name:speechbrain.utils.Accuracy.AccuracyStats
