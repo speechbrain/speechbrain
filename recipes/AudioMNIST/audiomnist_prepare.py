@@ -16,10 +16,12 @@ import csv
 import json
 import math
 import os
+import random
 from functools import partial
 from glob import glob
 from subprocess import list2cmdline
 
+import torch.nn.functional as Ft
 import torchaudio
 from torchaudio import functional as F
 from tqdm.auto import tqdm
@@ -61,6 +63,7 @@ def prepare_audiomnist(
     norm=True,
     highpass=True,
     process_audio=None,
+    pad_output=None,
     skip_prep=False,
 ):
     """Auto-downloads and prepares the AudioMNIST dataset
@@ -106,6 +109,8 @@ def prepare_audiomnist(
     process_audio: callable
         a custom function used to process audio files - instead of
         the standard transform (resample + normalize + trim)
+    pad_output: int
+        the length in samples of the output signal. If None, no padding is applied.
     skip_prep: bool
         whether preparation should be skipped
 
@@ -174,6 +179,7 @@ def prepare_audiomnist(
             trim_threshold=trim_threshold,
             norm=norm,
             highpass=highpass,
+            pad_output=pad_output,
         )
 
     # Get file lists for train/valid/test splits
@@ -224,7 +230,7 @@ def skip(json_files, save_opt, conf):
     """
 
     # Checking csv files
-    skip = any(not os.path.isfile(json_file) for json_file in json_files)
+    skip = all(os.path.isfile(json_file) for json_file in json_files.values())
 
     #  Checking saved options
     if skip is True:
@@ -739,6 +745,7 @@ def process_audio_default(
     src_sample_rate=48000,
     tgt_sample_rate=22050,
     trim_threshold=-30.0,
+    pad_output=None,
 ):
     """Standard audio preprocessing / conversion
 
@@ -758,6 +765,8 @@ def process_audio_default(
         the target sample rate
     trim_threshold: float
         the decibels threshold for trimming the file
+    pad_output: int
+        the length of the output signal (if padding is needed). If None, no padding is applied.
 
     Returns
     -------
@@ -778,6 +787,13 @@ def process_audio_default(
             sig.unsqueeze(0), tgt_sample_rate, effects, channels_first=True
         )
         sig = sig.squeeze(0)
+
+    if pad_output is not None:
+        delta = pad_output - len(sig)
+        offset = random.randint(
+            0, delta
+        )  # if padding, insert blank space of random length at start of signal
+        sig = Ft.pad(sig, (offset, delta - offset), "constant", 0)
 
     # Normalize
     if norm:
