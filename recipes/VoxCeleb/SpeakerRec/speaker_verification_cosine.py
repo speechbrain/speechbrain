@@ -46,7 +46,18 @@ def compute_embedding(wavs, wav_lens):
     embeddings : torch.Tensor
     """
     with torch.no_grad():
-        feats = params["compute_features"](wavs)
+        # Same features as in train_speaker_embeddings.py: the Tacotron2 mel
+        # spectrogram takes the audio as a keyword argument and returns
+        # [batch, n_mels, time], so it is transposed to [batch, time, n_mels].
+        if (
+            "use_tacotron2_mel_spec" in params
+            and params["use_tacotron2_mel_spec"]
+        ):
+            feats = params["compute_features"](audio=wavs)
+            feats = torch.transpose(feats, 1, 2)
+        else:
+            feats = params["compute_features"](wavs)
+
         feats = params["mean_var_norm"](feats, wav_lens)
         embeddings = params["embedding_model"](feats, wav_lens)
     return embeddings.squeeze(1)
