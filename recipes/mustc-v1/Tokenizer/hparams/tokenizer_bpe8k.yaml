@@ -1,0 +1,46 @@
+# ############################################################################
+# Tokenizer: subword BPE tokenizer with BPE 1K
+# Training: MuST-C version 1
+# Authors:  YAO-FEI, CHENG 2021
+# ############################################################################
+
+
+# Set up folders for reading from and writing to
+original_data_folder: /mnt/md0/user_jamfly/CORPUS/MuST-C_v1/en-de/data # !PLACEHOLDER # i.e., path to the original data contain LDCXXX
+data_folder: /mnt/md0/user_jamfly/sb_data/mustc/en-de # !PLACEHOLDER # Path where to store the .json and prepared data
+output_folder: ./save # !PLACEHOLDER # Path where to store theTokenizer output (model, logs etc)
+
+# Set up pre-processing settings
+# lc: lower case
+# uc: upper case
+# tc: true case
+source_font_case: lc
+target_font_case: tc
+# Defines if accented letters will be kept as individual letters or
+# transformed to the closest non-accented letters.
+is_accented_letters: True
+is_remove_punctuation: False
+is_remove_non_verbal: False
+target_language: de
+
+# Tokenizer parameters
+token_type: bpe  # ["unigram", "bpe", "char"]
+token_output: 8000
+# transcription: transcription in source language
+# translation_0 translation in target language
+# transcription_and_translation: joint transcription and translation
+annotation_read: "translation" # field to read
+
+
+# Tokenizer object
+tokenizer: !name:speechbrain.tokenizers.SentencePiece.SentencePiece
+   model_dir: !ref <output_folder>
+   vocab_size: !ref <token_output>
+   annotation_train: !ref <data_folder>/train_en-<target_language>.json
+   annotation_read: !ref <annotation_read>
+   model_type: !ref <token_type> # ["unigram", "bpe", "char"]
+   annotation_list_to_check: [!ref <data_folder>/train/data.json]
+   annotation_format: json
+   bos_id: 1
+   eos_id: 2
+   unk_id: 0
